@@ -1,5 +1,6 @@
 <p align="center">
   <strong>Hesi（合思）：浏览器中的通用终端中枢</strong><br>
+  <em>让多个 AI 合在一起思考的地方</em><br>
   <em>运行任何 CLI，连接任何 Agent，控制任何浏览器</em>
 </p>
 
@@ -44,6 +45,7 @@
 
 - [✨ 为什么选择 Hesi · Why Hesi](#✨-为什么选择-hesi--why-hesi)
 - [概述 · Overview](#概述--overview)
+- [命名由来 · The Name](#命名由来--the-name)
 - [主要功能 · Features](#主要功能--features)
 - [快速开始 · Quick Start](#快速开始--quick-start)
 - [桌面托盘版（离线便携包） · Desktop Tray Bundle](#桌面托盘版离线便携包--desktop-tray-bundle)
@@ -70,6 +72,25 @@
 | **模块化 MCP** | Model Context Protocol 服务，支持会话持久化、安全策略、审计日志 |
 | **浏览器控制** | 通过 CDP 集成控制 Chrome/Edge，支持脚本注入、网络监控 |
 | **可扩展** | 插件系统 + 预设模板 + 主题定制器 + 自定义 CSS 注入 |
+
+---
+
+## 命名由来 · The Name
+
+**合思（HeSi）** —— 一个名字，两层巧思。
+
+**中文**
+- **合** — 协作与结合：多个 Agent 汇聚一处，中西工具生态在此对接。
+- **思** — 思考与灵感：AI 的智力活动，也是那一闪而过的念头。
+- 合起来，「合思」谐音「巧合的灵思」，带一点"神来之笔"的意外之喜。两个字，过目不忘。
+
+**English**
+- **HeSi** — four letters, one keystroke away in your terminal. A name built for the CLI.
+- **He** + **Si**（拼音「思」）恰好读作 *"He thinks"* —— 一个会思考的伙伴，纯属美妙的巧合。
+- 元音结尾，念起来顺口。
+
+> 一句话：**合思，是让多个 AI「合」在一起「思」考的地方。**
+> *Hesi is where multiple minds meet to think — together.*
 
 ---
 

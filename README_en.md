@@ -1,5 +1,6 @@
 <p align="center">
   <strong>Hesi (合思): A Universal Terminal Hub in Your Browser</strong><br>
+  <em>Where multiple minds meet to think — together.</em><br>
   <em>Run any CLI · Connect any Agent · Control any Browser</em>
 </p>
 
@@ -42,6 +43,7 @@
 
 - [✨ Why Hesi](#✨-why-hesi)
 - [Overview](#overview)
+- [The Name](#the-name-命名由来)
 - [Features](#features)
 - [Quick Start](#quick-start)
 - [Desktop Tray Bundle (Offline Portable)](#desktop-tray-bundle-offline-portable)
@@ -72,12 +74,31 @@
 
 ---
 
+## The Name · 命名由来
+
+**合思 (HeSi)** — one name, two happy coincidences.
+
+**中文 / Chinese**
+- **合 (Hé)** — collaboration & convergence: multiple agents gathered in one place, where Chinese and Western tool ecosystems meet.
+- **思 (Sī)** — thinking & inspiration: the intellect of AI, and that fleeting spark of an idea.
+- Together, 合思 sounds like 「巧合的灵思」(*a serendipitous stroke of genius*) — a touch of "out of the blue" delight. Two characters, unforgettable.
+
+**English**
+- **HeSi** — four letters, one keystroke away in your terminal. A name built for the CLI.
+- **He** + **Si** (pinyin for 「思」, *thinking*) reads almost exactly as *"He thinks"* — a thinking companion, a purely delightful coincidence.
+- Ends on a vowel, rolls right off the tongue.
+
+> In one line: **Hesi is where multiple AIs come together to 「合」 (converge) and 「思」 (think).**
+> *Hesi is where multiple minds meet to think — together.*
+
+---
+
 ## Features
 
 ### 🖥️ Multi-Session Terminal
 
 - **xterm.js + WebGL rendering** — smooth terminal output, with both WebGL and Canvas render backends
-- **Multi-tab management** — each tab runs an independent PTY process,互不 interfering; supports drag-to-reorder and pinning
+- **Multi-tab management** — each tab runs an independent PTY process, without interfering; supports drag-to-reorder and pinning
 - **In-terminal search** — Ctrl+Shift+F to search terminal output, with up/down navigation
 - **Link detection** — auto-recognizes file paths and URLs; click to preview in browser
 - **Adaptive sizing** — fits the container via FitAddon
