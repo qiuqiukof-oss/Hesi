@@ -298,11 +298,22 @@ chat-panel {
   border: 1px solid var(--border-subtle);
   border-top-left-radius: 4px;
   display: flex;
-  flex-wrap: wrap;
-  align-items: center;
+  flex-direction: column;   /* 垂直布局：标题→工具列表→状态行 */
   gap: 6px 8px;
   padding: 10px 14px;
   min-width: 80px;
+}
+
+/* 当 token 已到达（thinking class 被移除）但工具面板仍在时，
+   保持容器的背景和边框，避免工具面板 "裸奔" 不可见 */
+.msg-bubble:has(.tool-call-item) {
+  background: var(--bg-overlay);
+  border: 1px solid var(--border-subtle);
+  border-top-left-radius: 4px;
+  padding: 10px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px 8px;
 }
 
 /* Animated dots */
@@ -344,6 +355,173 @@ chat-panel {
 
 .thinking-status.visible {
   display: inline-block;
+}
+
+/* ── 深度思考面板（WorkBuddy 风格：可折叠标题 + 工具调用列表）── */
+.thinking-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+  cursor: pointer;
+  user-select: none;
+  outline: none;
+}
+
+.thinking-header:focus-visible {
+  box-shadow: 0 0 0 2px var(--accent, #4f8cff);
+  border-radius: 4px;
+}
+
+.thinking-chevron {
+  margin-left: auto;
+  font-size: 11px;
+  line-height: 1;
+  color: var(--text-tertiary);
+  transition: opacity 0.15s ease;
+}
+
+.thinking-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+/* 折叠主体：工具列表 + 系统状态行；折叠时整体隐藏 */
+.thinking-body {
+  display: flex;
+  flex-direction: column;
+}
+
+/* 流式文本容器：token 到达后追加在工具面板下方（不覆盖工具列表） */
+.stream-text {
+  margin-top: 8px;
+  width: 100%;
+}
+
+/* 完成后追加的用量/工具摘要（与流式文本视觉区分） */
+.completion-summary {
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border-subtle, rgba(128,128,128,0.15));
+  font-size: 12px;
+  color: var(--text-tertiary, #888);
+  line-height: 1.5;
+}
+
+.msg-bubble.thinking.collapsed .thinking-body {
+  display: none;
+}
+
+/* 工具调用列表 */
+.tool-call-list {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  width: 100%;
+  margin: 2px 0 6px;
+}
+
+/* 空状态占位（工具到达前显示） */
+.tool-call-placeholder {
+  font-size: 12px;
+  color: var(--text-tertiary);
+  padding: 6px 4px;
+}
+
+.tool-call-item {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 7px;
+  font-size: 12px;
+  line-height: 1.5;
+  padding: 4px 8px;
+  border-radius: 6px;
+  background: var(--bg-elevated, rgba(127, 127, 127, 0.06));
+  border: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+  animation: status-fade-in 0.25s ease-out;
+}
+
+.tool-call-item .tci-icon {
+  flex: 0 0 auto;
+}
+
+.tool-call-item .tci-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  gap: 1px;
+}
+
+.tool-call-item .tci-name {
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+.tool-call-item .tci-detail {
+  font-size: 10px;
+  line-height: 1.3;
+  color: var(--text-tertiary);
+  font-family: var(--font-mono, ui-monospace, monospace);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tool-call-item .tci-state {
+  margin-left: auto;
+  color: var(--text-tertiary);
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.tool-call-item.running .tci-state {
+  color: var(--accent);
+}
+
+.tool-call-item.done {
+  opacity: 0.82;
+}
+
+.tool-call-item.done .tci-state {
+  color: var(--text-tertiary);
+}
+
+/* 工具结果预览（卡片内 <pre>，textContent 防 XSS） */
+.tool-preview {
+  flex-basis: 100%;
+  width: 100%;
+  margin: 3px 0 1px;
+  padding: 6px 8px;
+  max-height: 130px;
+  overflow: auto;
+  background: var(--bg-deep, #0d1117);
+  border: 1px solid var(--border-subtle);
+  border-radius: 6px;
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 11px;
+  line-height: 1.45;
+  color: var(--text-tertiary);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* 系统状态行（重试/续传/生成回答/超时）更醒目 */
+.thinking-status {
+  max-width: 100%;
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+  border-left-width: 0;
+  padding-left: 0;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.thinking-status.visible {
+  display: block;
 }
 
 @keyframes status-fade-in {

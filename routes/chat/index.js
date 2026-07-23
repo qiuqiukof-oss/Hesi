@@ -90,7 +90,7 @@ async function nonStreamingOpenAI(messages, apiKey, model, baseUrl, broadcastFn,
         messages: currentMessages,
         tools: QCLI_TOOLS,
         tool_choice: 'auto',
-        max_tokens: 16384,
+        max_tokens: 32768,
       }),
       signal: AbortSignal.timeout(AI_API_FETCH_TIMEOUT),
     });
@@ -181,7 +181,7 @@ async function nonStreamingAnthropic(messages, apiKey, model, baseUrl, broadcast
         model: modelName,
         messages: conversation,
         system: systemMsg?.content || undefined,
-        max_tokens: 16384,
+        max_tokens: 32768,
         tools: anthropicTools,
       }),
       signal: AbortSignal.timeout(AI_API_FETCH_TIMEOUT),
@@ -370,13 +370,35 @@ You can also manage user scripts that auto-run on matching web pages:
 - Browser Control: \`routes/browser.js\`, \`mcp/tools/browser.js\`
 - MCP Bridge: \`mcp/bridge.js\`
 - Frontend: \`public/chat-ui.js\`, \`public/components/chat-panel.js\`
-- Build: \`npm run build\` (uses esbuild)`;
+- Build: \`npm run build\` (uses esbuild)
+
+## System Self-Check Protocol
+When the user asks you to perform a "system self-check" / "全面自检" / "diagnose" / "health check", treat it as a **bounded checklist**, NOT open-ended exploration. Follow strictly:
+
+1. **Fixed checklist** — perform ONLY these, each at most ONCE:
+   - Frontend build: run \`npm run build\` (or verify dist/bundle is fresh) via \`exec_terminal\`
+   - Server & port: confirm listening on 127.0.0.1:4264 via \`exec_terminal\` / \`get_self_info\`
+   - Key config files: verify required config files exist
+   - Routes/integrations: confirm key routes mounted via \`get_self_info\` / \`list_clis\`
+   - Browser tools: run \`browser_info\` to confirm CDP availability
+2. **One tool call per item** — never loop with "Now let me check X" re-statements; never re-call the same tool for the same item.
+3. **After the checklist completes, immediately output a structured report** (✅/❌ per item + brief note) and STOP. Do not start a second pass.
+4. **On failure**: record the reason, move to the next item, and summarize failures in the report. Do NOT retry in a loop.
+5. **Budget**: finish within **6 tool calls (≤6 rounds)**, then immediately output the structured report and STOP. The system enforces a hard 6-round cap for self-check — exceeding it will be truncated, so do NOT drag on. If you hit the cap, report what you have.`;
 
     contextMessages = [
       ...memoryBlocks,
       { role: 'system', content: SELF_AWARE_PROMPT },
       ...contextMessages,
     ];
+
+    // ── B 方案：检测「全面自检 / 系统自检」意图 ──
+    // 命中则把工具轮上限收紧到 6 轮（默认 50），把 LLM 调用数从 20+ 砍到 ~7，
+    // 配合 A 方案的上下文封顶，几乎不可能再撞 apihub 免费档 429 限流。
+    const _lastUser = [...messages].reverse().find(m => m.role === 'user');
+    const _lastUserText = (_lastUser?.content || '').toString();
+    const isSelfCheck = /全面自检|整体自检|系统自检|完整自检|self[- ]?check|health[- ]?check|diagnos(?:e|is|tic)|排查|体检/i.test(_lastUserText);
+    const selfCheckMaxRounds = isSelfCheck ? 6 : undefined;
 
     // Determine provider and API key
     const provider = clientProvider ||
@@ -391,7 +413,7 @@ You can also manage user scripts that auto-run on matching web pages:
       if (clientBaseUrl) {
         const tools = disableTools ? undefined : QCLI_TOOLS;
         try {
-          await streamOpenAIWithTools(res, messages, '', model || 'local-model', clientBaseUrl, tools, broadcastFn);
+          await streamOpenAIWithTools(res, messages, '', model || 'local-model', clientBaseUrl, tools, broadcastFn, req, selfCheckMaxRounds);
           return;
         } catch (_) { /* fall through */ }
       }
@@ -401,7 +423,7 @@ You can also manage user scripts that auto-run on matching web pages:
         const healthResp = await fetch(`${lmStudioBase}/v1/models`, { signal: AbortSignal.timeout(2000) });
         if (healthResp.ok) {
           const tools = disableTools ? undefined : QCLI_TOOLS;
-          await streamOpenAIWithTools(res, messages, '', model || 'local-model', lmStudioBase, tools, broadcastFn);
+          await streamOpenAIWithTools(res, messages, '', model || 'local-model', lmStudioBase, tools, broadcastFn, req, selfCheckMaxRounds);
           return;
         }
       } catch (_) { /* LM Studio not available */ }
@@ -436,11 +458,13 @@ You can also manage user scripts that auto-run on matching web pages:
     try {
       const tools = disableTools ? undefined : QCLI_TOOLS;
       if (provider === 'anthropic') {
-        await streamAnthropicWithTools(res, contextMessages, apiKey, model, clientBaseUrl, tools, sseBroadcast, req);
+        await streamAnthropicWithTools(res, contextMessages, apiKey, model, clientBaseUrl, tools, sseBroadcast, req, selfCheckMaxRounds);
       } else {
-        await streamOpenAIWithTools(res, contextMessages, apiKey, model, clientBaseUrl, tools, sseBroadcast, req);
+        await streamOpenAIWithTools(res, contextMessages, apiKey, model, clientBaseUrl, tools, sseBroadcast, req, selfCheckMaxRounds);
       }
     } catch (err) {
+      // 诊断日志：把真实报错打进服务端，便于定位是 apihub/网络还是本地逻辑。
+      console.error('[chat] stream error:', err && err.message ? err.message : err);
       if (res.headersSent) {
         res.write(`data: ${JSON.stringify({ type: 'error', message: err.message })}\n\n`);
         res.write('data: [DONE]\n\n');

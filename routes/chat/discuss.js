@@ -21,6 +21,9 @@ const { agentPool } = require('../ai-tools/agent-pool');
 const { loadRegistry } = require('../../cli-discovery');
 // 流式终端字节清洗：跨 poll delta 边界缓存未完成的转义序列（详见 lib/terminal-clean.js）
 const { createStreamCleaner } = require('../../lib/terminal-clean');
+// 讨论模式复用主聊的健壮流式解析核心（单源，根除旧自写解析器「AI 助手空白」根因）
+const { streamOpenAICore } = require('./stream-openai');
+const { streamAnthropicCore } = require('./stream-anthropic');
 
 // ── 单轮 LLM 调用超时（与主线一致放宽到 3 分钟）──
 const API_FETCH_TIMEOUT_MS = 180_000;
@@ -84,103 +87,22 @@ function buildApiUrl(base, def, path) {
   return u + path;
 }
 
-// ── 解析 OpenAI SSE，逐 token 回调 ──
-async function streamOpenAI(url, apiKey, model, messages, onToken, onUsage) {
-  const body = { model, messages, stream: true, stream_options: { include_usage: true }, max_tokens: 16384 };
-  const resp = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
-    body: JSON.stringify(body),
-    signal: AbortSignal.timeout(API_FETCH_TIMEOUT_MS),
-  });
-  if (!resp.ok) throw new Error(`OpenAI API ${resp.status}: ${await resp.text().catch(() => '')}`);
-  const reader = resp.body.getReader();
-  const decoder = new TextDecoder();
-  let buf = '';
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    buf += decoder.decode(value, { stream: true });
-    const lines = buf.split('\n');
-    buf = lines.pop() || '';
-    for (const line of lines) {
-      const t = line.trim();
-      if (!t.startsWith('data:')) continue;
-      const data = t.slice(5).trim();
-      if (data === '[DONE]') return;
-      let j; try { j = JSON.parse(data); } catch { continue; }
-      // 末片携带 usage（stream_options.include_usage=true）：精确统计 token
-      if (j.usage) {
-        onUsage?.({ input_tokens: j.usage.prompt_tokens || 0, output_tokens: j.usage.completion_tokens || 0 });
-        continue;
-      }
-      const delta = j.choices?.[0]?.delta?.content;
-      if (delta) onToken(delta);
-    }
-  }
-}
-
-// ── 解析 Anthropic SSE，逐 token 回调 ──
-async function streamAnthropic(url, apiKey, model, systemText, messages, onToken, onUsage) {
-  const body = {
-    model,
-    system: [{ type: 'text', text: systemText }],
-    messages,
-    stream: true,
-    max_tokens: 16384,
-  };
-  const resp = await fetch(url, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-api-key': apiKey,
-      'anthropic-version': '2023-06-01',
-    },
-    body: JSON.stringify(body),
-    signal: AbortSignal.timeout(API_FETCH_TIMEOUT_MS),
-  });
-  if (!resp.ok) throw new Error(`Anthropic API ${resp.status}: ${await resp.text().catch(() => '')}`);
-  const reader = resp.body.getReader();
-  const decoder = new TextDecoder();
-  let buf = '';
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    buf += decoder.decode(value, { stream: true });
-    const lines = buf.split('\n');
-    buf = lines.pop() || '';
-    for (const line of lines) {
-      const t = line.trim();
-      if (!t.startsWith('data:')) continue;
-      const data = t.slice(5).trim();
-      let j; try { j = JSON.parse(data); } catch { continue; }
-      // token 统计：message_start 给输入 token，message_delta 给累计输出 token
-      if (j.type === 'message_start' && j.message?.usage) {
-        onUsage?.({ input_tokens: j.message.usage.input_tokens || 0, output_tokens: 0 });
-      } else if (j.type === 'message_delta' && j.usage) {
-        onUsage?.({ input_tokens: 0, output_tokens: j.usage.output_tokens || 0 });
-      } else if (j.type === 'content_block_delta' && j.delta?.type === 'text_delta') {
-        onToken(j.delta.text);
-      }
-    }
-  }
-}
+// 注：OpenAI / Anthropic 流式解析现已统一复用主聊的共享核心
+//（streamOpenAI.streamOpenAICore / streamAnthropic.streamAnthropicCore），
+// 见下方 runAiTurn / runSummary。删除讨论模式自写的重复解析器，根除「AI 助手空白」根因。
 
 // 跑一轮 AI 助手发言，返回完整文本
-async function runAiTurn({ p, key, url, m }, question, transcript, onToken, onUsage) {
+async function runAiTurn({ p, key, url, m }, question, transcript, onToken, onUsage, shouldAbort) {
   const sysText = AI_SYSTEM_PROMPT.replace('{QUESTION}', question);
   const userContent =
     `【用户原问题】${question}\n\n【至今讨论记录】\n${transcript || '（首轮，请先给分析框架/初步方案）'}\n\n请输出你这一轮的发言：`;
-  let full = '';
-  const collect = (tk) => { full += tk; onToken(tk); };
+  const collect = (tk) => { onToken(tk); };
   if (p === 'anthropic') {
-    await streamAnthropic(buildApiUrl(url, 'https://api.anthropic.com', '/v1/messages'), key, m, sysText,
-      [{ role: 'user', content: userContent }], collect, onUsage);
-  } else {
-    await streamOpenAI(buildApiUrl(url, 'https://api.openai.com/v1', '/chat/completions'), key, m,
-      [{ role: 'system', content: sysText }, { role: 'user', content: userContent }], collect, onUsage);
+    return (await streamAnthropicCore(url, key, m, sysText,
+      [{ role: 'user', content: userContent }], { onToken: collect, onUsage, isAborted: shouldAbort })).trim();
   }
-  return full.trim();
+  return (await streamOpenAICore(url, key, m,
+    [{ role: 'system', content: sysText }, { role: 'user', content: userContent }], { onToken: collect, onUsage, isAborted: shouldAbort })).trim();
 }
 
 // 跑一轮 CLI Agent 发言：每次新开 session（task 含完整记录），轮询到完成
@@ -226,19 +148,52 @@ async function runCliTurn({ partner }, question, transcript, round, onToken, sho
   return full.trim() || '（CLI Agent 未产出内容）';
 }
 
-// 汇总
-async function runSummary({ p, key, url, m }, question, transcript, onToken, onUsage) {
-  const sysText = SUMMARY_SYSTEM_PROMPT.replace('{QUESTION}', question).replace('{TRANSCRIPT}', transcript);
-  let full = '';
-  const collect = (tk) => { full += tk; onToken(tk); };
-  if (p === 'anthropic') {
-    await streamAnthropic(buildApiUrl(url, 'https://api.anthropic.com', '/v1/messages'), key, m, sysText,
-      [{ role: 'user', content: '请汇总上面的讨论。' }], collect, onUsage);
-  } else {
-    await streamOpenAI(buildApiUrl(url, 'https://api.openai.com/v1', '/chat/completions'), key, m,
-      [{ role: 'system', content: sysText }, { role: 'user', content: '请汇总上面的讨论。' }], collect, onUsage);
+// 汇总失败时的兜底：基于讨论记录生成简单结构化摘要（不依赖 LLM）
+function generateFallbackSummary(question, transcript) {
+  const lines = [
+    `## 📋 讨论结论（自动汇总）`,
+    '',
+    `> ⚠️ AI 汇总生成失败，以下为基于讨论记录的自动摘要。`,
+    '',
+    `**议题**：${question}`,
+    '',
+  ];
+  // 提取各轮发言的要点（取每轮前 200 字符作为摘要）
+  const rounds = transcript.split(/【第\d+轮/);
+  const points = [];
+  for (const r of rounds) {
+    if (!r.trim()) continue;
+    // 取第一段有实质内容的文字
+    const m = r.match(/[\s\S]{0,200}/);
+    if (m) {
+      const snippet = m[0].replace(/\n/g, ' ').trim();
+      if (snippet.length > 20) points.push(`- ${snippet}…`);
+    }
   }
-  return full.trim();
+  if (points.length > 0) {
+    lines.push('**各方观点摘要**：', '');
+    points.slice(0, 6).forEach(p => lines.push(p));
+    lines.push('');
+  }
+  lines.push('> 💡 如需更完整的结论，可重试或检查 API Key / 网络配置。');
+  return lines.join('\n');
+}
+
+// 汇总
+const MAX_SUMMARY_TRANSCRIPT_CHARS = 24000; // 汇总 prompt 预算上限（留空间给 system + user message）
+async function runSummary({ p, key, url, m }, question, transcript, onToken, onUsage, shouldAbort) {
+  // 截断过长讨论记录，防止撑爆模型上下文导致静默失败
+  const sliced = transcript.length > MAX_SUMMARY_TRANSCRIPT_CHARS
+    ? `${transcript.slice(0, MAX_SUMMARY_TRANSCRIPT_CHARS)  }\n\n…（记录已截断，仅展示前 ${  Math.round(MAX_SUMMARY_TRANSCRIPT_CHARS / 1000)  }K 字符）`
+    : transcript;
+  const sysText = SUMMARY_SYSTEM_PROMPT.replace('{QUESTION}', question).replace('{TRANSCRIPT}', sliced);
+  const collect = (tk) => { onToken(tk); };
+  if (p === 'anthropic') {
+    return (await streamAnthropicCore(url, key, m, sysText,
+      [{ role: 'user', content: '请汇总上面的讨论。' }], { onToken: collect, onUsage, isAborted: shouldAbort })).trim();
+  }
+  return (await streamOpenAICore(url, key, m,
+    [{ role: 'system', content: sysText }, { role: 'user', content: '请汇总上面的讨论。' }], { onToken: collect, onUsage, isAborted: shouldAbort })).trim();
 }
 
 /**
@@ -309,7 +264,7 @@ async function runDiscussion(res, { message, partner, partners, maxTurns = 6, ap
 
       // ① AI 助手发言（看到全部 Agent 上一轮观点）
       sse(res, { type: 'discuss_start', speaker: 'ai', label: 'AI 助手', round });
-      const aiText = await runAiTurn(cfg, question, transcriptLines.join('\n'), (tk) => sse(res, { type: 'token', content: tk }), recordAi);
+      const aiText = await runAiTurn(cfg, question, transcriptLines.join('\n'), (tk) => sse(res, { type: 'token', content: tk }), recordAi, () => _aborted);
       sse(res, { type: 'discuss_end', speaker: 'ai' });
       if (aiText) transcriptLines.push(`【第${round}轮 · AI 助手】\n${aiText}`);
       if (_aborted) { cleanFinish = false; break; }
@@ -330,10 +285,19 @@ async function runDiscussion(res, { message, partner, partners, maxTurns = 6, ap
     }
 
     if (!_aborted) {
-      // ③ 汇总
+      // ③ 汇总（带兜底：LLM 调用失败时输出结构化 fallback 而非空白）
       sse(res, { type: 'status', message: '📋 生成讨论结论…' });
       sse(res, { type: 'discuss_start', speaker: 'summary', label: '📋 结论汇总', round: maxTurns + 1 });
-      await runSummary(cfg, question, transcriptLines.join('\n'), (tk) => sse(res, { type: 'token', content: tk }), recordAi);
+      let summaryText = '';
+      try {
+        summaryText = await runSummary(cfg, question, transcriptLines.join('\n'), (tk) => sse(res, { type: 'token', content: tk }), recordAi, () => _aborted);
+      } catch (sumErr) {
+        // 汇总失败：输出基于讨论记录的简单 fallback，不让用户看到空白
+        console.error('[discuss] 汇总生成失败:', sumErr.message);
+        const fallback = generateFallbackSummary(question, transcriptLines.join('\n'));
+        summaryText = fallback;
+        sse(res, { type: 'token', content: fallback });
+      }
       sse(res, { type: 'discuss_end', speaker: 'summary' });
 
       // ④ token 消耗报告（圆桌成本可见）

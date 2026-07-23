@@ -89,7 +89,16 @@ if (!hasAnyLLMKey) {
 // Express App
 // ============================================================
 const app = express();
-app.use(compression());
+// gzip 压缩：跳过 SSE（text/event-stream）响应，避免缓冲 tool_call 等小事件
+// 导致前端"最后一起弹出"而非实时逐条展示
+app.use(compression({
+  filter: (req, res) => {
+    // 不压缩 SSE 流：压缩中间件会攒批小数据块，破坏事件实时性
+    if (res.getHeader('Content-Type') === 'text/event-stream') return false;
+    if (req.headers.accept && req.headers.accept.includes('text/event-stream')) return false;
+    return compression.filter(req, res);
+  }
+}));
 app.use(helmet({ contentSecurityPolicy: false, crossOriginEmbedderPolicy: false }));
 // ── CORS ──
 // Default: only same-origin / loopback browsers are allowed. Cross-origin
@@ -103,7 +112,7 @@ function isLoopbackOrigin(origin) {
   return /^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])(:\d+)?\/?$/i.test(origin || '');
 }
 app.use(cors({
-  origin: function(origin, callback) {
+  origin(origin, callback) {
     // 允许无 origin 的请求（如 curl、Server-Sent Events）
     if (!origin) return callback(null, true);
     // 允许同源 / 回环
@@ -290,17 +299,17 @@ function startServer() {
     try {
       wsManager.attach(srv);
     } catch (e) {
-      console.warn('[WS] attach failed for ' + host + ': ' + e.message);
+      console.warn(`[WS] attach failed for ${  host  }: ${  e.message}`);
     }
     srv.on('error', (err) => {
-      console.warn('[listen] ' + host + ':' + PORT + ' bind failed: ' + err.message);
+      console.warn(`[listen] ${  host  }:${  PORT  } bind failed: ${  err.message}`);
     });
     srv.listen(PORT, host, () => {
-      console.log('Hesi（合思） listening on ' + host + ':' + PORT);
-      console.log('  -> http://' + host + ':' + PORT);
-      console.log('  -> WebSocket: ws://' + host + ':' + PORT);
+      console.log(`Hesi（合思） listening on ${  host  }:${  PORT}`);
+      console.log(`  -> http://${  host  }:${  PORT}`);
+      console.log(`  -> WebSocket: ws://${  host  }:${  PORT}`);
       if (isPublicBind(host)) {
-        console.warn('[SECURITY] Bound to non-loopback address (' + host + '). This widens terminal/browser exposure!');
+        console.warn(`[SECURITY] Bound to non-loopback address (${  host  }). This widens terminal/browser exposure!`);
         console.warn('[SECURITY] Only do this on a trusted network; prefer the default loopback and set QCLI_ACCESS_TOKEN.');
       }
       // One-time startup tasks (run once even when dual-bound)
@@ -309,7 +318,7 @@ function startServer() {
         if (!NODE_PTY_AVAILABLE) {
           console.warn('[PTY] node-pty native addon not built — terminal/agent disabled. Run npm rebuild node-pty and restart.');
         }
-        console.log('Platform: ' + process.platform + ' | Node ' + process.version);
+        console.log(`Platform: ${  process.platform  } | Node ${  process.version}`);
         console.log('Uploads  : TTL 1 hour');
         setImmediate(cleanupOldUploads);
         const uploadsDir = require('path').join(__dirname, 'uploads');
@@ -320,9 +329,9 @@ function startServer() {
           resolveRegistryPaths();
           migrateRegistryCategories();
           discoverCLIsAsync().then(result => {
-            console.log('CLIs     : ' + result.registry.clis.length + ' registered (' + result.discovered.length + ' new)');
+            console.log(`CLIs     : ${  result.registry.clis.length  } registered (${  result.discovered.length  } new)`);
           }).catch(e => {
-            console.log('CLIs     : discovery error (' + e.message + ')');
+            console.log(`CLIs     : discovery error (${  e.message  })`);
           });
         }, 500);
       }

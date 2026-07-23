@@ -120,7 +120,7 @@
 ### 🤖 AI 集成 · AI Integration
 
 - **多提供商** — 支持 OpenAI、Anthropic、LM Studio（本地模型）
-- **SSE 流式输出** — 结构化事件类型（token/status/error/tool_call/usage），60s 超时保护
+- **SSE 流式输出** — 结构化事件类型（token/status/error/tool_call/usage），120s 空闲超时保护（可配 `HESI_LLM_STREAM_IDLE_MS`）
 - **终端上下文感知** — 自动捕获终端最新 100 行输出作为 system message
 - **增量上下文裁剪** — 仅发送变化的增量行，节省 token
 - **工具调用链** — 连续工具调用含循环检测（环检测 + 窗口去重 + 硬上限），防止「瞬间打满上限」式失控
@@ -476,7 +476,7 @@ MIT License — see [LICENSE](./LICENSE) for details.
 > 以下为占位 badge，请替换为真实 CI / 版本 / 下载量链接。
 
 [![CI](https://img.shields.io/badge/CI-passing-brightgreen?style=flat)](https://github.com/qiuqiukof-oss/Hesi/actions)
-[![Version](https://img.shields.io/badge/version-0.2.0-blue.svg)](https://github.com/qiuqiukof-oss/Hesi/releases)
+[![Version](https://img.shields.io/badge/version-0.2.1-blue.svg)](https://github.com/qiuqiukof-oss/Hesi/releases)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey)](https://github.com/qiuqiukof-oss/Hesi)
 [![Stars](https://img.shields.io/badge/stars-%E2%98%85%20your__stars__here-yellow?style=flat)](https://github.com/qiuqiukof-oss/Hesi/stargazers)

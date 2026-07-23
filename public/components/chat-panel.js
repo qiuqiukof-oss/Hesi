@@ -956,28 +956,28 @@ class ChatPanel extends HTMLElement {
             if (evt.type === 'start') {
               for (const n of evt.names || []) {
                 this._activeToolCalls.push({ name: n, durMs: 0, status: 'running' });
+                this._appendToolCallRow(n);
               }
             } else if (evt.type === 'end') {
               const tc = this._activeToolCalls.find(t => t.name === evt.name && t.status === 'running');
               if (tc) {
                 tc.durMs = evt.durMs ?? 0;
                 tc.status = 'done';
+                this._updateToolCallRow(evt.name, evt.durMs ?? 0, evt.truncated, evt.result);
               }
             }
           },
           onStatus: (msg) => {
             const indicator = document.getElementById('thinking-indicator');
-            if (indicator) {
-              const bubble = indicator.querySelector('.msg-bubble');
-              if (bubble && bubble.classList.contains('thinking')) {
-                // Update status text inside the thinking indicator
-                const statusEl = bubble.querySelector('.thinking-status');
-                if (statusEl) {
-                  statusEl.textContent = '🔧 ' + msg;
-                  statusEl.classList.add('visible');
-                }
-              }
-            }
+            if (!indicator) return;
+            const bubble = indicator.querySelector('.msg-bubble');
+            if (!bubble) return;
+            const statusEl = bubble.querySelector('.thinking-status');
+            if (!statusEl) return;
+            // 工具调用类状态（🔧/✅ 开头）已由工具列表项呈现，避免重复显示
+            if (msg.startsWith('🔧') || msg.startsWith('✅')) return;
+            statusEl.textContent = msg;
+            statusEl.classList.add('visible');
           },
           onToken: (token) => {
             // 讨论模式：token 直接追加到「当前发言方气泡」，而非思考指示器
@@ -996,12 +996,18 @@ class ChatPanel extends HTMLElement {
             if (indicator) {
               const bubble = indicator.querySelector('.msg-bubble');
               if (bubble) {
-                if (bubble.classList.contains('thinking')) {
-                  bubble.classList.remove('thinking');
-                  bubble.innerHTML = '';
+                // 首个 token 到达：保持 thinking class 不变（整个 agentic 过程
+                // 都在"思考"态），仅追加流式文本容器 + 更新标题为"生成中"
+                let textContainer = bubble.querySelector('.stream-text');
+                if (!textContainer) {
+                  textContainer = document.createElement('div');
+                  textContainer.className = 'stream-text';
+                  bubble.appendChild(textContainer);
+                  // 标题从"深度思考中"切换为"生成回复中"
+                  const titleEl = bubble.querySelector('.thinking-title');
+                  if (titleEl) titleEl.textContent = '📝 生成回复中…';
                 }
-                // Render markdown with a subtle cursor at the end
-                bubble.innerHTML = renderMarkdown(fullResponse) + '<span class="typing-cursor"></span>';
+                textContainer.innerHTML = renderMarkdown(fullResponse) + '<span class="typing-cursor"></span>';
                 // 渲染 Mermaid 流程图
                 requestAnimationFrame(() => {
                   if (window.QCLI?.MermaidRenderer) {
@@ -1036,8 +1042,6 @@ class ChatPanel extends HTMLElement {
             }
           },
           onDone: () => {
-            this.removeThinking();
-
             // 讨论模式：各发言气泡已在 discuss_end 时落盘，这里不再追加空 assistant 消息
             if (this._discussActive) {
               this._discussActive = false;
@@ -1054,6 +1058,7 @@ class ChatPanel extends HTMLElement {
             if (requestController?.signal.aborted) {
               // Aborted: discard pending snapshot + don't save empty message
               this._pendingTerminalLines = null;
+              this.removeThinking();
               this._endSending();
               if (this.input) this.input.focus();
               return;
@@ -1085,9 +1090,69 @@ class ChatPanel extends HTMLElement {
               }
               this._lastUsage = null;
             }
+
+            // ── 工具调用摘要：将本轮工具调用记录追加到最终消息中 ──
+            // removeThinking() 会删除包含工具列表的整个 thinking 面板，
+            // 若不在此处摘取摘要，所有工具调用痕迹将永久丢失。
+            if (this._activeToolCalls && this._activeToolCalls.length > 0) {
+              const tools = this._activeToolCalls;
+              const lines = tools.map(t => {
+                const meta = this._toolMeta(t.name);
+                const icon = t.status === 'done' ? '✅' : '⏳';
+                return `${icon} ${meta.label} (${t.name})${t.durMs ? ` · ${t.durMs}ms` : ''}`;
+              });
+              displayContent += `\n\n---\n🔧 **工具调用** (${tools.length}):\n${lines.join('\n')}`;
+            }
+
             const aiMsg = { id: this._genId(), role: 'assistant', content: displayContent };
+
+            // ── 升级 thinking 面板为最终 ai 气泡（不删除重建）──
+            // 保留同一个 DOM 节点：位置不变、不闪跳，流式过程中实时展示的
+            // 工具列表得以延续到完成态，而不是「面板消失 + 新消息突然出现」。
+            // 仅在此时（而非首个 token 时）切换 class：thinking → ai-bubble。
+            const indicator = document.getElementById('thinking-indicator');
+            let upgraded = false;
+            if (indicator) {
+              const bubbleEl = indicator.querySelector('.msg-bubble');
+              if (bubbleEl) {
+                // 更新标题：深度思考中/生成回复中 → ✅ 完成
+                const titleEl = bubbleEl.querySelector('.thinking-title');
+                if (titleEl) titleEl.textContent = '✅ 完成';
+                // 停止动画点
+                const dots = bubbleEl.querySelectorAll('.thinking-dot');
+                dots.forEach(d => { d.style.animation = 'none'; d.style.opacity = '0.4'; });
+                // 折叠箭头改为收起态（面板展开显示完整结果）
+                const chevron = bubbleEl.querySelector('.thinking-chevron');
+                if (chevron) chevron.textContent = '▾';
+                // 切换 class：思考中 → 完成态
+                bubbleEl.classList.remove('thinking');
+                bubbleEl.classList.add('ai-bubble');
+                // 将用量摘要 + 工具调用摘要追加到流式文本容器末尾
+                // （displayContent = 流式文本 + 用量行 + 工具摘要，而 .stream-text 目前只有流式文本部分）
+                const streamText = bubbleEl.querySelector('.stream-text');
+                if (streamText) {
+                  // 移除 typing-cursor（已完成态不需要）
+                  const cursor = streamText.querySelector('.typing-cursor');
+                  if (cursor) cursor.remove();
+                  // 追加用量行和工具摘要（如果 displayContent 比纯文本多的话）
+                  if (displayContent.length > fullResponse.length) {
+                    const extra = displayContent.slice(fullResponse.length);
+                    const summaryDiv = document.createElement('div');
+                    summaryDiv.className = 'completion-summary';
+                    summaryDiv.innerHTML = renderMarkdown(extra);
+                    streamText.appendChild(summaryDiv);
+                  }
+                }
+                indicator.id = ''; // 取消 thinking 标识，避免后续 removeThinking 误删
+                upgraded = true;
+              }
+            }
+            // 兜底：若面板不存在（异常路径）则按原流程新建气泡
+            if (!upgraded) {
+              this.appendToDOM(aiMsg);
+            }
+
             this.messages.push(aiMsg);
-            this.appendToDOM(aiMsg);
             this._saveHistory();
             this.scrollToBottom();
             this._endSending();
@@ -1117,6 +1182,7 @@ class ChatPanel extends HTMLElement {
               const friendlyMessages = {
                 'timeout': '⏱️ ' + (Q.__?.('chat.timeout') || '响应超时，服务器长时间无数据返回，请重试'),
                 'stream_error': '🔌 ' + (Q.__?.('chat.streamError') || '流式响应异常，连接中断'),
+                'rate_limit': '⏳ ' + (err.message || (Q.__?.('chat.rateLimit') || 'API 调用频率受限（额度/限流），请稍后重试或升级套餐')),
               };
               const toastMsg = friendlyMessages[err.type] || '⚠️ ' + (err.message || '未知错误');
               if (Q.showToast) Q.showToast(toastMsg, err.type === 'timeout' ? 'info' : 'error');
@@ -1230,26 +1296,32 @@ class ChatPanel extends HTMLElement {
 
   exportChat() {
     if (this.messages.length === 0) return;
-    const lines = [];
+    const lines = ['# Hesi 聊天记录导出', '', `> 导出时间：${new Date().toLocaleString()}`, '', '---', ''];
     for (const m of this.messages) {
-      const role = m.role === 'user' ? 'You' : 'AI';
-      lines.push(`**${role}:**`);
+      const role = m.role === 'user' ? '👤 **You**' : '🟦 **AI 助手**';
+      lines.push(role);
       lines.push('');
-      lines.push(m.content);
+      lines.push(m.content || '（空消息）');
       lines.push('');
       lines.push('---');
       lines.push('');
     }
     const md = lines.join('\n');
-    const blob = new Blob([md], { type: 'text/markdown;charset=utf-8' });
+    // 用 text/plain + .md 扩展名确保 Windows 浏览器不会忽略扩展名
+    const blob = new Blob([md], { type: 'text/plain;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `chat-export-${new Date().toISOString().slice(0,10)}.md`;
+    const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+    a.download = `hesi-chat-${dateStr}.md`;
+    a.style.display = 'none';
     document.body.appendChild(a);
     a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    // 延迟清理，确保浏览器已触发下载
+    setTimeout(() => {
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }, 100);
   }
 
   // ── Public: Rendering ──
@@ -1361,27 +1433,6 @@ class ChatPanel extends HTMLElement {
           window.QCLI.MermaidRenderer.renderAll();
         }
       });
-      // Append tool call trace if any
-      if (this._activeToolCalls.length > 0) {
-        const trace = document.createElement('details');
-        trace.className = 'tool-call-trace';
-        trace.style.cssText = 'margin-top:8px;font-size:12px;color:#888;';
-        const summary = document.createElement('summary');
-        summary.textContent = `🔧 工具调用 (${this._activeToolCalls.length})`;
-        trace.appendChild(summary);
-        const list = document.createElement('div');
-        list.style.cssText = 'margin-top:4px;';
-        for (const tc of this._activeToolCalls) {
-          const row = document.createElement('div');
-          row.style.cssText = 'padding:2px 0;';
-          const icon = tc.status === 'done' ? '✅' : '⏳';
-          const dur = tc.durMs > 0 ? ` (${tc.durMs}ms)` : '';
-          row.textContent = `${icon} ${tc.name}${dur}`;
-          list.appendChild(row);
-        }
-        trace.appendChild(list);
-        bubble.appendChild(trace);
-      }
     } else {
       bubble.textContent = msg.content;
     }
@@ -1417,11 +1468,17 @@ class ChatPanel extends HTMLElement {
     sender.textContent = Q.__?.('chat.sender.ai') || 'AI';
     content.appendChild(sender);
 
-    // Thoughtful thinking indicator: animated dots + optional status text
+    // 深度思考面板：标题 + 工具调用列表 + 系统状态行（WorkBuddy 风格）
     const bubble = document.createElement('div');
     bubble.className = 'msg-bubble thinking';
-    
-    // Animated dots container
+
+    // 标题行（可点击折叠）：动画点 + "深度思考中" + 折叠箭头
+    const header = document.createElement('div');
+    header.className = 'thinking-header';
+    header.setAttribute('role', 'button');
+    header.setAttribute('tabindex', '0');
+    header.title = '点击折叠/展开';
+
     const dotsContainer = document.createElement('span');
     dotsContainer.className = 'thinking-dots';
     for (let i = 0; i < 3; i++) {
@@ -1429,23 +1486,159 @@ class ChatPanel extends HTMLElement {
       dot.className = 'thinking-dot';
       dotsContainer.appendChild(dot);
     }
-    bubble.appendChild(dotsContainer);
+    header.appendChild(dotsContainer);
 
-    // Status text line (hidden initially, shown for tool calls etc.)
+    const titleEl = document.createElement('span');
+    titleEl.className = 'thinking-title';
+    titleEl.textContent = '🤔 深度思考中…';
+    header.appendChild(titleEl);
+
+    const chevron = document.createElement('span');
+    chevron.className = 'thinking-chevron';
+    chevron.textContent = '▾'; // ▾
+    header.appendChild(chevron);
+
+    bubble.appendChild(header);
+
+    // 折叠主体：工具列表 + 系统状态行
+    const body = document.createElement('div');
+    body.className = 'thinking-body';
+
+    // 工具调用列表容器（每次工具调用追加一行，完成后更新状态）
+    const listEl = document.createElement('div');
+    listEl.className = 'tool-call-list';
+    listEl.id = 'tool-call-list';
+
+    // 占位文字：工具列表为空时显示，首个工具到达时移除
+    const placeholder = document.createElement('div');
+    placeholder.className = 'tool-call-placeholder';
+    placeholder.textContent = '⏳ 等待工具调用…';
+    listEl.appendChild(placeholder);
+
+    body.appendChild(listEl);
+
+    // 保存列表元素引用，避免多消息并发时 getElementById 命中错误节点
+    this._toolCallListEl = listEl;
+
+    // 系统状态行（重试/续传/生成回答/超时 等）
     const statusEl = document.createElement('span');
     statusEl.className = 'thinking-status';
     statusEl.textContent = '';
-    bubble.appendChild(statusEl);
+    body.appendChild(statusEl);
+
+    bubble.appendChild(body);
+
+    // 点击标题折叠/展开主体
+    const toggle = () => {
+      const collapsed = bubble.classList.toggle('collapsed');
+      chevron.textContent = collapsed ? '▸' : '▾'; // ▸ / ▾
+      this.scrollToBottom();
+    };
+    header.addEventListener('click', toggle);
+    header.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(); }
+    });
 
     content.appendChild(bubble);
     div.appendChild(content);
     this.msgsEl.appendChild(div);
+
+    // 重置当前轮的工具调用追踪
+    this._activeToolCalls = [];
 
     // 刷新任何在 thinking-indicator 创建前到达的缓冲 Agent 事件
     // 顺序执行微任务让 DOM 先完成渲染，再播放缓冲事件
     Promise.resolve().then(() => {
       if (this._agentRenderer) this._agentRenderer.flushAgentBuffer();
     });
+  }
+
+  // ── 工具调用列表渲染（深度思考面板内）──
+  // 工具名 → 语义化图标 + 动作标签（纯前端映射，零额外请求）
+  _toolMeta(name) {
+    const MAP = {
+      exec_terminal: { icon: '💻', label: '执行命令' },
+      get_self_info: { icon: 'ℹ️', label: '读取系统信息' },
+      browser_info: { icon: '🌐', label: '浏览器信息' },
+      browser_ping: { icon: '🌐', label: '浏览器连接测试' },
+      browser_accessibility: { icon: '♿', label: '可访问性审计' },
+      list_clis: { icon: '🔌', label: '列出 CLI' },
+      list_agents: { icon: '🤖', label: '列出智能体' },
+      list_workflows: { icon: '🔄', label: '列出工作流' },
+      agent_poll: { icon: '📡', label: '轮询智能体' },
+      search_files: { icon: '🔍', label: '搜索文件' },
+      search_web: { icon: '🔍', label: '搜索网络' },
+      read_file: { icon: '📄', label: '读取文件' },
+      write_file: { icon: '✏️', label: '写入文件' },
+      edit_file: { icon: '✏️', label: '编辑文件' },
+    };
+    if (MAP[name]) return MAP[name];
+    if (name && name.startsWith('search')) return { icon: '🔍', label: '搜索' };
+    if (name && (name.startsWith('edit') || name.startsWith('write'))) return { icon: '✏️', label: '编辑文件' };
+    if (name && name.startsWith('read')) return { icon: '📄', label: '读取文件' };
+    if (name && name.startsWith('list')) return { icon: '📋', label: '列出' };
+    return { icon: '🔧', label: name };
+  }
+
+  _appendToolCallRow(name) {
+    const list = this._toolCallListEl;
+    if (!list) return;
+    // 首个工具到达时移除占位文字
+    const ph = list.querySelector('.tool-call-placeholder');
+    if (ph) ph.remove();
+    const meta = this._toolMeta(name);
+    const row = document.createElement('div');
+    row.className = 'tool-call-item running';
+    row.dataset.toolName = name;
+
+    const icon = document.createElement('span');
+    icon.className = 'tci-icon';
+    icon.textContent = meta.icon;
+
+    const textWrap = document.createElement('span');
+    textWrap.className = 'tci-text';
+
+    const nm = document.createElement('span');
+    nm.className = 'tci-name';
+    nm.textContent = meta.label;
+
+    const detail = document.createElement('span');
+    detail.className = 'tci-detail';
+    detail.textContent = name;
+
+    textWrap.appendChild(nm);
+    textWrap.appendChild(detail);
+
+    const state = document.createElement('span');
+    state.className = 'tci-state';
+    state.textContent = '运行中…';
+
+    row.appendChild(icon);
+    row.appendChild(textWrap);
+    row.appendChild(state);
+    list.appendChild(row);
+    this.scrollToBottom();
+  }
+
+  _updateToolCallRow(name, durMs, truncated, result) {
+    const list = this._toolCallListEl;
+    if (!list) return;
+    const row = list.querySelector(`[data-tool-name="${CSS.escape(name)}"]`);
+    if (!row) return;
+    row.classList.remove('running');
+    row.classList.add('done');
+    const state = row.querySelector('.tci-state');
+    if (state) {
+      state.textContent = `✓ 完成 · ${durMs}ms${truncated ? '（结果较长已省略）' : ''}`;
+    }
+    // 工具结果预览（用 textContent 渲染，防 XSS；只追加一次）
+    if (result && !row.querySelector('.tool-preview')) {
+      const pre = document.createElement('pre');
+      pre.className = 'tool-preview';
+      pre.textContent = result;
+      row.appendChild(pre);
+    }
+    this.scrollToBottom();
   }
 
   removeThinking() {

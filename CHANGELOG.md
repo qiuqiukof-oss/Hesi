@@ -6,6 +6,36 @@ use `vMAJOR.MINOR.PATCH-<tag>`.
 
 ---
 
+## [v0.2.1] — 2026-07-24
+
+Maintenance drop focused on **discussion-mode stability, the "deep thinking" panel UX, and SSE / context robustness**. No breaking changes; chat API and CLI behavior are preserved.
+
+### Fixed
+- **Discussion mode (圆桌) root-cause fix** — `routes/chat/discuss.js` now reuses the main chat's streaming parser (`streamOpenAICore` / `streamAnthropicCore`) as a single source, eliminating the bespoke parser that caused "AI assistant says nothing" + "empty summary" + "token 0/0". Discuss module shrinks 419 → 325 lines.
+- **SSE event batching** — `server.js` `compression()` now skips `text/event-stream`, so tool-call events stream in real time instead of dumping at the end (the "all-at-once pop" bug).
+- **Truncation mis-detection on local models** — parser now treats `data: [DONE]` / `message_stop` as the authoritative completion signal (not the optional `finish_reason`); fixes false "truncated → resume loop" on qwen3.6 / LM Studio which omit `finish_reason`.
+- **Context snowball → 429** — new `capToolRounds()` caps old tool rounds (keep recent 6 + compress earlier), with a corrected Chinese token estimate (`len/1.6`); stops the geometric context growth that blew free-tier token/min limits.
+- **Export chat** — filename is now `hesi-chat-YYYYMMDD.md` with `text/plain` MIME so it is selectable / openable on Windows.
+- **Thinking panel lifecycle** — "still shows 🤔 after done" + "onToken wiped the tool list" fixed; panel persists through the whole agentic phase and flips to ✅ on `onDone`.
+
+### Added
+- **WorkBuddy-style "deep thinking" panel** — live per-tool cards (running → done with duration), collapsible header, semantic icons, and tool-result preview (`<pre>` via `textContent`, XSS-safe).
+- **Tool result preview** in SSE `tool_call_end` (server-truncated; the model-context copy is untouched).
+- **Lightweight self-check** — detects "全面自检 / 自检" intent and caps to 6 tool rounds, cutting ~20+ LLM calls to ~7.
+
+### Changed
+- `max_tokens` raised 16384 → 32768 across 7 sites (handles long local-model summaries without truncation).
+- SSE idle timeout raised 60s → 120s (`HESI_LLM_STREAM_IDLE_MS`, configurable).
+- README version badge → 0.2.1.
+
+### Verification
+- `node --check` on touched server modules (server.js, stream-openai.js, stream-anthropic.js, discuss.js, utils.js, index.js): 0 errors.
+- `npm run build`: succeeded (bundle.js ~896kb, lazy-bundle.js ~237kb).
+- Runtime: local server returns HTTP 200; qwen3.6-35b self-check no longer mis-triggers truncation.
+- Privacy: `data/` and `.workbuddy/` remain untracked (gitignored); no secrets in this drop.
+
+---
+
 ## [v0.2.0] — 2026-07-23
 
 Two headline features land on top of v0.1.0-optimized: the **cross-session long-term

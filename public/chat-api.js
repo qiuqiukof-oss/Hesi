@@ -191,7 +191,7 @@ export const ChatAPI = {
                   onToolCall?.({ type: 'start', names: parsed.names });
                   onStatus?.(`🔧 正在调用: ${(parsed.names || []).join(', ')}`);
                 } else if (parsed.type === 'tool_call_end') {
-                  onToolCall?.({ type: 'end', name: parsed.name, durMs: parsed.durMs, truncated: parsed.truncated });
+                  onToolCall?.({ type: 'end', name: parsed.name, durMs: parsed.durMs, truncated: parsed.truncated, result: parsed.result });
                   onStatus?.(`✅ ${parsed.name} 完成 (${parsed.durMs}ms${parsed.truncated ? ', 结果较长' : ''})`);
                 } else if (parsed.type === 'usage') {
                   onUsage?.(parsed.usage);
@@ -199,12 +199,13 @@ export const ChatAPI = {
                   // Agent 实时输出/回呼，转发给上层以减少“卡住/断开”错觉
                   onToolLive?.(parsed.payload);
                 } else if (parsed.type === 'error') {
-                  // Pass structured error info: detect timeout from message
+                  // Pass structured error info: detect timeout / rate-limit from message
                   const errMsg = parsed.message || 'Unknown error';
                   const isTimeout = errMsg.toLowerCase().includes('timeout') || errMsg.includes('60s');
+                  const isRateLimit = errMsg.startsWith('RATE_LIMIT: ');
                   onError?.({
-                    type: isTimeout ? 'timeout' : 'stream_error',
-                    message: errMsg,
+                    type: isTimeout ? 'timeout' : (isRateLimit ? 'rate_limit' : 'stream_error'),
+                    message: isRateLimit ? errMsg.slice('RATE_LIMIT: '.length) : errMsg,
                   });
                   // Error is final — stop reading stream to prevent double-fire with onDone
                   reader.cancel().catch(() => {});

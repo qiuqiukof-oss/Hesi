@@ -10,13 +10,22 @@
 // - 120s total execution timeout
 // ============================================================
 
-const { safeApiError, trimHistory, buildApiUrl } = require('./utils');
+const {
+  safeApiError,
+  trimHistory,
+  capToolRounds,
+  capToolResultPreview,
+  buildApiUrl,
+  API_FETCH_TIMEOUT_MS,
+  STREAM_IDLE_TIMEOUT_MS,
+  STREAM_MAX_RETRIES,
+  MAX_TOTAL_DURATION_MS,
+  CONTINUE_ROUNDS,
+  fetchLlmWithRetry,
+} = require('./utils');
 const { executeToolCall, toolRateLimiter } = require('./tools');
 const { pruneToolContext } = require('./token-budget');
 const { killDelegatePTY, abortDelegate } = require('../ai-tools/builtin/agent');
-
-// 单轮 API 调用超时（毫秒）。对慢模型 / 长工具链路放宽到 3 分钟（P3-2）。
-const API_FETCH_TIMEOUT_MS = 180_000;
 
 /**
  * Convert internal message format to Anthropic Messages API format.
@@ -48,10 +57,28 @@ function buildAnthropicConversation(messages) {
  * @param {import('express').Response} res - Express response for forwarding tokens
  * @returns {Promise<{ toolCalls: Array<{id:string, name:string, input:object}>, assistantBlocks: Array, assistantContent: string, stopReason: string|null, usage: object|null }>}
  */
-async function parseAnthropicStream(response, res) {
+async function parseAnthropicStream(response, res, sink = null) {
   const reader = response.body.getReader();
   const decoder = new TextDecoder();
   let buffer = '';
+
+  // 回调槽位：讨论模式等「不直写 res」的场景通过 sink 注入 onToken/onUsage/onDone；
+  // 主聊不传 sink，回落到直写 res（行为完全不变）。
+  const sinkOnToken = sink?.onToken;
+  const sinkOnUsage = sink?.onUsage;
+  const sinkOnDone = sink?.onDone;
+  const writeToken = (c) => {
+    if (sinkOnToken) { sinkOnToken(c); return; }
+    if (res) { try { res.write(`data: ${JSON.stringify({ type: 'token', content: c })}\n\n`); } catch {} }
+  };
+  const writeUsage = (u) => {
+    if (sinkOnUsage) { sinkOnUsage(u); return; }
+    if (res) { try { res.write(`data: ${JSON.stringify({ type: 'usage', usage: u })}\n\n`); } catch {} }
+  };
+  const writeDone = () => {
+    if (sinkOnDone) { sinkOnDone(); return; }
+    if (res) { try { res.write('data: [DONE]\n\n'); res.end(); } catch {} }
+  };
 
   /** @type {Array<{type:string, text?:string, id?:string, name?:string, input?:object}>} */
   const assistantBlocks = [];
@@ -62,10 +89,23 @@ async function parseAnthropicStream(response, res) {
   /** @type {{input_tokens?:number, output_tokens?:number}|null} */
   let usage = null;
   let lastDataTime = Date.now();
+  /** @type {boolean} 上游是否在未发送正常 stop_reason 前就结束了流（中途断流） */
+  let truncated = false;
+  let streamEnded = false;
+  /** @type {boolean} 是否收到 Anthropic SSE 权威结束信号 event: message_stop（流正常完成的标志） */
+  let sawMessageStop = false;
 
   while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
+    let done, value;
+    try {
+      ({ done, value } = await reader.read());
+    } catch (readErr) {
+      // 读取途中抛错（网络抖动 / 上游断开）→ 视为中途断流，交由外层重试
+      truncated = true;
+      streamEnded = true;
+      break;
+    }
+    if (done) { streamEnded = true; break; }
     if (value) lastDataTime = Date.now();
 
     buffer += decoder.decode(value, { stream: true });
@@ -115,7 +155,7 @@ async function parseAnthropicStream(response, res) {
                 lastBlock.text += text;
               }
               assistantContent += text;
-              res.write(`data: ${JSON.stringify({ type: 'token', content: text })}\n\n`);
+              writeToken(text);
             } else if (delta.type === 'input_json_delta') {
               const lastBlock = assistantBlocks[assistantBlocks.length - 1];
               if (lastBlock?.type === 'tool_use') {
@@ -143,7 +183,10 @@ async function parseAnthropicStream(response, res) {
               usage = { ...(usage || {}), ...parsed.usage };
             }
           }
-          // 'ping' and 'message_stop' events — ignored
+          // 'ping' events — ignored; message_stop 是流式正常结束的权威信号
+          if (type === 'message_stop') {
+            sawMessageStop = true;
+          }
         } catch {
           // Skip malformed JSON
         }
@@ -151,11 +194,10 @@ async function parseAnthropicStream(response, res) {
       }
     }
 
-    if (Date.now() - lastDataTime > 60000) {
-      res.write(`data: ${JSON.stringify({ type: 'error', message: 'Stream timeout - no data for 60s' })}\n\n`);
-      res.write('data: [DONE]\n\n');
-      res.end();
-      return { toolCalls: [], assistantBlocks: [], assistantContent: '', stopReason: null, usage: null };
+    if (Date.now() - lastDataTime > STREAM_IDLE_TIMEOUT_MS) {
+      // 空闲超时：视为「上游卡死 / 断流」，标记截断交由外层重试（而非直接腰斩）
+      truncated = true;
+      return { toolCalls: [], assistantBlocks: [], assistantContent: '', stopReason: null, usage: null, truncated: true };
     }
   }
 
@@ -169,16 +211,71 @@ async function parseAnthropicStream(response, res) {
   const hasToolUse = toolCalls.length > 0 || stopReason === 'tool_use';
 
   if (hasToolUse) {
-    return { toolCalls, assistantBlocks, assistantContent, stopReason, usage };
+    return { toolCalls, assistantBlocks, assistantContent, stopReason, usage, truncated: false };
+  }
+
+  // ── 截断检测：流结束但从未收到正常结束信号 → 上游中途断流 ──
+  // 关键修正：Anthropic SSE 以 event: message_stop 作为「流正常完成」的权威信号；
+  // stop_reason 只是「为何结束」的元数据，部分本地/代理实现不发送 message_delta(stop_reason)
+  // 而仅以 message_stop 收尾。收到 message_stop 即视为正常完成，不再因缺 stop_reason 误判截断。
+  if (truncated || (streamEnded && !stopReason && !sawMessageStop)) {
+    return { toolCalls: [], assistantBlocks: [], assistantContent, stopReason, usage, truncated: true };
   }
 
   // No tool calls — finalize stream
   if (usage) {
-    res.write(`data: ${JSON.stringify({ type: 'usage', usage })}\n\n`);
+    writeUsage(usage);
   }
-  res.write('data: [DONE]\n\n');
-  res.end();
-  return { toolCalls: [], assistantBlocks, assistantContent, stopReason, usage };
+  writeDone();
+  return { toolCalls: [], assistantBlocks, assistantContent, stopReason, usage, truncated: false };
+}
+
+/**
+ * 回调版 Anthropic 流式核心（讨论模式等非工具纯文本场景共用）。
+ *
+ * 与主聊 streamAnthropicWithTools 共用同一解析（parseAnthropicStream），
+ * token 通过 onToken 回调外抛（不直写 res），便于讨论模式路由到「当前发言方气泡」。
+ *
+ * @param {string} baseUrl - API base（/v1 由 buildApiUrl 自动补全）
+ * @param {string} apiKey
+ * @param {string} model
+ * @param {string} systemText
+ * @param {Array<{role:string, content:string}>} messages
+ * @param {{onToken?:Function, onUsage?:Function, isAborted?:()=>boolean}} [cbs]
+ * @returns {Promise<string>} 完整助手文本
+ */
+async function streamAnthropicCore(baseUrl, apiKey, model, systemText, messages, cbs = {}) {
+  const { onToken, onUsage, isAborted } = cbs;
+  const modelName = model || 'claude-sonnet-4-20250514';
+  // 请求体与主聊 doModelCall 完全一致：system + messages + stream + max_tokens；
+  // 不传 tools → 纯文本生成，契合讨论模式「AI 助手回合 / 结论汇总」不需要工具调用。
+  const body = {
+    model: modelName,
+    system: [{ type: 'text', text: systemText }],
+    messages,
+    stream: true,
+    max_tokens: 32768,
+  };
+  const url = buildApiUrl(baseUrl, 'https://api.anthropic.com/v1', '/messages');
+  const response = await fetchLlmWithRetry(url, {
+    'Content-Type': 'application/json',
+    'x-api-key': apiKey,
+    'anthropic-version': '2023-06-01',
+  }, body, { retryReasonLabel: 'Anthropic', isAborted });
+  if (!response.ok) {
+    const errBody = await response.text().catch(() => '');
+    throw new Error(safeApiError(response, errBody, 'Anthropic API'));
+  }
+  const result = await parseAnthropicStream(response, null, {
+    onToken,
+    onUsage,
+    onDone: () => {}, // 讨论模式自行管理 [DONE]，此处不结束 res
+  });
+  // 无工具调用却被截断 → 抛错（讨论模式不自动续传，交由外层兜底生成 fallback 摘要）
+  if (result.truncated && result.toolCalls.length === 0) {
+    throw new Error('讨论模型流式响应在传输中被截断（可能上游限流或单次响应长度上限）。请重试或稍后分段提问。');
+  }
+  return result.assistantContent;
 }
 
 /**
@@ -194,10 +291,10 @@ async function parseAnthropicStream(response, res) {
  * @param {Function} [broadcastFn] - WebSocket broadcast for metrics
  * @param {import('express').Request} [req] - Incoming request (for client-disconnect detection)
  */
-async function streamAnthropicWithTools(res, messages, apiKey, model, baseUrl, tools, broadcastFn, req) {
+async function streamAnthropicWithTools(res, messages, apiKey, model, baseUrl, tools, broadcastFn, req, maxRounds) {
   const modelName = model || 'claude-sonnet-4-20250514';
   // 每请求隔离标识：用于限流桶归属（P2-3）
-  const requestId = 'chat-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 8);
+  const requestId = `chat-${  Date.now().toString(36)  }-${  Math.random().toString(36).slice(2, 8)}`;
 
   // Convert OpenAI-format tools to Anthropic format
   const anthropicTools = tools ? tools.map(t => ({
@@ -208,11 +305,13 @@ async function streamAnthropicWithTools(res, messages, apiKey, model, baseUrl, t
 
   let currentMessages = [...messages];
   let toolCallCount = 0;
-  const MAX_TOOL_ROUNDS = 50;
+  // 工具轮次上限：默认 50；自检等场景可由调用方收紧（如 6 轮）以砍 LLM 调用数；
+  // 亦可用环境变量 HESI_LLM_MAX_TOOL_ROUNDS 覆盖。
+  const MAX_TOOL_ROUNDS = Number(process.env.HESI_LLM_MAX_TOOL_ROUNDS) || maxRounds || 50;
   // 单次请求「累计工具执行次数」硬上限：防止失控循环在瞬间打满 50 轮
   const MAX_TOTAL_TOOL_CALLS = 120;
   let totalToolCalls = 0;
-  const MAX_TOTAL_DURATION = 300_000; // 放宽到 5 分钟，允许长任务 Agent 完整跑完
+  const MAX_TOTAL_DURATION = MAX_TOTAL_DURATION_MS; // 放宽到 15 分钟，允许长任务 Agent 完整跑完
   const _toolChainStart = Date.now();
   let lastToolSignature = '';
   // 近期工具签名窗口：捕获「参数略有变化但调用模式重复」的循环
@@ -248,6 +347,63 @@ async function streamAnthropicWithTools(res, messages, apiKey, model, baseUrl, t
     res.on('close', onClientClose);
   }
 
+  // ── 单次模型调用封装：fetch + 流式解析，
+  // 内部对「中途断流」按 STREAM_MAX_RETRIES 重试（相同 messages 重发）。
+  // 返回 parseAnthropicStream 的结果（truncated 标记交由外层决定重试或断点续传）。
+  let rateLimited = false; // 命中 429 限流后置位，阻止后续重试/续传挥霍额度
+  async function doModelCall(conversation, systemText) {
+    const body = {
+      model: modelName,
+      messages: conversation,
+      system: systemText || undefined,
+      max_tokens: 32768,
+      stream: true,
+    };
+    if (anthropicTools) {
+      body.tools = anthropicTools;
+    }
+    const url = buildApiUrl(baseUrl, 'https://api.anthropic.com/v1', '/messages');
+    let pr;
+    let streamAttempt = 0;
+    while (true) {
+      if (_aborted) break; // 用户已停止，不再发起新的模型调用
+      let response;
+      try {
+        response = await fetchLlmWithRetry(url, {
+          'Content-Type': 'application/json',
+          'x-api-key': apiKey,
+          'anthropic-version': '2023-06-01',
+        }, body, { res, retryReasonLabel: 'Anthropic', isAborted: () => _aborted });
+      } catch (fetchErr) {
+        // 限流（429）：标记并立即上抛，禁止后续重试/续传挥霍额度
+        if (fetchErr && fetchErr.message && fetchErr.message.startsWith('RATE_LIMIT:')) {
+          rateLimited = true;
+        }
+        throw fetchErr;
+      }
+
+      if (!response.ok) {
+        const errBody = await response.text();
+        throw new Error(safeApiError(response, errBody, 'Anthropic API'));
+      }
+
+      const parsed = await parseAnthropicStream(response, res);
+      // 截断：在重试次数内则重发同一请求（上游可能已恢复）；否则返回 truncated 交外层
+      if (rateLimited) {
+        throw new Error('RATE_LIMIT: 疑似上游限流（429），已停止重试以免挥霍额度。请稍后重试或升级套餐。');
+      }
+      if (parsed.truncated && streamAttempt < STREAM_MAX_RETRIES) {
+        streamAttempt++;
+        res.write(`data: ${JSON.stringify({ type: 'status', message: `↻ 连接中断，正在重试（第 ${streamAttempt} 次）…` })}\n\n`);
+        if (_aborted) break;
+        continue;
+      }
+      pr = parsed;
+      break;
+    }
+    return pr;
+  }
+
   try {
 
   while (toolCallCount < MAX_TOOL_ROUNDS) {
@@ -256,7 +412,7 @@ async function streamAnthropicWithTools(res, messages, apiKey, model, baseUrl, t
       break;
     }
     if (Date.now() - _toolChainStart > MAX_TOTAL_DURATION) {
-      res.write(`data: ${JSON.stringify({ type: 'status', message: '工具调用总超时（5 分钟），停止继续调用' })}\n\n`);
+      res.write(`data: ${JSON.stringify({ type: 'status', message: '工具调用总超时（15 分钟），停止继续调用' })}\n\n`);
       res.write('data: [DONE]\n\n');
       res.end();
       return;
@@ -272,38 +428,47 @@ async function streamAnthropicWithTools(res, messages, apiKey, model, baseUrl, t
 
     const systemMsg = currentMessages.find(m => m.role === 'system');
     const conversation = buildAnthropicConversation(currentMessages);
+    const systemText = systemMsg?.content || undefined;
 
-    const body = {
-      model: modelName,
-      messages: conversation,
-      system: systemMsg?.content || undefined,
-      max_tokens: 16384,
-      stream: true,
-    };
+    // ── 本轮：fetch + 流式解析（内部对中途断流按 STREAM_MAX_RETRIES 重试）──
+    let parseResult = await doModelCall(conversation, systemText);
 
-    if (anthropicTools) {
-      body.tools = anthropicTools;
+    if (_aborted) {
+      console.log('[chat] client disconnected (stop), aborting stream');
+      break;
     }
 
-    const url = buildApiUrl(baseUrl, 'https://api.anthropic.com/v1', '/messages');
-
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-      },
-      body: JSON.stringify(body),
-      signal: AbortSignal.timeout(API_FETCH_TIMEOUT_MS),
-    });
-
-    if (!response.ok) {
-      const errBody = await response.text();
-      throw new Error(safeApiError(response, errBody, 'Anthropic API'));
+    // 最终回答（无工具调用）在传输途中被截断 → 「断点续传」：
+    // 把已收到的半截内容回灌为 assistant 消息 + 一条「请从中断处继续」的 user 消息，
+    // 重新请求模型，多段拼成完整回答。专门破解上游(apihub 等代理)对单次响应的
+    // 长度/时长上限——这种确定性截断靠「相同请求重试」永远在同一处失败，必须续传。
+    if (parseResult.truncated && parseResult.toolCalls.length === 0) {
+      if (rateLimited) {
+        throw new Error('RATE_LIMIT: 疑似上游限流（429），已停止续传以免挥霍额度。请稍后重试或升级套餐。');
+      }
+      let cont = 0;
+      while (parseResult.truncated && parseResult.toolCalls.length === 0 && cont < CONTINUE_ROUNDS) {
+        cont++;
+        res.write(`data: ${JSON.stringify({ type: 'status', message: `↻ 回复在传输中被截断，正在续传（第 ${cont} 次）…` })}\n\n`);
+        currentMessages.push({ role: 'assistant', content: parseResult.assistantContent || '' });
+        currentMessages.push({
+          role: 'user',
+          content: '（你的上一段回复在传输途中被截断，请从中断处无缝继续，不要重复已输出的内容，直接接着写。）',
+        });
+        const conv = buildAnthropicConversation(currentMessages);
+        const sys = currentMessages.find(m => m.role === 'system')?.content || undefined;
+        parseResult = await doModelCall(conv, sys);
+        if (_aborted) break;
+      }
+      if (parseResult.truncated && parseResult.toolCalls.length === 0) {
+        throw new Error(`回复在续传 ${CONTINUE_ROUNDS} 次后仍被上游截断。可能是上游对单次响应有长度/时长上限（或免费额度限流），建议把任务拆小或分段提问，稍后重试。`);
+      }
+    } else if (parseResult.truncated && parseResult.toolCalls.length > 0) {
+      // 工具轮次被截断（罕见）→ 保持原行为：相同请求重试已耗尽，抛可见错误
+      throw new Error(`模型流式响应在重试用尽后仍被中断（已重试 ${STREAM_MAX_RETRIES} 次）。可能是网络不稳定、上游服务中断，或免费额度限流（429）。`);
     }
 
-    const { toolCalls, assistantBlocks, usage } = await parseAnthropicStream(response, res);
+    const { toolCalls, assistantBlocks, usage } = parseResult;
 
     // 注意：usage 已由 parseAnthropicStream 在「无工具调用」终态分支中
     // 写入并紧接着 res.end()；此处不能再写，否则会出现「end 之后继续 write」，
@@ -376,6 +541,7 @@ async function streamAnthropicWithTools(res, messages, apiKey, model, baseUrl, t
         durMs: tcDur,
         truncated: result && result.length > 500,
         error: tcError || undefined,
+        result: capToolResultPreview(result),
       })}\n\n`);
 
       toolResultBlocks.push({
@@ -398,6 +564,8 @@ async function streamAnthropicWithTools(res, messages, apiKey, model, baseUrl, t
     toolRateLimiter.reset(requestId);
     currentMessages = pruneToolContext(currentMessages);
     currentMessages = trimHistory(currentMessages);
+    // ── A 方案：封顶旧工具轮上下文，破「上下文雪球」几何增长（治本 429）──
+    currentMessages = capToolRounds(currentMessages);
   }
 
   // 仅当真正达到轮次硬上限才提示；被中断(_aborted)时由 finally 静默补 [DONE]，
@@ -427,5 +595,6 @@ async function streamAnthropicWithTools(res, messages, apiKey, model, baseUrl, t
 module.exports = {
   streamAnthropicWithTools,
   parseAnthropicStream,
+  streamAnthropicCore,
   buildAnthropicConversation,
 };
