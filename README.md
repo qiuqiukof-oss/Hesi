@@ -418,6 +418,10 @@ npm run build
 Hesi 本质上是一个 **本地优先（local-first）** 的终端/浏览器中枢：它通过 WebSocket
 执行任意命令、通过 CDP 控制浏览器。因此默认配置以「最小暴露面」为原则，开箱即用偏安全。
 
+### 关于 `npm audit` 警告
+
+`npm install` 后 `npm audit` 可能报告若干漏洞（含一个 `@hono/node-server` 的 moderate）。这些来自 **`@modelcontextprotocol/sdk` 的间接依赖**，Hesi 自身使用 **Express** 服务器，**不调用 Hono 的 `serve-static`**；且服务**仅监听本机回环**，不暴露公网。因此该路径为未被调用的死代码，**对本地部署无实际影响**，属供应链层面的误报，无需处理。其余可直接修复的漏洞已通过 `npm audit fix`（非 `--force`）升级到兼容版本。
+
 ### 默认安全姿态（开箱即用）
 
 | 项 | 默认行为 |

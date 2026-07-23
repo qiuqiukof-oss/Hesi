@@ -401,6 +401,10 @@ npm run build
 
 Hesi is fundamentally a **local-first** terminal/browser hub: it executes arbitrary commands over WebSocket and controls browsers via CDP. The default configuration therefore follows a "minimum exposure surface" principle — secure out of the box.
 
+### On `npm audit` Warnings
+
+After `npm install`, `npm audit` may report some vulnerabilities (including a moderate in `@hono/node-server`). These come from an **indirect dependency of `@modelcontextprotocol/sdk`**; Hesi itself uses an **Express** server and **does not call Hono's `serve-static`**. The service also **binds to loopback only**, never exposed to the public network. That path is therefore dead code and has **no practical impact on local deployments** — it is a supply-chain false positive and can be ignored. Other directly fixable vulnerabilities have been upgraded to compatible versions via `npm audit fix` (without `--force`).
+
 ### Default Security Posture (Out of the Box)
 
 | Item | Default Behavior |

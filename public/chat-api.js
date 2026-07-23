@@ -13,30 +13,28 @@ const AI_KEY = 'qcli-ai-key';
 
 export const ChatAPI = {
     // ── API Key Management ──
-    // The API key is a secret, so it lives in sessionStorage (per-tab, cleared
-    // when the tab/browser closes) rather than localStorage (persisted on disk
-    // indefinitely). A one-time migration lifts any pre-existing localStorage
-    // key into sessionStorage so existing users don't have to re-enter it.
+    // Hesi runs locally on loopback only, so the API key is persisted in
+    // localStorage (survives browser restart) instead of sessionStorage
+    // (cleared on close). A one-time migration lifts any key left in
+    // sessionStorage into localStorage so an already-entered key isn't lost.
 
-    /** Get stored API key (sessionStorage, with legacy localStorage migration) */
+    /** Get stored API key (localStorage, with sessionStorage migration) */
     getApiKey() {
+      const fromStorage = safeStorage.get(AI_KEY, '');
+      if (fromStorage) return fromStorage;
       const fromSession = safeSession.get(AI_KEY, '');
-      if (fromSession) return fromSession;
-      const legacy = safeStorage.get(AI_KEY, '');
-      if (legacy) {
-        // Migrate off persistent storage: copy to session, purge the disk copy.
-        safeSession.set(AI_KEY, legacy);
-        safeStorage.remove(AI_KEY);
-        return legacy;
+      if (fromSession) {
+        safeStorage.set(AI_KEY, fromSession);
+        safeSession.remove(AI_KEY);
+        return fromSession;
       }
       return '';
     },
 
-    /** Store API key in sessionStorage (never persisted to localStorage) */
+    /** Store API key in localStorage (persisted across browser restarts) */
     setApiKey(key) {
-      safeSession.set(AI_KEY, key);
-      // Ensure no stale persisted copy lingers from an older build.
-      safeStorage.remove(AI_KEY);
+      safeStorage.set(AI_KEY, key);
+      safeSession.remove(AI_KEY);
     },
 
     /** Get stored provider */
