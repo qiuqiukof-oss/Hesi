@@ -31,6 +31,7 @@ server-test.log
 
 # ===== Scratch / dev artifacts (not part of the shipped product) =====
 cmd.exe.lnk
+.tmp-memtest/
 
 # ===== OS junk =====
 .DS_Store
