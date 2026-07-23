@@ -119,10 +119,11 @@
 ### 🤖 AI Integration
 
 - **Multiple providers** — OpenAI, Anthropic, LM Studio (local models)
-- **SSE streaming** — structured event types (token/status/error/tool_call/usage), 60s timeout protection
+- **SSE streaming** — structured event types (token/status/error/tool_call/usage), 120s idle timeout protection (configurable via `HESI_LLM_STREAM_IDLE_MS`)
 - **Terminal context awareness** — auto-captures the latest 100 lines of terminal output as the system message
 - **Incremental context trimming** — only sends changed delta lines to save tokens
-- **Tool-call chains** — consecutive tool calls include loop detection (cycle detection + windowed dedupe + hard cap) to prevent "instantly hitting the limit" runaway
+- **Tool-call chains** — consecutive tool calls include loop detection (cycle detection + windowed dedupe + hard cap) to prevent "instantly hitting the limit" runaway; a live "deep thinking" panel renders per-tool cards (running → done-with-duration + result preview, XSS-safe)
+- **Lightweight self-check** — detects "全面自检 / 自检" (full self-check) intent and caps tool rounds to 6, cutting redundant LLM calls
 - **Tool set** — file read/write, web search, terminal execution, document conversion, image/video generation
 - **Browser control tools** — navigation, screenshots, clicks, input, JS execution, DOM snapshots, form filling
 - **Self-evolution** — can read/modify its own source, rebuild the frontend, screenshot to inspect the UI
@@ -435,6 +436,16 @@ Hesi is fundamentally a **local-first** terminal/browser hub: it executes arbitr
 ## License
 
 MIT License — see [LICENSE](./LICENSE) for details.
+
+## Badges
+
+> Placeholder badges below — replace with real CI / version / download links.
+
+[![CI](https://img.shields.io/badge/CI-passing-brightgreen?style=flat)](https://github.com/qiuqiukof-oss/Hesi/actions)
+[![Version](https://img.shields.io/badge/version-0.2.1-blue.svg)](https://github.com/qiuqiukof-oss/Hesi/releases)
+[![License](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
+[![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey)](https://github.com/qiuqiukof-oss/Hesi)
+[![Stars](https://img.shields.io/badge/stars-%E2%98%85%20your__stars__here-yellow?style=flat)](https://github.com/qiuqiukof-oss/Hesi/stargazers)
 
 <p align="center">
   <sub>Built with ❤️ by Hesi Contributors</sub>
