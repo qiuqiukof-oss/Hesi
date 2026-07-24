@@ -146,19 +146,19 @@
 .cli-item {
   display: flex;
   align-items: center;
-  gap: var(--radius-md);
-  padding: 5px var(--space-2);
-  border-radius: var(--radius-md);
+  gap: var(--radius-sm);
+  padding: 3px var(--space-2);
+  border-radius: var(--radius-sm);
   cursor: pointer;
   transition: all 0.18s var(--ease-out);
-  font-size: 12px;
-  line-height: 1.3;
+  font-size: 11px;
+  line-height: 1.25;
   color: var(--text-secondary);
   position: relative;
   border: 1px solid transparent;
   background: transparent;
   content-visibility: auto;
-  contain-intrinsic-size: 36px;
+  contain-intrinsic-size: 28px;
 }
 
 .cli-item:hover {
@@ -210,9 +210,9 @@
 }
 
 .cli-icon {
-  width: 18px;
+  width: 16px;
   text-align: center;
-  font-size: 13px;
+  font-size: 12px;
   flex-shrink: 0;
   line-height: 1;
 }
@@ -228,11 +228,11 @@
 
 .cli-name {
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: 11px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  line-height: 1.4;
+  line-height: 1.3;
 }
 
 .cli-version {
