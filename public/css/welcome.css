@@ -57,19 +57,19 @@
   font-size: 56px;
   margin-bottom: 12px;
   display: inline-block;
-  filter: drop-shadow(0 0 20px rgba(6, 182, 212, 0.35));
+  filter: drop-shadow(0 0 28px rgba(6, 182, 212, 0.35));
   animation: welcome-float 4s var(--ease-in-out) infinite;
 }
 
 .welcome-logo img {
-  width: 72px;
-  height: 72px;
-  border-radius: 14px;
+  width: 144px;
+  height: 144px;
+  border-radius: 24px;
 }
 
 @keyframes welcome-float {
-  0%, 100% { transform: translateY(0); filter: drop-shadow(0 0 20px rgba(6, 182, 212, 0.35)); }
-  50% { transform: translateY(-4px); filter: drop-shadow(0 0 30px rgba(6, 182, 212, 0.55)); }
+  0%, 100% { transform: translateY(0); filter: drop-shadow(0 0 28px rgba(6, 182, 212, 0.35)); }
+  50% { transform: translateY(-4px); filter: drop-shadow(0 0 40px rgba(6, 182, 212, 0.55)); }
 }
 
 .welcome-header h2 {
