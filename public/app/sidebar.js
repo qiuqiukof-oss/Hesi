@@ -721,19 +721,6 @@ function initSidebar() {
   // Init tools section
   initToolsSection();
 
-  // Workflow section collapse toggle (persisted)
-  const wfHeader = document.querySelector('.workflow-header');
-  const wfSection = document.getElementById('workflow-section');
-  if (wfSection && safeStorage.get('qcli-workflow-collapsed') === '1') {
-    wfSection.classList.add('collapsed');
-  }
-  if (wfHeader && wfSection) {
-    wfHeader.addEventListener('click', () => {
-      wfSection.classList.toggle('collapsed');
-      safeStorage.set('qcli-workflow-collapsed', wfSection.classList.contains('collapsed') ? '1' : '0');
-    });
-  }
-
   // Search input
   if (dom.searchInput) {
     dom.searchInput.addEventListener('input', () => {

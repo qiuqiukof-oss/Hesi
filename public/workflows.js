@@ -31,9 +31,11 @@ const Q = /** @type {QCLI} */ (window.QCLI = window.QCLI || {});
     }
   }
 
-  // ── Render workflow list in sidebar ──
+  // ── Render workflow list in right-panel container ──
+  let rpContainer = null; // right-panel render target
+
   function renderWorkflowList() {
-    const container = document.getElementById('workflow-list');
+    const container = rpContainer || document.getElementById('workflow-list');
     if (!container) return;
 
     container.innerHTML = '';
@@ -43,51 +45,76 @@ const Q = /** @type {QCLI} */ (window.QCLI = window.QCLI || {});
       return;
     }
 
+    // Header card
+    const header = document.createElement('div');
+    header.className = 'wfp-header';
+    header.innerHTML = `
+      <span class="wfp-header-icon">⚡</span>
+      <span class="wfp-header-title">工作流</span>
+      <span class="wfp-header-count">${workflows.list.length}</span>
+    `;
+    container.appendChild(header);
+
+    // List container
+    const list = document.createElement('div');
+    list.className = 'wfp-list';
+    container.appendChild(list);
+
     for (const wf of workflows.list) {
       const el = document.createElement('div');
-      el.className = 'workflow-item';
+      el.className = 'wfp-item';
       el.dataset.wfId = wf.id;
 
-      // Strip leading emoji from display name (icon span shows it separately)
+      // Strip leading emoji from display name
       const displayName = (wf.name || '').replace(/^[\p{Emoji_Presentation}\p{Extended_Pictographic}]\s*/u, '').trim() || wf.name;
 
-      // Hover tooltip = description
+      // Hover tooltip
       el.title = wf.description || displayName;
 
-      // Icon
-      const icon = document.createElement('span');
-      icon.className = 'workflow-item-icon';
-      icon.textContent = wf.icon || '⚡';
-      el.appendChild(icon);
+      // Left: icon + name
+      const left = document.createElement('div');
+      left.className = 'wfp-left';
+      left.innerHTML = `<span class="wfp-icon">${wf.icon || '⚡'}</span><span class="wfp-name">${displayName}</span>`;
+      el.appendChild(left);
 
-      // Name (no duplicate emoji)
-      const name = document.createElement('div');
-      name.className = 'workflow-item-name';
-      name.textContent = displayName;
-      el.appendChild(name);
+      // Right: badges
+      const right = document.createElement('div');
+      right.className = 'wfp-badges';
 
-      // Steps count badge
-      const badge = document.createElement('span');
-      badge.className = 'workflow-step-badge';
+      // Steps / DAG badge
+      const stepBadge = document.createElement('span');
+      stepBadge.className = 'wfp-badge steps';
       if (wf.tasks && Array.isArray(wf.tasks) && wf.tasks.length > 0) {
-        badge.textContent = 'DAG';
-        badge.classList.add('dag');
+        stepBadge.textContent = 'DAG';
+        stepBadge.classList.add('dag');
         el.dataset.dag = '1';
       } else {
-        badge.textContent = `${wf.steps.length} steps`;
+        stepBadge.textContent = `${wf.steps.length} 步`;
       }
-      el.appendChild(badge);
+      right.appendChild(stepBadge);
 
-      // Check if this workflow is currently running
+      // Category-style badge (sequential vs parallel)
+      const catBadge = document.createElement('span');
+      catBadge.className = 'wfp-badge cat';
+      if (wf.tasks && Array.isArray(wf.tasks) && wf.tasks.length > 0) {
+        catBadge.textContent = '并行';
+        catBadge.classList.add('parallel');
+      } else {
+        catBadge.textContent = '顺序';
+        catBadge.classList.add('sequential');
+      }
+      right.appendChild(catBadge);
+
+      el.appendChild(right);
+
+      // Running indicator
       const isActive = workflows.active && workflows.active.id === wf.id && workflows.active.status === 'running';
       if (isActive) el.classList.add('running');
 
-      // Click to run (with variable input support)
-      el.addEventListener('click', () => {
-        handleWorkflowClick(wf);
-      });
+      // Click to run
+      el.addEventListener('click', () => { handleWorkflowClick(wf); });
 
-      container.appendChild(el);
+      list.appendChild(el);
     }
   }
 
@@ -730,7 +757,26 @@ const Q = /** @type {QCLI} */ (window.QCLI = window.QCLI || {});
     el._timer = setTimeout(() => el.classList.remove('visible'), 3000);
   }
 
-  // ── Wire up ──
+  // ── Wire up & Register as Right-Panel Tab ──
+  function register() {
+    const UIR = Q.UIRegistry;
+    if (!UIR) { setTimeout(register, 300); return; }
+
+    UIR.registerTab('workflows', {
+      icon: '⚡',
+      label: '工作流',
+      category: 'other',
+      order: 45,
+      render: (container) => {
+        rpContainer = container;
+        loadWorkflows();
+      },
+    });
+
+    console.log('[Workflows] Panel registered as right-panel tab');
+  }
+  register();
+
   export const Workflows = {
     loadWorkflows,
     renderWorkflowList,
