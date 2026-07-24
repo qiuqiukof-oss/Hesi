@@ -38,7 +38,7 @@ import { escapeHtml } from '../escape.js';
           <div style="font-size:11px;font-weight:600;color:var(--text-secondary);margin-bottom:6px;">📥 导入 CLI</div>
           <div style="font-size:10px;color:var(--text-tertiary);margin-bottom:8px;">上传 JSON 配置文件导入 CLI（支持导出格式及简易格式）</div>
           <div style="display:flex;gap:6px;">
-            <input type="file" id="cli-imp-file-input" accept=".json" style="display:none;" />
+            <input type="file" id="cli-imp-file-input" accept=".json" style="display:none;" aria-label="选择 CLI 导入文件" />
             <button id="cli-imp-choose-file" style="padding:3px 10px;border-radius:4px;border:1px solid var(--border-default);background:var(--bg-hover);color:var(--text-secondary);font-size:10px;cursor:pointer;">📂 选择文件</button>
             <span id="cli-imp-file-name" style="font-size:10px;color:var(--text-tertiary);align-self:center;">未选择文件</span>
           </div>
@@ -245,7 +245,7 @@ import { escapeHtml } from '../escape.js';
     category: "tools",
       icon: '📦',
       label: 'CLI 批量',
-      order: 36,
+      order: 11,
       render: render,
     });
   }

@@ -206,7 +206,7 @@ function init(container) {
     icon: '📝',
     label: '表单填表',
     category: 'tools',
-    order: 70,
+    order: 23,
     render: (container) => init(container),
   });
 

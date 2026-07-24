@@ -190,7 +190,7 @@ import { escapeHtml } from '../escape.js';
     category: "tools",
       icon: '📦',
       label: 'CLI 安装',
-      order: 37,
+      order: 12,
       render: render,
     });
   }

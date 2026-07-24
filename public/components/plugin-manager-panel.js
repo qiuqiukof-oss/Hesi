@@ -1198,7 +1198,7 @@ window.PMANAGER = PMANAGER;
     category: "plugin",
     icon: '🔌',
     label: '插件',
-    order: 5,
+    order: 30,
     render: function(container) {
       container.innerHTML = '<div id="rp-plugin-manager" style="height:100%;"></div>';
       // Load plugins after DOM is ready

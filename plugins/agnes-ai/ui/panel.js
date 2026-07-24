@@ -18,8 +18,8 @@
   Q.UIRegistry.registerTab('agnes-ai', {
     icon: '🎬',
     label: 'Agnes 创作',
-    category: 'media',
-    order: 10,
+    category: 'monitor',
+    order: 2,
     render: function (container) {
       container.innerHTML =
         '<div class="agnes-plugin-wrap">' +

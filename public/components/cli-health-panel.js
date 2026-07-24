@@ -236,7 +236,7 @@
     category: "tools",
       icon: '🩺',
       label: 'CLI 健康',
-      order: 35,
+      order: 10,
       render: render,
     });
   }

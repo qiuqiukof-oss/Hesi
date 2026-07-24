@@ -263,7 +263,7 @@ function showVarModal(wfDef) {
     let err = false;
     for (const key of keys) {
       const input = el('orch-var-' + key);
-      let val = input ? input.value.trim() : '';
+      const val = input ? input.value.trim() : '';
       if (vars[key].required && !val) { err = true; input?.focus(); Q.showToast?.('请填写：' + (vars[key].label || key), 'error'); break; }
       values[key] = val || vars[key].default || '';
     }
@@ -1016,7 +1016,7 @@ function init() {
     const ok = Q.UIRegistry.registerTab('orchestrator', {
       icon: '🎛',
       label: '编排',
-      order: 1,
+      order: 3,
       category: 'digital',
       render: function (container) { render(container); },
     });

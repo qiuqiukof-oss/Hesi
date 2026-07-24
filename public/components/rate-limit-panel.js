@@ -230,7 +230,7 @@ async function doRefresh() {
     category: "plugin",
     icon: '🚦',
     label: '限流',
-    order: 44,
+    order: 31,
     render: function(container) {
       render(container);
     },

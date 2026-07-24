@@ -371,8 +371,8 @@ function init(container) {
   container.innerHTML = `
     <div class="bs-panel">
       <div class="bs-search-bar">
-        <input type="text" class="bs-search-input" id="bs-search-input" 
-               placeholder="🔍 搜索脚本..." >
+        <input type="text" class="bs-search-input" id="bs-search-input"
+               placeholder="🔍 搜索脚本..." aria-label="搜索脚本" >
       </div>
       <div class="bs-list" id="bs-list">
         <div class="bs-empty">加载中...</div>
@@ -424,7 +424,7 @@ function init(container) {
     category: "tools",
     icon: '📜',
     label: '浏览器脚本',
-    order: 50,
+    order: 20,
     render: (container) => init(container),
   });
 

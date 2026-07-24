@@ -286,7 +286,7 @@ function exportHAR() {
  */
 function entryToHarEntry(e) {
   // 解析 URL 获取查询参数
-  let queryString = [];
+  const queryString = [];
   try {
     const parsed = new URL(e.url);
     parsed.searchParams.forEach((value, name) => {
@@ -480,7 +480,7 @@ function init(container) {
           <button class="nm-type-btn" data-type="fetch">Fetch</button>
           <button class="nm-type-btn" data-type="xhr">XHR</button>
         </div>
-        <input type="text" class="nm-filter-input" id="nm-filter-input" placeholder="🔍 过滤 URL..." />
+        <input type="text" class="nm-filter-input" id="nm-filter-input" placeholder="🔍 过滤 URL..." aria-label="过滤网络请求" />
       </div>
       <div class="nm-stats-bar" id="nm-stats-bar">
         <span class="nm-stat">暂无数据</span>
@@ -561,7 +561,7 @@ function init(container) {
     category: "monitor",
     icon: '🌐',
     label: '网络监控',
-    order: 55,
+    order: 40,
     render: (container) => init(container),
   });
 

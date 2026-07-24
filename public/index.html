@@ -54,7 +54,7 @@
     </header>
 
     <div id="search-area">
-      <input type="text" id="search-input" placeholder="🔍  Search CLIs..." autocomplete="off" />
+      <input type="text" id="search-input" placeholder="🔍  Search CLIs..." autocomplete="off" aria-label="搜索 CLI" />
       <button id="discover-btn" class="icon-btn" title="Re-discover CLIs from PATH">⟳</button>
       <button id="add-folder-btn" class="icon-btn" title="New folder">📁+</button>
     </div>
@@ -210,7 +210,7 @@
       <div id="terminal-search-bar" class="hidden">
         <div class="tsb-wrap">
           <span class="tsb-icon">🔍</span>
-          <input type="text" id="terminal-search-input" placeholder="Search terminal output…" spellcheck="false" />
+          <input type="text" id="terminal-search-input" placeholder="Search terminal output…" spellcheck="false" aria-label="搜索终端输出" />
           <span id="terminal-search-results" class="tsb-results">0/0</span>
           <button class="tsb-btn" id="terminal-search-prev" title="Previous (Shift+Enter)">▲</button>
           <button class="tsb-btn" id="terminal-search-next" title="Next (Enter)">▼</button>
@@ -526,7 +526,7 @@
           </div>
           <div class="tc-color-row">
             <input type="color" id="tc-inner-bg" value="#0d0e10" />
-            <input type="range" id="tc-inner-alpha" min="30" max="100" value="85" class="tc-alpha-slider" />
+            <input type="range" id="tc-inner-alpha" min="30" max="100" value="85" class="tc-alpha-slider" aria-label="主题透明度" />
             <span class="tc-alpha-label">透明度</span>
           </div>
         </div>
@@ -601,7 +601,7 @@
             <label>Executable</label>
             <div class="browse-input">
               <button type="button" id="browse-cli-btn" class="secondary-btn">Browse…</button>
-              <input type="file" id="file-input" accept=".exe,.cmd,.bat,.com,.ps1" hidden />
+              <input type="file" id="file-input" accept=".exe,.cmd,.bat,.com,.ps1" hidden aria-label="选择可执行文件" />
               <span id="selected-file" class="file-label hidden">No file selected</span>
             </div>
           </div>
@@ -669,7 +669,7 @@
   <div id="cp-overlay" class="hidden">
     <div id="command-palette">
       <div class="cp-header">
-        <input type="text" id="cp-input" data-i18n-placeholder="palette.shortcutHint" autocomplete="off" spellcheck="false" />
+        <input type="text" id="cp-input" data-i18n-placeholder="palette.shortcutHint" autocomplete="off" spellcheck="false" aria-label="命令面板搜索" />
         <kbd class="cp-shortcut-hint">Ctrl+K</kbd>
       </div>
       <div id="cp-results">
@@ -739,7 +739,7 @@
       <div class="history-panel-header">
         <span class="history-panel-icon">📜</span>
         <span class="history-panel-title">全局命令历史</span>
-        <input type="text" id="history-search-input" placeholder="🔍 搜索历史命令..." autocomplete="off" />
+        <input type="text" id="history-search-input" placeholder="🔍 搜索历史命令..." autocomplete="off" aria-label="搜索历史命令" />
         <span class="history-panel-count" id="history-count"></span>
         <button id="history-clear-btn" class="history-clear-btn" title="清除所有历史">🗑</button>
         <button id="history-close-btn" class="history-close-btn" title="关闭 (Esc)">✕</button>
@@ -755,7 +755,7 @@
       <div class="global-search-header">
         <span class="global-search-icon">🔍</span>
         <span class="global-search-title">全局搜索</span>
-        <input type="text" id="global-search-input" placeholder="跨所有终端搜索..." autocomplete="off" spellcheck="false" />
+        <input type="text" id="global-search-input" placeholder="跨所有终端搜索..." autocomplete="off" spellcheck="false" aria-label="全局搜索" />
         <span class="global-search-count" id="global-search-count"></span>
         <button id="global-search-close-btn" class="history-close-btn" title="关闭 (Esc)">✕</button>
       </div>

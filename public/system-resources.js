@@ -60,7 +60,7 @@ function init() {
   const ok = Q.UIRegistry.registerTab('sys-resources', {
     icon: '🖥️',
     label: '系统资源',
-    order: 5,
+    order: 1,
     category: 'monitor',
     render: function(container) {
       renderTab(container);
@@ -79,8 +79,8 @@ function init() {
       });
     }
     // Also listen for history updates to auto-refresh
-    var checkInterval = setInterval(function() {
-      var panel = document.getElementById('rp-sys-resources');
+    const checkInterval = setInterval(function() {
+      const panel = document.getElementById('rp-sys-resources');
       if (panel && panel.classList.contains('active')) {
         refreshCharts();
         refreshTable();
@@ -105,7 +105,7 @@ function renderTab(container) {
         '<div class="dash-section-title">📊 运行摘要</div>' +
         '<div class="sr-summary-grid" id="sr-summary-grid">' +
           METRIC_KEYS.map(function(key) {
-            var m = METRIC_COLORS[key];
+            const m = METRIC_COLORS[key];
             return '<div class="sr-summary-card" style="border-left:3px solid ' + m.line + '">' +
               '<div class="sr-summary-icon">' + m.icon + '</div>' +
               '<div class="sr-summary-body">' +
@@ -123,7 +123,7 @@ function renderTab(container) {
         '<div class="dash-section-title">📈 趋势图表</div>' +
         '<div class="sr-charts-grid" id="sr-charts-grid">' +
           METRIC_KEYS.map(function(key) {
-            var m = METRIC_COLORS[key];
+            const m = METRIC_COLORS[key];
             return '<div class="dash-card sr-chart-card">' +
               '<div class="dash-card-header">' +
                 '<span class="dash-card-icon">' + m.icon + '</span>' +
@@ -177,7 +177,7 @@ function renderTab(container) {
   refreshTable();
 
   // Wire up CSV export
-  var exportBtn = container.querySelector('#sr-export-csv');
+  const exportBtn = container.querySelector('#sr-export-csv');
   if (exportBtn) {
     exportBtn.addEventListener('click', exportCSV);
   }
@@ -187,12 +187,12 @@ function renderTab(container) {
 // Summary Cards
 // ============================================================
 function refreshSummary() {
-  var now = Date.now();
+  const now = Date.now();
 
   METRIC_KEYS.forEach(function(key) {
-    var data = _getHistory(key);
-    var curEl = document.getElementById('sr-cur-' + key);
-    var statsEl = document.getElementById('sr-stats-' + key);
+    const data = _getHistory(key);
+    const curEl = document.getElementById('sr-cur-' + key);
+    const statsEl = document.getElementById('sr-stats-' + key);
     if (!curEl || !statsEl) return;
 
     if (data.length === 0) {
@@ -201,17 +201,17 @@ function refreshSummary() {
       return;
     }
 
-    var values = data.map(function(d) { return d.v; });
-    var current = values[values.length - 1];
-    var minVal = Math.min.apply(null, values);
-    var maxVal = Math.max.apply(null, values);
-    var avgVal = values.reduce(function(s, v) { return s + v; }, 0) / values.length;
+    const values = data.map(function(d) { return d.v; });
+    const current = values[values.length - 1];
+    const minVal = Math.min.apply(null, values);
+    const maxVal = Math.max.apply(null, values);
+    const avgVal = values.reduce(function(s, v) { return s + v; }, 0) / values.length;
 
-    var m = METRIC_COLORS[key];
+    const m = METRIC_COLORS[key];
     curEl.textContent = formatMetricValue(current, key) + ' ' + m.unit;
 
     // Also update chart badge
-    var badge = document.getElementById('sr-chart-badge-' + key);
+    const badge = document.getElementById('sr-chart-badge-' + key);
     if (badge) {
       badge.textContent = formatMetricValue(current, key) + ' ' + m.unit;
     }
@@ -228,32 +228,32 @@ function refreshSummary() {
 // ============================================================
 function refreshCharts() {
   METRIC_KEYS.forEach(function(key) {
-    var canvas = document.getElementById('sr-chart-' + key);
+    const canvas = document.getElementById('sr-chart-' + key);
     if (!canvas) return;
 
-    var data = _getHistory(key);
+    const data = _getHistory(key);
     if (data.length < 2) {
       // Show empty state on canvas
-      var ctx = canvas.getContext('2d');
+      const ctx = canvas.getContext('2d');
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       return;
     }
 
     // Resize canvas to container
-    var wrap = canvas.parentElement;
+    const wrap = canvas.parentElement;
     if (wrap && wrap.clientWidth > 0 && canvas.clientWidth !== wrap.clientWidth) {
       canvas.style.width = wrap.clientWidth + 'px';
       canvas.style.height = '120px';
     }
 
-    var values = data.map(function(d) { return d.v; });
-    var labels = data.map(function(d) {
-      var secs = Math.round((Date.now() - d.t) / 1000);
+    const values = data.map(function(d) { return d.v; });
+    const labels = data.map(function(d) {
+      const secs = Math.round((Date.now() - d.t) / 1000);
       if (secs < 60) return secs + 's前';
       return Math.floor(secs / 60) + 'm前';
     });
 
-    var m = METRIC_COLORS[key];
+    const m = METRIC_COLORS[key];
 
     // Use ChartCore.Chart if available
     if (Q.ChartCore && Q.ChartCore.Chart) {
@@ -265,7 +265,7 @@ function refreshCharts() {
         _charts[key] = null;
       }
 
-      var chart = new Q.ChartCore.Chart({
+      const chart = new Q.ChartCore.Chart({
         canvas: canvas,
         type: 'area',
         data: {
@@ -304,22 +304,22 @@ function refreshCharts() {
 function drawSimpleChart(canvas, data, lineColor, key) {
   canvas.width = canvas.parentElement.clientWidth || 300;
   canvas.height = 120;
-  var ctx = canvas.getContext('2d');
-  var w = canvas.width;
-  var h = canvas.height;
+  const ctx = canvas.getContext('2d');
+  const w = canvas.width;
+  const h = canvas.height;
   ctx.clearRect(0, 0, w, h);
 
-  var values = data.map(function(d) { return d.v; });
-  var minVal = Math.min.apply(null, values);
-  var maxVal = Math.max.apply(null, values);
-  var range = maxVal - minVal || 1;
-  var padX = 4, padY = 4;
-  var chartW = w - padX * 2;
-  var chartH = h - padY * 2;
+  const values = data.map(function(d) { return d.v; });
+  const minVal = Math.min.apply(null, values);
+  const maxVal = Math.max.apply(null, values);
+  const range = maxVal - minVal || 1;
+  const padX = 4, padY = 4;
+  const chartW = w - padX * 2;
+  const chartH = h - padY * 2;
   function yPos(v) { return padY + (1 - (v - minVal) / range) * chartH; }
 
-  var points = data.slice(-60);
-  var stepX = points.length > 1 ? chartW / (points.length - 1) : chartW;
+  const points = data.slice(-60);
+  const stepX = points.length > 1 ? chartW / (points.length - 1) : chartW;
 
   // Area fill
   ctx.beginPath();
@@ -329,7 +329,7 @@ function drawSimpleChart(canvas, data, lineColor, key) {
   }
   ctx.lineTo(padX + (points.length - 1) * stepX, chartH + padY);
   ctx.closePath();
-  var rgba = Q.ChartCore && Q.ChartCore.parseHexToRgba ? Q.ChartCore.parseHexToRgba(lineColor, 0.1) : null;
+  const rgba = Q.ChartCore && Q.ChartCore.parseHexToRgba ? Q.ChartCore.parseHexToRgba(lineColor, 0.1) : null;
   ctx.fillStyle = rgba || (lineColor + '1A');
   ctx.fill();
 
@@ -338,15 +338,15 @@ function drawSimpleChart(canvas, data, lineColor, key) {
   ctx.strokeStyle = lineColor;
   ctx.lineWidth = 1.5;
   for (var i = 0; i < points.length; i++) {
-    var x = padX + i * stepX;
-    var y = yPos(points[i].v);
+    const x = padX + i * stepX;
+    const y = yPos(points[i].v);
     if (i === 0) ctx.moveTo(x, y);
     else ctx.lineTo(x, y);
   }
   ctx.stroke();
 
   // Latest value dot
-  var last = points[points.length - 1];
+  const last = points[points.length - 1];
   ctx.beginPath();
   ctx.arc(padX + (points.length - 1) * stepX, yPos(last.v), 3, 0, Math.PI * 2);
   ctx.fillStyle = lineColor;
@@ -357,21 +357,21 @@ function drawSimpleChart(canvas, data, lineColor, key) {
 // History Data Table
 // ============================================================
 function refreshTable() {
-  var tbody = document.getElementById('sr-table-body');
-  var countEl = document.getElementById('sr-table-count');
+  const tbody = document.getElementById('sr-table-body');
+  const countEl = document.getElementById('sr-table-count');
   if (!tbody) return;
 
   // Collect all timestamps from all metrics (union)
-  var timestamps = {};
+  const timestamps = {};
   METRIC_KEYS.forEach(function(key) {
-    var data = _getHistory(key);
+    const data = _getHistory(key);
     data.forEach(function(d) {
       timestamps[d.t] = timestamps[d.t] || {};
       timestamps[d.t][key] = d.v;
     });
   });
 
-  var sortedTs = Object.keys(timestamps).map(Number).sort(function(a, b) { return b - a; }); // newest first
+  const sortedTs = Object.keys(timestamps).map(Number).sort(function(a, b) { return b - a; }); // newest first
   if (sortedTs.length === 0) {
     tbody.innerHTML = '<tr><td colspan="7" class="sr-empty">暂无数据</td></tr>';
     if (countEl) countEl.textContent = '0';
@@ -380,12 +380,12 @@ function refreshTable() {
 
   if (countEl) countEl.textContent = String(sortedTs.length);
 
-  var html = '';
-  var maxRows = 60;
-  for (var i = 0; i < Math.min(sortedTs.length, maxRows); i++) {
-    var ts = sortedTs[i];
-    var pt = timestamps[ts];
-    var time = new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  let html = '';
+  const maxRows = 60;
+  for (let i = 0; i < Math.min(sortedTs.length, maxRows); i++) {
+    const ts = sortedTs[i];
+    const pt = timestamps[ts];
+    const time = new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
     html += '<tr>' +
       '<td class="sr-td-time">' + time + '</td>' +
       '<td>' + formatMaybe(pt.rss) + '</td>' +
@@ -404,25 +404,25 @@ function refreshTable() {
 // ============================================================
 function exportCSV() {
   // Collect all data points into a unified timeline
-  var timestamps = {};
+  const timestamps = {};
   METRIC_KEYS.forEach(function(key) {
-    var data = _getHistory(key);
+    const data = _getHistory(key);
     data.forEach(function(d) {
       timestamps[d.t] = timestamps[d.t] || {};
       timestamps[d.t][key] = d.v;
     });
   });
 
-  var sortedTs = Object.keys(timestamps).map(Number).sort(function(a, b) { return a - b; });
+  const sortedTs = Object.keys(timestamps).map(Number).sort(function(a, b) { return a - b; });
   if (sortedTs.length === 0) {
     if (Q.showToast) Q.showToast('暂无数据可导出', 'info');
     return;
   }
 
-  var csv = '时间,RSS (MB),堆内存 (MB),延迟 (ms),磁盘 (%),下载 (B/s),上传 (B/s)\n';
+  let csv = '时间,RSS (MB),堆内存 (MB),延迟 (ms),磁盘 (%),下载 (B/s),上传 (B/s)\n';
   sortedTs.forEach(function(ts) {
-    var pt = timestamps[ts];
-    var time = new Date(ts).toLocaleString();
+    const pt = timestamps[ts];
+    const time = new Date(ts).toLocaleString();
     csv += time + ',' +
       (pt.rss !== undefined ? pt.rss : '') + ',' +
       (pt.heap !== undefined ? pt.heap : '') + ',' +
@@ -432,9 +432,9 @@ function exportCSV() {
       (pt.txRate !== undefined ? pt.txRate : '') + '\n';
   });
 
-  var blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
-  var url = URL.createObjectURL(blob);
-  var a = document.createElement('a');
+  const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
   a.href = url;
   a.download = 'system-resources-' + new Date().toISOString().slice(0, 19).replace(/:/g, '-') + '.csv';
   document.body.appendChild(a);

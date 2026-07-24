@@ -59,7 +59,7 @@ function mount() {
   aside.className = 'chat-session-aside';
   aside.innerHTML = `
     <div class="csa-header">
-      <input type="text" id="csa-search" class="csa-search" placeholder="🔍 搜索会话..." autocomplete="off" />
+      <input type="text" id="csa-search" class="csa-search" placeholder="🔍 搜索会话..." autocomplete="off" aria-label="搜索会话" />
       <button id="csa-new" class="csa-new" title="新建会话">＋</button>
       <button id="csa-trash" class="csa-trash" title="回收站（可恢复已删除会话）">🗑<span id="csa-trash-count" class="csa-trash-count" hidden>0</span></button>
     </div>

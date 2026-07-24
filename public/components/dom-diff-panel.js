@@ -188,7 +188,7 @@ function init(container) {
     icon: '📋',
     label: 'DOM 差异',
     category: 'tools',
-    order: 65,
+    order: 22,
     render: (container) => init(container),
   });
 

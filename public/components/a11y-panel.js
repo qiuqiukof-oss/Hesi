@@ -152,7 +152,7 @@ function init(container) {
     icon: '♿',
     label: '无障碍',
     category: 'tools',
-    order: 75,
+    order: 50,
     render: (container) => init(container),
   });
 

@@ -208,7 +208,7 @@ function timeAgo(ts) {
     category: "tools",
     icon: '🌾',
     label: '浏览器农场',
-    order: 60,
+    order: 21,
     render: (container) => init(container),
   });
 

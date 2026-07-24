@@ -258,7 +258,7 @@ function init() {
     const registered = UIR.registerTab('opc-dashboard', {
       icon: '🏢',
       label: 'OPC效益',
-      order: 3,
+      order: 4,
       category: 'digital',
       render: function(container) {
         container.innerHTML = '<div id="rp-opc-dashboard"></div>';
