@@ -2,10 +2,8 @@
    Workflow Panel — Right-Panel Tab (card-row style)
    ============================================================ */
 
-/* ── Panel container ── */
+/* ── Panel container (display/flex-direction 由 .rp-panel.active 统一控制) ── */
 #rp-workflows {
-  display: flex;
-  flex-direction: column;
   gap: var(--space-2);
   padding: var(--space-2);
   overflow-y: auto;
