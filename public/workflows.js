@@ -765,8 +765,8 @@ const Q = /** @type {QCLI} */ (window.QCLI = window.QCLI || {});
     UIR.registerTab('workflows', {
       icon: '⚡',
       label: '工作流',
-      category: 'other',
-      order: 45,
+      category: 'digital',
+      order: 6,
       render: (container) => {
         rpContainer = container;
         loadWorkflows();
