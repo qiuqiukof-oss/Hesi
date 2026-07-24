@@ -202,8 +202,8 @@ function close() {
 // ============================================================
 // Tab Switching
 // ============================================================
-function switchTab(tabId) {
-  if (!content || RightPanel.activeTab === tabId) return;
+function switchTab(tabId, force) {
+  if (!content || (!force && RightPanel.activeTab === tabId)) return;
 
   const prevTab = RightPanel.activeTab;
   RightPanel.activeTab = tabId;
@@ -414,7 +414,7 @@ function renderAllTabs() {
       const firstTab = UIR2.getTabs()[0];
       if (firstTab) targetTab = firstTab.id;
     }
-    switchTab(targetTab);
+    switchTab(targetTab, true);
     updateScrollIndicators();
   });
 }
@@ -755,7 +755,7 @@ function applyWidth(width) {
  */
 function createPluginTabButton(tabDef) {
   const btn = document.createElement('button');
-  btn.className = 'right-tab';
+  btn.className = 'right-tab' + (tabDef.id === RightPanel.activeTab ? ' active' : '');
   btn.dataset.panel = tabDef.id;
   btn.title = tabDef.label;
   btn.innerHTML = '<span class="right-tab-icon">' + tabDef.icon + '</span><span class="right-tab-label">' + tabDef.label + '</span>';
