@@ -24,6 +24,31 @@
   background: rgba(6, 182, 212, 0.06);
   border-bottom: 1px solid var(--border-subtle);
   flex-shrink: 0;
+  cursor: pointer;
+  user-select: none;
+}
+
+/* Collapsible workflow section */
+#workflow-section.collapsed #workflow-list {
+  display: none;
+}
+
+.workflow-header::after {
+  content: '\25be'; /* ▾ */
+  font-size: 10px;
+  line-height: 1;
+  color: var(--text-tertiary);
+  margin-left: 2px;
+  transition: transform 0.2s var(--ease-out);
+}
+
+#workflow-section.collapsed .workflow-header::after {
+  transform: rotate(-90deg);
+}
+
+/* Compact workflow items: collapse description line to a pure button row */
+.workflow-item-desc {
+  display: none;
 }
 
 .workflow-header-icon {
