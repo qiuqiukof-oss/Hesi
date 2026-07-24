@@ -6,6 +6,21 @@ use `vMAJOR.MINOR.PATCH-<tag>`.
 
 ---
 
+## [v0.2.3] — 2026-07-24
+
+AI 多媒体生成能力 + 聊天框链接可点击。
+
+### Added
+- **AI 多媒体生成引导提示词** — 主聊天系统提示词新增「多媒体生成」段，引导 AI 主动、且高质量地调用 `generate_image` / `generate_video`（Agnes 插件），并把中文意图改写为细节化英文 prompt + 负面提示词。
+- **聊天框链接可点击** — `renderMarkdown` 新增白名单链接化（`http(s)://`、`file://`、`/uploads/`），代码块/行内代码内的 URL 不会被误链；输入已转义且不接受 `javascript:` 等协议 ⇒ XSS 安全。
+
+### Fixed
+- **视频生成不可用（真 bug）** — `routes/ai-tools/builtin/index.js` 此前漏注册 `videoGen`，`generate_video` 从未进入工具表，主聊天 AI 只能生图不能生视频；现已补注册。
+- **视频生成进度回调硬报错** — `video-gen.js` 的 `progressFn` 实为字符串（registry 第三参透传的是 requestId），每次调用必抛 TypeError 被 catch → 返回"生成失败"；统一改为 `emitProgress` 走 `broadcastFn`。
+- **图片/视频返回 token 精简** — `image-gen.js` 最终返回从 verbose 表格（~250 token）改为简洁一行（~60 token），降低回灌 LLM 上下文占用。
+
+---
+
 ## [v0.2.2] — 2026-07-24
 
 Maintenance drop: dependency hygiene + persisted LLM key. No breaking changes; chat API and CLI behavior preserved.

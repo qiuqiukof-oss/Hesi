@@ -56,7 +56,7 @@ function register(registry) {
       },
       required: ['prompt'],
     },
-    execute: async (args) => {
+    execute: async (args, broadcastFn) => {
       const apiKey = process.env.AGNES_API_KEY;
       if (!apiKey) {
         return '⚠️ 未配置 Agnes AI API Key。请设置环境变量 AGNES_API_KEY。\n\n获取 API Key: https://agnes-ai.com';
@@ -75,6 +75,9 @@ function register(registry) {
 
       try {
         console.log(`[ImageGen] Calling Agnes AI ${model} with prompt: "${prompt.slice(0, 60)}..."`);
+        if (broadcastFn) {
+          try { broadcastFn({ type: 'mcp_metric', data: { ev: 'tool_progress', tool: 'generate_image', stage: 'calling', message: '正在调用 Agnes AI 生成图片…' } }); } catch { /* ignore */ }
+        }
 
         // 构建请求体（OpenAI 兼容格式）
         const body = {
@@ -161,26 +164,26 @@ function register(registry) {
 
         console.log(`[ImageGen] Saved: ${filename} (${fileSizeKB} KB)`);
 
-        // 返回 Markdown 格式
+        // 返回简洁 Markdown（降低回灌 LLM 上下文的 token 占用，结果更聚焦）
         const imageUrl = `/uploads/${filename}`;
 
-        let resultStr = `## 🎨 生成结果\n\n`;
-        resultStr += `![Generated Image](${imageUrl} "${escapePrompt(prompt)}")\n\n`;
-        resultStr += `| 属性 | 值 |\n|------|-----|\n`;
-        resultStr += `| 模型 | ${model} |\n`;
-        resultStr += `| 提示词 | ${escapePrompt(prompt)} |\n`;
-        resultStr += `| 尺寸 | ${size} |\n`;
-        resultStr += `| 格式 | ${outputFormat} |\n`;
-        resultStr += `| 大小 | ${fileSizeKB} KB |\n`;
-        resultStr += `| URL | \`${imageUrl}\` |\n`;
+        const summaryBits = [
+          `模型 ${model}`,
+          `${size}`,
+          `${outputFormat.toUpperCase()}`,
+          `${fileSizeKB} KB`,
+        ];
 
+        if (broadcastFn) {
+          try { broadcastFn({ type: 'mcp_metric', data: { ev: 'tool_progress', tool: 'generate_image', stage: 'done', message: '图片已生成并完成本地保存' } }); } catch { /* ignore */ }
+        }
+
+        let resultStr = `🎨 图片已生成：${imageUrl}\n`;
+        resultStr += `> ${summaryBits.join('｜')}\n`;
         if (revisedPrompt && revisedPrompt !== prompt) {
-          resultStr += `| 优化提示 | ${escapePrompt(revisedPrompt)} |\n`;
+          resultStr += `> 优化提示：${escapePrompt(revisedPrompt.slice(0, 80))}\n`;
         }
-        if (args.negativePrompt) {
-          resultStr += `| 负面提示 | ${escapePrompt(args.negativePrompt)} |\n`;
-        }
-        resultStr += `\n> 💡 提示：点击图片可在浏览器中查看原图。也可使用 \`${imageUrl}\` 下载。`;
+        resultStr += `> 提示词：${escapePrompt(prompt.slice(0, 80))}`;
 
         return resultStr;
 

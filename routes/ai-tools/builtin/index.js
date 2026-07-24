@@ -10,6 +10,7 @@ const stocks = require('./stocks');
 const self = require('./self');
 const discovery = require('./discovery');
 const imageGen = require('./image-gen');
+const videoGen = require('./video-gen');
 const docConvert = require('./doc-convert');
 const workbuddy = require('./workbuddy');
 const agent = require('./agent');
@@ -28,6 +29,7 @@ function registerAll(registry, deps) {
   self.register(registry);
   discovery.register(registry);
   imageGen.register(registry);
+  videoGen.register(registry);
   docConvert.register(registry);
   workbuddy.register(registry);
   agent.register(registry);

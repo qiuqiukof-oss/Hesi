@@ -82,10 +82,17 @@ function register(registry) {
       const style = args.style || 'none';
 
       try {
+        // progressFn（第三参数）经 registry.execute 实际透传的是 requestId 字符串，
+        // 直接调用会抛错；统一改为通过 broadcastFn 广播 mcp_metric 进度（best-effort）。
+        const emitProgress = (p) => {
+          if (!broadcastFn) return;
+          try { broadcastFn({ type: 'mcp_metric', data: { ev: 'tool_progress', tool: 'generate_video', ...p } }); } catch { /* ignore */ }
+        };
+
         console.log(`[VideoGen] Submitting Agnes AI ${model} with prompt: "${prompt.slice(0, 60)}..."`);
 
         // ── 增量进度通知：提交中 ──
-        if (progressFn) progressFn({ stage: 'submitting', model, prompt: prompt.slice(0, 60) });
+        emitProgress({ stage: 'submitting', model, prompt: prompt.slice(0, 60) });
 
         // ── Step 1: Submit video generation task ──
         const body = {
@@ -152,7 +159,7 @@ function register(registry) {
         let pollCount = 0;
 
         // ── 增量进度通知：首次消息 ──
-        if (progressFn) progressFn({ stage: 'queued', taskId: videoId, message: '视频生成已排队，正在等待处理...' });
+        emitProgress({ stage: 'queued', taskId: videoId, message: '视频生成已排队，正在等待处理...' });
 
         while (Date.now() - startTime < MAX_POLL_TIME) {
           pollCount++;
@@ -180,17 +187,17 @@ function register(registry) {
 
             // ── 增量进度通知：每 3 次轮询（~15s）报告一次进度，避免过于频繁 ──
             const elapsed = Math.round((Date.now() - startTime) / 1000);
-            if (progressFn && (pollCount % 3 === 0 || status === 'completed' || status === 'failed')) {
-              progressFn({ stage: status === 'completed' ? 'completed' : status === 'failed' ? 'failed' : 'polling', taskId: videoId, attempt: pollCount, elapsedSec: elapsed, message: `视频生成中... (${elapsed}s)` });
+            if (pollCount % 3 === 0 || status === 'completed' || status === 'failed') {
+              emitProgress({ stage: status === 'completed' ? 'completed' : status === 'failed' ? 'failed' : 'polling', taskId: videoId, attempt: pollCount, elapsedSec: elapsed, message: `视频生成中... (${elapsed}s)` });
             }
 
             if (status === 'completed') {
               videoUrl = pollResult.url || pollResult.video_url || pollResult.result?.url;
-              if (progressFn) progressFn({ stage: 'completed', taskId: videoId, message: '视频生成完成，正在下载...' });
+              emitProgress({ stage: 'completed', taskId: videoId, message: '视频生成完成，正在下载...' });
               break;
             } else if (status === 'failed') {
               const errorMsg = pollResult.error || pollResult.message || '未知错误';
-              if (progressFn) progressFn({ stage: 'failed', taskId: videoId, error: errorMsg });
+              emitProgress({ stage: 'failed', taskId: videoId, error: errorMsg });
               return `❌ 视频生成失败: ${errorMsg}`;
             }
             // Otherwise: 'processing', 'queued', etc. — keep polling
