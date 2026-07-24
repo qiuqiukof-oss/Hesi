@@ -35,6 +35,10 @@ function isAllowedUploadExt(filename) {
     '.jpg', '.jpeg', '.png', '.gif', '.webp', '.svg', '.avif', '.bmp',
     '.mp4', '.webm', '.mov',
     '.pdf',
+    // 文本 / 代码文件（用户可在对话框发送给 AI 阅读）
+    '.txt', '.md', '.markdown', '.json', '.csv', '.log', '.js', '.mjs', '.ts', '.tsx', '.jsx',
+    '.py', '.yaml', '.yml', '.xml', '.html', '.htm', '.css', '.scss', '.sh', '.bash', '.sql',
+    '.java', '.go', '.rs', '.c', '.cpp', '.h', '.hpp', '.rb', '.php', '.swift', '.kt', '.lua',
   ]);
   const ext = path.extname(filename).toLowerCase();
   return ALLOWED_EXTENSIONS.has(ext);

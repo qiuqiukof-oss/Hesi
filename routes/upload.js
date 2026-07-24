@@ -182,6 +182,9 @@ function createRouter({ uploadLimiter }) {
       uploaded.push({
         name: file.originalname,
         path: destPath,
+        // 用户上传落在 uploads/.user（隐藏目录），只能经鉴权路由 /api/uploads 取回
+        // （公开静态 /uploads 仅服务 AI 生成的 artifacts，且 dotfiles:'ignore' 不暴露 .user）。
+        url: `/api/uploads/${  encodeURIComponent(safeName)}`,
         size: file.size,
         mime: file.mimetype,
       });

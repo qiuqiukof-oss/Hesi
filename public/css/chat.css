@@ -550,12 +550,113 @@ chat-panel {
 .chat-input-area {
   display: flex;
   align-items: flex-end;
+  flex-wrap: wrap;
   gap: var(--space-2);
   padding: var(--space-2) var(--space-3);
   border-top: 1px solid var(--border-default);
   flex-shrink: 0;
   background: var(--bg-elevated);
   transition: background 0.2s, border-color 0.2s, box-shadow 0.2s;
+}
+
+/* 附件输入行（📎 + 输入框 + 发送） */
+.chat-input-row {
+  flex: 1 1 100%;
+  display: flex;
+  align-items: flex-end;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+/* 📎 附件按钮 */
+.chat-attach-btn {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-default);
+  color: var(--text-secondary);
+  font-size: 16px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: background 0.15s, transform 0.15s, border-color 0.15s, color 0.15s;
+}
+.chat-attach-btn:hover {
+  background: var(--bg-hover);
+  border-color: var(--accent);
+  color: var(--accent);
+  transform: scale(1.05);
+}
+.chat-attach-btn:active { transform: scale(0.95); }
+
+/* 附件预览条 */
+.chat-attachments {
+  flex: 1 1 100%;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  max-height: 150px;
+  overflow-y: auto;
+}
+.chat-attachments:empty { display: none; }
+.attach-chip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  padding: 3px 4px 3px 3px;
+  max-width: 210px;
+}
+.attach-chip img.thumb {
+  width: 38px; height: 38px; object-fit: cover; border-radius: 6px; flex-shrink: 0;
+}
+.attach-chip .attach-name {
+  font-size: 11px; color: var(--text-secondary);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 120px;
+}
+.attach-chip.video .attach-name::before { content: '🎬 '; }
+.attach-chip.file .attach-name::before { content: '📄 '; }
+.attach-chip .attach-remove {
+  cursor: pointer; color: var(--text-tertiary); border: none; background: none;
+  font-size: 14px; line-height: 1; padding: 2px; flex-shrink: 0;
+}
+.attach-chip .attach-remove:hover { color: var(--danger); }
+
+/* 用户气泡内的附件渲染 */
+.msg-attachments {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+.msg-attachments img,
+.msg-attachments video {
+  max-width: 220px;
+  max-height: 220px;
+  border-radius: 8px;
+  cursor: pointer;
+  border: 1px solid var(--border-default);
+  background: var(--bg-surface);
+}
+.msg-attachments .msg-file-card {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-default);
+  border-radius: 8px;
+  padding: 8px 10px;
+  max-width: 260px;
+}
+.msg-attachments .msg-file-card .file-ico { font-size: 20px; }
+.msg-attachments .msg-file-card .file-meta {
+  font-size: 11px; color: var(--text-secondary);
+  max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 
 /* 拖拽高亮 */

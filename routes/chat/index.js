@@ -20,6 +20,7 @@ const { QCLI_TOOLS, executeToolCall } = require('./tools');
 const { pruneToolContext } = require('./token-budget');
 const { streamOpenAIWithTools } = require('./stream-openai');
 const { streamAnthropicWithTools, parseAnthropicStream, buildAnthropicConversation } = require('./stream-anthropic');
+const { injectAttachments } = require('./attachments');
 const { runDiscussion } = require('./discuss');
 // Long-term memory subsystem (M4): archive + recall + compaction. Importing the
 // facade only — internal modules stay encapsulated.
@@ -404,6 +405,13 @@ When the user asks you to perform a "system self-check" / "全面自检" / "diag
 4. 若工具返回“未配置 AGNES_API_KEY”，**如实告知用户**：需在服务端设置环境变量 AGNES_API_KEY（Agnes AI）后方可使用，**不要假装已生成或编造结果**。
 5. 生成结果以 Markdown 图片/视频链接回显给用户即可，无需冗长解释；生成过程中用户可在“深度思考”面板看到调用与进度。`;
 
+    SELF_AWARE_PROMPT += `
+
+## 用户发送的多媒体附件
+- 用户可能在对话框以 📎 附件发送 **图片 / 视频 / 文本·代码文件**。这些内容已经被内联进对应 user 消息的 content 数组——你能直接看到图片、读取文件文本，请直接使用，不要假装没收到。
+- 若收到视频但当前模型无法直接分析，请基于用户的文字描述回答，**不要编造你未看到的内容**。
+- 若附件内容显示“已过期或不存在”，说明文件已被清理，请礼貌请用户重新发送。`;
+
     contextMessages = [
       ...memoryBlocks,
       { role: 'system', content: SELF_AWARE_PROMPT },
@@ -474,6 +482,11 @@ When the user asks you to perform a "system self-check" / "全面自检" / "diag
     };
 
     try {
+      // 把用户附件（图片/视频/文本/代码）转成模型可理解的 content 块：
+      // 后端与 uploads 同机，本地读文件转 base64 喂模型（模型无需联网抓 localhost）。
+      try { await injectAttachments(contextMessages, provider); } catch (attErr) {
+        console.warn('[chat] injectAttachments failed:', attErr && attErr.message);
+      }
       const tools = disableTools ? undefined : QCLI_TOOLS;
       if (provider === 'anthropic') {
         await streamAnthropicWithTools(res, contextMessages, apiKey, model, clientBaseUrl, tools, sseBroadcast, req, selfCheckMaxRounds);

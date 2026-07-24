@@ -158,6 +158,12 @@ class ChatPanel extends HTMLElement {
     this._discussPendingMsg = null;   // 待落盘的消息对象
     this._agentNameMap = new Map();   // id -> displayName（用于多选按钮文案）
     this._noAgents = false;           // 是否已确认无任何可用 CLI Agent（用于「去安装」引导）
+
+    // ── 多模态附件（对话框发送给 AI 的图片/视频/文本文件）──
+    this.pendingAttachments = [];     // 待发送附件（短 URL + 元数据，不含 base64）
+    this.attachBtn = null;
+    this.fileInput = null;
+    this.attachPreviewEl = null;
   }
 
   // ── Lifecycle ──
@@ -173,6 +179,9 @@ class ChatPanel extends HTMLElement {
     this.terminalToggleBtn = document.getElementById('chat-terminal-toggle');
     this.exportBtn = document.getElementById('chat-export-btn');
     this.resizeHandle = document.getElementById('chat-resize-handle');
+    this.attachBtn = document.getElementById('chat-attach-btn');
+    this.fileInput = document.getElementById('chat-file-input');
+    this.attachPreviewEl = document.getElementById('chat-attachments');
 
     if (!this.el) {
       console.warn('[ChatPanel] #chat-drawer not found');
@@ -475,6 +484,16 @@ class ChatPanel extends HTMLElement {
       });
     }
 
+    // ── 附件按钮：选择文件并上传 ──
+    if (this.attachBtn && this.fileInput) {
+      this.attachBtn.addEventListener('click', () => this.fileInput.click());
+      this.fileInput.addEventListener('change', (e) => {
+        const files = Array.from(e.target.files || []);
+        if (files.length) this._handleFiles(files);
+        e.target.value = ''; // 允许重复选择同一文件
+      });
+    }
+
     // 拖拽放入 Mermaid 图表到聊天输入区
     const inputArea = this.el?.querySelector('.chat-input-area');
     if (inputArea) {
@@ -745,11 +764,15 @@ class ChatPanel extends HTMLElement {
 
   // Apply a server session's messages to the panel (called on load / switch).
   _applySession(id, msgs) {
+    // 发送进行中（含 ensureCurrent 异步解析）不要覆盖本地已渲染的消息，
+    // 否则刚发出的带附件消息会被“发送前”的服务器会话覆盖而消失。
+    if (this.sending) return;
     const arr = Array.isArray(msgs) ? msgs : [];
     this.messages = arr.map(m => ({
       id: (m && m.id) || this._genId(),
       role: (m && m.role) || 'assistant',
       content: (m && m.content != null) ? String(m.content) : '',
+      ...(m && Array.isArray(m.attachments) ? { attachments: m.attachments } : {}),
     }));
     // Always re-render, even for an empty session — otherwise the stale DOM
     // from the previously-viewed session lingers in the panel.
@@ -843,10 +866,124 @@ class ChatPanel extends HTMLElement {
 
   // ── Public: Send message ──
 
+  // ── 多模态附件：选择文件 → 上传 → 预览 → 随消息发送 ──
+  async _handleFiles(files) {
+    const Q = qcli();
+    for (const file of files) {
+      // 大图前端预压缩，减小 uploads 体积与 base64 负载
+      let toUpload = file;
+      if (file.type.startsWith('image/') && file.size > 1.5 * 1024 * 1024) {
+        try { toUpload = await this._compressImage(file, 1280, 1.5 * 1024 * 1024); }
+        catch (e) { console.warn('[ChatPanel] image compress failed, use original', e); toUpload = file; }
+      }
+      const fd = new FormData();
+      fd.append('files', toUpload, file.name);
+      try {
+        const resp = await fetch('/api/upload', { method: 'POST', body: fd });
+        const data = await resp.json().catch(() => ({}));
+        if (!resp.ok || !data.success) {
+          if (Q.showToast) Q.showToast('附件上传失败：' + (data.error || resp.status), 'error');
+          continue;
+        }
+        const up = data.files && data.files[0];
+        if (!up || !up.url) continue;
+        const kind = toUpload.type.startsWith('image/') ? 'image'
+                   : toUpload.type.startsWith('video/') ? 'video' : 'text';
+        this.pendingAttachments.push({
+          kind,
+          url: up.url,
+          name: up.name || file.name,
+          mime: up.mime || toUpload.type,
+          size: up.size || toUpload.size,
+        });
+      } catch (e) {
+        console.warn('[ChatPanel] upload attachment failed:', e);
+        if (Q.showToast) Q.showToast('附件上传出错：' + (e && e.message ? e.message : e), 'error');
+      }
+    }
+    this._renderPendingAttachments();
+  }
+
+  _compressImage(file, maxEdge, maxBytes) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onerror = reject;
+      reader.onload = () => {
+        const img = new Image();
+        img.onerror = reject;
+        img.onload = () => {
+          const scale = Math.min(1, maxEdge / Math.max(img.width, img.height));
+          const w = Math.max(1, Math.round(img.width * scale));
+          const h = Math.max(1, Math.round(img.height * scale));
+          const canvas = document.createElement('canvas');
+          canvas.width = w; canvas.height = h;
+          canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+          const type = 'image/jpeg';
+          let dataUrl = canvas.toDataURL(type, 0.85);
+          if (dataUrl.length > maxBytes && scale > 0.3) dataUrl = canvas.toDataURL(type, 0.6);
+          const arr = dataUrl.split(','); const bstr = atob(arr[1]); const u8 = new Uint8Array(bstr.length);
+          for (let i = 0; i < bstr.length; i++) u8[i] = bstr.charCodeAt(i);
+          const blob = new Blob([u8], { type });
+          const name = file.name.replace(/\.(png|webp|avif|bmp)$/i, '.jpg');
+          resolve(new File([blob], name, { type }));
+        };
+        img.src = reader.result;
+      };
+      reader.readAsDataURL(file);
+    });
+  }
+
+  _renderPendingAttachments() {
+    if (!this.attachPreviewEl) return;
+    this.attachPreviewEl.innerHTML = '';
+    this.pendingAttachments.forEach((a, idx) => {
+      const chip = document.createElement('div');
+      chip.className = 'attach-chip ' + (a.kind === 'image' ? 'img' : a.kind === 'video' ? 'video' : 'file');
+      if (a.kind === 'image') {
+        const img = document.createElement('img');
+        img.className = 'thumb'; img.src = a.url; img.alt = a.name || '';
+        chip.appendChild(img);
+      }
+      const name = document.createElement('span');
+      name.className = 'attach-name'; name.textContent = a.name || (a.kind + ' file');
+      chip.appendChild(name);
+      const rm = document.createElement('button');
+      rm.className = 'attach-remove'; rm.textContent = '✕'; rm.title = '移除附件';
+      rm.addEventListener('click', () => {
+        this.pendingAttachments.splice(idx, 1);
+        this._renderPendingAttachments();
+      });
+      chip.appendChild(rm);
+      this.attachPreviewEl.appendChild(chip);
+    });
+  }
+
+  _renderAttachmentItem(a) {
+    if (a.kind === 'image') {
+      const img = document.createElement('img');
+      img.src = a.url; img.alt = a.name || 'image'; img.title = a.name || '';
+      img.addEventListener('click', () => window.open(a.url, '_blank'));
+      return img;
+    }
+    if (a.kind === 'video') {
+      const v = document.createElement('video');
+      v.src = a.url; v.controls = true; v.preload = 'metadata';
+      return v;
+    }
+    const card = document.createElement('div');
+    card.className = 'msg-file-card';
+    const ico = document.createElement('span'); ico.className = 'file-ico'; ico.textContent = '📄';
+    const meta = document.createElement('span'); meta.className = 'file-meta'; meta.textContent = a.name || 'file';
+    card.appendChild(ico); card.appendChild(meta);
+    return card;
+  }
+
   sendMessage() {
     const Q = qcli();
-    const text = this.input?.value.trim();
-    if (!text || this.sending) return;
+    let text = this.input?.value.trim();
+    const hasAttachments = this.pendingAttachments.length > 0;
+    if ((!text && !hasAttachments) || this.sending) return;
+    if (!text) text = ''; // 允许纯附件发送（不带文字）
 
     this.sending = true;
     this._abortController = new AbortController();
@@ -855,6 +992,11 @@ class ChatPanel extends HTMLElement {
       this.input.value = '';
       this.input.style.height = 'auto';
     }
+    // 先捕获待发送附件（务必在清空之前），随后随 userMsg 一起发出
+    const outAttachments = hasAttachments ? this.pendingAttachments.slice() : [];
+    // 清空待发送附件（已随 userMsg 发出）
+    this.pendingAttachments = [];
+    this._renderPendingAttachments();
     // 清空 Mermaid 预览
     this._clearMermaidPreview();
     if (this.sendBtn) {
@@ -866,12 +1008,17 @@ class ChatPanel extends HTMLElement {
 
     // Add user message
     const userMsg = { id: this._genId(), role: 'user', content: text };
+    if (hasAttachments) userMsg.attachments = outAttachments;
     this.messages.push(userMsg);
     this.appendToDOM(userMsg);
     this._saveHistory();
     // 同步快照：防止 MemorySession 会话恢复（_applySession）在后续异步回调中
     // 整体覆盖 this.messages，导致向 /api/chat 发出空 messages 数组（首次对话必现报错）。
-    const requestMsgs = this.messages.slice(-50).map(m => ({ id: m.id, role: m.role, content: m.content }));
+    const requestMsgs = this.messages.slice(-50).map(m => {
+      const o = { id: m.id, role: m.role, content: m.content };
+      if (Array.isArray(m.attachments) && m.attachments.length) o.attachments = m.attachments;
+      return o;
+    });
     this.scrollToBottom();
 
     // Show thinking indicator
@@ -1466,7 +1613,17 @@ class ChatPanel extends HTMLElement {
         }
       });
     } else {
-      bubble.textContent = msg.content;
+      if (Array.isArray(msg.attachments) && msg.attachments.length) {
+        const attWrap = document.createElement('div');
+        attWrap.className = 'msg-attachments';
+        for (const a of msg.attachments) attWrap.appendChild(this._renderAttachmentItem(a));
+        bubble.appendChild(attWrap);
+      }
+      if (msg.content) {
+        const txt = document.createElement('div');
+        txt.textContent = msg.content;
+        bubble.appendChild(txt);
+      }
     }
     content.appendChild(bubble);
 

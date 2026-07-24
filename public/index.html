@@ -219,8 +219,15 @@
               </select>
             </div>
           </div>
-          <textarea id="chat-input" rows="1" data-i18n-placeholder="chat.input.placeholder" autocomplete="off"></textarea>
-          <button id="chat-send-btn" class="chat-send-btn" data-i18n-title="chat.send">➤</button>
+          <div id="chat-attachments" class="chat-attachments"></div>
+          <div class="chat-input-row">
+            <button id="chat-attach-btn" type="button" class="chat-attach-btn" title="发送图片 / 视频 / 文件给 AI" data-i18n-title="chat.attach">📎</button>
+            <textarea id="chat-input" rows="1" data-i18n-placeholder="chat.input.placeholder" autocomplete="off"></textarea>
+            <button id="chat-send-btn" class="chat-send-btn" data-i18n-title="chat.send">➤</button>
+          </div>
+          <input type="file" id="chat-file-input" multiple
+            accept="image/*,video/*,.pdf,.txt,.md,.markdown,.json,.csv,.log,.js,.mjs,.ts,.tsx,.jsx,.py,.yaml,.yml,.xml,.html,.htm,.css,.scss,.sh,.bash,.sql,.java,.go,.rs,.c,.cpp,.h,.hpp,.rb,.php,.swift,.kt,.lua"
+            style="display:none" />
         </div>
       </div>
       </chat-panel>
