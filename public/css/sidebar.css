@@ -845,6 +845,7 @@
   transition: all 0.15s var(--ease-out);
   font-family: var(--font-ui);
   min-width: 0;
+  min-height: 42px;
 }
 
 .sidebar-tool-btn:hover {
