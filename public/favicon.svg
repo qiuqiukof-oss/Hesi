@@ -1,4 +1,65 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
-  <rect width="32" height="32" rx="6" fill="#6366f1"/>
-  <text x="16" y="22" text-anchor="middle" font-size="18" font-family="Arial" font-weight="bold" fill="white">Q</text>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="none">
+  <defs>
+    <linearGradient id="hg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#3b82f6"/>
+      <stop offset="100%" stop-color="#06b6d4"/>
+    </linearGradient>
+  </defs>
+  <!--
+    Hesi Logo v2 — "Neural-H"
+    A clear, bold letter H with neural-network node decorations.
+    At 16×16 it reads as a clean H; at larger sizes the nodes and
+    connections reveal the AI/brain concept (合思 = 思考与灵感).
+
+    Color: blue→cyan gradient (#3b82f6 → #06b6d4)
+  -->
+  <g stroke="url(#hg)" stroke-width="28" stroke-linecap="round" stroke-linejoin="round"
+     fill="none">
+
+    <!-- Left stem of H -->
+    <line x1="140" y1="95" x2="140" y2="417"/>
+
+    <!-- Right stem of H -->
+    <line x1="372" y1="95" x2="372" y2="417"/>
+
+    <!-- Crossbar (the neural bridge) -->
+    <line x1="140" y1="256" x2="372" y2="256"/>
+  </g>
+
+  <!-- Neural nodes (synapse dots) on key junctions -->
+  <g fill="url(#hg)">
+    <!-- Top-left tip -->
+    <circle cx="140" cy="95" r="14"/>
+    <!-- Top-right tip -->
+    <circle cx="372" cy="95" r="14"/>
+    <!-- Bottom-left tip -->
+    <circle cx="140" cy="417" r="14"/>
+    <!-- Bottom-right tip -->
+    <circle cx="372" cy="417" r="14"/>
+    <!-- Crossbar left junction -->
+    <circle cx="140" cy="256" r="16"/>
+    <!-- Crossbar right junction -->
+    <circle cx="372" cy="256" r="16"/>
+    <!-- Center of crossbar (main synapse) -->
+    <circle cx="256" cy="256" r="20"/>
+  </g>
+
+  <!-- Decorative neural branches (subtle connection lines) -->
+  <g stroke="#06b6d4" stroke-width="10" stroke-linecap="round" opacity="0.45" fill="none">
+    <!-- From center node: branch up-left -->
+    <path d="M 244 244 Q 200 190, 160 150"/>
+    <!-- From center node: branch up-right -->
+    <path d="M 268 244 Q 312 190, 352 150"/>
+    <!-- From center node: branch down-left -->
+    <path d="M 244 268 Q 200 322, 160 362"/>
+    <!-- From center node: branch down-right -->
+    <path d="M 268 268 Q 312 322, 352 362"/>
+    <!-- Small terminal dots on branch ends -->
+    <g fill="#06b6d4" stroke="none">
+      <circle cx="156" cy="146" r="7"/>
+      <circle cx="356" cy="146" r="7"/>
+      <circle cx="156" cy="366" r="7"/>
+      <circle cx="356" cy="366" r="7"/>
+    </g>
+  </g>
 </svg>

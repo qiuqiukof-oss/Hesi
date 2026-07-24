@@ -25,6 +25,12 @@
   margin-right: auto;
 }
 
+.sidebar-logo-icon {
+  vertical-align: -3px;
+  margin-right: 4px;
+  border-radius: 4px;
+}
+
 /* ── Preset Selector ── */
 .preset-selector {
   position: relative;
