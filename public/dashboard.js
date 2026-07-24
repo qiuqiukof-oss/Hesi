@@ -244,7 +244,7 @@ function render() {
       </div>
 
       <!-- MCP Monitor -->
-      <div class="dash-section" id="dash-section-mcp">
+      <div class="dash-section" id="dash-section-mcp" data-collapse="1" data-collapse-icon="⚡">
         <div class="dash-section-title">
           <span class="mcp-section-title-row">
             <span>MCP Monitor</span>
@@ -327,7 +327,7 @@ function render() {
       </div>
 
       <!-- Project Analysis -->
-      <div class="dash-section">
+      <div class="dash-section" id="dash-section-project" data-collapse="1" data-collapse-icon="📁">
         <div class="dash-section-title">项目分析</div>
         <div class="dash-card" id="dash-project-card">
           <div class="dash-card-header">
@@ -347,7 +347,7 @@ function render() {
       </div>
 
       <!-- CLI Process Monitor -->
-      <div class="dash-section">
+      <div class="dash-section" id="dash-section-process" data-collapse="1" data-collapse-icon="🖥️">
         <div class="dash-section-title">CLI 进程监控</div>
         <div class="dash-card" id="dash-process-card">
           <div class="dash-card-header">
@@ -365,7 +365,7 @@ function render() {
       </div>
 
       <!-- Activity Timeline -->
-      <div class="dash-section">
+      <div class="dash-section" id="dash-section-timeline" data-collapse="1" data-collapse-icon="📜">
         <div class="dash-section-title">活动时间线</div>
         <div class="dash-card">
           <div class="dash-card-header">
@@ -381,9 +381,9 @@ function render() {
         </div>
       </div>
 
-      <!-- System Resources -->
+      <!-- System Resources (摘要 + 跳转 sys-resources tab；趋势/磁盘图表移出，避免与 sys-resources 重复) -->
       <div class="dash-section">
-        <div class="dash-section-title">系统资源</div>
+        <div class="dash-section-title">系统资源 <a class="dash-detail-link" id="dash-sys-detail-btn" title="查看完整系统资源">查看详情 ↗</a></div>
         <div class="dash-card" id="dash-sys-card">
           <div class="dash-card-header">
             <span class="dash-card-icon">🌡️</span>
@@ -399,24 +399,6 @@ function render() {
               <div class="dash-sys-gauge-header"><span class="dash-sys-gauge-label">堆内存</span><span class="dash-sys-gauge-value" id="dash-sys-heap">—</span></div>
               <div class="dash-progress"><div class="dash-progress-bar gauge-bar-heap" id="dash-sys-heap-bar" style="width:0%"></div></div>
             </div>
-            <div class="dash-trend-chart-wrap">
-              <div class="dash-trend-chart-header"><span class="dash-trend-chart-label">RSS 趋势</span><span class="dash-trend-chart-desc">最近 60s</span></div>
-              <canvas id="dash-trend-rss" class="dash-trend-chart" width="240" height="40"></canvas>
-            </div>
-            <div class="dash-trend-chart-wrap">
-              <div class="dash-trend-chart-header"><span class="dash-trend-chart-label">堆内存趋势</span><span class="dash-trend-chart-desc">最近 60s</span></div>
-              <canvas id="dash-trend-heap" class="dash-trend-chart" width="240" height="40"></canvas>
-            </div>
-            <div class="dash-disk-section" id="dash-disk-gauges">
-              <div class="dash-sys-gauge">
-                <div class="dash-sys-gauge-header"><span class="dash-sys-gauge-label">💾 磁盘</span><span class="dash-sys-gauge-value">加载中...</span></div>
-                <div class="dash-progress"><div class="dash-progress-bar gauge-bar-disk" style="width:0%"></div></div>
-              </div>
-            </div>
-            <div class="dash-trend-chart-wrap">
-              <div class="dash-trend-chart-header"><span class="dash-trend-chart-label">磁盘使用趋势</span><span class="dash-trend-chart-desc">最近 60s</span></div>
-              <canvas id="dash-trend-disk" class="dash-trend-chart" width="240" height="40"></canvas>
-            </div>
             <div class="dash-sys-meta">
               <div class="dash-sys-meta-item"><span class="dash-sys-meta-label">平台</span><span class="dash-sys-meta-value" id="dash-sys-platform">—</span></div>
               <div class="dash-sys-meta-item"><span class="dash-sys-meta-label">Node</span><span class="dash-sys-meta-value" id="dash-sys-node">—</span></div>
@@ -426,9 +408,9 @@ function render() {
         </div>
       </div>
 
-      <!-- Network Info -->
+      <!-- Network Info (摘要 + 跳转 network-monitor tab；IO 表/趋势移出，避免重复) -->
       <div class="dash-section">
-        <div class="dash-section-title">网络状态</div>
+        <div class="dash-section-title">网络状态 <a class="dash-detail-link" id="dash-net-detail-btn" title="查看完整网络监控">查看详情 ↗</a></div>
         <div class="dash-card" id="dash-network-card">
           <div class="dash-card-header">
             <span class="dash-card-icon">📡</span>
@@ -442,33 +424,12 @@ function render() {
               <span class="dash-chip">📥 <span class="dash-chip-value" id="dash-bytes-recv">0 B</span></span>
               <span class="dash-chip">⚡ <span class="dash-chip-value" id="dash-throughput">0 B/s</span></span>
             </div>
-            <div class="dash-net-io-gauges" id="dash-net-io-gauges">
-              <div class="dash-sys-gauge">
-                <div class="dash-sys-gauge-header"><span class="dash-sys-gauge-label">📥 下载</span><span class="dash-sys-gauge-value" id="dash-net-rx">—</span></div>
-                <div class="dash-progress"><div class="dash-progress-bar gauge-bar-rx" id="dash-net-rx-bar" style="width:0%"></div></div>
-              </div>
-              <div class="dash-sys-gauge">
-                <div class="dash-sys-gauge-header"><span class="dash-sys-gauge-label">📤 上传</span><span class="dash-sys-gauge-value" id="dash-net-tx">—</span></div>
-                <div class="dash-progress"><div class="dash-progress-bar gauge-bar-tx" id="dash-net-tx-bar" style="width:0%"></div></div>
-              </div>
-              <div class="dash-sys-meta" style="margin-top:4px;">
-                <div class="dash-sys-meta-item"><span class="dash-sys-meta-label">累计流量</span><span class="dash-sys-meta-value" id="dash-net-cumulative" style="font-size:10px;">—</span></div>
-              </div>
-            </div>
-            <div class="dash-trend-chart-wrap">
-              <div class="dash-trend-chart-header"><span class="dash-trend-chart-label">网络 IO 趋势</span><span class="dash-trend-chart-desc">最近 60s</span></div>
-              <canvas id="dash-trend-rxrate" class="dash-trend-chart" width="240" height="40"></canvas>
-            </div>
-            <div class="dash-trend-chart-wrap">
-              <div class="dash-trend-chart-header"><span class="dash-trend-chart-label">延迟趋势</span><span class="dash-trend-chart-desc">最近 60s</span></div>
-              <canvas id="dash-trend-latency" class="dash-trend-chart" width="240" height="40"></canvas>
-            </div>
           </div>
         </div>
       </div>
 
       <!-- Minimal System Info -->
-      <div class="dash-section">
+      <div class="dash-section" id="dash-section-uiinfo" data-collapse="1" data-collapse-icon="🛠️">
         <div class="dash-section-title">界面信息</div>
         <div class="dash-card">
           <div class="dash-card-body">
@@ -508,7 +469,66 @@ function render() {
     });
   }
 
+  // ── A1: 非核心 section 默认折叠 + 详情跳转 ──
+  setupDashboardCollapsibles(panel);
+  bindDetailButtons();
+
   console.log('[Dashboard] Rendered');
+}
+
+// ============================================================
+// A1 — Collapsible sections & detail navigation (dashboard only)
+// ============================================================
+function setupDashboardCollapsibles(panel) {
+  const targets = [
+    'dash-section-mcp', 'dash-section-project',
+    'dash-section-process', 'dash-section-timeline', 'dash-section-uiinfo'
+  ];
+  targets.forEach((id) => {
+    const sec = document.getElementById(id);
+    if (!sec) return;
+    const icon = sec.dataset.collapseIcon || '📋';
+    wrapSectionCollapsible(sec, icon, false);
+  });
+  panel.querySelectorAll('.rp-collapsible-header').forEach((h) => {
+    h.addEventListener('click', () => h.parentElement.classList.toggle('open'));
+  });
+}
+
+/** 将 .dash-section 转换为默认折叠的 .rp-collapsible（移动真实子节点，保留已有事件绑定） */
+function wrapSectionCollapsible(section, icon, defaultOpen) {
+  const titleEl = section.querySelector(':scope > .dash-section-title');
+  const titleHTML = titleEl ? titleEl.innerHTML : '';
+  const frag = document.createDocumentFragment();
+  Array.from(section.children).forEach((child) => {
+    if (child === titleEl) return;
+    frag.appendChild(child);
+  });
+  const wrap = document.createElement('div');
+  wrap.className = 'rp-collapsible' + (defaultOpen ? ' open' : '');
+  wrap.innerHTML =
+    '<div class="rp-collapsible-header">' +
+      '<span class="rpc-icon">' + icon + '</span>' +
+      '<span class="rpc-collapsible-title">' + titleHTML + '</span>' +
+      '<span class="rpc-arrow">▸</span>' +
+    '</div>' +
+    '<div class="rp-collapsible-body"><div class="rp-collapsible-body-inner"></div></div>';
+  wrap.querySelector('.rp-collapsible-body-inner').appendChild(frag);
+  section.replaceWith(wrap);
+}
+
+/** 系统资源/网络状态摘要卡的「查看详情 ↗」跳转到对应完整 tab */
+function bindDetailButtons() {
+  const sysBtn = document.getElementById('dash-sys-detail-btn');
+  if (sysBtn) sysBtn.addEventListener('click', (e) => {
+    e.preventDefault();
+    if (Q.RightPanel && Q.RightPanel.switchTab) Q.RightPanel.switchTab('sys-resources');
+  });
+  const netBtn = document.getElementById('dash-net-detail-btn');
+  if (netBtn) netBtn.addEventListener('click', (e) => {
+    e.preventDefault();
+    if (Q.RightPanel && Q.RightPanel.switchTab) Q.RightPanel.switchTab('network-monitor');
+  });
 }
 
 // ============================================================
@@ -645,7 +665,8 @@ function drawTrendCharts() {
   const success = cssVars.getPropertyValue('--success').trim() || '#22c55e';
   const warning = cssVars.getPropertyValue('--warning').trim() || '#eab308';
 
-  const trendIds = ['dash-trend-rss', 'dash-trend-heap', 'dash-trend-latency', 'dash-trend-disk', 'dash-trend-rxrate'];
+  // 趋势图已从仪表盘摘要卡移除（完整图表见 sys-resources / network-monitor tab），此处不再绘制。
+  const trendIds = [];
   for (let i = 0; i < trendIds.length; i++) {
     const c = document.getElementById(trendIds[i]);
     if (c && c.clientWidth > 0 && c.clientWidth !== c.width) {

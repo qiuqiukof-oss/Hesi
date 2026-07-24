@@ -37,9 +37,15 @@ const state = {
       padding: 8px;
       height: 100%;
       overflow-y: auto;
-      display: flex;
-      flex-direction: column;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
       gap: 6px;
+      align-content: start;
+    }
+    .pmp-container > .pmp-header,
+    .pmp-container > .pmp-stats,
+    .pmp-container > .pmp-empty {
+      grid-column: 1 / -1;
     }
 
     .pmp-header {
@@ -217,11 +223,14 @@ const state = {
 
     /* ── Card actions ── */
     .pmp-card-actions {
-      display: flex;
+      display: none;
       gap: 6px;
       margin-top: 8px;
       padding-top: 8px;
       border-top: 1px solid var(--border-default, rgba(255,255,255,0.04));
+    }
+    .pmp-card:hover .pmp-card-actions {
+      display: flex;
     }
     .pmp-action-btn {
       font-size: 11px;
@@ -785,7 +794,7 @@ function renderCreateDialogContent() {
     ? '<div class="pmp-create-success">✅ ' + escapeHtml(createDialogState.success) + '</div>'
     : '';
 
-  let featuresHtml = features.map(function(f) {
+  const featuresHtml = features.map(function(f) {
     const selected = createDialogState.features.indexOf(f.id) !== -1;
     const selectedClass = selected ? ' selected' : '';
     return '<button class="pmp-feature-chip' + selectedClass + '" ' +
@@ -961,8 +970,8 @@ function renderDetailView(detail) {
   html += '<button class="pmp-detail-back" onclick="PMANAGER.closeDetail()">← 返回列表</button>';
 
   // Header
-  var statusClass = p.loaded ? 'loaded' : 'disabled';
-  var statusText = p.loaded ? '✅ 已加载' : '❌ 未加载';
+  const statusClass = p.loaded ? 'loaded' : 'disabled';
+  let statusText = p.loaded ? '✅ 已加载' : '❌ 未加载';
   if (!detail.manifest) statusText = '⚠️ 无 manifest';
 
   html += '<div class="pmp-detail-header">' +
@@ -980,15 +989,15 @@ function renderDetailView(detail) {
     html += '<div class="pmp-detail-section">' +
       '<div class="pmp-detail-section-title">📋 清单信息</div>';
 
-    var infoFields = [
+    const infoFields = [
       { label: '名称', value: m.name },
       { label: '版本', value: m.version },
       { label: '描述', value: m.description },
       { label: '作者', value: m.author },
       { label: '许可', value: m.license },
     ];
-    for (var i = 0; i < infoFields.length; i++) {
-      var f = infoFields[i];
+    for (let i = 0; i < infoFields.length; i++) {
+      const f = infoFields[i];
       html += '<div class="pmp-detail-row">' +
         '<span class="pmp-detail-label">' + f.label + '</span>' +
         '<span class="pmp-detail-value' + (f.value ? '' : ' missing') + '">' +
@@ -998,7 +1007,7 @@ function renderDetailView(detail) {
   }
 
   // ====== Capabilities Section ======
-  var capTypes = [
+  const capTypes = [
     { key: 'mcpServers', icon: '🔗', label: 'MCP 服务器' },
     { key: 'aiTools', icon: '🤖', label: 'AI 工具' },
     { key: 'clis', icon: '🔧', label: 'CLI 工具' },
@@ -1007,9 +1016,9 @@ function renderDetailView(detail) {
     { key: 'presets', icon: '🎨', label: '预设' },
   ];
 
-  for (var ci = 0; ci < capTypes.length; ci++) {
-    var ct = capTypes[ci];
-    var items = m[ct.key];
+  for (let ci = 0; ci < capTypes.length; ci++) {
+    const ct = capTypes[ci];
+    const items = m[ct.key];
     if (!items || !Array.isArray(items) || items.length === 0) continue;
 
     html += '<div class="pmp-detail-section">' +
@@ -1017,7 +1026,7 @@ function renderDetailView(detail) {
       ' <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--text-tertiary);">(' + items.length + ')</span>' +
       '</div>';
 
-    for (var ii = 0; ii < items.length; ii++) {
+    for (let ii = 0; ii < items.length; ii++) {
       var item = items[ii];
       html += '<div class="pmp-detail-cap-item">';
 
@@ -1026,7 +1035,7 @@ function renderDetailView(detail) {
         html += '<table class="pmp-detail-cap-table">';
         html += '<tr><td>命令</td><td>' + escapeHtml(item.command || '') + ' ' + escapeHtml((item.args || []).join(' ')) + '</td></tr>';
         if (item.env && Object.keys(item.env).length > 0) {
-          var envStr = Object.keys(item.env).map(function(k) { return k + '=' + item.env[k]; }).join(' ');
+          const envStr = Object.keys(item.env).map(function(k) { return k + '=' + item.env[k]; }).join(' ');
           html += '<tr><td>环境变量</td><td>' + escapeHtml(envStr) + '</td></tr>';
         }
         html += '</table>';
@@ -1036,7 +1045,7 @@ function renderDetailView(detail) {
           html += '<div class="pmp-detail-cap-desc">' + escapeHtml(item.description) + '</div>';
         }
         if (item.parameters) {
-          var paramKeys = item.parameters.properties ? Object.keys(item.parameters.properties) : [];
+          const paramKeys = item.parameters.properties ? Object.keys(item.parameters.properties) : [];
           if (paramKeys.length > 0) {
             html += '<table class="pmp-detail-cap-table">';
             html += '<tr><td>参数</td><td>' + escapeHtml(paramKeys.join(', ')) + '</td></tr>';

@@ -922,3 +922,75 @@
 .rp-tm-toggle:hover {
   opacity: 0.9;
 }
+
+/* ============================================================
+   B2 — 原生折叠块（列表/表/表单默认折叠，零 JS 依赖）
+   ============================================================ */
+details.collapsible-block {
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  margin-bottom: 8px;
+  background: var(--bg-surface);
+  overflow: hidden;
+}
+details.collapsible-block > summary {
+  cursor: pointer;
+  list-style: none;
+  padding: 8px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  user-select: none;
+}
+details.collapsible-block > summary::-webkit-details-marker { display: none; }
+details.collapsible-block > summary::before {
+  content: '▸';
+  font-size: 9px;
+  transition: transform 0.2s;
+}
+details.collapsible-block[open] > summary::before { transform: rotate(90deg); }
+details.collapsible-block[open] > summary {
+  border-bottom: 1px solid var(--border-subtle);
+  margin-bottom: 8px;
+}
+
+/* ============================================================
+   Shared Card Base — A2 统一卡片节奏（供 tools/plugin/digital 类 tab 迁移）
+   ============================================================ */
+.rp-card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+.rp-card:hover {
+  border-color: var(--border-default);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.15);
+}
+.rp-card-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--border-subtle);
+  user-select: none;
+}
+.rp-card-title {
+  flex: 1;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.rp-card-body {
+  padding: 6px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}

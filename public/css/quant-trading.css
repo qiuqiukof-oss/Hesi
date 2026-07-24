@@ -248,7 +248,9 @@
   border-radius: var(--radius-md);
   padding: var(--space-1);
   position: relative;
-  min-height: 240px;
+  min-height: 140px;
+  max-height: 200px;
+  overflow: auto;
 }
 .quant-chart-wrap canvas {
   display: block;

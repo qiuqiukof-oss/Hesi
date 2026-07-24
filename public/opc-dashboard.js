@@ -155,8 +155,9 @@ function updateDashboard() {
     wbCalls > 0 ? '<div style="grid-column:span 2;"><div style="font-size:11px;color:var(--text-tertiary);">平均耗时: ' + (wbDuration / wbCalls).toFixed(0) + 'ms</div></div>' : '',
     '</div></div>',
 
-    // ── ROI 投入产出分析 ──
-    '<div style="background:var(--bg-card);padding:12px;border-radius:8px;margin-bottom:16px;">',
+    // ── ROI 投入产出分析（默认折叠） ──
+    '<details class="collapsible-block"><summary>💰 投入产出分析</summary>',
+    '<div style="background:var(--bg-card);padding:12px;border-radius:8px;">',
     '<div style="font-size:13px;font-weight:500;margin-bottom:8px;color:var(--text-primary);">💰 投入产出分析</div>',
     '<table style="width:100%;font-size:12px;border-collapse:collapse;">',
     '<tr><td style="padding:4px 0;color:var(--text-tertiary);">节省人力成本：</td>',
@@ -167,17 +168,18 @@ function updateDashboard() {
     '<td style="padding:6px 0 4px;text-align:right;font-weight:600;color:', savings.netSavings >= 0 ? '#22c55e' : '#ef4444', ';">¥', savings.netSavings.toFixed(2), '</td></tr>',
     '<tr><td style="padding:4px 0;color:var(--text-tertiary);">ROI（投入产出比）：</td>',
     '<td style="padding:4px 0;text-align:right;font-weight:500;color:', savings.roi >= 1 ? '#22c55e' : '#f59e0b', ';">', savings.roi.toFixed(2), 'x</td></tr>',
-    '</table></div>',
+    '</table></div></details>',
 
-    // ── 行业对标（腾讯云数据） ──
-    '<div style="background:var(--bg-card);padding:12px;border-radius:8px;margin-bottom:16px;">',
+    // ── 行业对标（腾讯云数据，默认折叠） ──
+    '<details class="collapsible-block"><summary>📊 行业对标</summary>',
+    '<div style="background:var(--bg-card);padding:12px;border-radius:8px;">',
     '<div style="font-size:13px;font-weight:500;margin-bottom:8px;color:var(--text-primary);">📊 行业对标（腾讯云公开课数据）</div>',
     '<div style="font-size:11px;color:var(--text-tertiary);line-height:1.8;">',
     '• 100张图渲染 AI算力仅 <strong>¥0.4</strong><br>',
     '• 3D Max设计 从2天 → <strong>15分钟</strong><br>',
     '• 人效比 3-5人替代传统 <strong>100-150人</strong><br>',
     '• 获客成本仅为传统模式 <strong>1/10</strong>',
-    '</div></div>',
+    '</div></div></details>',
 
     // ── OPC 快捷启动按钮 ──
     '<div style="margin-bottom:16px;">',
@@ -202,9 +204,9 @@ function updateDashboard() {
   // 快捷启动按钮：点击启动对应工作流
   panel.querySelectorAll('.opc-quick-btn').forEach(function(btn) {
     btn.addEventListener('click', function() {
-      var wfId = this.dataset.wf;
+      const wfId = this.dataset.wf;
       // 尝试从已加载的工作流列表中查找
-      var wfDef = Q.Workflows && Q.Workflows.workflows && Q.Workflows.workflows.list
+      const wfDef = Q.Workflows && Q.Workflows.workflows && Q.Workflows.workflows.list
         ? Q.Workflows.workflows.list.find(function(w) { return w.id === wfId; })
         : null;
       if (wfDef) {
@@ -216,7 +218,7 @@ function updateDashboard() {
         fetch('/api/workflows')
           .then(function(r) { return r.json(); })
           .then(function(data) {
-            var def = data.workflows ? data.workflows.find(function(w) { return w.id === wfId; }) : null;
+            const def = data.workflows ? data.workflows.find(function(w) { return w.id === wfId; }) : null;
             if (def && Q.Workflows && Q.Workflows.handleWorkflowClick) {
               Q.Workflows.handleWorkflowClick(def);
             }
@@ -229,7 +231,7 @@ function updateDashboard() {
   });
 
   // 重置按钮
-  var resetBtn = panel.querySelector('#opc-reset-btn');
+  const resetBtn = panel.querySelector('#opc-reset-btn');
   if (resetBtn) {
     resetBtn.addEventListener('click', function() {
       OPCDashboard.stats = {
@@ -251,9 +253,9 @@ function updateDashboard() {
  * 注册到 UIRegistry 作为右侧栏 Tab。
  */
 function init() {
-  var UIR = Q.UIRegistry;
+  const UIR = Q.UIRegistry;
   if (UIR) {
-    var registered = UIR.registerTab('opc-dashboard', {
+    const registered = UIR.registerTab('opc-dashboard', {
       icon: '🏢',
       label: 'OPC效益',
       order: 3,

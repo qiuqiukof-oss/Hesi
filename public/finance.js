@@ -248,10 +248,12 @@ function renderOverview(el) {
         '<div class="finance-metric"><div class="finance-metric-label">待审批</div><div class="finance-metric-value">' + pendingCount + '</div><div class="finance-metric-sub">预算申请</div></div>' +
         '<div class="finance-metric"><div class="finance-metric-label">待核销</div><div class="finance-metric-value">' + s.pendingSettlements + '</div><div class="finance-metric-sub">笔销账</div></div>' +
       '</div>' +
-      '<div class="finance-card"><div class="finance-card-title">📊 分类预算执行</div>' +
-        '<table class="finance-table"><thead><tr><th>分类</th><th>数量</th><th>预算总额</th><th>已核销</th><th>执行率</th></tr></thead>' +
-        '<tbody>' + (catRows || '<tr><td colspan="5" style="text-align:center;padding:12px;color:var(--text-tertiary)">暂无数据</td></tr>') + '</tbody></table>' +
-      '</div>' +
+      '<details class="collapsible-block"><summary>📊 分类预算执行</summary>' +
+        '<div class="finance-card"><div class="finance-card-title">分类预算执行明细</div>' +
+          '<table class="finance-table"><thead><tr><th>分类</th><th>数量</th><th>预算总额</th><th>已核销</th><th>执行率</th></tr></thead>' +
+          '<tbody>' + (catRows || '<tr><td colspan="5" style="text-align:center;padding:12px;color:var(--text-tertiary)">暂无数据</td></tr>') + '</tbody></table>' +
+        '</div>' +
+      '</details>' +
       '<div class="finance-card"><div class="finance-card-title">📋 预算状态分布</div><div style="display:flex;gap:4px;flex-wrap:wrap;">' + statusHtml + '</div></div>';
   }).catch(function (err) {
     el.innerHTML = '<div class="finance-empty"><div class="finance-empty-icon">📊</div>无法加载统计数据<br><span style="font-size:10px;color:var(--text-tertiary)">' + esc(err.message) + '</span></div>';

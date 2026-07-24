@@ -244,7 +244,7 @@ function buildPanelHTML() {
                 placeholder="输入图片描述（支持中文）&#10;例如：一只可爱的橘猫坐在编程键盘前，数字艺术风格"></textarea>
               <button id="ai-gen-btn" class="ai-gen-btn">✨ 生成</button>
             </div>
-            <div class="ai-gen-options">
+            <details class="collapsible-block" style="margin-bottom:8px;"><summary>⚙️ 高级选项</summary><div class="ai-gen-options">
               <label class="ai-gen-opt">
                 <span>模型</span>
                 <select id="ai-gen-model">
@@ -285,6 +285,7 @@ function buildPanelHTML() {
                 </select>
               </label>
             </div>
+            </details>
             <!-- ═══ 多阶段进度条 ═══ -->
             <div id="ai-gen-status" class="ai-gen-status hidden">
               <div class="ai-gen-stage-track" id="ai-gen-stage-track">
