@@ -48,27 +48,23 @@ const Q = /** @type {QCLI} */ (window.QCLI = window.QCLI || {});
       el.className = 'workflow-item';
       el.dataset.wfId = wf.id;
 
+      // Strip leading emoji from display name (icon span shows it separately)
+      const displayName = (wf.name || '').replace(/^[\p{Emoji_Presentation}\p{Extended_Pictographic}]\s*/u, '').trim() || wf.name;
+
+      // Hover tooltip = description
+      el.title = wf.description || displayName;
+
       // Icon
       const icon = document.createElement('span');
       icon.className = 'workflow-item-icon';
       icon.textContent = wf.icon || '⚡';
       el.appendChild(icon);
 
-      // Info
-      const info = document.createElement('div');
-      info.className = 'workflow-item-info';
-
+      // Name (no duplicate emoji)
       const name = document.createElement('div');
       name.className = 'workflow-item-name';
-      name.textContent = wf.name;
-      info.appendChild(name);
-
-      const desc = document.createElement('div');
-      desc.className = 'workflow-item-desc';
-      desc.textContent = wf.description;
-      info.appendChild(desc);
-
-      el.appendChild(info);
+      name.textContent = displayName;
+      el.appendChild(name);
 
       // Steps count badge
       const badge = document.createElement('span');
@@ -197,7 +193,7 @@ const Q = /** @type {QCLI} */ (window.QCLI = window.QCLI || {});
       for (const key of keys) {
         const v = vars[key];
         const el = document.getElementById(`wf-var-${key}`);
-        let val = el ? el.value.trim() : '';
+        const val = el ? el.value.trim() : '';
         if (v.required && !val) {
           hasError = true;
           el?.focus();
