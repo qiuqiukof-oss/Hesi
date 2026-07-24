@@ -64,6 +64,9 @@ const STORAGE_COLLAPSED_KEY = 'qcli-right-panel-collapsed';
 const STORAGE_WIDTH_KEY = 'qcli-right-panel-width';
 const STORAGE_TAB_KEY = 'qcli-right-panel-tab';
 
+// ── Tab layout version: bump when reordering tabs to force reset to dashboard ──
+const TAB_LAYOUT_VERSION = '2';
+
 // ============================================================
 // Initialization
 // ============================================================
@@ -146,9 +149,13 @@ function restoreState() {
   }
 
   const savedTab = safeStorage.get(STORAGE_TAB_KEY);
-  if (savedTab) {
+  const savedVersion = safeStorage.get('qcli-tab-layout-version');
+  // When tab layout version changes (reorder), reset to dashboard default
+  if (savedTab && savedVersion === TAB_LAYOUT_VERSION) {
     RightPanel.activeTab = savedTab;
   }
+  // Save current version so future restores work
+  safeStorage.set('qcli-tab-layout-version', TAB_LAYOUT_VERSION);
 }
 
 function saveCollapsed() {
