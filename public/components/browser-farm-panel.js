@@ -205,7 +205,7 @@ function timeAgo(ts) {
   if (!UIR) { setTimeout(register, 500); return; }
 
   UIR.registerTab('browser-farm', {
-    category: "tools",
+    category: "other",
     icon: '🌾',
     label: '浏览器农场',
     order: 21,

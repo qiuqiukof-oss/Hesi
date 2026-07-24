@@ -151,7 +151,7 @@ function init(container) {
   UIR.registerTab('accessibility', {
     icon: '♿',
     label: '无障碍',
-    category: 'tools',
+    category: 'other',
     order: 50,
     render: (container) => init(container),
   });

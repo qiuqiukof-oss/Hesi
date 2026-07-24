@@ -187,7 +187,7 @@ function init(container) {
   UIR.registerTab('dom-diff', {
     icon: '📋',
     label: 'DOM 差异',
-    category: 'tools',
+    category: 'other',
     order: 22,
     render: (container) => init(container),
   });

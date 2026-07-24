@@ -205,7 +205,7 @@ function init(container) {
   UIR.registerTab('form-autofill', {
     icon: '📝',
     label: '表单填表',
-    category: 'tools',
+    category: 'other',
     order: 23,
     render: (container) => init(container),
   });

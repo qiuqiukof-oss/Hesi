@@ -187,7 +187,7 @@ import { escapeHtml } from '../escape.js';
   const UIR = Q.UIRegistry;
   if (UIR) {
     UIR.registerTab('cli-preset-install', {
-    category: "tools",
+    category: "other",
       icon: '📦',
       label: 'CLI 安装',
       order: 12,

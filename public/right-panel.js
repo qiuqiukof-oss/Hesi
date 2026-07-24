@@ -95,12 +95,13 @@ function init() {
   // ── Build new horizontal tab bar with search + more dropdown ──
   buildTabBar();
 
-  // Subscribe to late-arriving tab registrations (buildTabBar → renderAllTabs 已完成全部渲染)
+  // Subscribe to late-arriving tab registrations. Re-render ALL tabs in fully
+  // sorted order so asynchronously-registered tabs (e.g. the agnes-ai plugin
+  // loaded via a dynamic <script>) land in their correct sorted slot instead of
+  // being blindly appended to the end of the bar (which froze the wrong order).
   if (Q.UIRegistry) {
     Q.UIRegistry.onTabRegistered = function(tabDef) {
-      addTabToBar(tabDef);
-      const panel = createPluginTabPanel(tabDef);
-      if (content) content.appendChild(panel);
+      scheduleRerenderAll();
       console.log('[RightPanel] Late-registered plugin tab:', tabDef.id);
     };
   }
@@ -352,6 +353,18 @@ function buildTabBar() {
       closeMoreDropdown();
       showTabSearch();
     }
+  });
+}
+
+// Coalesce multiple late tab registrations (same tick) into a single re-render
+// so the bar always reflects the fully sorted tab list (by category then order).
+let _rerenderScheduled = false;
+function scheduleRerenderAll() {
+  if (_rerenderScheduled) return;
+  _rerenderScheduled = true;
+  Promise.resolve().then(function() {
+    _rerenderScheduled = false;
+    renderAllTabs();
   });
 }
 

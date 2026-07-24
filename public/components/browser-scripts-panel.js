@@ -421,7 +421,7 @@ function init(container) {
   }
 
   const ok = UIR.registerTab('browser-scripts', {
-    category: "tools",
+    category: "other",
     icon: '📜',
     label: '浏览器脚本',
     order: 20,

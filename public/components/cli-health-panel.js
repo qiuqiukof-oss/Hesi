@@ -233,7 +233,7 @@
   const UIR = Q.UIRegistry;
   if (UIR) {
     UIR.registerTab('cli-health', {
-    category: "tools",
+    category: "other",
       icon: '🩺',
       label: 'CLI 健康',
       order: 10,

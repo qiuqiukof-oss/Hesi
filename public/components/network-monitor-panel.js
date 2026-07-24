@@ -558,7 +558,7 @@ function init(container) {
   }
 
   const ok = UIR.registerTab('network-monitor', {
-    category: "monitor",
+    category: "other",
     icon: '🌐',
     label: '网络监控',
     order: 40,

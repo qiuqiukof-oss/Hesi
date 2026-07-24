@@ -242,7 +242,7 @@ import { escapeHtml } from '../escape.js';
   const UIR = Q.UIRegistry;
   if (UIR) {
     UIR.registerTab('cli-importer', {
-    category: "tools",
+    category: "other",
       icon: '📦',
       label: 'CLI 批量',
       order: 11,
