@@ -13,7 +13,7 @@
   justify-content: center;
   gap: 6px;
   width: 100%;
-  margin: 6px var(--space-2, 10px) 2px;
+  margin: 6px var(--space-3, 12px) 2px;
   padding: 9px 12px;
   border: none;
   border-radius: 8px;
