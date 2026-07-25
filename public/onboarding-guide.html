@@ -157,7 +157,7 @@ body.no-panel #panel{transform:translateX(100%)}
     <!-- 启动遮罩 -->
     <div id="start">
       <h1>HESI</h1>
-      <p id="startP">一个跑在浏览器里的 AI 中枢。今天不跟你讲参数，跟你讲讲它是怎么从一个电竞人的无聊深夜里，一点点长出来的。</p>
+      <p id="startP">浏览器中的通用终端中枢<br>让多个 AI 合在一起思考的地方<br>运行任何 CLI，连接任何 Agent，控制任何浏览器</p>
       <button id="startBtn">▶ 开始播放</button>
     </div>
 
@@ -419,7 +419,7 @@ document.getElementById('voiceSel').addEventListener('change',changeVoice);
 function hasCJK(t){return /[一-鿿]/.test(t);}
 function splitSeg(t){return t.match(/[^。！？\n.!?]+[。！？.!?]?/g)||[t];}
 function buildOff(segs){const out=[];let g=0;for(const s of segs){const t=s.trim();const ws=hasCJK(t)?[...t]:t.split(/\s+/).filter(Boolean);const off=[];let p=0;for(const w of ws){off.push({w,start:p,end:p+w.length});p+=w.length+(hasCJK(t)?0:1);}out.push({ws,off,g});g+=s.length;}return out;}
-function renderSeg(seg){const _en=!hasCJK(seg.ws.join(''));subInner.innerHTML=seg.ws.map(w=>`<span class="sub-ch ch-pending${_en?' sub-en':''}">${w.replace(/</g,'&lt;')}</span>`).join('');}
+function renderSeg(seg){const _en=!hasCJK(seg.ws.join(''));const _sep=_en?'&nbsp;':'';subInner.innerHTML=seg.ws.map(w=>`<span class="sub-ch ch-pending${_en?' sub-en':''}">${w.replace(/</g,'&lt;')}</span>`).join(_sep);}
 function paint(idx,seg){const sp=[...subInner.children];for(let i=0;i<sp.length;i++){sp[i].className='sub-ch '+(i<idx?'ch-done':i===idx?'ch-now':'ch-pending');}}
 
 /* 播放：整页单条朗读（句号处为引擎自然短停顿），逐句淡入淡出 + 卡拉OK高亮 */
@@ -435,7 +435,7 @@ function playNar(){
   const segs=splitSeg(t);const segOffs=segs.map(s=>buildOff([s])[0]);
   const cum=[];let acc=0;for(const s of segs){cum.push(acc);acc+=s.length;}
   curSegIdx=-1;
-  function commitSeg(i){curSegIdx=i;subInner.classList.remove('fade');const _ws=segOffs[i].ws;const _en=!hasCJK(_ws.join(''));subInner.innerHTML=_ws.map(w=>`<span class="sub-ch ch-pending${_en?' sub-en':''}">${w.replace(/</g,'&lt;')}</span>`).join('');fitSub();}
+  function commitSeg(i){curSegIdx=i;subInner.classList.remove('fade');const _ws=segOffs[i].ws;const _en=!hasCJK(_ws.join(''));const _sep=_en?'&nbsp;':'';subInner.innerHTML=_ws.map(w=>`<span class="sub-ch ch-pending${_en?' sub-en':''}">${w.replace(/</g,'&lt;')}</span>`).join(_sep);fitSub();}
   function fitSub(){const base=parseFloat(getComputedStyle(sub).fontSize)||18;subInner.style.fontSize='';if(subInner.scrollWidth>sub.clientWidth-28){let s=base;subInner.style.fontSize=s+'px';while(subInner.scrollWidth>sub.clientWidth-28&&s>10){s-=.5;subInner.style.fontSize=s+'px';}if(s<10)subInner.style.fontSize='10px';}}
   function showSeg(i){if(i===curSegIdx)return;curSegIdx=i;subInner.classList.add('fade');clearTimeout(segTimer);segTimer=setTimeout(()=>{if(my!==epoch)return;commitSeg(i);},240);}
   utter=new SpeechSynthesisUtterance(t.trim());utter.lang=selVoice?selVoice.lang:(currentLang==='en'?'en-US':'zh-CN');utter.rate=rate;utter.pitch=0;utter.volume=1;if(selVoice)utter.voice=selVoice;
@@ -476,7 +476,7 @@ slides.forEach((s,i)=>{const d=document.createElement('span');d.className='dot'+
 /* ===== 双语文案 ===== */
 const I18N={
   zh:{
-    startP:"一个跑在浏览器里的 AI 中枢。今天不跟你讲参数，跟你讲讲它是怎么从一个电竞人的无聊深夜里，一点点长出来的。",
+    startP:"浏览器中的通用终端中枢<br>让多个 AI 合在一起思考的地方<br>运行任何 CLI，连接任何 Agent，控制任何浏览器",
     startBtn:"▶ 开始播放",
     title:"HESI 控制台",
     voiceLabel:"旁白嗓色（真实语音）",
@@ -488,7 +488,7 @@ const I18N={
     ticker:"● 实时：浏览器 agent 接管中　·　CDP 连接正常　·　圆桌会议进行中　·　12 个专家在线　·　本地优先 · MIT 开源　·　GitHub 搜 Hesi"
   },
   en:{
-    startP:"Hesi — an AI hub that runs right inside your browser. Today I won't bore you with specs; I'll tell you how it grew, bit by bit, from a pro gamer's restless late nights.",
+    startP:"A Universal Terminal Hub Inside Your Browser<br>Where Multiple AI Agents Think Together<br>Run any CLI, connect any Agent, control any browser",
     startBtn:"▶ Play",
     title:"HESI Console",
     voiceLabel:"Narration Voice",
