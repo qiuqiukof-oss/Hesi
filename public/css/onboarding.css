@@ -42,12 +42,12 @@
   100% { background-position: 200% 0; }
 }
 
-/* ── 气泡遮罩层 ── */
+/* ── 气泡遮罩层（v5: 透明不遮挡主界面，仅作为 fixed 定位容器）── */
 .og-overlay {
   position: fixed;
   inset: 0;
   z-index: 99999;
-  background: rgba(0, 0, 0, 0.55);
+  /* 不设 background：避免每步气泡出现时主界面变暗 */
 }
 
 /* 高亮框 — 强制紫色，不依赖变量 */
