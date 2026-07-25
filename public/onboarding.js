@@ -81,28 +81,35 @@
     const el = document.getElementById(step.target);
     if (!el) return null;
 
+    const rect0 = el.getBoundingClientRect();
+    // 目标可能尚未布局完成（尺寸为 0）→ 视为不可见，气泡居中屏幕、不高亮
+    const visible = rect0.width > 0 && rect0.height > 0;
+    const rect = visible
+      ? rect0
+      : { left: window.innerWidth / 2, top: window.innerHeight / 2, right: window.innerWidth / 2, bottom: window.innerHeight / 2, width: 0, height: 0 };
+
     const overlay = document.createElement('div');
     overlay.className = 'og-overlay';
     overlay.setAttribute('role', 'dialog');
     overlay.setAttribute('aria-modal', 'true');
     overlay.setAttribute('aria-label', '新手引导：' + step.title);
 
-    // ── 高亮框：紧贴目标 ──
-    const rect = el.getBoundingClientRect();
-    const pad = 6;
-    const hl = document.createElement('div');
-    hl.className = 'og-highlight' + (step.highlight ? ' og-highlight-star' : '');
-    hl.style.left = (rect.left - pad) + 'px';
-    hl.style.top = (rect.top - pad) + 'px';
-    hl.style.width = (rect.width + pad * 2) + 'px';
-    hl.style.height = (rect.height + pad * 2) + 'px';
-    overlay.appendChild(hl);
+    // ── 高亮框：仅当目标可见时紧贴目标 ──
+    if (visible) {
+      const pad = 6;
+      const hl = document.createElement('div');
+      hl.className = 'og-highlight' + (step.highlight ? ' og-highlight-star' : '');
+      hl.style.left = (rect.left - pad) + 'px';
+      hl.style.top = (rect.top - pad) + 'px';
+      hl.style.width = (rect.width + pad * 2) + 'px';
+      hl.style.height = (rect.height + pad * 2) + 'px';
+      overlay.appendChild(hl);
+    }
 
     // ── 气泡卡片 ──
     const bubble = document.createElement('div');
     bubble.className = 'og-bubble' + (step.highlight ? ' og-bubble-star' : '');
 
-    // 着重步骤加星标 badge
     const starBadge = step.highlight ? '<div class="og-star-badge">⭐ 核心功能</div>' : '';
 
     bubble.innerHTML =
@@ -116,10 +123,8 @@
     overlay.appendChild(bubble);
 
     // ── 智能定位：选择空间最大的方位 ──
-    const bw = 280, bh = step.highlight ? 160 : 130, gap = 12;
-    const arrowSize = 10;
+    const bw = 300, bh = step.highlight ? 170 : 140, gap = 12;
 
-    // 四个候选位置的空间
     const spaceBelow = window.innerHeight - rect.bottom - gap;
     const spaceAbove = rect.top - gap;
     const spaceRight = window.innerWidth - rect.right - gap;
@@ -127,8 +132,7 @@
 
     let top, left, arrowDir; // arrowDir: 'up'|'down'|'left'|'right'
 
-    if (spaceBelow >= bh || spaceBelow >= Math.max(spaceAbove, spaceRight * 0.5, spaceLeft * 0.5)) {
-      // 默认下方
+    if (spaceBelow >= bh || (spaceBelow >= spaceAbove && spaceBelow >= spaceRight * 0.4 && spaceBelow >= spaceLeft * 0.4)) {
       top = rect.bottom + gap;
       left = rect.left + rect.width / 2 - bw / 2;
       arrowDir = 'up';
@@ -140,24 +144,27 @@
       top = rect.top + rect.height / 2 - bh / 2;
       left = rect.right + gap;
       arrowDir = 'left';
-    } else {
+    } else if (spaceLeft >= bw) {
       top = rect.top + rect.height / 2 - bh / 2;
       left = rect.left - gap - bw;
       arrowDir = 'right';
+    } else {
+      // 兜底：居中屏幕
+      top = window.innerHeight / 2 - bh / 2;
+      left = window.innerWidth / 2 - bw / 2;
+      arrowDir = 'up';
     }
 
     // 边界钳位
     top = Math.max(8, Math.min(top, window.innerHeight - bh - 8));
     left = Math.max(8, Math.min(left, window.innerWidth - bw - 8));
-
     bubble.style.top = top + 'px';
     bubble.style.left = left + 'px';
 
-    // ── 箭头 ──
+    // ── 箭头：作为气泡子元素，position:absolute 相对气泡定位（见 onboarding.css）──
     const arrow = document.createElement('div');
     arrow.className = 'og-arrow og-arrow-' + arrowDir;
-    overlay.appendChild(arrow);
-    positionArrow(arrow, arrowDir, rect, bubble);
+    bubble.appendChild(arrow);
 
     bubble.querySelector('.og-next').addEventListener('click', onNext);
     bubble.querySelector('.og-skip').addEventListener('click', onSkip);
@@ -167,37 +174,6 @@
 
     document.body.appendChild(overlay);
     return overlay;
-  }
-
-  /** 定位箭头到目标边缘与气泡之间 */
-  function positionArrow(arrow, dir, targetRect, bubbleRect) {
-    const bs = bubbleRect.getBoundingClientRect();
-    const arrowSize = 10;
-    arrow.style.width = arrowSize + 'px';
-    arrow.style.height = arrowSize + 'px';
-
-    switch (dir) {
-      case 'up':
-        arrow.style.bottom = '-' + (arrowSize - 2) + 'px';
-        arrow.style.left = '50%';
-        arrow.style.marginLeft = '-' + (arrowSize / 2) + 'px';
-        break;
-      case 'down':
-        arrow.style.top = '-' + (arrowSize - 2) + 'px';
-        arrow.style.left = '50%';
-        arrow.style.marginLeft = '-' + (arrowSize / 2) + 'px';
-        break;
-      case 'left':
-        arrow.style.right = '-' + (arrowSize - 2) + 'px';
-        arrow.style.top = '50%';
-        arrow.style.marginTop = '-' + (arrowSize / 2) + 'px';
-        break;
-      case 'right':
-        arrow.style.left = '-' + (arrowSize - 2) + 'px';
-        arrow.style.top = '50%';
-        arrow.style.marginTop = '-' + (arrowSize / 2) + 'px';
-        break;
-    }
   }
 
   function startTour() {

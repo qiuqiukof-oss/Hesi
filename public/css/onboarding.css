@@ -159,9 +159,9 @@
   to   { opacity: 1; transform: scale(1.02); }
 }
 
-/* ── 箭头（气泡指向目标）—— v3: 匹配白底气泡颜色 ── */
+/* ── 箭头（气泡指向目标）—— v4: 作为气泡子元素，absolute 相对气泡定位 ── */
 .og-arrow {
-  position: fixed;
+  position: absolute;
   z-index: 100000;
   pointer-events: none;
   width: 10px;
@@ -174,24 +174,24 @@
   height: 0;
   border-style: solid;
 }
-/* 上箭头（箭头朝上，在气泡底部）*/
-.og-arrow-up {
-  bottom: -5px;
-  left: 50%;
-  margin-left: -5px;
-}
-.og-arrow-up::after {
-  top: 2px;
-  left: 0;
-  border-width: 0 5px 6px 5px;
-  border-color: transparent transparent #ffffff transparent;
-}
-/* 下箭头 */
-.og-arrow-down {
-  top: -5px;
-  left: 50%;
-  margin-left: -5px;
-}
+        /* 上箭头（箭头朝上，在气泡顶部，指向位于气泡上方的目标）*/
+        .og-arrow-up {
+          top: -5px;
+          left: 50%;
+          margin-left: -5px;
+        }
+        .og-arrow-up::after {
+          top: 2px;
+          left: 0;
+          border-width: 0 5px 6px 5px;
+          border-color: transparent transparent #ffffff transparent;
+        }
+        /* 下箭头（箭头朝下，在气泡底部）*/
+        .og-arrow-down {
+          bottom: -5px;
+          left: 50%;
+          margin-left: -5px;
+        }
 .og-arrow-down::after {
   bottom: 2px;
   left: 0;

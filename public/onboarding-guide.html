@@ -108,7 +108,7 @@
             width: 100%; height: 100%;
             display: flex;
             flex-direction: column;
-            justify-content: center;
+            justify-content: safe center;
             align-items: center;
             opacity: 0;
             transition: opacity 0.6s ease;
@@ -182,7 +182,7 @@
         }
         .content-wrapper {
             width: 100%; max-width: 900px; z-index: 20; position: relative;
-            max-height: 62vh; scrollbar-width: none; overflow-y: auto;
+            max-height: 84vh; scrollbar-width: none; overflow-y: auto;
         }
         .content-wrapper::-webkit-scrollbar { display: none; }
         .content {
@@ -190,6 +190,13 @@
             color: #e6e6e6; font-weight: 300; letter-spacing: 0.2px;
             text-shadow: 0 2px 4px rgba(0,0,0,0.5);
         }
+        /* 英文版：整体缩小字号上限，避免长文案溢出需手动缩放 */
+        body.lang-en .content { font-size: clamp(13px, 1.35vw, 17px); line-height: 1.6; }
+        body.lang-en .title { font-size: clamp(24px, 2.8vw, 40px); }
+        body.lang-en .start-title { font-size: clamp(34px, 4.4vw, 60px); }
+        body.lang-en .start-subtitle { font-size: clamp(18px, 2.2vw, 28px); }
+        body.lang-en .step-card p { font-size: 11.5px; }
+        body.lang-en .feature-item { font-size: clamp(12px, 1.2vw, 15px); }
         .fade-in-text {
             opacity: 0; filter: blur(3px); transform: translateY(8px);
             transition: opacity 0.7s ease, filter 0.7s ease, transform 0.7s ease;
@@ -552,6 +559,9 @@
         <button class="control-btn primary" id="playBtn" onclick="toggleAutoPlay()" disabled>
             ▶ <span data-zh="自动播放" data-en="Auto Play">自动播放</span>
         </button>
+        <button class="control-btn" id="speakBtn" onclick="toggleSpeak()" disabled>
+            🔊 <span data-zh="朗读" data-en="Narrate">朗读</span>
+        </button>
         <div class="progress-container">
             <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
             <div class="page-info" id="pageInfo"><span data-zh="准备就绪" data-en="Ready">准备就绪</span></div>
@@ -567,6 +577,7 @@
     let autoPlayInterval = null;
     let isPlaying = false;
     let currentLang = 'zh';
+    let speechEnabled = true;
 
     // ── Particles ──
     function createParticles() {
@@ -600,6 +611,12 @@
             const text = el.getAttribute('data-' + lang);
             if (text) el.textContent = text;
         });
+
+        // 同步语言 class（供英文版缩小字号）
+        document.body.classList.toggle('lang-en', lang === 'en');
+        document.body.classList.toggle('lang-zh', lang === 'zh');
+        // 切语言后重读当前页
+        if (currentSlide > 0) speakSlide(slides[currentSlide], lang);
     }
 
     // ── Slide Navigation ──
@@ -633,6 +650,8 @@
         }
 
         currentSlide = index;
+        // 进入某页时自动朗读（start 页 index=0 不读，由开始按钮触发）
+        if (index > 0) speakSlide(slides[index], currentLang);
     }
 
     function startGuide() {
@@ -643,6 +662,7 @@
         document.getElementById('prevBtn').disabled = false;
         document.getElementById('nextBtn').disabled = false;
         document.getElementById('playBtn').disabled = false;
+        document.getElementById('speakBtn').disabled = false;
     }
 
     function nextSlide() {
@@ -692,6 +712,52 @@
         if (e.key === 'ArrowLeft') { if (isPlaying) stopAutoPlay(); prevSlide(); }
         if (e.key === ' ') { e.preventDefault(); if (currentSlide === 0) startGuide(); else toggleAutoPlay(); }
     });
+
+    // ── 文本朗读（TTS，教程页旁白）──
+    function pickVoice(lang) {
+        if (!('speechSynthesis' in window)) return null;
+        const vs = window.speechSynthesis.getVoices();
+        const pref = lang === 'zh' ? ['zh-CN', 'zh', 'cmn'] : ['en-US', 'en', 'en-GB'];
+        for (const p of pref) {
+            const v = vs.find(v => v.lang && v.lang.toLowerCase().startsWith(p.toLowerCase()));
+            if (v) return v;
+        }
+        return null;
+    }
+    function speakSlide(slideEl, lang) {
+        if (!speechEnabled) return;
+        if (!('speechSynthesis' in window) || !slideEl) return;
+        window.speechSynthesis.cancel();
+        // 按顺序收集当前语言文案（过滤空）
+        const nodes = slideEl.querySelectorAll('[data-zh]');
+        let text = '';
+        nodes.forEach(n => {
+            const t = n.getAttribute('data-' + lang);
+            if (t && t.trim()) text += t.replace(/<[^>]+>/g, ' ') + '。 ';
+        });
+        text = text.trim();
+        if (!text) return;
+        const u = new SpeechSynthesisUtterance(text);
+        const v = pickVoice(lang);
+        if (v) u.voice = v;
+        u.lang = lang === 'zh' ? 'zh-CN' : 'en-US';
+        u.rate = lang === 'zh' ? 1.0 : 0.95;
+        u.pitch = 1.0;
+        window.speechSynthesis.speak(u);
+    }
+    function stopSpeak() {
+        if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+    }
+    function toggleSpeak() {
+        if (!('speechSynthesis' in window)) return;
+        if (window.speechSynthesis.speaking) { stopSpeak(); return; }
+        if (currentSlide > 0) speakSlide(slides[currentSlide], currentLang);
+        else speakSlide(document.getElementById('startSlide'), currentLang);
+    }
+    if ('speechSynthesis' in window) {
+        // 触发 voices 列表异步加载（部分浏览器首次需此事件）
+        window.speechSynthesis.onvoiceschanged = function () {};
+    }
 
     // ── Init ──
     createParticles();
