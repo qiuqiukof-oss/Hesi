@@ -629,9 +629,29 @@
         document.body.classList.toggle('lang-zh', lang === 'zh');
         // 切语言后重读当前页
         if (currentSlide > 0) speakSlide(slides[currentSlide], lang);
+        // 同步页码提示与「下一步」按钮文案（双语，无需重新导航）
+        updatePageInfo();
     }
 
     // ── Slide Navigation ──
+    // 页码提示（双语）复用：showSlide 与 switchLang 共用，保证切语言即时跟随
+    function updatePageInfo() {
+        const pageInfo = document.getElementById('pageInfo');
+        if (currentSlide === 0) {
+            pageInfo.textContent = currentLang === 'zh' ? '准备就绪' : 'Ready';
+        } else {
+            pageInfo.textContent = currentLang === 'zh'
+                ? `第 ${currentSlide} / ${totalSlides - 1} 页`
+                : `Page ${currentSlide} of ${totalSlides - 1}`;
+        }
+        const nextBtn = document.getElementById('nextBtn');
+        if (currentSlide === totalSlides - 1) {
+            nextBtn.innerHTML = '<span data-zh="完成 ✓" data-en="Done ✓">' + (currentLang === 'zh' ? '完成 ✓' : 'Done ✓') + '</span>';
+        } else {
+            nextBtn.innerHTML = '<span data-zh="下一步 ⏭" data-en="Next ⏭">下一步 ⏭</span>';
+        }
+    }
+
     function showSlide(index) {
         slides.forEach((slide, i) => {
             slide.classList.remove('active');
@@ -650,18 +670,12 @@
 
         const progress = (index / (totalSlides - 1)) * 100;
         document.getElementById('progressFill').style.width = progress + '%';
-        document.getElementById('pageInfo').textContent =
-            (currentLang === 'zh' ? `第 ${index} / ${totalSlides - 1} 页` : `Page ${index} of ${totalSlides - 1}`);
 
         document.getElementById('prevBtn').disabled = index <= 1;
         document.getElementById('nextBtn').disabled = index === totalSlides - 1;
-        if (index === totalSlides - 1) {
-            document.getElementById('nextBtn').innerHTML = '<span data-zh="完成 ✓" data-en="Done ✓">' + (currentLang === 'zh' ? '完成 ✓' : 'Done ✓') + '</span>';
-        } else {
-            document.getElementById('nextBtn').innerHTML = '<span data-zh="下一步 ⏭" data-en="Next ⏭">下一步 ⏭</span>';
-        }
 
         currentSlide = index;
+        updatePageInfo();
         // 进入某页时自动朗读（start 页 index=0 不读，由开始按钮触发）
         if (index > 0) speakSlide(slides[index], currentLang);
     }
