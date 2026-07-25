@@ -210,6 +210,7 @@ export function setupCategoryFilters() {
       const category = chip.dataset.category;
       if (category === cliStore.getState().categoryFilter) return;
       cliStore.setState({ categoryFilter: category });
+      state.categoryFilter = category;  // 同步本地 state（filterCLIs 读此值）
       chips.forEach(c => c.classList.toggle('active', c.dataset.category === category));
       if (typeof Q.renderCLIList === 'function') {
         Q.renderCLIList();
