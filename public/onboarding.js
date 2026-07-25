@@ -31,6 +31,7 @@
    *  align: 水平对齐方式（'center'|'start'|'end'），默认 'center'
    *        'start'=气泡左边缘对齐目标左边缘（适合宽目标如 discuss-bar）
    *  offset: { x, y } 像素偏移（正=右/下，负=左/上），用于微调气泡最终位置
+   *  highlightTarget: 高亮框精确指向的子元素 ID（默认用 target 本身；宽目标如 discuss-bar 可指定内部按钮）
    */
   const STEPS = [
     {
@@ -51,7 +52,8 @@
       panel: 'chat',
       prefer: 'down',  // 气泡明确放在 discuss-bar 上方（箭头向下指），避免盖住按钮
       align: 'start',  // 气泡左对齐，箭头指向左侧🤝开关而非居中盖住整条栏
-      offset: { x: -30, y: -130 },  // 往左上推：discuss-bar 在面板底部，默认位置太靠下
+      offset: { x: -30, y: -152 },  // 往左上推：discuss-bar 在面板底部，再上移~1行文字
+      highlightTarget: 'discuss-switch',  // 高亮框只圈🤝开关本身，不圈整条宽栏
     },
     {
       target: 'chat-attach-btn',
@@ -59,7 +61,7 @@
       text: '点对话框的 📎 发图片、视频或代码文件，AI 真能「看懂」图、读取文件内容。',
       panel: 'chat',
       prefer: 'up',  // 小按钮：气泡固定在上方，箭头向下精确指向📎
-      offset: { x: -20, y: -60 },  // 往左上微调
+      offset: { x: 10, y: -25 },  // 微调至「AI讨论」标签附近
     },
     {
       target: 'discover-btn',
@@ -76,6 +78,7 @@
       title: '🤖 安装 AI Agent',
       text: '在欢迎页可以一键安装预置的 AI Agent（如 OpenCode），让专业 Agent 替你干活。',
       prefer: 'up', // 气泡置上方，避免遮挡下方安装卡片/说明
+      offset: { x: 0, y: -20 }, // 上移~1行文字
     },
     {
       target: 'add-cli-btn',
@@ -162,14 +165,22 @@
 
     // ── 高亮框：仅当目标可见时紧贴目标 ──
     if (visible) {
-      const pad = 6;
-      const hl = document.createElement('div');
-      hl.className = 'og-highlight' + (step.highlight ? ' og-highlight-star' : '');
-      hl.style.left = (rect.left - pad) + 'px';
-      hl.style.top = (rect.top - pad) + 'px';
-      hl.style.width = (rect.width + pad * 2) + 'px';
-      hl.style.height = (rect.height + pad * 2) + 'px';
-      overlay.appendChild(hl);
+      // 如果指定了 highlightTarget，用子元素做高亮（更精准）
+      const hlEl = step.highlightTarget
+        ? document.getElementById(step.highlightTarget)
+        : el;
+      const hlRect = hlEl ? hlEl.getBoundingClientRect() : rect;
+      const hlVisible = hlEl && hlRect.width > 0 && hlRect.height > 0;
+      if (hlVisible) {
+        const pad = 6;
+        const hl = document.createElement('div');
+        hl.className = 'og-highlight' + (step.highlight ? ' og-highlight-star' : '');
+        hl.style.left = (hlRect.left - pad) + 'px';
+        hl.style.top = (hlRect.top - pad) + 'px';
+        hl.style.width = (hlRect.width + pad * 2) + 'px';
+        hl.style.height = (hlRect.height + pad * 2) + 'px';
+        overlay.appendChild(hl);
+      }
     }
 
     // ── 气泡卡片 ──
