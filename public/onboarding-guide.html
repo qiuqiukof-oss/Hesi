@@ -124,6 +124,8 @@ body.with-panel #subtitle{left:calc(50% - 150px)}
 #subtitle .sub-ch.ch-now{color:#F59E0B;text-shadow:0 0 12px rgba(245,158,11,.6)}
 #subtitle .sub-ch.ch-pending{color:rgba(148,163,184,.6)}
 #subtitle .sub-ch.ch-done{color:rgba(196,181,253,.55)}
+#subtitle .sub-ch.sub-en{margin-right:0.35em}
+#subtitle .sub-ch.sub-en:last-child{margin-right:0}
 body.with-panel .slide{right:300px}
 
 /* 底部实时事件条 */
@@ -417,7 +419,7 @@ document.getElementById('voiceSel').addEventListener('change',changeVoice);
 function hasCJK(t){return /[一-鿿]/.test(t);}
 function splitSeg(t){return t.match(/[^。！？\n.!?]+[。！？.!?]?/g)||[t];}
 function buildOff(segs){const out=[];let g=0;for(const s of segs){const t=s.trim();const ws=hasCJK(t)?[...t]:t.split(/\s+/).filter(Boolean);const off=[];let p=0;for(const w of ws){off.push({w,start:p,end:p+w.length});p+=w.length+(hasCJK(t)?0:1);}out.push({ws,off,g});g+=s.length;}return out;}
-function renderSeg(seg){const _sep=hasCJK(seg.ws.join(''))?'':' ';subInner.innerHTML=seg.ws.map(w=>`<span class="sub-ch ch-pending">${w.replace(/</g,'&lt;')}</span>`).join(_sep);}
+function renderSeg(seg){const _en=!hasCJK(seg.ws.join(''));subInner.innerHTML=seg.ws.map(w=>`<span class="sub-ch ch-pending${_en?' sub-en':''}">${w.replace(/</g,'&lt;')}</span>`).join('');}
 function paint(idx,seg){const sp=[...subInner.children];for(let i=0;i<sp.length;i++){sp[i].className='sub-ch '+(i<idx?'ch-done':i===idx?'ch-now':'ch-pending');}}
 
 /* 播放：整页单条朗读（句号处为引擎自然短停顿），逐句淡入淡出 + 卡拉OK高亮 */
@@ -433,7 +435,7 @@ function playNar(){
   const segs=splitSeg(t);const segOffs=segs.map(s=>buildOff([s])[0]);
   const cum=[];let acc=0;for(const s of segs){cum.push(acc);acc+=s.length;}
   curSegIdx=-1;
-  function commitSeg(i){curSegIdx=i;subInner.classList.remove('fade');const _ws=segOffs[i].ws;const _sep=hasCJK(_ws.join(''))?'':' ';subInner.innerHTML=_ws.map(w=>`<span class="sub-ch ch-pending">${w.replace(/</g,'&lt;')}</span>`).join(_sep);fitSub();}
+  function commitSeg(i){curSegIdx=i;subInner.classList.remove('fade');const _ws=segOffs[i].ws;const _en=!hasCJK(_ws.join(''));subInner.innerHTML=_ws.map(w=>`<span class="sub-ch ch-pending${_en?' sub-en':''}">${w.replace(/</g,'&lt;')}</span>`).join('');fitSub();}
   function fitSub(){const base=parseFloat(getComputedStyle(sub).fontSize)||18;subInner.style.fontSize='';if(subInner.scrollWidth>sub.clientWidth-28){let s=base;subInner.style.fontSize=s+'px';while(subInner.scrollWidth>sub.clientWidth-28&&s>10){s-=.5;subInner.style.fontSize=s+'px';}if(s<10)subInner.style.fontSize='10px';}}
   function showSeg(i){if(i===curSegIdx)return;curSegIdx=i;subInner.classList.add('fade');clearTimeout(segTimer);segTimer=setTimeout(()=>{if(my!==epoch)return;commitSeg(i);},240);}
   utter=new SpeechSynthesisUtterance(t.trim());utter.lang=selVoice?selVoice.lang:(currentLang==='en'?'en-US':'zh-CN');utter.rate=rate;utter.pitch=0;utter.volume=1;if(selVoice)utter.voice=selVoice;
