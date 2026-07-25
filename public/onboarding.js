@@ -52,7 +52,7 @@
       panel: 'chat',
       prefer: 'down',  // 气泡明确放在 discuss-bar 上方（箭头向下指），避免盖住按钮
       align: 'start',  // 气泡左对齐，箭头指向左侧🤝开关而非居中盖住整条栏
-      offset: { x: -30, y: -124 },  // 往上12px微调
+      offset: { x: -30, y: -144 },  // 再上移20px
       highlightTarget: 'discuss-switch',  // 高亮框只圈🤝开关本身，不圈整条宽栏
     },
     {
