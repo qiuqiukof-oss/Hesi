@@ -30,6 +30,7 @@
    *  prefer: 首选气泡方位（'up'|'down'|'left'|'right'），空间足够则优先用
    *  align: 水平对齐方式（'center'|'start'|'end'），默认 'center'
    *        'start'=气泡左边缘对齐目标左边缘（适合宽目标如 discuss-bar）
+   *  offset: { x, y } 像素偏移（正=右/下，负=左/上），用于微调气泡最终位置
    */
   const STEPS = [
     {
@@ -50,6 +51,7 @@
       panel: 'chat',
       prefer: 'down',  // 气泡明确放在 discuss-bar 上方（箭头向下指），避免盖住按钮
       align: 'start',  // 气泡左对齐，箭头指向左侧🤝开关而非居中盖住整条栏
+      offset: { x: -30, y: -130 },  // 往左上推：discuss-bar 在面板底部，默认位置太靠下
     },
     {
       target: 'chat-attach-btn',
@@ -57,6 +59,7 @@
       text: '点对话框的 📎 发图片、视频或代码文件，AI 真能「看懂」图、读取文件内容。',
       panel: 'chat',
       prefer: 'up',  // 小按钮：气泡固定在上方，箭头向下精确指向📎
+      offset: { x: -20, y: -60 },  // 往左上微调
     },
     {
       target: 'discover-btn',
@@ -138,8 +141,9 @@
    * 单步气泡：高亮目标 + 卡片 + 箭头
    * 改进定位：优先 prefer 方位，否则自动选择最佳方位（上/下/左/右），增加箭头指向目标
    * align: 水平对齐（'center'|'start'|'end'），影响 left/right 方位的气泡位置
+   * offset: { x, y } 像素偏移（正=右/下，负=左/上），在边界钳位前应用
    */
-  function buildBubble(step, onNext, onSkip, prefer, align) {
+  function buildBubble(step, onNext, onSkip, prefer, align, offset) {
     const el = document.getElementById(step.target);
     if (!el) return null;
 
@@ -237,6 +241,12 @@
       arrowDir = 'up';
     }
 
+    // ── 手动偏移（在边界钳位前应用）──
+    if (offset) {
+      if (offset.x) left += offset.x;
+      if (offset.y) top += offset.y;
+    }
+
     // 边界钳位
     top = Math.max(8, Math.min(top, window.innerHeight - bh - 8));
     left = Math.max(8, Math.min(left, window.innerWidth - bw - 8));
@@ -299,7 +309,7 @@
         if (prev && prev.panel === 'chat') ensureChatClose();
       }
 
-      const overlay = buildBubble(step, next, finish, step.prefer, step.align);
+      const overlay = buildBubble(step, next, finish, step.prefer, step.align, step.offset);
       if (!overlay) { i++; next(); return; }
       current = overlay;
       i++;
