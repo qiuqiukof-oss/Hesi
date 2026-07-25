@@ -29,6 +29,18 @@
             display: flex;
         }
 
+        /* Blurred screenshot background */
+        #container::before {
+            content: '';
+            position: absolute;
+            top: -5%; left: -5%;
+            width: 110%; height: 110%;
+            background: url('/images/onboarding-bg.png') center center / cover no-repeat;
+            filter: blur(20px) brightness(0.35);
+            z-index: 0;
+            pointer-events: none;
+        }
+
         /* Particle background */
         .particles {
             position: absolute;
