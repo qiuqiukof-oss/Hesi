@@ -113,7 +113,7 @@ function setupRoutes(app, opts = {}) {
   app.use('/api', createPresetsRouter());
   app.use('/api', createProjectRouter());
   app.use('/api', createStockRouter());
-  app.use('/api', createToolsRouter());
+  app.use('/api', requireToken, createToolsRouter());
   app.use('/api', createQuantRouter());
   app.use('/api/memory', createMemoryRouter());
   app.use('/api', createFinanceRouter());
