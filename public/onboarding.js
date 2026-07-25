@@ -154,25 +154,6 @@
   }
 
   /**
-   * 进入 chat 步时临时隐藏欢迎遮罩（#welcome-overlay z-index:5 会盖住 chat 目标）
-   * 仅当遮罩当前可见才隐藏，并记录状态，cleanup/离开 chat 步时精准恢复。
-   */
-  let welcomeHiddenByTour = false;
-  function hideWelcomeOverlay() {
-    const el = document.getElementById('welcome-overlay');
-    if (el && !el.classList.contains('hidden')) {
-      el.classList.add('hidden');
-      welcomeHiddenByTour = true;
-    }
-  }
-  function showWelcomeOverlay() {
-    if (!welcomeHiddenByTour) return;
-    const el = document.getElementById('welcome-overlay');
-    if (el) el.classList.remove('hidden');
-    welcomeHiddenByTour = false;
-  }
-
-  /**
    * 单步气泡：高亮目标 + 卡片 + 箭头
    * 改进定位：优先 prefer 方位，否则自动选择最佳方位（上/下/左/右），增加箭头指向目标
    * align: 水平对齐（'center'|'start'|'end'），影响 left/right 方位的气泡位置
@@ -328,8 +309,6 @@
       document.removeEventListener('keydown', onKey);
       // 中途退出也确保聊天抽屉关回，不残留遮挡
       ensureChatClose();
-      // 恢复欢迎遮罩（若 chat 步曾隐藏，避免主界面遮罩丢失）
-      showWelcomeOverlay();
     }
     function onKey(e) {
       if (e.key === 'Escape') { finish(); return; }
@@ -347,21 +326,20 @@
 
       // ── 面板协同（B 方案）──
       if (step.panel === 'chat') {
-        hideWelcomeOverlay(); // 避免欢迎遮罩盖住 chat 目标
+        // #chat-drawer(z-index:6) 天然在 #welcome-overlay(z-index:5) 之上，无需隐藏欢迎页
         ensureChatOpen();
         // 等待聊天抽屉滑入动画结束，避免在动画中途读坐标导致气泡偏移
         const drawer = document.getElementById('chat-drawer');
         if (drawer) await waitForSettled(drawer);
         const ok = await waitForVisible(document.getElementById(step.target), 900);
         if (!ok) {
-          // 开不了抽屉（异常）→ A 降级静默跳过，恢复遮罩
-          showWelcomeOverlay();
+          // 开不了抽屉（异常）→ A 降级静默跳过
           i++; next(); return;
         }
       } else {
-        // 非 chat 步：若上一步是 chat 步，进入前关回抽屉并恢复欢迎遮罩，避免遮挡
+        // 非 chat 步：若上一步是 chat 步，进入前关回抽屉
         const prev = STEPS[i - 1];
-        if (prev && prev.panel === 'chat') { ensureChatClose(); showWelcomeOverlay(); }
+        if (prev && prev.panel === 'chat') { ensureChatClose(); }
       }
 
       const overlay = buildBubble(step, next, finish, step.prefer, step.align, step.offset);
