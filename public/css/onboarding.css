@@ -1,0 +1,113 @@
+/* ============================================================
+   Hesi — 新手引导样式
+   1) 左栏「新手指南」流光按钮
+   2) 首次气泡指引（coach marks）遮罩层
+   ============================================================ */
+
+/* ── 左栏流光按钮 ── */
+.onboarding-guide-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  margin: 6px 0 2px;
+  padding: 9px 12px;
+  border: none;
+  border-radius: 8px;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  cursor: pointer;
+  background: linear-gradient(110deg, #0ea5e9, #22d3ee, #6366f1, #22d3ee, #0ea5e9);
+  background-size: 200% 100%;
+  animation: og-shimmer 3s linear infinite;
+  box-shadow: 0 2px 12px rgba(99, 102, 241, 0.35);
+  transition: transform 0.15s ease, filter 0.15s ease;
+}
+.onboarding-guide-btn:hover {
+  transform: scale(1.02);
+  filter: brightness(1.06);
+}
+.onboarding-guide-btn:active {
+  transform: scale(0.98);
+}
+.onboarding-guide-btn .og-ico { font-size: 14px; line-height: 1; }
+
+@keyframes og-shimmer {
+  0%   { background-position: 0% 0; }
+  100% { background-position: 200% 0; }
+}
+
+/* ── 气泡遮罩层 ── */
+.og-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 99999;
+  background: rgba(0, 0, 0, 0.55);
+}
+.og-highlight {
+  position: fixed;
+  border-radius: 10px;
+  box-shadow: 0 0 0 3px var(--accent, #6366f1), 0 0 18px rgba(99, 102, 241, 0.5);
+  pointer-events: none;
+  transition: all 0.3s ease;
+}
+.og-bubble {
+  position: fixed;
+  max-width: 260px;
+  background: var(--bg-overlay, #1c1c1e);
+  color: var(--text-primary, #f5f5f7);
+  border: 1px solid var(--border-default, #38383a);
+  border-radius: 12px;
+  padding: 14px 16px;
+  z-index: 100000;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.5);
+}
+.og-bubble h4 {
+  margin: 0 0 6px;
+  font-size: 14px;
+  font-weight: 700;
+}
+.og-bubble p {
+  margin: 0 0 12px;
+  font-size: 12px;
+  line-height: 1.55;
+  color: var(--text-secondary, #b0b0b5);
+}
+.og-bubble .og-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+.og-bubble .og-actions button {
+  font-size: 12px;
+  font-weight: 600;
+  padding: 6px 12px;
+  border-radius: 7px;
+  border: none;
+  cursor: pointer;
+  transition: filter 0.15s ease;
+}
+.og-bubble .og-next {
+  background: var(--accent, #6366f1);
+  color: #fff;
+}
+.og-bubble .og-skip {
+  background: transparent;
+  color: var(--text-tertiary, #98989d);
+}
+.og-bubble .og-actions button:hover {
+  filter: brightness(1.12);
+}
+
+/* 尊重减少动效偏好 */
+@media (prefers-reduced-motion: reduce) {
+  .onboarding-guide-btn {
+    animation: none;
+  }
+  .og-highlight {
+    transition: none;
+  }
+}

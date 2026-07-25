@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>新手指南 — Hesi</title>
+  <link rel="stylesheet" href="/css/theme.css" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", sans-serif;
+      background: var(--bg-ground, #0a0a0b);
+      color: var(--text-primary, #f5f5f7);
+      min-height: 100vh;
+      display: flex; flex-direction: column;
+      align-items: center;
+    }
+    .og-header {
+      text-align: center;
+      padding: 48px 24px 8px;
+    }
+    .og-header h1 {
+      font-size: 26px; font-weight: 700;
+      background: linear-gradient(110deg, #0ea5e9, #22d3ee, #6366f1);
+      -webkit-background-clip: text; background-clip: text; color: transparent;
+    }
+    .og-header p { margin-top: 8px; font-size: 13px; color: var(--text-tertiary, #98989d); }
+
+    .og-stage {
+      position: relative;
+      width: min(560px, 90vw);
+      margin: 28px auto 0;
+      min-height: 240px;
+      border: 1px solid var(--border-default, #38383a);
+      border-radius: 16px;
+      background: var(--bg-overlay, #141416);
+      padding: 32px 28px;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      text-align: center;
+    }
+    .og-step-icon {
+      font-size: 56px; line-height: 1; margin-bottom: 18px;
+      filter: drop-shadow(0 4px 12px rgba(99,102,241,0.35));
+    }
+    .og-step-title { font-size: 18px; font-weight: 700; margin-bottom: 10px; }
+    .og-step-desc {
+      font-size: 14px; line-height: 1.7; color: var(--text-secondary, #b0b0b5);
+      max-width: 440px;
+    }
+    .og-step { display: none; animation: og-fade .35s ease; }
+    .og-step.active { display: flex; flex-direction: column; align-items: center; }
+    @keyframes og-fade { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+
+    .og-dots { display: flex; gap: 8px; justify-content: center; margin: 22px 0 4px; }
+    .og-dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      background: var(--bg-hover, rgba(255,255,255,0.18)); transition: all .25s ease;
+    }
+    .og-dot.active { background: var(--accent, #6366f1); width: 22px; border-radius: 4px; }
+
+    .og-controls { display: flex; gap: 10px; justify-content: center; margin: 18px 0 48px; flex-wrap: wrap; }
+    .og-controls button {
+      font-size: 13px; font-weight: 600; padding: 9px 18px; border-radius: 9px;
+      border: 1px solid var(--border-default, #38383a); cursor: pointer;
+      background: var(--bg-overlay, #1c1c1e); color: var(--text-primary, #f5f5f7);
+      transition: all .15s ease;
+    }
+    .og-controls button:hover:not(:disabled) { border-color: var(--accent, #6366f1); }
+    .og-controls button:disabled { opacity: .4; cursor: default; }
+    .og-start { background: linear-gradient(110deg, #0ea5e9, #6366f1); color: #fff; border: none; }
+    .og-next { background: var(--accent, #6366f1); color: #fff; border: none; }
+    .og-controls button.hidden { display: none; }
+
+    .og-foot { font-size: 12px; color: var(--text-tertiary, #6b6b70); margin-bottom: 40px; }
+    .og-foot code { background: var(--bg-hover, rgba(255,255,255,0.08)); padding: 1px 6px; border-radius: 5px; }
+  </style>
+</head>
+<body>
+  <header class="og-header">
+    <h1>Hesi 2 分钟上手</h1>
+    <p>四步带你玩转本地 AI 中枢</p>
+  </header>
+
+  <main class="og-stage" id="og-stage">
+    <div class="og-step active" data-step="0">
+      <div class="og-step-icon">🎭</div>
+      <div class="og-step-title">选一个预设</div>
+      <div class="og-step-desc">顶部「预设」决定 AI 扮演什么角色，比如「开发者」。切换后，AI 的语气和擅长领域会跟着变——先选一个再聊。</div>
+    </div>
+    <div class="og-step" data-step="1">
+      <div class="og-step-icon">💬</div>
+      <div class="og-step-title">直接对话</div>
+      <div class="og-step-desc">在底部对话框像聊天一样提问：「怎么用 ffmpeg 裁剪视频？」「帮我分析这段终端报错」。Hesi 真能跑命令、看输出。</div>
+    </div>
+    <div class="og-step" data-step="2">
+      <div class="og-step-icon">📎</div>
+      <div class="og-step-title">发附件给 AI</div>
+      <div class="og-step-desc">点对话框的 📎 按钮，发送图片或代码文件。AI 真能「看懂」图、读取文件内容，让它帮你审图、读代码。</div>
+    </div>
+    <div class="og-step" data-step="3">
+      <div class="og-step-icon">🏪</div>
+      <div class="og-step-title">逛工具广场</div>
+      <div class="og-step-desc">左侧「广场 / WB广场 / 工具箱」藏着插件、专家和成百上千的工具。按需求扩展 Hesi，越用越强。</div>
+    </div>
+  </main>
+
+  <div class="og-dots" id="og-dots"></div>
+
+  <div class="og-controls">
+    <button id="og-skip">跳过</button>
+    <button id="og-prev" disabled>上一步</button>
+    <button id="og-start" class="og-start">▶ 开始体验</button>
+    <button id="og-next" class="og-next hidden">下一步</button>
+  </div>
+
+  <div class="og-foot">看完后此页会自动标记「已引导」，主界面不再弹出气泡。重看请点左栏「新手指南」。</div>
+
+  <script>
+    (function () {
+      var KEY = 'hesi_onboarding_v1';
+      var steps = document.querySelectorAll('.og-step');
+      var dotsWrap = document.getElementById('og-dots');
+      var btnSkip = document.getElementById('og-skip');
+      var btnPrev = document.getElementById('og-prev');
+      var btnStart = document.getElementById('og-start');
+      var btnNext = document.getElementById('og-next');
+      var idx = 0, timer = null;
+
+      // build dots
+      steps.forEach(function (_, i) {
+        var d = document.createElement('div');
+        d.className = 'og-dot' + (i === 0 ? ' active' : '');
+        dotsWrap.appendChild(d);
+      });
+      var dots = dotsWrap.querySelectorAll('.og-dot');
+
+      function render() {
+        steps.forEach(function (s, i) { s.classList.toggle('active', i === idx); });
+        dots.forEach(function (d, i) { d.classList.toggle('active', i === idx); });
+        btnPrev.disabled = idx === 0;
+        btnNext.textContent = idx === steps.length - 1 ? '完成 ✓' : '下一步';
+      }
+      function stop() { if (timer) { clearInterval(timer); timer = null; } }
+      function markDone() { try { localStorage.setItem(KEY, '1'); } catch (e) {} }
+      function finish() { markDone(); window.close(); }
+
+      function goNext() {
+        if (idx < steps.length - 1) { idx++; render(); }
+        else { stop(); finish(); }
+      }
+      function goPrev() { if (idx > 0) { idx--; render(); } }
+
+      btnStart.addEventListener('click', function () {
+        btnStart.classList.add('hidden');
+        btnNext.classList.remove('hidden');
+        timer = setInterval(function () {
+          if (idx < steps.length - 1) goNext();
+          else { stop(); }
+        }, 2500);
+      });
+      btnNext.addEventListener('click', goNext);
+      btnPrev.addEventListener('click', goPrev);
+      btnSkip.addEventListener('click', function () { stop(); finish(); });
+
+      render();
+    })();
+  </script>
+</body>
+</html>
