@@ -39,6 +39,8 @@ const { createRouter: createLicenseRouter } = require('./license');
 const { createRouter: createTelemetryRouter } = require('./telemetry');
 const { createRouter: createMetricsRouter } = require('./metrics');
 const { createRouter: createTeamsRouter } = require('./teams');
+const { createRouter: createWorkspaceRouter } = require('./workspace');
+const { createRouter: createFsRouter } = require('./fs');
 // Optional access-token protection for sensitive HTTP routes.
 // No-op unless QCLI_ACCESS_TOKEN is set (loopback clients exempt by default).
 const { requireToken } = require('../lib/access-auth');
@@ -114,6 +116,8 @@ function setupRoutes(app, opts = {}) {
   app.use('/api', createProjectRouter());
   app.use('/api', createStockRouter());
   app.use('/api', requireToken, createToolsRouter());
+  app.use('/api', requireToken, createWorkspaceRouter());
+  app.use('/api', requireToken, createFsRouter());
   app.use('/api', createQuantRouter());
   app.use('/api/memory', createMemoryRouter());
   app.use('/api', createFinanceRouter());

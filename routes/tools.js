@@ -8,9 +8,10 @@ const { exec } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 const { checkCommand } = require('../mcp/security/policy');
+const { getWorkspace } = require('../lib/workspace');
 
 // ── Config ──
-const WORKSPACE = process.cwd();
+// WORKSPACE is now dynamic (see lib/workspace.js) — read via getWorkspace().
 const MAX_OUTPUT_SIZE = 512 * 1024; // 512KB max output
 const EXEC_TIMEOUT = 120000; // 120s default timeout
 
@@ -49,9 +50,10 @@ function isAllowedUploadExt(filename) {
  * Prevents directory traversal attacks.
  */
 function safeResolve(userPath) {
-  const resolved = path.resolve(WORKSPACE, userPath);
+  const ws = getWorkspace();
+  const resolved = path.resolve(ws, userPath);
   // Ensure the resolved path is still within the workspace
-  if (!resolved.startsWith(WORKSPACE)) {
+  if (!resolved.startsWith(ws)) {
     throw new Error('Path traversal denied: path must be within workspace');
   }
   return resolved;
@@ -89,7 +91,7 @@ function createRouter() {
         const child = exec(
           command,
           {
-            cwd: cwd ? safeResolve(cwd) : WORKSPACE,
+            cwd: cwd ? safeResolve(cwd) : getWorkspace(),
             timeout: Math.min(timeout || EXEC_TIMEOUT, 300000),
             maxBuffer: MAX_OUTPUT_SIZE,
             windowsHide: true,
@@ -252,7 +254,7 @@ function listDirRecursive(dirPath, maxDepth, currentDepth) {
       if (item.name.startsWith('.') || item.name === 'node_modules') continue;
 
       const fullPath = path.join(dirPath, item.name);
-      const relativePath = path.relative(WORKSPACE, fullPath);
+      const relativePath = path.relative(getWorkspace(), fullPath);
 
       const entry = {
         name: item.name,

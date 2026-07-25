@@ -455,11 +455,6 @@
     <div id="status-bar">
       <span id="active-cli-label">No CLI running</span>
       <span id="active-cli-version"></span>
-      <button id="voice-input-btn" class="voice-btn" data-i18n-title="voice.title">🎤</button>
-      <div id="voice-status" class="voice-status hidden">
-        <span class="voice-indicator"></span>
-        <span class="voice-text">Listening...</span>
-      </div>
       <button id="lang-toggle-btn" class="lang-toggle" title="切换语言">中</button>
       <!-- 主题切换功能（🌙 暗/亮 + 🎨 背景定制）：v0.2.5 重新开放（图标已换新设计，暗色下不再失真） -->
       <button id="theme-toggle-btn" class="theme-toggle">🌙</button>
@@ -469,6 +464,11 @@
       <div id="tts-indicator" class="tts-indicator hidden">
         <span class="tts-indicator-dot"></span>
         <span class="tts-indicator-text">🔊</span>
+      </div>
+      <button id="voice-input-btn" class="voice-btn" data-i18n-title="voice.title">🎤</button>
+      <div id="voice-status" class="voice-status hidden">
+        <span class="voice-indicator"></span>
+        <span class="voice-text">Listening...</span>
       </div>
       <span id="terminal-dims" class="hidden"></span>
       <span id="terminal-font-size" class="hidden"></span>

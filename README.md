@@ -30,6 +30,22 @@
 
 ---
 
+## 🚀 30 秒快速体验 · 30-Second Quick Start
+
+**想最快用起来？** 用离线便携包，双击即用，无需安装 Node：
+
+| 你想… | 怎么做 |
+|------|--------|
+| 💻 **零安装试用**（推荐新手） | 下载 [桌面托盘版](#桌面托盘版离线便携包--desktop-tray-bundle)，双击 `tray.bat`(Windows)/`./tray.sh`(macOS/Linux)，浏览器自动打开 `http://127.0.0.1:4264` |
+| 🛠️ **从源码运行**（开发者） | `git clone` → `npm install` → `npm run build` → `npm start`，打开 `http://127.0.0.1:4264` |
+| 🤖 **让 AI 干活** | 在「设置」里填入 `OPENAI_API_KEY` 或 `ANTHROPIC_API_KEY`，回到聊天框直接对话（**不填也能用终端**） |
+
+> 💡 首次打开会看到新手指引气泡。点完不知道干什么？试试：**开一个终端标签 → 输入 `dir`(Win)/`ls`(Mac/Linux) → 在聊天框问 AI「解释一下当前目录」**。
+
+📖 **完整新手指南**：[docs/getting-started.md](./docs/getting-started.md) ｜ 🧑‍💻 **贡献者指南**：[CONTRIBUTING.md](./CONTRIBUTING.md)
+
+---
+
 ## ✨ 为什么选择 Hesi · Why Hesi
 
 - 🧭 **一个标签页，掌控全部** — 终端、AI Agent、浏览器、文档转换、MCP 工具，统一在一个 Web 控制台里。
@@ -47,6 +63,7 @@
 - [概述 · Overview](#概述--overview)
 - [命名由来 · The Name](#命名由来--the-name)
 - [主要功能 · Features](#主要功能--features)
+- [🚀 30 秒快速体验 · 30-Second Quick Start](#-30-秒快速体验--30-second-quick-start)
 - [快速开始 · Quick Start](#快速开始--quick-start)
 - [桌面托盘版（离线便携包） · Desktop Tray Bundle](#桌面托盘版离线便携包--desktop-tray-bundle)
 - [架构概览 · Architecture](#架构概览--architecture)
@@ -393,7 +410,7 @@ npm run lint            # ESLint
 
 ## 贡献指南 · Contributing
 
-欢迎贡献！无论是功能请求、Bug 报告还是代码 PR。
+欢迎贡献！无论是功能请求、Bug 报告还是代码 PR。完整指南（含构建坑、husky 钩子、gh-pages 流程、bundle 双轨陷阱）见 **[CONTRIBUTING.md](./CONTRIBUTING.md)**。
 
 ### 开发流程
 
@@ -481,7 +498,7 @@ MIT License — see [LICENSE](./LICENSE) for details.
 > 以下为占位 badge，请替换为真实 CI / 版本 / 下载量链接。
 
 [![CI](https://img.shields.io/badge/CI-passing-brightgreen?style=flat)](https://github.com/qiuqiukof-oss/Hesi/actions)
-[![Version](https://img.shields.io/badge/version-0.2.1-blue.svg)](https://github.com/qiuqiukof-oss/Hesi/releases)
+[![Version](https://img.shields.io/badge/version-0.2.8-blue.svg)](https://github.com/qiuqiukof-oss/Hesi/releases)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey)](https://github.com/qiuqiukof-oss/Hesi)
 [![Stars](https://img.shields.io/badge/stars-%E2%98%85%20your__stars__here-yellow?style=flat)](https://github.com/qiuqiukof-oss/Hesi/stargazers)
@@ -497,25 +514,11 @@ MIT License — see [LICENSE](./LICENSE) for details.
 
 ## Contributing
 
-欢迎贡献！功能请求、Bug 报告、文档与代码 PR 均受鼓励。
-
-### 开发流程
-
-1. Fork 本仓库并克隆你的分支：`git clone https://github.com/<your-id>/Hesi.git`
-2. 创建特性分支：`git checkout -b feat/your-feature`
-3. 安装依赖并启动：`npm install && npm run build && npm run dev`
-4. 自查：
-
-   ```bash
-   npm run lint     # ESLint（需通过）
-   npm test         # 回归套件（node --test + plans/）
-   ```
-
-5. 提交规范：PR 标题遵循 `type(scope): 简述`（如 `feat(pty): 增加会话回收`），描述清楚动机与测试。新功能请附带回归测试（置于 `plans/`）。
-6. 提交 PR 至 `main`，CI 通过且 review 通过后合入。
+欢迎贡献！功能请求、Bug 报告、文档与代码 PR 均受鼓励。完整贡献者指南（开发流程、代码规范、构建陷阱、husky 钩子、gh-pages 发布流程）见 **[CONTRIBUTING.md](./CONTRIBUTING.md)**。
 
 ### 参考文档
 
+- 新手上手指南：[docs/getting-started.md](./docs/getting-started.md)
 - 架构白皮书：[docs/architecture.md](./docs/architecture.md)
 - 合规与等保自检：[COMPLIANCE.md](./COMPLIANCE.md)
 - 安全部署指南：[SECURE_DEPLOY.md](./SECURE_DEPLOY.md)

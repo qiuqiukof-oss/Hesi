@@ -63,6 +63,7 @@ const { createPTYPolicy } = require('./ws/pty-policy');
 const { createDigitalEmployee, createDigitalEmployeeTeam, ROLES } = require('./ws/digital-employee');
 const { agentPool } = require('./routes/ai-tools/agent-pool');
 const { filterSensitiveEnv } = require('./lib/env-filter');
+const { getWorkspace } = require('./lib/workspace');
 const { wsAllowed } = require('./lib/access-auth');
 const { dispatchWSMessage } = require('./ws/message-dispatch');
 
@@ -230,7 +231,7 @@ function createWSManager({ port = 3001 } = {}) {
       name: 'xterm-256color',
       cols: cols || 80,
       rows: rows || 24,
-      cwd: process.env.HOME || process.env.USERPROFILE || __dirname,
+      cwd: getWorkspace(),
       env: {
         ...safeEnv,
         TERM: 'xterm-256color',
@@ -406,7 +407,7 @@ function createWSManager({ port = 3001 } = {}) {
         console.error('[WS] Error handling message type', msg.type, '—', err?.message);
         try {
           if (ws.readyState === 1) {
-            ws.send(JSON.stringify({ type: 'error', message: 'Internal error handling message: ' + (err?.message || 'unknown') }));
+            ws.send(JSON.stringify({ type: 'error', message: `Internal error handling message: ${  err?.message || 'unknown'}` }));
           }
         } catch { /* ws already gone — ignore */ }
       }
@@ -441,7 +442,7 @@ function createWSManager({ port = 3001 } = {}) {
           if (serverPongTimer) clearTimeout(serverPongTimer);
           serverPongTimer = setTimeout(() => {
             consecutiveMissedPongs++;
-            console.warn('[WS] Pong not received from client (missed:', consecutiveMissedPongs + ')');
+            console.warn('[WS] Pong not received from client (missed:', `${consecutiveMissedPongs  })`);
             
             if (consecutiveMissedPongs >= 3) {
               console.warn('[WS] Client unresponsive for 3 heartbeats — forcing close');
@@ -469,7 +470,7 @@ function createWSManager({ port = 3001 } = {}) {
 
     ws.on('close', () => {
       const duration = Math.round((Date.now() - connectionStartTime) / 1000);
-      console.log('[WS] Client disconnected after', duration + 's');
+      console.log('[WS] Client disconnected after', `${duration  }s`);
       
       stopServerHeartbeat();
       

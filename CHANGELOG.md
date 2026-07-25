@@ -6,6 +6,23 @@ use `vMAJOR.MINOR.PATCH-<tag>`.
 
 ---
 
+## [v0.2.8] — 2026-07-25
+
+可用性提升（响应《Hesi 可用性缺口分析》实证复核，仅落地已验证的真实短板）：
+
+### 文档与新手体验
+- **README 拆层**：顶部新增「🚀 30 秒快速体验」速览（零安装便携包 / 源码运行 / 让 AI 干活 三入口），并链接新手指引与贡献者指南，新用户无需再翻长文档。
+- **新增 `docs/getting-started.md`**：面向新手的完整上手指南（4 步首次体验、Key 配置、圆桌玩法、工作空间设置、快捷键）。
+- **新增 `CONTRIBUTING.md`**：贡献者指南，重点标注仓库特有地雷——前端 bundle 双轨（`build:main` vs `build:lazy` 千万别选错）、eslint 前端 globals 配置、husky 钩子、gh-pages worktree 发布流程、禁止 `git add -A`。
+
+### 全局工作空间选择器（新功能）
+- 终端标签栏 + 聊天工具栏各新增醒目「📂 选择工作空间 ▾」按钮，点击打开**服务端目录浏览**弹窗（浏览器原生选择器无法暴露绝对路径，故由后端列目录）。
+- 选定后同时驱动：① 新开终端的默认 cwd ② AI 工具 `exec`/文件操作的默认目录，消除"终端在 A 目录、AI 在 B 目录"的割裂。
+- 选择持久化到 localStorage，重启后自动回写服务端；确认时可顺带把当前终端 `cd` 过去。
+- 新增后端：`lib/workspace.js`（全局工作目录状态）、`routes/workspace.js`（`GET/POST /api/workspace`）、`routes/fs.js`（`GET /api/fs/dirs` 目录浏览），均受 `requireToken` 保护（loopback 默认豁免）。
+
+---
+
 ## [v0.2.7] — 2026-07-25
 
 工程健康度修复（响应第三方实地评测 HESI-EVALUATION 复核）：

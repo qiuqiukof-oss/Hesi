@@ -53,6 +53,7 @@ function resolveDesktopPath() {
 // 抽成独立模块：纯函数 stripTerminalCodes 与流式 createStreamCleaner 复用同一套规则，
 // 详见 lib/terminal-clean.js。
 const { stripTerminalCodes, createStreamCleaner } = require('../lib/terminal-clean');
+const { getWorkspace } = require('../lib/workspace');
 
 function createHeadlessPTY(cmd, args = [], opts = {}) {
   if (!pty) {
@@ -83,7 +84,7 @@ function createHeadlessPTY(cmd, args = [], opts = {}) {
     name: 'xterm-256color',
     cols,
     rows,
-    cwd: process.env.HOME || process.env.USERPROFILE || __dirname,
+    cwd: getWorkspace(),
     env: {
       ...safeEnv,
       TERM: 'xterm-256color',
@@ -141,7 +142,7 @@ function createHeadlessExec(cliEntry, prompt, opts = {}) {
   // ── No headless descriptor → legacy PTY path (typed prompt) ──
   if (!desc) {
     const pty = createHeadlessPTY(cliEntry.path || cliEntry.name, cliEntry.args || [], opts);
-    if (pty) pty.write((prompt || '') + '\n');
+    if (pty) pty.write(`${prompt || ''  }\n`);
     return pty;
   }
 
