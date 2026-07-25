@@ -1,57 +1,565 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Hesi 完整介绍 — 内容更新中</title>
-  <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans SC', 'PingFang SC', sans-serif;
-      background: radial-gradient(circle at 50% 30%, #1a1530 0%, #0a0a0b 70%);
-      min-height: 100vh; width: 100vw;
-      display: flex; align-items: center; justify-content: center;
-      color: #e6e6e6; padding: 24px;
-    }
-    .card {
-      max-width: 480px; width: 100%; text-align: center;
-      background: rgba(20, 20, 28, 0.7);
-      border: 1px solid rgba(255, 255, 255, 0.1);
-      border-radius: 18px; padding: 44px 36px;
-      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
-    }
-    .logo {
-      width: 72px; height: 72px; border-radius: 20px; margin: 0 auto 20px;
-      background: linear-gradient(135deg, #7C3AED, #3B82F6);
-      display: flex; align-items: center; justify-content: center;
-      font-size: 34px; font-weight: 900; color: #fff;
-      box-shadow: 0 0 40px rgba(124, 58, 237, 0.45);
-    }
-    h1 { font-size: 24px; font-weight: 800; margin-bottom: 6px; color: #fff; }
-    .sub {
-      display: inline-block; margin-bottom: 22px; padding: 4px 14px; border-radius: 999px;
-      font-size: 13px; font-weight: 600; color: #F59E0B;
-      background: rgba(245, 158, 11, 0.12); border: 1px solid rgba(245, 158, 11, 0.3);
-    }
-    p { font-size: 15px; line-height: 1.7; color: #b9b9c4; margin-bottom: 14px; }
-    p strong { color: #e6e6e6; }
-    .btn {
-      display: inline-block; margin-top: 18px; padding: 11px 26px; border-radius: 999px;
-      background: linear-gradient(135deg, #7C3AED, #6366f1); color: #fff; font-weight: 700;
-      text-decoration: none; font-size: 14px; box-shadow: 0 6px 20px rgba(124, 58, 237, 0.4);
-      transition: transform .2s ease;
-    }
-    .btn:hover { transform: translateY(-2px); }
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hesi · 一个跑在浏览器里的 AI 中枢</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;700;900&display=swap');
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100%;overflow:hidden}
+body{font-family:'Noto Sans SC','Microsoft YaHei',sans-serif;background:#050507;color:#e8e8f0}
+
+/* 背景：流光 + 浮动光球（始终在动） */
+#bg{position:fixed;inset:0;z-index:0;background:radial-gradient(circle at 30% 20%,#101826 0%,#050507 60%);overflow:hidden}
+#bg::before{content:"";position:absolute;inset:-50%;background:conic-gradient(from 0deg,transparent,rgba(56,225,255,.06),transparent 30%,rgba(245,158,11,.05),transparent 60%);animation:spin 26s linear infinite}
+.orb{position:absolute;border-radius:50%;filter:blur(40px);opacity:.5;animation:float 14s ease-in-out infinite}
+.orb.a{width:340px;height:340px;background:#1b3a5c;left:-80px;top:10%;animation-delay:0s}
+.orb.b{width:260px;height:260px;background:#3a2a12;right:-60px;top:40%;animation-delay:4s}
+.orb.c{width:200px;height:200px;background:#16323a;left:40%;bottom:-60px;animation-delay:8s}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes float{0%,100%{transform:translateY(0) translateX(0)}50%{transform:translateY(-34px) translateX(18px)}}
+
+/* 布局 */
+#app{position:relative;z-index:2;display:flex;height:100vh;width:100vw}
+#stage{flex:1;position:relative;overflow:hidden}
+
+/* 启动遮罩 */
+#start{position:absolute;inset:0;z-index:30;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3vh;background:rgba(5,5,7,.86);backdrop-filter:blur(6px);text-align:center;padding:6vw}
+#start h1{font-size:clamp(48px,9vw,120px);font-weight:900;letter-spacing:6px;background:linear-gradient(90deg,#38e1ff,#F59E0B);-webkit-background-clip:text;background-clip:text;color:transparent;animation:pulse 3s ease-in-out infinite}
+#start p{color:#9fb0c0;font-size:clamp(14px,1.6vw,20px);max-width:680px;line-height:1.8}
+#startBtn{margin-top:2vh;padding:16px 42px;font-size:18px;font-weight:700;color:#05070a;border:none;border-radius:40px;background:linear-gradient(90deg,#38e1ff,#7fe7ff);cursor:pointer;box-shadow:0 0 30px rgba(56,225,255,.5);animation:breathe 2.2s ease-in-out infinite}
+@keyframes pulse{50%{filter:brightness(1.15)}}
+@keyframes breathe{50%{transform:scale(1.05);box-shadow:0 0 46px rgba(56,225,255,.8)}}
+
+/* 幻灯片 */
+.slide{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:7vh 7vw 16vh;opacity:0;pointer-events:none;transition:opacity .7s ease;text-align:center;gap:2.4vh}
+.slide.active{opacity:1;pointer-events:auto}
+.kicker{color:#38e1ff;font-size:13px;letter-spacing:4px;font-weight:700;text-transform:uppercase;opacity:.85}
+.title{font-size:clamp(26px,4vw,52px);font-weight:900;line-height:1.2;background:linear-gradient(90deg,#fff,#bfe9ff);-webkit-background-clip:text;background-clip:text;color:transparent}
+.body{font-size:clamp(15px,1.7vw,22px);line-height:1.95;color:#c7d2dc;max-width:880px;font-weight:300}
+.slide.hero .title{font-size:clamp(40px,8vw,96px)}
+
+/* 实时动态区 */
+.widget{width:min(760px,90%);margin-top:1vh;min-height:150px;display:flex;align-items:center;justify-content:center}
+
+/* 终端 */
+.term{width:100%;max-width:680px;height:170px;background:#070b10;border:1px solid rgba(56,225,255,.25);border-radius:12px;box-shadow:0 0 26px rgba(56,225,255,.12);text-align:left;overflow:hidden;font-family:'Consolas',monospace}
+.term-bar{display:flex;gap:7px;padding:8px 12px;border-bottom:1px solid rgba(255,255,255,.06);background:#0b1118}
+.term-bar i{width:11px;height:11px;border-radius:50%;display:inline-block}
+.term-bar i:nth-child(1){background:#ff5f56}.term-bar i:nth-child(2){background:#ffbd2e}.term-bar i:nth-child(3){background:#27c93f}
+.term-body{padding:10px 14px;height:calc(100% - 35px);overflow:auto;font-size:13px;line-height:1.7;color:#8fe6c4}
+.term-line{white-space:pre-wrap;animation:fadeIn .3s ease}
+.term-line .pr{color:#38e1ff}.term-line .ok{color:#27c93f}.term-line .wn{color:#ffbd2e}
+.cursor{display:inline-block;width:8px;height:15px;background:#38e1ff;animation:blink 1s step-end infinite;vertical-align:middle}
+@keyframes blink{50%{opacity:0}}
+@keyframes fadeIn{from{opacity:0;transform:translateY(4px)}to{opacity:1}}
+
+/* 浏览器被卡 */
+.browser{width:100%;max-width:620px;height:180px;background:#0c1016;border:1px solid rgba(255,255,255,.1);border-radius:12px;overflow:hidden;text-align:left}
+.browser .bar{display:flex;align-items:center;gap:8px;padding:8px 12px;background:#11161f;border-bottom:1px solid rgba(255,255,255,.06)}
+.browser .bar .url{flex:1;background:#0a0e14;border-radius:6px;padding:5px 10px;color:#7e8a96;font-size:12px;font-family:monospace}
+.browser .page{padding:14px;position:relative;height:calc(100% - 38px)}
+.field{height:22px;border:1px solid rgba(255,255,255,.12);border-radius:6px;margin-bottom:10px;position:relative;overflow:hidden}
+.field::after{content:"";position:absolute;left:0;top:0;height:100%;width:0;background:rgba(56,225,255,.18);animation:fill 3.4s ease-in-out infinite}
+.field:nth-child(2)::after{animation-delay:1s}.field:nth-child(3)::after{animation-delay:2s}
+@keyframes fill{0%,15%{width:0}55%,100%{width:100%}}
+.stamp{position:absolute;right:14px;top:30px;color:#ff5f56;font-weight:900;font-size:26px;border:3px solid #ff5f56;padding:4px 10px;border-radius:8px;transform:rotate(-12deg);opacity:0;animation:stampIn 3.4s ease-in-out infinite}
+@keyframes stampIn{0%,40%{opacity:0;transform:rotate(-12deg) scale(1.6)}55%{opacity:1;transform:rotate(-12deg) scale(1)}100%{opacity:1}}
+
+/* 圆桌 */
+.round{display:flex;gap:18px;align-items:flex-end;justify-content:center}
+.seat{display:flex;flex-direction:column;align-items:center;gap:8px}
+.ava{width:54px;height:54px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:900;color:#05070a;font-size:20px;box-shadow:0 0 18px rgba(56,225,255,.3);animation:bob 3s ease-in-out infinite}
+.ava.t{background:#38e1ff;animation-delay:0s}.ava.p{background:#F59E0B;animation-delay:.6s}.ava.l{background:#7fe7ff;animation-delay:1.2s}
+.bubble{background:#0e1620;border:1px solid rgba(56,225,255,.25);border-radius:10px;padding:8px 12px;font-size:12.5px;color:#cfe;max-width:140px;opacity:0;animation:pop 4.5s ease-in-out infinite}
+.bubble:nth-child(2){animation-delay:1.5s}.bubble:nth-child(3){animation-delay:3s}
+@keyframes bob{50%{transform:translateY(-8px)}}
+@keyframes pop{0%,20%{opacity:0;transform:translateY(8px)}35%,80%{opacity:1;transform:translateY(0)}100%{opacity:0}}
+
+/* GPU 表 */
+.gpu{width:100%;max-width:520px;background:#0a0e14;border:1px solid rgba(255,93,86,.3);border-radius:12px;padding:16px 18px;text-align:left}
+.gpu .lab{display:flex;justify-content:space-between;font-size:13px;color:#ff8a82;margin-bottom:8px}
+.gpu .meter{height:14px;background:#1a0e0e;border-radius:7px;overflow:hidden}
+.gpu .meter i{display:block;height:100%;width:92%;background:linear-gradient(90deg,#ff5f56,#ffbd2e);animation:heat 2.2s ease-in-out infinite}
+@keyframes heat{50%{width:78%}}
+
+/* 手机 / 抖音 */
+.phone{width:120px;height:200px;border:3px solid #222;border-radius:18px;background:#0a0e14;overflow:hidden;position:relative;box-shadow:0 0 26px rgba(56,225,255,.18)}
+.phone .feed{position:absolute;width:100%;animation:scrollFeed 6s linear infinite}
+.phone .f{height:64px;margin:6px;border-radius:8px;background:linear-gradient(120deg,#1a2a3a,#2a1a3a);opacity:.8}
+@keyframes scrollFeed{from{top:0}to{top:-200px}}
+
+/* 卡片集邮 */
+.cards{display:flex;gap:14px;flex-wrap:wrap;justify-content:center}
+.chip{padding:10px 18px;border-radius:30px;background:#0e1620;border:1px solid rgba(56,225,255,.3);color:#bfe9ff;font-size:14px;font-weight:700;animation:rise 3s ease-in-out infinite}
+.chip:nth-child(2){animation-delay:.4s}.chip:nth-child(3){animation-delay:.8s}.chip:nth-child(4){animation-delay:1.2s}
+@keyframes rise{0%,100%{transform:translateY(0);opacity:.8}50%{transform:translateY(-10px);opacity:1}}
+
+/* CDP 控制 */
+.cdp{width:100%;max-width:600px;height:170px;border:1px solid rgba(56,225,255,.25);border-radius:12px;background:#070b10;position:relative;overflow:hidden;text-align:left}
+.cdp .bar{height:34px;background:#0b1118;display:flex;align-items:center;padding:0 12px;gap:8px;border-bottom:1px solid rgba(255,255,255,.06)}
+.cdp .bar .url{font-family:monospace;font-size:12px;color:#7e8a96}
+.cdp .act{position:absolute;left:14px;bottom:14px;font-family:monospace;font-size:13px;color:#8fe6c4}
+.cdp .pulse{position:absolute;right:18px;top:50%;width:14px;height:14px;border-radius:50%;background:#27c93f;box-shadow:0 0 14px #27c93f;animation:beat 1.2s ease-in-out infinite}
+@keyframes beat{50%{transform:scale(1.5);opacity:.6}}
+
+/* 语音波形（随朗读跳动） */
+#wave{position:absolute;bottom:9.5vh;left:50%;transform:translateX(-50%);width:min(520px,80%);height:34px;display:flex;align-items:center;justify-content:center;gap:3px;z-index:45;opacity:0;transition:opacity .3s}
+#wave.show{opacity:1}
+#wave .b{width:4px;height:8px;background:linear-gradient(180deg,#38e1ff,#F59E0B);border-radius:3px}
+#wave.live .b{animation:wv .9s ease-in-out infinite}
+#wave .b:nth-child(odd){animation-delay:.15s}
+#wave .b:nth-child(3n){animation-delay:.3s}
+#wave .b:nth-child(4n){animation-delay:.45s}
+@keyframes wv{0%,100%{height:8px}50%{height:30px}}
+
+/* 卡拉OK字幕：逐句淡入淡出，居中不滚动，不超框 */
+#subtitle{position:absolute;bottom:3.2vh;left:50%;transform:translateX(-50%);width:84%;max-width:760px;height:calc(1.6em + 18px);overflow:hidden;z-index:46;background:linear-gradient(180deg,rgba(12,12,24,.82),rgba(4,4,10,.92));border:1px solid rgba(255,255,255,.06);border-top:2px solid rgba(245,158,11,.25);border-radius:12px;display:flex;align-items:center;justify-content:center;text-align:center;font-size:clamp(14px,1.4vw,18px);color:#e8e8f0;padding:0 1.4vw;opacity:0;transition:opacity .5s}
+#subtitle.show{opacity:1}
+body.with-panel #subtitle{left:calc(50% - 150px)}
+#subInner{display:flex;flex-wrap:nowrap;justify-content:center;align-items:center;gap:0 .04em;line-height:1;white-space:nowrap;opacity:1;transition:opacity .24s}
+#subInner.fade{opacity:0}
+#subtitle .sub-ch{transition:color .25s,text-shadow .25s}
+#subtitle .sub-ch.ch-now{color:#F59E0B;text-shadow:0 0 12px rgba(245,158,11,.6)}
+#subtitle .sub-ch.ch-pending{color:rgba(148,163,184,.6)}
+#subtitle .sub-ch.ch-done{color:rgba(196,181,253,.55)}
+body.with-panel .slide{right:300px}
+
+/* 底部实时事件条 */
+#ticker{position:absolute;bottom:0;left:0;width:100%;height:3.4vh;min-height:22px;background:rgba(8,12,18,.9);border-top:1px solid rgba(56,225,255,.12);display:flex;align-items:center;overflow:hidden;z-index:44;font-size:12px;color:#7fb8c8}
+#ticker .run{white-space:nowrap;animation:tick 22s linear infinite;padding-left:100%}
+@keyframes tick{to{transform:translateX(-100%)}}
+
+/* 右侧控制面板 */
+#panel{position:fixed;top:0;right:0;width:300px;height:100vh;background:rgba(10,10,18,.92);backdrop-filter:blur(20px);border-left:1px solid rgba(255,255,255,.08);display:flex;flex-direction:column;padding:3vh 1.6vw;gap:1.6vh;box-shadow:-10px 0 30px rgba(0,0,0,.5);z-index:70;pointer-events:auto;transition:transform .35s}
+body.no-panel #panel{transform:translateX(100%)}
+#panel h3{color:#38e1ff;font-size:14px;letter-spacing:2px}
+.btn{padding:11px 14px;border-radius:10px;border:1px solid rgba(56,225,255,.25);background:rgba(56,225,255,.08);color:#dff;font-size:14px;cursor:pointer;font-family:inherit;transition:.25s;text-align:center}
+.btn:hover{background:rgba(56,225,255,.18)}
+.btn.lang{background:linear-gradient(90deg,rgba(245,158,11,.18),rgba(56,225,255,.18));border-color:rgba(245,158,11,.45);font-weight:700;letter-spacing:1px}
+.cp-vsel label{display:block;color:#9fb0c0;font-size:12px;margin-bottom:6px}
+.cp-vsel select{width:100%;padding:9px;border-radius:8px;background:#0c1118;color:#dff;border:1px solid rgba(255,255,255,.1);font-family:inherit}
+.cp-page{color:#667;font-size:12px;text-align:center;letter-spacing:1px;margin-top:auto}
+.hint{color:#556;font-size:11px;text-align:center;line-height:1.6}
+.dotwrap{display:flex;gap:7px;flex-wrap:wrap;justify-content:center}
+.dot{width:9px;height:9px;border-radius:50%;background:rgba(255,255,255,.2);cursor:pointer;transition:.3s}
+.dot.active{background:#38e1ff;box-shadow:0 0 8px #38e1ff}
+</style>
 </head>
 <body>
-  <div class="card">
-    <div class="logo">H</div>
-    <h1>Hesi 完整图文介绍</h1>
-    <span class="sub">📖 内容更新中</span>
-    <p>这份完整介绍页正在重新整理，<strong>稍后上线更贴合当前版本的图文指南</strong>。</p>
-    <p>现在最快的上手方式：回到 Hesi，点左侧栏的 <strong>🚀 新手指南</strong> 按钮，跟着气泡一步步走即可。</p>
-    <a class="btn" href="javascript:history.back()">← 返回 Hesi</a>
+<div id="bg"><div class="orb a"></div><div class="orb b"></div><div class="orb c"></div></div>
+
+<div id="app">
+  <div id="stage">
+    <!-- 启动遮罩 -->
+    <div id="start">
+      <h1>HESI</h1>
+      <p id="startP">一个跑在浏览器里的 AI 中枢。今天不跟你讲参数，跟你讲讲它是怎么从一个电竞人的无聊深夜里，一点点长出来的。</p>
+      <button id="startBtn">▶ 开始播放</button>
+    </div>
+
+    <!-- 幻灯片（data-voice / data-voice-en 为分页口播；data-widget 决定实时动态元素） -->
+    <div class="slide hero active"
+      data-voice="Hesi，一个跑在浏览器里的 AI 中枢。今天不跟你讲参数，跟你讲讲它是怎么从一个电竞人的无聊深夜里，一点点长出来的。"
+      data-voice-en="Hesi — an AI hub that runs right inside your browser. Today I won't bore you with specs; I'll tell you how it grew, bit by bit, from a pro gamer's restless late nights."
+      data-kicker-en="ORIGIN"
+      data-title-en="From Squad-Up to Hesi"
+      data-widget="orb">
+      <div class="kicker">ORIGIN</div>
+      <div class="title">从开黑到 Hesi</div>
+      <div class="widget"><div class="orb" style="position:relative;width:120px;height:120px;background:#38e1ff;opacity:.4"></div></div>
+    </div>
+
+    <div class="slide"
+      data-voice="今年开春，海外比赛炮火连天，我这个靠打游戏吃饭的人，正经训练反而松了。白天跟哥几个开黑，赢了吹牛输了甩锅。可一到深夜，手机一扣，就有点空——不是矫情，是那种我除了游戏好像啥也不会的虚。"
+      data-voice-en="Early this spring, with all the overseas tournaments blazing, a guy who makes a living playing games found his real training actually loosening up. Days were for squad­ing up with the boys — bragging after a win, blaming lag after a loss. But the moment I put the phone face-down at night, something hollow showed up. Not being dramatic — just that 'I'm good at nothing but gaming' kind of emptiness."
+      data-kicker-en="CHAPTER 01"
+      data-title-en="The Emptiness of Early Spring"
+      data-body-en="The swagger after a win, the blame after a loss — days flew by. But phone face-down at night, that 'good at nothing but gaming' hollowness crept up."
+      data-widget="orbs">
+      <div class="kicker">CHAPTER 01</div>
+      <div class="title">开春的空</div>
+      <div class="body">白天开黑赢了的嚣张、输了的甩锅，日子过得飞快。可深夜手机一扣，那种“除了游戏好像啥也不会”的虚，就冒出来了。</div>
+      <div class="widget"><div class="orb" style="position:relative;width:90px;height:90px;background:#3a2a12;opacity:.5"></div><div class="orb" style="position:relative;width:60px;height:60px;background:#1b3a5c;opacity:.5;margin-left:30px"></div></div>
+    </div>
+
+    <div class="slide"
+      data-voice="就是某个深夜，抖音推了个让 AI 自动填表的视频。我本来划过去的，但自动化仨字像根刺——我打游戏也懂设备、懂效率啊。点进去，越看越上头。底下全在刷 openclaw 真香、opencode YYDS。得，好奇心害死猫，我亲手试。"
+      data-voice-en="One of those late nights, Douyin threw me a video about using AI to auto-fill forms. I'd normally have scrolled past, but the word 'automation' stuck like a splinter — I get gear and efficiency from gaming, don't I? I clicked in, and the deeper I watched, the more hooked I got. The comments were all 'openclaw is fire', 'opencode YYDS'. Fine, curiosity killed the cat — I tried it myself."
+      data-kicker-en="CHAPTER 02"
+      data-title-en="The Splinter from Douyin"
+      data-body-en="'Automation' stuck like a splinter — I get macros and efficiency from gaming, so why can't AI do some work for me?"
+      data-widget="phone">
+      <div class="kicker">CHAPTER 02</div>
+      <div class="title">抖音那根刺</div>
+      <div class="body">“自动化”仨字像根刺扎进来——我打游戏都懂宏、懂效率，凭什么不能让 AI 替我干点活？</div>
+      <div class="widget"><div class="phone"><div class="feed"><div class="f"></div><div class="f"></div><div class="f"></div><div class="f"></div><div class="f"></div></div></div></div>
+    </div>
+
+    <div class="slide"
+      data-voice="三月份，我从小龙虾 openclaw 开头——圈里人叫它小龙虾，图标真就是只红虾。然后试 opencode，试把 Claude 装成桌面端，试 Codex 桌面端。一个一个装，像集邮，每试一个就发群里吹。那股新鲜劲，跟我当年入坑新游戏一模一样。"
+      data-voice-en="Back in March I started with openclaw — the community calls it 'crayfish', and its icon really is a red shrimp. Then I tried opencode, then Claude as a desktop app, then Codex desktop. Installing them one by one, like collecting stamps, bragging in the group chat after each. That fresh excitement felt exactly like when I first fell into a new game."
+      data-kicker-en="CHAPTER 03"
+      data-title-en="Collecting Clients"
+      data-body-en="Crayfish, opencode, Claude desktop, Codex desktop... installing them one by one, like collecting stamps, bragging in the group after each."
+      data-widget="cards">
+      <div class="kicker">CHAPTER 03</div>
+      <div class="title">集邮客户端</div>
+      <div class="body">小龙虾、opencode、Claude 桌面端、Codex 桌面端……一个一个装，像集邮，每试一个就发群里吹。</div>
+      <div class="widget"><div class="cards"><span class="chip">openclaw</span><span class="chip">opencode</span><span class="chip">Claude</span><span class="chip">Codex</span></div></div>
+    </div>
+
+    <div class="slide"
+      data-voice="玩着不满足了：凭啥有的回答聪明有的像智障？我开始扒云模型和本地模型。云端啥都懂，但要联网、要花钱、要等；本地隐私好不依赖网，可吃显卡。我那台是 5070Ti 游戏本——说贵不便宜，说强也就是个笔记本显卡。"
+      data-voice-en="Playing around wasn't enough: why are some answers brilliant and others braindead? I started digging into cloud models and local models. Cloud knows everything but needs network, money, and waiting; local is private and network-free but eats GPU. Mine's a 5070Ti gaming laptop — not cheap, but as a graphics card it's just a laptop chip."
+      data-kicker-en="CHAPTER 04"
+      data-title-en="Cracking Open Models"
+      data-body-en="Cloud knows everything but needs network, money, and waiting; local is private yet eats GPU. My 5070Ti is strong, but only a laptop chip."
+      data-widget="split">
+      <div class="kicker">CHAPTER 04</div>
+      <div class="title">扒开模型</div>
+      <div class="body">云端啥都懂但要联网花钱等；本地隐私好却吃显卡。我那台 5070Ti 游戏本，说强也只是个笔记本显卡。</div>
+      <div class="widget"><div class="cards"><span class="chip" style="border-color:rgba(245,158,11,.4);color:#ffd28a" data-zh="云端 · 聪明" data-en="Cloud · Smart">云端 · 聪明</span><span class="chip" style="border-color:rgba(56,225,255,.4);color:#bfe9ff" data-zh="本地 · 隐私" data-en="Local · Private">本地 · 隐私</span></div></div>
+    </div>
+
+    <div class="slide"
+      data-voice="第一次本地跑 7B，风扇直接起飞，显存一满卡成 PPT。想跑 13B，直接 OOM 报错。那块卡在游戏里能拉满帧，到了本地大模型面前，像举铁壮汉被拉去跑马拉松——不是不行，是喘。为了不浪费它，我找别的路子。"
+      data-voice-en="First time running 7B locally, the fans went jet-engine, and once VRAM filled up it turned into a slideshow. Tried 13B and got an OOM error straight away. That card pulls max frames in games, but in front of a local LLM it's like a weightlifter dragged into a marathon — not that he can't, he's just winded. To not waste it, I looked for another path."
+      data-kicker-en="CHAPTER 05"
+      data-title-en="The 5070Ti Wheezed"
+      data-body-en="7B sent the fans jet-engine, 13B hit OOM outright. A card that maxes frames in games wheezed like a weightlifter dragged into a marathon — not that it can't, it's just winded."
+      data-widget="gpu">
+      <div class="kicker">CHAPTER 05</div>
+      <div class="title">5070Ti 喘了</div>
+      <div class="body">7B 风扇起飞，13B 直接 OOM。游戏里拉满帧的卡，到了本地大模型面前像举铁壮汉被拉去跑马拉松——不是不行，是喘。</div>
+      <div class="widget"><div class="gpu"><div class="lab"><span data-zh="VRAM 压力" data-en="VRAM Pressure">VRAM 压力</span><span>92%</span></div><div class="meter"><i></i></div></div></div>
+    </div>
+
+    <div class="slide"
+      data-voice="群里大佬甩了句你咋不用 WSL。我一脸懵，照教程装了。哦，原来命令行能这么玩。又蹭了点 Linux，最后把 agent 全切到 CLI 跑。没花花绿绿的按钮，就一个黑框，敲两行，agent 自己干活。"
+      data-voice-en="A big shot in the group dropped 'why don't you just use WSL'. I was clueless, but followed a tutorial and installed it. Oh — so the command line can be used like this. Picked up a bit of Linux too, and finally moved all my agents to run over CLI. No colorful buttons, just a black box — type two lines and the agent does the work."
+      data-kicker-en="CHAPTER 06"
+      data-title-en="Feeling Out the CLI"
+      data-body-en="WSL, Linux, CLI — no colorful buttons, just a black box. Type two lines and the agent does the work."
+      data-widget="terminal" data-lines="hesi@cli:~$ wsl --install|* 正在安装 WSL2 ...|hesi@cli:~$ agent run --mode cli|+ CLI 模式已启用|hesi@cli:~$ 把活交给 agent ...|✓ 任务完成，耗时 3.2s">
+      <div class="kicker">CHAPTER 06</div>
+      <div class="title">摸进 CLI</div>
+      <div class="body">WSL、Linux、CLI——没花花绿绿的按钮，就一个黑框，敲两行，agent 自己干活。</div>
+      <div class="widget"><div class="term"><div class="term-bar"><i></i><i></i><i></i></div><div class="term-body"></div></div></div>
+    </div>
+
+    <div class="slide"
+      data-voice="第一次在终端看 agent 把活干完，我后背发凉——爽的那种凉。它不抱怨不摸鱼，给清楚指令就跑。对比桌面端那些点五下才开、还弹窗问你要不要会员的 AI 程序，CLI 像个沉默的高效副驾。"
+      data-voice-en="The first time I watched an agent finish a job in the terminal, a chill ran down my back — the good kind of chill. It doesn't complain or slack off; give it a clear instruction and it runs. Next to those desktop AIs that take five clicks to even open and then pop up 'want premium?', the CLI is a silent, efficient co-pilot."
+      data-kicker-en="CHAPTER 07"
+      data-title-en="The Silent Co-Pilot"
+      data-body-en="No complaints, no slacking — give a clear instruction and it runs. The CLI is a silent, efficient co-pilot, far smoother than desktop AIs that take five clicks and pester you for premium."
+      data-widget="terminal" data-lines="hesi@cli:~$ deploy pipeline|+ 构建中 ...|✓ 已部署|hesi@cli:~$ 收工，去开黑|✓ 副驾待命中">
+      <div class="kicker">CHAPTER 07</div>
+      <div class="title">沉默的副驾</div>
+      <div class="body">不抱怨不摸鱼，给清楚指令就跑。CLI 像个沉默的高效副驾，比点五下才开、还弹窗卖会员的桌面端顺多了。</div>
+      <div class="widget"><div class="term"><div class="term-bar"><i></i><i></i><i></i></div><div class="term-body"></div></div></div>
+    </div>
+
+    <div class="slide"
+      data-voice="几个月下来我回不去了。朋友发来新桌面端 AI 让我试，我点开瞄两眼关了。太慢太绕太花哨。现在干活，终端一开命令一敲，比鼠标顺手一万倍。也说不清是习惯还是真被折服，反正桌面端 AI，我戒了。"
+      data-voice-en="A few months in, I couldn't go back. Friends sent me new desktop AIs to try; I'd open one, glance, and close it. Too slow, too roundabout, too flashy. Now when I work, I open a terminal, type a command — ten thousand times smoother than a mouse. Can't say if it's habit or real conviction, but desktop AI? I'm off it."
+      data-kicker-en="CHAPTER 08"
+      data-title-en="No Going Back"
+      data-body-en="Friends sent desktop AIs; I'd glance and close — too slow, too roundabout, too flashy. Terminal open, command typed — ten thousand times smoother than a mouse. Desktop AI? I'm off it."
+      data-widget="terminal" data-lines="hesi@cli:~$ 打开桌面端 AI ...|✗ 点了五下才动|✗ 弹窗：开通会员？|hesi@cli:~$ 关了，还是 CLI 香">
+      <div class="kicker">CHAPTER 08</div>
+      <div class="title">回不去</div>
+      <div class="body">朋友发来桌面端 AI，我点开瞄两眼关了——太慢太绕太花哨。终端一开命令一敲，比鼠标顺手一万倍。桌面端 AI，我戒了。</div>
+      <div class="widget"><div class="term"><div class="term-bar"><i></i><i></i><i></i></div><div class="term-body"></div></div></div>
+    </div>
+
+    <div class="slide"
+      data-voice="但有个坎一直跨不过，越用越烦。让 AI 帮我校价、填表、处理办公——十次八次卡在浏览器里。反爬、验证码、现填的表单、登录滑块，全在浏览器里头。AI 在终端生猛，一进浏览器像被捆了手。"
+      data-voice-en="But there was one wall I never got over, and the more I used it the more it annoyed me. Asking AI to price-check, fill forms, handle office work — eight out of ten times it got stuck inside the browser. Anti-scraping, captchas, live forms, login sliders, all living in the browser. The AI is a beast in the terminal, but the moment it steps into a browser it's tied hand and foot."
+      data-kicker-en="CHAPTER 09"
+      data-title-en="The Wall I Couldn't Cross"
+      data-body-en="Price-check, fill forms, office work — eight out of ten times stuck in the browser. Anti-scraping, captchas, sliders, all inside. The AI is a beast in the terminal, tied hand and foot in a browser."
+      data-widget="browser">
+      <div class="kicker">CHAPTER 09</div>
+      <div class="title">跨不过的坎</div>
+      <div class="body">校价、填表、办公——十次八次卡在浏览器里。反爬、验证码、滑块，全在浏览器里头。AI 在终端生猛，一进浏览器像被捆了手。</div>
+      <div class="widget"><div class="browser"><div class="bar"><span style="width:10px;height:10px;border-radius:50%;background:#ff5f56;display:inline-block"></span><span class="url">https://shop.example.com/price</span></div><div class="page"><div class="field"></div><div class="field"></div><div class="field"></div></div></div></div>
+    </div>
+
+    <div class="slide"
+      data-voice="想校价，返回 403 被反爬挡了；想填周报，卡在短信验证码；想登录后台，滑块验证死活过不去。推理模型自信说按钮在第三个 div，我哪知道在哪。多模态要么没接要么 token 烧得比显卡快。资源、token、网速，总有一个先绷不住。"
+      data-voice-en="Tried to price-check, got a 403 blocked by anti-scraping. Tried to fill the weekly report, stuck at the SMS captcha. Tried to log into the backend, the slider just wouldn't pass. The reasoning model confidently said 'the button is in the third div' — how would I know where that is. Multimodal was either not wired up or burned tokens faster than the GPU. Resources, tokens, bandwidth — one of them always snaps first."
+      data-kicker-en="CHAPTER 10"
+      data-title-en="Frustration Overload"
+      data-body-en="403 from anti-scraping, SMS captcha, a slider that wouldn't pass. The model said 'button in the third div' — it was in an iframe. Multimodal was either unwired or burned tokens faster than the GPU."
+      data-widget="browser403">
+      <div class="kicker">CHAPTER 10</div>
+      <div class="title">憋屈到爆</div>
+      <div class="body">403 反爬、短信验证码、滑块死活过不去。推理模型说按钮在第三个 div，实际在 iframe 里。多模态要么没接，要么 token 烧得比显卡快。</div>
+      <div class="widget"><div class="browser"><div class="bar"><span style="width:10px;height:10px;border-radius:50%;background:#ff5f56;display:inline-block"></span><span class="url">https://admin.example.com/login</span></div><div class="page"><div class="field"></div><div class="field"></div><div class="stamp">403</div></div></div></div>
+    </div>
+
+    <div class="slide"
+      data-voice="有天半夜，终端跑着 agent，浏览器开着十几个标签页，我愣神。突然蹦出个念头：CLI 的 agent 又轻又猛，浏览器每台电脑都装了，那能不能让 AI 直接在浏览器里跑？跑起来它不就能亲手操作浏览器了么？再想一层更来劲：让 AI 化装成各路行家，技术的产品的法务的，凑一桌开圆桌，比我一个人瞎琢磨强十倍。"
+      data-voice-en="One midnight, with an agent running in the terminal and a dozen tabs open in the browser, I zoned out. Suddenly an idea hit: the CLI agent is light and fierce, and every computer has a browser — so couldn't we just let the AI run right inside the browser? Once it runs, doesn't it get to operate the browser with its own hands? Push it one layer further and it gets even better: dress the AI up as experts from every field — tech, product, legal — seat them at one round table, far better than me guessing alone."
+      data-kicker-en="CHAPTER 11"
+      data-title-en="The Spark + The Round Table"
+      data-body-en="Let the AI run right inside the browser, and it operates the browser with its own hands. Push further: dress AI as experts — tech, product, legal — at one round table, far better than me guessing alone."
+      data-widget="round">
+      <div class="kicker">CHAPTER 11</div>
+      <div class="title">灵光 + 圆桌</div>
+      <div class="body">让 AI 直接在浏览器里跑，它不就能亲手操作浏览器了么？再想一层：让 AI 化装成各路行家，凑一桌开圆桌，比我一个人瞎琢磨强十倍。</div>
+      <div class="widget"><div class="round"><div class="seat"><div class="ava t">技</div><div class="bubble" data-zh="用 CDP 接管浏览器" data-en="Take over the browser via CDP">用 CDP 接管浏览器</div></div><div class="seat"><div class="ava p">产</div><div class="bubble" data-zh="先想清楚用户要啥" data-en="Figure out what users want first">先想清楚用户要啥</div></div><div class="seat"><div class="ava l">法</div><div class="bubble" data-zh="注意登录态合规" data-en="Watch login-state compliance">注意登录态合规</div></div></div></div>
+    </div>
+
+    <div class="slide"
+      data-voice="这两个念头缠一起，Hesi 清楚了。它跑在浏览器里，通过 CDP 直接接管你本机 Chrome 或 Edge，导航点击输入填表截图，一句话的事。本地优先、MIT 开源、不强制联网，数据记忆都在你机器上。还有托盘版，自带便携 Node，双击就开。所以 Hesi 不是又一个聊天框，是跑在浏览器里的 AI 中枢。GitHub 搜 Hesi，托盘版双击就能开。我在浏览器里，等你来开一局。"
+      data-voice-en="Those two ideas tangled together, and Hesi became clear. It runs in the browser, taking over your local Chrome or Edge directly through CDP — navigate, click, type, fill, screenshot, all in a single sentence. Local-first, MIT open source, no forced network; your data and memory stay on your machine. There's even a tray version with a portable Node built in — double-click and it opens. So Hesi isn't just another chat box; it's an AI hub running in your browser. Search Hesi on GitHub; the tray version opens with a double-click. I'm in the browser — waiting for you to start a round."
+      data-kicker-en="CHAPTER 12 · HESI"
+      data-title-en="Hesi Lands"
+      data-body-en="Takes over your local browser through CDP — navigate, click, type, fill, screenshot, all in a sentence. Local-first, MIT open source, no forced network; your data stays on your machine. The tray version opens with a double-click."
+      data-widget="cdp">
+      <div class="kicker">CHAPTER 12 · HESI</div>
+      <div class="title">Hesi 落地</div>
+      <div class="body">通过 CDP 接管你本机浏览器，导航点击输入填表截图一句话的事。本地优先、MIT 开源、不强制联网，数据在你机器上。托盘版双击就开。</div>
+      <div class="widget"><div class="cdp"><div class="bar"><span style="width:10px;height:10px;border-radius:50%;background:#27c93f;display:inline-block"></span><span class="url">CDP → chrome://your-browser</span></div><div class="act">&gt; page.click('#submit')<br>&gt; page.fill(form, data)<br>&gt; ✓ 任务完成</div><div class="pulse"></div></div></div>
+    </div>
+
+    <!-- 字幕 + 波形 -->
+    <div id="wave"></div>
+    <div id="subtitle"><span id="subInner"></span></div>
+    <div id="ticker"><div class="run" id="tickerRun">● 实时：浏览器 agent 接管中　·　CDP 连接正常　·　圆桌会议进行中　·　12 个专家在线　·　本地优先 · MIT 开源　·　GitHub 搜 Hesi</div></div>
   </div>
+
+  <!-- 右侧控制面板 -->
+  <div id="panel">
+    <h3 id="panelTitle">HESI 控制台</h3>
+    <button class="btn lang" id="langB">🌐 EN</button>
+    <div class="cp-vsel"><label id="voiceLabel">旁白嗓色（真实语音）</label><select id="voiceSel"></select><div id="voiceNote" style="color:#ffbd2e;font-size:11px;line-height:1.5;min-height:14px"></div></div>
+    <button class="btn" id="playB">▶ 播放旁白</button>
+    <button class="btn" id="speedB">⚡ 语速 1.5x</button>
+    <div style="display:flex;gap:8px"><button class="btn" id="prevB" style="flex:1">◀ 上一页</button><button class="btn" id="nextB" style="flex:1">下一页 ▶</button></div>
+    <button class="btn" id="panelB">⊟ 隐藏面板</button>
+    <div class="dotwrap" id="dots"></div>
+    <div class="cp-page" id="pageInfo">1 / 13</div>
+    <div class="hint" id="hintEl">← → 翻页 · 空格 播放/暂停<br>按 H 隐藏/显示面板</div>
+  </div>
+</div>
+
+<script>
+/* ===== 双语 + 真实 Edge TTS：中文默认晓北(Xiaobei)在线嗓、1.5x；英文自然嗓 ===== */
+const slides=[...document.querySelectorAll('.slide')];
+const N=slides.length; let cur=0;
+let voices=[],selVoice=null,rate=1.5,utter=null,narrating=false;
+let currentLang='zh', userPicked=false;
+
+const sub=document.getElementById('subtitle'),subInner=document.getElementById('subInner');
+const wave=document.getElementById('wave');
+
+/* 方言 / 英文预设 */
+const DIALECTS=[
+  {label:'辽宁·晓北 Xiaobei（在线）',uri:'zh-CN-liaoning-XiaobeiNeural'},
+  {label:'广西·南宁白话 XiaoMin（粤语）',uri:'yue-CN-XiaoMinNeural'},
+  {label:'桂柳话 Yunxi（西南官话）',uri:'zh-CN-sichuan-YunxiSichuanNeural'},
+  {label:'上海话·晓晓 Xiaoxiao（吴语）',uri:'wuu-CN-XiaoxiaoNeural'}
+];
+const EN_VOICES=[
+  {label:'English · Aria (US)',uri:'en-US-AriaNeural'},
+  {label:'English · Guy (US)',uri:'en-US-GuyNeural'},
+  {label:'English · Sonia (UK)',uri:'en-GB-SoniaNeural'},
+  {label:'English · Jenny (US)',uri:'en-US-JennyNeural'}
+];
+
+/* 按语言挑选默认嗓 */
+function pickVoice(lang){
+  const pref = lang==='en'
+    ? ['en-US-AriaNeural','en-US-GuyNeural','en-GB-SoniaNeural','en-US-JennyNeural']
+    : ['zh-CN-liaoning-XiaobeiNeural','zh-CN-YunyangNeural','zh-CN-XiaoxiaoNeural','zh-CN-YunxiNeural'];
+  for(const uri of pref){const v=voices.find(x=>x.voiceURI===uri);if(v)return v;}
+  const pool=voices.filter(v=>v.lang&&v.lang.toLowerCase().startsWith(lang));
+  const neural=pool.filter(v=>/neural|online|natural/i.test(v.name)||/neural/i.test(v.voiceURI));
+  if(neural.length)return neural[0];
+  if(pool.length)return pool[0];
+  return voices[0]||null;
+}
+function applyVoiceForLang(){
+  const v=pickVoice(currentLang);
+  if(v){selVoice=v;const s=document.getElementById('voiceSel');if([...s.options].some(o=>o.value===v.voiceURI))s.value=v.voiceURI;}
+}
+
+function initVoices(){
+  voices=speechSynthesis.getVoices();
+  const s=document.getElementById('voiceSel'); s.innerHTML='';
+  // 中文组
+  const gzh=document.createElement('optgroup'); gzh.label='中文 / Chinese'; s.appendChild(gzh);
+  const zh=voices.filter(v=>v.lang&&/^zh/i.test(v.lang));
+  zh.sort((a,b)=>(/neural|online/i.test(b.name)?1:0)-(/natural|neural/i.test(a.name)?1:0));
+  zh.forEach(v=>{const o=document.createElement('option');o.value=v.voiceURI;o.textContent=v.name.replace('Microsoft ','').replace('Google ','');gzh.appendChild(o);});
+  DIALECTS.forEach(d=>{const ok=voices.some(v=>v.voiceURI===d.uri);const o=document.createElement('option');o.value=d.uri;o.textContent=d.label+(ok?' ✓':'');gzh.appendChild(o);});
+  // 英文组
+  const gen=document.createElement('optgroup'); gen.label='English'; s.appendChild(gen);
+  const en=voices.filter(v=>v.lang&&/^en/i.test(v.lang));
+  en.sort((a,b)=>(/neural|online/i.test(b.name)?1:0)-(/natural|neural/i.test(a.name)?1:0));
+  en.forEach(v=>{const o=document.createElement('option');o.value=v.voiceURI;o.textContent=v.name.replace('Microsoft ','').replace('Google ','');gen.appendChild(o);});
+  EN_VOICES.forEach(d=>{const ok=voices.some(v=>v.voiceURI===d.uri);const o=document.createElement('option');o.value=d.uri;o.textContent=d.label+(ok?' ✓':'');gen.appendChild(o);});
+  if(!userPicked) applyVoiceForLang();
+}
+if(speechSynthesis.onvoiceschanged!==undefined)speechSynthesis.onvoiceschanged=initVoices;
+setTimeout(initVoices,100);
+
+function previewVoice(){try{speechSynthesis.cancel();}catch(e){}const u=new SpeechSynthesisUtterance(currentLang==='en'?"This is Hesi's current narration voice — it applies the moment you switch.":'这是 Hesi 当前的旁白嗓色，切换后立即生效。');u.lang=selVoice?selVoice.lang:(currentLang==='en'?'en-US':'zh-CN');u.rate=rate;u.pitch=0;u.volume=1;if(selVoice)u.voice=selVoice;speechSynthesis.speak(u);}
+function changeVoice(){userPicked=true;const n=document.getElementById('voiceSel').value;const v=voices.find(x=>x.voiceURI===n||x.name===n);const note=document.getElementById('voiceNote');if(v){selVoice=v;if(note)note.textContent='';}else{if(note)note.textContent='⚠ 当前系统未装该语音包，请到 Windows 设置 → 时间和语言 → 语音 → 添加在线语音 ('+n+')';}if(narrating)playNar();else previewVoice();}
+document.getElementById('voiceSel').addEventListener('change',changeVoice);
+
+/* 卡拉OK：当前字滚到条中心 */
+function hasCJK(t){return /[一-鿿]/.test(t);}
+function splitSeg(t){return t.match(/[^。！？\n.!?]+[。！？.!?]?/g)||[t];}
+function buildOff(segs){const out=[];let g=0;for(const s of segs){const t=s.trim();const ws=hasCJK(t)?[...t]:t.split(/\s+/).filter(Boolean);const off=[];let p=0;for(const w of ws){off.push({w,start:p,end:p+w.length});p+=w.length+(hasCJK(t)?0:1);}out.push({ws,off,g});g+=s.length;}return out;}
+function renderSeg(seg){subInner.innerHTML=seg.ws.map(w=>`<span class="sub-ch ch-pending">${w.replace(/</g,'&lt;')}</span>`).join('');}
+function paint(idx,seg){const sp=[...subInner.children];for(let i=0;i<sp.length;i++){sp[i].className='sub-ch '+(i<idx?'ch-done':i===idx?'ch-now':'ch-pending');}}
+
+/* 播放：整页单条朗读（句号处为引擎自然短停顿），逐句淡入淡出 + 卡拉OK高亮 */
+let epoch=0,segTimer=null,curSegIdx=-1;
+function stopAuto(){}
+function playNar(){
+  epoch++;const my=epoch;
+  try{speechSynthesis.cancel();}catch(e){}
+  stopAuto();narrating=true;
+  document.getElementById('playB').textContent=I18N[currentLang].pause;
+  sub.classList.add('show');wave.classList.add('show','live');
+  const t=slides[cur].getAttribute(currentLang==='en'?'data-voice-en':'data-voice');if(!t){return;}
+  const segs=splitSeg(t);const segOffs=segs.map(s=>buildOff([s])[0]);
+  const cum=[];let acc=0;for(const s of segs){cum.push(acc);acc+=s.length;}
+  curSegIdx=-1;
+  function commitSeg(i){curSegIdx=i;subInner.classList.remove('fade');subInner.innerHTML=segOffs[i].ws.map(w=>`<span class="sub-ch ch-pending">${w.replace(/</g,'&lt;')}</span>`).join('');fitSub();}
+  function fitSub(){const base=parseFloat(getComputedStyle(sub).fontSize)||18;subInner.style.fontSize='';if(subInner.scrollWidth>sub.clientWidth-28){let s=base;subInner.style.fontSize=s+'px';while(subInner.scrollWidth>sub.clientWidth-28&&s>10){s-=.5;subInner.style.fontSize=s+'px';}if(s<10)subInner.style.fontSize='10px';}}
+  function showSeg(i){if(i===curSegIdx)return;curSegIdx=i;subInner.classList.add('fade');clearTimeout(segTimer);segTimer=setTimeout(()=>{if(my!==epoch)return;commitSeg(i);},240);}
+  utter=new SpeechSynthesisUtterance(t.trim());utter.lang=selVoice?selVoice.lang:(currentLang==='en'?'en-US':'zh-CN');utter.rate=rate;utter.pitch=0;utter.volume=1;if(selVoice)utter.voice=selVoice;
+  utter.onboundary=e=>{
+    if(my!==epoch)return;if(e.name!=='word')return;
+    let k=0;for(let i=0;i<cum.length;i++){if(e.charIndex>=cum[i])k=i;else break;}
+    showSeg(k);
+    if(subInner.classList.contains('fade'))return;
+    let wi=0;const o=segOffs[k].off;for(let i=0;i<o.length;i++){if(e.charIndex-cum[k]>=o[i].start)wi=i;else break;}
+    paint(wi,segOffs[k]);
+  };
+  utter.onend=()=>{if(my!==epoch)return;sub.classList.remove('show');if(cur<N-1){setTimeout(()=>{if(my!==epoch)return;hesiGoTo(cur+1);setTimeout(()=>{if(my!==epoch)return;playNar();},400);},600);}else{stopNar();}};
+  utter.onerror=()=>{if(my!==epoch)return;if(cur<N-1){setTimeout(()=>{if(my!==epoch)return;hesiGoTo(cur+1);setTimeout(()=>{if(my!==epoch)return;playNar();},400);},600);}else{stopNar();}};
+  commitSeg(0);
+  speechSynthesis.speak(utter);
+}
+function stopNar(){epoch++;narrating=false;try{speechSynthesis.cancel();}catch(e){}clearTimeout(segTimer);utter=null;sub.classList.remove('show');subInner.classList.remove('fade');wave.classList.remove('show','live');document.getElementById('playB').textContent=I18N[currentLang].play;}
+function toggleNar(){narrating?stopNar():playNar();}
+function toggleSpeed(){const a=[1.0,1.1,1.3,1.5];rate=a[(a.indexOf(rate)+1)%a.length];const em=rate===1.0?'🐢':rate===1.1?'🚶':rate===1.3?'🐇':'⚡';document.getElementById('speedB').textContent=`${em} 语速 ${rate}x`;if(narrating)playNar();}
+
+/* 翻页 + 实时部件 */
+let termTimer=null;
+function restartWidget(i){
+  if(termTimer){clearInterval(termTimer);termTimer=null;}
+  const el=slides[i].querySelector('.term-body');
+  if(el){const src=slides[i].getAttribute('data-lines');if(!src)return;const arr=src.split('|');let k=0;el.innerHTML='';termTimer=setInterval(()=>{const d=document.createElement('div');d.className='term-line';const t=arr[k%arr.length];d.innerHTML=t.replace(/^\*/,'').replace(/\+/g,'<span class="pr">+</span>').replace(/✓/g,'<span class="ok">✓</span>').replace(/✗/g,'<span class="wn">✗</span>');el.appendChild(d);el.scrollTop=el.scrollHeight;k++;if(el.children.length>40)el.removeChild(el.firstChild);},750);}
+}
+function hesiGoTo(i){slides[cur].classList.remove('active');cur=(i+N)%N;slides[cur].classList.add('active');applySlideLang(cur);restartWidget(cur);updateUI();}
+function updateUI(){document.getElementById('pageInfo').textContent=(cur+1)+' / '+N;document.querySelectorAll('.dot').forEach((d,idx)=>d.classList.toggle('active',idx===cur));}
+
+/* 波形条生成 */
+for(let i=0;i<32;i++){const b=document.createElement('span');b.className='b';wave.appendChild(b);}
+
+/* 导航圆点 */
+const dots=document.getElementById('dots');
+slides.forEach((s,i)=>{const d=document.createElement('span');d.className='dot'+(i===0?' active':'');d.onclick=()=>{stopNar();hesiGoTo(i);};dots.appendChild(d);});
+
+/* ===== 双语文案 ===== */
+const I18N={
+  zh:{
+    startP:"一个跑在浏览器里的 AI 中枢。今天不跟你讲参数，跟你讲讲它是怎么从一个电竞人的无聊深夜里，一点点长出来的。",
+    startBtn:"▶ 开始播放",
+    title:"HESI 控制台",
+    voiceLabel:"旁白嗓色（真实语音）",
+    play:"▶ 播放旁白", pause:"⏸ 暂停旁白",
+    prev:"◀ 上一页", next:"下一页 ▶",
+    hide:"⊟ 隐藏面板", show:"⊟ 显示面板",
+    hint:"← → 翻页 · 空格 播放/暂停<br>按 H 隐藏/显示面板",
+    langBtn:"🌐 EN",
+    ticker:"● 实时：浏览器 agent 接管中　·　CDP 连接正常　·　圆桌会议进行中　·　12 个专家在线　·　本地优先 · MIT 开源　·　GitHub 搜 Hesi"
+  },
+  en:{
+    startP:"Hesi — an AI hub that runs right inside your browser. Today I won't bore you with specs; I'll tell you how it grew, bit by bit, from a pro gamer's restless late nights.",
+    startBtn:"▶ Play",
+    title:"HESI Console",
+    voiceLabel:"Narration Voice",
+    play:"▶ Play", pause:"⏸ Pause",
+    prev:"◀ Prev", next:"Next ▶",
+    hide:"⊟ Hide Panel", show:"⊟ Show Panel",
+    hint:"← → navigate · Space play/pause<br>Press H to hide/show panel",
+    langBtn:"🌐 中文",
+    ticker:"● LIVE: browser agent in control · CDP connected · roundtable in session · 12 experts online · local-first · MIT open source · Search Hesi on GitHub"
+  }
+};
+
+/* 捕获每页原始中文可见文本，用于切回中文时还原 */
+const ORIG={};
+slides.forEach((sl,i)=>{sl.dataset.idx=i;ORIG[i]={
+  kicker:(sl.querySelector('.kicker')||{}).textContent||'',
+  title:(sl.querySelector('.title')||{}).textContent||'',
+  body:(sl.querySelector('.body')||{}).textContent||''
+};});
+slides.forEach(sl=>sl.querySelectorAll('[data-en]').forEach(el=>{if(!el.getAttribute('data-zh'))el.setAttribute('data-zh',el.textContent);}));
+
+function applySlideLang(i){
+  const sl=slides[i];
+  ['kicker','title','body'].forEach(key=>{
+    const el=sl.querySelector('.'+key); if(!el)return;
+    const en=sl.getAttribute('data-'+key+'-en');
+    el.textContent=(currentLang==='en'&&en)?en:(ORIG[i][key]||el.textContent);
+  });
+  sl.querySelectorAll('[data-en]').forEach(el=>{
+    el.textContent=currentLang==='en'?el.getAttribute('data-en'):el.getAttribute('data-zh');
+  });
+}
+function updateLangUI(){
+  const T=I18N[currentLang];
+  document.getElementById('startP').textContent=T.startP;
+  document.getElementById('startBtn').textContent=T.startBtn;
+  document.getElementById('panelTitle').textContent=T.title;
+  document.getElementById('voiceLabel').textContent=T.voiceLabel;
+  document.getElementById('prevB').textContent=T.prev;
+  document.getElementById('nextB').textContent=T.next;
+  document.getElementById('hintEl').innerHTML=T.hint;
+  document.getElementById('langB').textContent=T.langBtn;
+  document.getElementById('tickerRun').textContent=T.ticker;
+  document.getElementById('playB').textContent=narrating?T.pause:T.play;
+  document.documentElement.lang=currentLang==='en'?'en':'zh-CN';
+}
+function toggleLang(){
+  currentLang=currentLang==='zh'?'en':'zh';
+  userPicked=false;                 // 切语言即按该语言选默认嗓
+  updateLangUI();
+  applySlideLang(cur);
+  applyVoiceForLang();
+  if(narrating){stopNar();playNar();}
+}
+
+/* 启动 */
+document.getElementById('startBtn').onclick=()=>{document.getElementById('start').style.display='none';restartWidget(0);updateUI();playNar();};
+document.getElementById('playB').onclick=toggleNar;
+document.getElementById('speedB').onclick=toggleSpeed;
+document.getElementById('prevB').onclick=()=>{stopNar();hesiGoTo(cur-1);};
+document.getElementById('nextB').onclick=()=>{stopNar();hesiGoTo(cur+1);};
+document.getElementById('panelB').onclick=()=>{const hidden=document.body.classList.toggle('no-panel');document.getElementById('panelB').textContent=hidden?I18N[currentLang].show:I18N[currentLang].hide;};
+document.getElementById('langB').onclick=toggleLang;
+function togglePanel(){document.body.classList.toggle('no-panel');}
+addEventListener('keydown',e=>{
+  if(e.key==='ArrowRight'){stopNar();hesiGoTo(cur+1);}
+  else if(e.key==='ArrowLeft'){stopNar();hesiGoTo(cur-1);}
+  else if(e.key===' '){e.preventDefault();toggleNar();}
+  else if(e.key==='h'||e.key==='H'){togglePanel();}
+});
+restartWidget(0);
+updateLangUI();
+applySlideLang(0);
+</script>
 </body>
 </html>
