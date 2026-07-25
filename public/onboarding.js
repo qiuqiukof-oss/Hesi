@@ -1,9 +1,13 @@
 // @ts-check
 // ============================================================
-// Hesi — 新手引导（Onboarding）v2
+// Hesi — 新手引导（Onboarding）v3
 // 1) 左栏「新手指南」按钮 → 新标签页打开 /onboarding-guide.html
 // 2) 首次启动（localStorage 未标记）显示气泡指引（coach marks）
 //    锚定 8 个关键点（含刷新CLI/安装Agent/AI讨论着重），可下一步 / 跳过 / Esc 关闭
+//    气泡时机策略（A+B 混合）：
+//      - B：聊天相关步骤（⭐AI讨论 / 📎附件）自动开 #chat-drawer，讲完自动关回，不遮挡后续欢迎页步骤
+//      - A：目标不可见且无面板关联 → 静默跳过该步
+//      - 方位偏好 prefer：欢迎页/Agent 步骤气泡置上方，避免遮挡下方卡片
 // 命名空间：localStorage['hesi_onboarding_v2']（v2 版本号，旧 v1 用户重新看）
 // ============================================================
 (function () {
@@ -20,7 +24,9 @@
     });
   }
 
-  /** 气泡步骤定义（按出现顺序）—— v2: 新增刷新CLI / 安装Agent / AI讨论(着重) */
+  /** 气泡步骤定义（按出现顺序）—— v2: 新增刷新CLI / 安装Agent / AI讨论(着重)
+   *  panel: 'chat' 表示该步骤目标在聊天抽屉内，需先开抽屉
+   *  prefer: 首选气泡方位（'up'|'down'|'left'|'right'），空间足够则优先用 */
   const STEPS = [
     {
       target: 'onboarding-guide-btn',
@@ -37,11 +43,14 @@
       title: '⭐ AI 讨论（核心功能）',
       text: '开启后，你的指令会由 AI 与所选 CLI Agent 按回合协作讨论，过程实时可见。这是 Hesi 最强大的功能之一——多智能体圆桌辩论，比你单聊 AI 强十倍。',
       highlight: true, // 着重提示：特殊样式
+      panel: 'chat',   // 目标在聊天抽屉内 → 自动开抽屉
+      prefer: 'up',
     },
     {
       target: 'chat-attach-btn',
       title: '📎 发附件给 AI',
       text: '点对话框的 📎 发图片、视频或代码文件，AI 真能「看懂」图、读取文件内容。',
+      panel: 'chat',
     },
     {
       target: 'discover-btn',
@@ -56,7 +65,8 @@
     {
       target: 'welcome-agent-install',
       title: '🤖 安装 AI Agent',
-      text: '在欢迎页或右侧面板可以一键安装预置的 AI Agent（如 OpenCode），让专业 Agent 替你干活。',
+      text: '在欢迎页可以一键安装预置的 AI Agent（如 OpenCode），让专业 Agent 替你干活。',
+      prefer: 'up', // 气泡置上方，避免遮挡下方安装卡片/说明
     },
     {
       target: 'add-cli-btn',
@@ -74,10 +84,55 @@
   }
 
   /**
-   * 单步气泡：高亮目标 + 卡片 + 箭头
-   * 改进定位：自动选择最佳方位（上/下/左/右），增加箭头指向目标
+   * 目标是否真正可用（可见 + 在视口内 + 非 display:none 祖先）
    */
-  function buildBubble(step, onNext, onSkip) {
+  function isElementUsable(el) {
+    if (!el) return false;
+    const r = el.getBoundingClientRect();
+    if (r.width <= 0 || r.height <= 0) return false;
+    const inViewport = r.left < window.innerWidth && r.right > 0 && r.top < window.innerHeight && r.bottom > 0;
+    if (!inViewport) return false;
+    // display:none 祖先 → offsetParent 为 null（fixed 元素例外，本场景无）
+    if (el.offsetParent === null && getComputedStyle(el).position !== 'fixed') return false;
+    return true;
+  }
+
+  /** 等待目标可见（处理抽屉开启动画），超时返回 false */
+  function waitForVisible(el, timeout = 900) {
+    return new Promise((resolve) => {
+      if (isElementUsable(el)) return resolve(true);
+      const start = Date.now();
+      (function poll() {
+        if (isElementUsable(el)) return resolve(true);
+        if (Date.now() - start > timeout) return resolve(false);
+        setTimeout(poll, 60);
+      })();
+    });
+  }
+
+  /** 确保聊天抽屉打开（B 方案） */
+  function ensureChatOpen() {
+    const drawer = document.getElementById('chat-drawer');
+    if (drawer && !isElementUsable(drawer)) {
+      const Q = window.QCLI || {};
+      if (Q.ChatUI && typeof Q.ChatUI.toggleChat === 'function') Q.ChatUI.toggleChat();
+    }
+  }
+
+  /** 确保聊天抽屉关闭（讲完聊天步骤后关回，避免遮挡后续步骤） */
+  function ensureChatClose() {
+    const drawer = document.getElementById('chat-drawer');
+    if (drawer && isElementUsable(drawer)) {
+      const Q = window.QCLI || {};
+      if (Q.ChatUI && typeof Q.ChatUI.toggleChat === 'function') Q.ChatUI.toggleChat();
+    }
+  }
+
+  /**
+   * 单步气泡：高亮目标 + 卡片 + 箭头
+   * 改进定位：优先 prefer 方位，否则自动选择最佳方位（上/下/左/右），增加箭头指向目标
+   */
+  function buildBubble(step, onNext, onSkip, prefer) {
     const el = document.getElementById(step.target);
     if (!el) return null;
 
@@ -122,7 +177,7 @@
       '</div>';
     overlay.appendChild(bubble);
 
-    // ── 智能定位：选择空间最大的方位 ──
+    // ── 智能定位：优先 prefer 方位，否则选空间最大的方位 ──
     const bw = 300, bh = step.highlight ? 170 : 140, gap = 12;
 
     const spaceBelow = window.innerHeight - rect.bottom - gap;
@@ -132,23 +187,30 @@
 
     let top, left, arrowDir; // arrowDir: 'up'|'down'|'left'|'right'
 
-    if (spaceBelow >= bh || (spaceBelow >= spaceAbove && spaceBelow >= spaceRight * 0.4 && spaceBelow >= spaceLeft * 0.4)) {
-      top = rect.bottom + gap;
-      left = rect.left + rect.width / 2 - bw / 2;
-      arrowDir = 'up';
-    } else if (spaceAbove >= bh) {
-      top = rect.top - gap - bh;
-      left = rect.left + rect.width / 2 - bw / 2;
-      arrowDir = 'down';
-    } else if (spaceRight >= bw) {
-      top = rect.top + rect.height / 2 - bh / 2;
-      left = rect.right + gap;
-      arrowDir = 'left';
-    } else if (spaceLeft >= bw) {
-      top = rect.top + rect.height / 2 - bh / 2;
-      left = rect.left - gap - bw;
-      arrowDir = 'right';
-    } else {
+    // 在指定方位放置；空间不足返回 false
+    function tryPlace(dir) {
+      if (dir === 'up' && spaceBelow >= bh) {
+        top = rect.bottom + gap; left = rect.left + rect.width / 2 - bw / 2; arrowDir = 'up'; return true;
+      }
+      if (dir === 'down' && spaceAbove >= bh) {
+        top = rect.top - gap - bh; left = rect.left + rect.width / 2 - bw / 2; arrowDir = 'down'; return true;
+      }
+      if (dir === 'left' && spaceRight >= bw) {
+        top = rect.top + rect.height / 2 - bh / 2; left = rect.right + gap; arrowDir = 'left'; return true;
+      }
+      if (dir === 'right' && spaceLeft >= bw) {
+        top = rect.top + rect.height / 2 - bh / 2; left = rect.left - gap - bw; arrowDir = 'right'; return true;
+      }
+      return false;
+    }
+
+    let placed = false;
+    if (prefer) placed = tryPlace(prefer);
+    if (!placed) {
+      placed = tryPlace('up') || tryPlace('down') || tryPlace('left') || tryPlace('right');
+    }
+
+    if (!placed) {
       // 兜底：居中屏幕
       top = window.innerHeight / 2 - bh / 2;
       left = window.innerWidth / 2 - bw / 2;
@@ -184,15 +246,33 @@
       if (current && current.parentNode) current.parentNode.removeChild(current);
       current = null;
       document.removeEventListener('keydown', onKey);
+      // 中途退出也确保聊天抽屉关回，不残留遮挡
+      ensureChatClose();
     }
     function onKey(e) {
       if (e.key === 'Escape') { finish(); }
       else if (e.key === 'Enter') { next(); }
     }
-    function next() {
+    async function next() {
       if (current) { current.remove(); current = null; }
       if (i >= STEPS.length) { finish(); return; }
-      const overlay = buildBubble(STEPS[i], next, finish);
+      const step = STEPS[i];
+
+      // ── 面板协同（B 方案）──
+      if (step.panel === 'chat') {
+        ensureChatOpen();
+        const ok = await waitForVisible(document.getElementById(step.target), 900);
+        if (!ok) {
+          // 开不了抽屉（异常）→ A 降级静默跳过
+          i++; next(); return;
+        }
+      } else {
+        // 非 chat 步：若上一步是 chat 步，进入前关回抽屉，避免遮挡
+        const prev = STEPS[i - 1];
+        if (prev && prev.panel === 'chat') ensureChatClose();
+      }
+
+      const overlay = buildBubble(step, next, finish, step.prefer);
       if (!overlay) { i++; next(); return; }
       current = overlay;
       i++;
