@@ -6,6 +6,14 @@ use `vMAJOR.MINOR.PATCH-<tag>`.
 
 ---
 
+## [v0.2.7] — 2026-07-25
+
+工程健康度修复（响应第三方实地评测 HESI-EVALUATION 复核）：
+- **Lint 归零**：`eslint.config.js` 为 `plugins/agnes-ai/web/**/*.js` 补充浏览器全局变量（`document`/`window`/`navigator` 等），消除 201 个 `no-undef` 误报。`npm run lint` 由 201 errors → 0 errors，CI lint 步骤转绿。
+- **修复潜在运行时崩溃**：删除 `plugins/agnes-ai/web/js/app.js` 中 `totalAdjusted++` 死代码（变量从未声明、从未被读取，在 class 严格模式下执行该路径会抛 `ReferenceError`）。
+
+---
+
 ## [v0.2.6] — 2026-07-25
 
 新手指引气泡定位精修（基于自动化截图诊断）：

@@ -2436,7 +2436,6 @@ const StoryboardAssistant = {
       // Add 1.5s buffer for pauses/expression, clamp to [2, 10]
       const suggested = Math.max(2, Math.min(10, Math.round(rawDuration + 1.5)));
       scene.duration = suggested;
-      totalAdjusted++;
     }
 
     // Then call AI to refine the timing with more nuance

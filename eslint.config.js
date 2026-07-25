@@ -89,6 +89,7 @@ module.exports = [
       'routes/browser/**/*.js',
       'routes/ai-tools/builtin/web-fetch.js',
       'plugins/**/ui/**/*.js',
+      'plugins/agnes-ai/web/**/*.js',
     ],
     languageOptions: {
       globals: {
