@@ -68,7 +68,7 @@ import './digital-employees.js'; // DigitalEmployees → role-based employee man
 // ── AI Agent 管理面板 ──
 import './agents.js';        // Agents → AI agent sidebar panel (loadAgents called by boot.js)
 import './onboarding.js';     // Onboarding → 新手指南气泡 + 教程页入口
-import './workspace-dir.js';   // Workspace directory selector → 📂 选择工作空间按钮（终端栏 + 聊天栏）
+import './workspace-dir.js';   // Workspace directory selector → 侧栏「📂 全局工作空间」按钮（工具下方）
 
 // ── OPC Dashboard — One Person Company 效益监控 ──
 import './opc-dashboard.js'; // OPCDashboard → OPC cost/ROI monitoring panel

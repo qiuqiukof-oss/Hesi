@@ -3,10 +3,10 @@
 // Workspace directory selector.
 // Sets the GLOBAL working directory (drives new terminals' cwd +
 // AI tool exec / file ops on the server via lib/workspace.js).
-// UI: a prominent "📂 选择工作空间 ▾" button in the terminal
-// tab-bar AND the chat header. Clicking opens a server-backed
-// folder browser (browsers can't expose absolute paths via native
-// pickers), so the chosen path is a real absolute filesystem path.
+// UI: a compact "📂 全局工作空间" button in the SIDEBAR below the
+// 工具 section (same style as the 新手指南 button). Clicking opens
+// a server-backed folder browser (browsers can't expose absolute
+// paths via native pickers), so the chosen path is real absolute.
 // ============================================================
 (function () {
   const STORAGE_KEY = 'hesi-workspace-dir';
@@ -15,11 +15,19 @@
   // ── inject styles (self-contained) ──
   const style = document.createElement('style');
   style.textContent = `
-    .ws-dir-btn{display:inline-flex;align-items:center;gap:6px;margin:0 6px;padding:4px 10px;
-      border:1.5px solid var(--accent,#4a9eff);border-radius:6px;background:var(--accent-soft,#e8f1ff);
-      color:var(--accent,#1769ff);font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;max-width:240px}
-    .ws-dir-btn:hover{filter:brightness(.97)}
-    .ws-dir-label{overflow:hidden;text-overflow:ellipsis;max-width:160px}
+    /* 侧栏紧凑按钮：与「新手指南」同款流光风格，但用绿→蓝渐变区分 */
+    .ws-dir-sidebar-btn{display:flex;align-items:center;justify-content:center;gap:6px;
+      width:calc(100% - 10px);margin:8px 0 4px 10px;padding:9px 12px;border:none;border-radius:8px;
+      color:#fff;font-size:12px;font-weight:700;letter-spacing:.3px;cursor:pointer;
+      background:linear-gradient(110deg,#10b981,#34d399,#0ea5e9,#34d399,#10b981);
+      background-size:200% 100%;animation:wsd-shimmer 3.5s linear infinite;
+      box-shadow:0 2px 12px rgba(16,185,129,.3);transition:transform .15s ease,filter .15s ease}
+    .ws-dir-sidebar-btn:hover{transform:scale(1.02);filter:brightness(1.06)}
+    .ws-dir-sidebar-btn:active{transform:scale(.98)}
+    .ws-dir-sidebar-btn .wsd-ico{font-size:14px;line-height:1}
+    .ws-dir-sidebar-btn .wsd-label{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:170px}
+    @keyframes wsd-shimmer{0%{background-position:0% 0}100%{background-position:200% 0}}
+    @media (prefers-reduced-motion: reduce){.ws-dir-sidebar-btn{animation:none}}
     #ws-picker-modal{position:fixed;inset:0;z-index:100000;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.5)}
     .ws-picker{width:540px;max-width:92vw;background:var(--bg,#fff);color:var(--fg,#222);border:1px solid var(--border,#ddd);border-radius:10px;box-shadow:0 10px 40px rgba(0,0,0,.3);overflow:hidden;font-size:13px}
     .ws-picker-head{display:flex;align-items:center;gap:8px;padding:12px 14px;border-bottom:1px solid var(--border,#ddd);font-weight:700}
@@ -56,10 +64,11 @@
 
   function updateLabels(ws) {
     if (ws) current = ws;
-    document.querySelectorAll('.ws-dir-label').forEach((el) => {
-      el.textContent = current || '工作空间';
-      el.title = current || '';
-    });
+    const label = document.getElementById('ws-dir-label');
+    if (label) {
+      label.textContent = current || '全局工作空间';
+      label.title = current || '';
+    }
   }
 
   function cdActiveTerminal(dir) {
@@ -161,32 +170,9 @@
     }
   }
 
-  function injectButtons() {
-    const labelHtml = '<span class="ws-dir-label">' + (current || '工作空间') + '</span> ▾';
-    const tabBar = document.getElementById('tab-bar');
-    if (tabBar && !document.getElementById('ws-dir-btn')) {
-      const btn = document.createElement('button');
-      btn.id = 'ws-dir-btn';
-      btn.className = 'ws-dir-btn';
-      btn.title = '选择工作空间目录（新终端与 AI 执行默认在此）';
-      btn.innerHTML = '📂 ' + labelHtml;
-      btn.onclick = openPicker;
-      tabBar.parentNode.insertBefore(btn, tabBar);
-    }
-    const chatActions = document.querySelector('.chat-header-actions');
-    if (chatActions && !document.getElementById('ws-dir-btn-chat')) {
-      const btn = document.createElement('button');
-      btn.id = 'ws-dir-btn-chat';
-      btn.className = 'ws-dir-btn';
-      btn.title = '选择工作空间目录（AI 执行命令默认在此）';
-      btn.innerHTML = '📂 ' + labelHtml;
-      btn.onclick = openPicker;
-      chatActions.insertBefore(btn, chatActions.firstChild);
-    }
-  }
-
   function init() {
-    injectButtons();
+    const btn = document.getElementById('workspace-dir-btn');
+    if (btn) btn.onclick = openPicker;
     const saved = localStorage.getItem(STORAGE_KEY);
     if (saved) {
       apiPost('/api/workspace', { dir: saved }).then(({ ok, d }) => { if (ok) updateLabels(d.workspace); });
