@@ -123,6 +123,18 @@
     });
   }
 
+  /** 等待元素 CSS transition / animation 稳定（监听 transitionend 或超时兜底）
+   *  用途：打开聊天抽屉后必须等滑入动画结束再读坐标，否则 getBoundingClientRect
+   *       返回动画中途的中间值 → 气泡偏移（实测 dy≈88px~200px+ 视觉脱节） */
+  function waitForSettled(el, timeout = 700) {
+    return new Promise((resolve) => {
+      const done = () => resolve(true);
+      el.addEventListener('transitionend', done, { once: true });
+      // 兜底：若元素无 transition 或 transitionend 未触发（如 display:none→block 无动画）
+      setTimeout(() => { el.removeEventListener('transitionend', done); resolve(true); }, timeout);
+    });
+  }
+
   /** 确保聊天抽屉打开（B 方案） */
   function ensureChatOpen() {
     const drawer = document.getElementById('chat-drawer');
@@ -337,6 +349,9 @@
       if (step.panel === 'chat') {
         hideWelcomeOverlay(); // 避免欢迎遮罩盖住 chat 目标
         ensureChatOpen();
+        // 等待聊天抽屉滑入动画结束，避免在动画中途读坐标导致气泡偏移
+        const drawer = document.getElementById('chat-drawer');
+        if (drawer) await waitForSettled(drawer);
         const ok = await waitForVisible(document.getElementById(step.target), 900);
         if (!ok) {
           // 开不了抽屉（异常）→ A 降级静默跳过，恢复遮罩
