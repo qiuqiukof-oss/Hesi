@@ -1,7 +1,7 @@
 /* ============================================================
-   Hesi — 新手引导样式
+   Hesi — 新手引导样式 v2
    1) 左栏「新手指南」流光按钮
-   2) 首次气泡指引（coach marks）遮罩层
+   2) 首次气泡指引（coach marks）遮罩层 + 箭头 + 着重标记
    ============================================================ */
 
 /* ── 左栏流光按钮 ── */
@@ -47,6 +47,8 @@
   z-index: 99999;
   background: rgba(0, 0, 0, 0.55);
 }
+
+/* 高亮框 */
 .og-highlight {
   position: fixed;
   border-radius: 10px;
@@ -54,9 +56,20 @@
   pointer-events: none;
   transition: all 0.3s ease;
 }
+/* 着重步骤的高亮框：更醒目的颜色 */
+.og-highlight-star {
+  box-shadow: 0 0 0 3px #F59E0B, 0 0 24px rgba(245, 158, 11, 0.55), 0 0 48px rgba(245, 158, 11, 0.2);
+  animation: og-star-glow 2s ease-in-out infinite alternate;
+}
+@keyframes og-star-glow {
+  from { box-shadow: 0 0 0 3px #F59E0B, 0 0 20px rgba(245, 158, 11, 0.4); }
+  to   { box-shadow: 0 0 0 3px #F59E0B, 0 0 30px rgba(245, 158, 11, 0.65), 0 0 56px rgba(245, 158, 11, 0.25); }
+}
+
+/* ── 气泡卡片 ── */
 .og-bubble {
   position: fixed;
-  max-width: 260px;
+  max-width: 280px;
   background: var(--bg-overlay, #1c1c1e);
   color: var(--text-primary, #f5f5f7);
   border: 1px solid var(--border-default, #38383a);
@@ -65,6 +78,13 @@
   z-index: 100000;
   box-shadow: 0 8px 30px rgba(0, 0, 0, 0.5);
 }
+/* 着重步骤气泡：金色边框 + 微背景 */
+.og-bubble-star {
+  border-color: rgba(245, 158, 11, 0.45);
+  background: linear-gradient(135deg, #1c1c1e 0%, #1a1810 100%);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.55), 0 0 12px rgba(245, 158, 11, 0.12);
+}
+
 .og-bubble h4 {
   margin: 0 0 6px;
   font-size: 14px;
@@ -90,6 +110,10 @@
   cursor: pointer;
   transition: filter 0.15s ease;
 }
+.og-bubble-star .og-next {
+  background: linear-gradient(110deg, #F59E0B, #fbbf24);
+  color: #0a0a0a;
+}
 .og-bubble .og-next {
   background: var(--accent, #6366f1);
   color: #fff;
@@ -102,12 +126,101 @@
   filter: brightness(1.12);
 }
 
+/* ── 星标 badge（着重步骤专用）── */
+.og-star-badge {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  color: #0a0a0a;
+  background: linear-gradient(110deg, #F59E0B, #fbbf24);
+  padding: 2px 8px;
+  border-radius: 4px;
+  margin-bottom: 6px;
+  animation: og-badge-pulse 2s ease-in-out infinite alternate;
+}
+@keyframes og-badge-pulse {
+  from { opacity: 0.85; transform: scale(0.98); }
+  to   { opacity: 1; transform: scale(1.02); }
+}
+
+/* ── 箭头（气泡指向目标）── */
+.og-arrow {
+  position: fixed;
+  z-index: 100000;
+  pointer-events: none;
+  width: 10px;
+  height: 10px;
+  background: inherit;
+  /* 通过 ::after 画三角形 */
+}
+.og-arrow::after {
+  content: '';
+  position: absolute;
+  width: 0;
+  height: 0;
+  border-style: solid;
+}
+/* 上箭头（箭头朝上，在气泡底部）*/
+.og-arrow-up {
+  bottom: -5px;
+  left: 50%;
+  margin-left: -5px;
+}
+.og-arrow-up::after {
+  top: 2px;
+  left: 0;
+  border-width: 0 5px 6px 5px;
+  border-color: transparent transparent var(--bg-overlay, #1c1c1e) transparent;
+}
+/* 下箭头 */
+.og-arrow-down {
+  top: -5px;
+  left: 50%;
+  margin-left: -5px;
+}
+.og-arrow-down::after {
+  bottom: 2px;
+  left: 0;
+  border-width: 6px 5px 0 5px;
+  border-color: var(--bg-overlay, #1c1c1e) transparent transparent transparent;
+}
+/* 左箭头 */
+.og-arrow-left {
+  right: -5px;
+  top: 50%;
+  margin-top: -5px;
+}
+.og-arrow-left::after {
+  right: 2px;
+  top: 0;
+  border-width: 5px 6px 5px 0;
+  border-color: transparent transparent transparent var(--bg-overlay, #1c1c1e);
+}
+/* 右箭头 */
+.og-arrow-right {
+  left: -5px;
+  top: 50%;
+  margin-top: -5px;
+}
+.og-arrow-right::after {
+  left: 2px;
+  top: 0;
+  border-width: 5px 0 5px 6px;
+  border-color: transparent var(--bg-overlay, #1c1c1e) transparent transparent;
+}
+
 /* 尊重减少动效偏好 */
 @media (prefers-reduced-motion: reduce) {
   .onboarding-guide-btn {
     animation: none;
   }
-  .og-highlight {
+  .og-highlight,
+  .og-highlight-star {
     transition: none;
+    animation: none;
+  }
+  .og-star-badge {
+    animation: none;
   }
 }

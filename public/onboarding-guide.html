@@ -3,168 +3,430 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>新手指南 — Hesi</title>
+  <title>🚀 新手指南 — Hesi | Quick Start Guide</title>
   <link rel="stylesheet" href="/css/theme.css" />
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
   <style>
+    @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;700;900&family=Inter:wght@300;400;700;900&display=swap');
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", sans-serif;
-      background: var(--bg-ground, #0a0a0b);
-      color: var(--text-primary, #f5f5f7);
-      min-height: 100vh;
-      display: flex; flex-direction: column;
-      align-items: center;
-    }
-    .og-header {
-      text-align: center;
-      padding: 48px 24px 8px;
-    }
-    .og-header h1 {
-      font-size: 26px; font-weight: 700;
-      background: linear-gradient(110deg, #0ea5e9, #22d3ee, #6366f1);
-      -webkit-background-clip: text; background-clip: text; color: transparent;
-    }
-    .og-header p { margin-top: 8px; font-size: 13px; color: var(--text-tertiary, #98989d); }
 
+    /* ── v5.1 风格背景：深色 + 流光 orb ── */
+    body {
+      font-family: 'Noto Sans SC', 'Inter', 'Microsoft YaHei', sans-serif;
+      background: #050507;
+      color: #e8e8f0;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+    #bg {
+      position: fixed; inset: 0; z-index: 0;
+      background: radial-gradient(circle at 30% 20%, #101826 0%, #050507 60%);
+      overflow: hidden;
+    }
+    #bg::before {
+      content: '';
+      position: absolute; inset: -50%;
+      background: conic-gradient(from 0deg, transparent, rgba(56,225,255,.06), transparent 30%, rgba(245,158,11,.05), transparent 60%);
+      animation: spin 26s linear infinite;
+    }
+    .orb {
+      position: absolute; border-radius: 50%;
+      filter: blur(40px); opacity: .45;
+      animation: float 14s ease-in-out infinite;
+    }
+    .orb.a { width: 340px; height: 340px; background: #1b3a5c; left: -80px; top: 10%; animation-delay: 0s; }
+    .orb.b { width: 260px; height: 260px; background: #3a2a12; right: -60px; top: 40%; animation-delay: 4s; }
+    .orb.c { width: 200px; height: 200px; background: #16323a; left: 40%; bottom: -60px; animation-delay: 8s; }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+    @keyframes float {
+      0%, 100% { transform: translateY(0) translateX(0); }
+      50% { transform: translateY(-34px) translateX(18px); }
+    }
+
+    /* ── 主容器 ── */
+    #app { position: relative; z-index: 2; display: flex; flex-direction: column; align-items: center; min-height: 100vh; padding: 3vh 2vw; }
+
+    /* ── 头部：标题 + 语言切换 ── */
+    .og-header {
+      display: flex; align-items: center; justify-content: space-between;
+      width: 100%; max-width: 720px; padding: 20px 0 4px;
+    }
+    .og-header-left { text-align: left; }
+    .og-header h1 {
+      font-size: clamp(22px, 4vw, 36px); font-weight: 900;
+      background: linear-gradient(90deg, #38e1ff, #22d3ee, #6366f1);
+      -webkit-background-clip: text; background-clip: text; color: transparent;
+      line-height: 1.2;
+    }
+    .og-header p { margin-top: 6px; font-size: 13px; color: #9fb0c0; max-width: 420px; line-height: 1.5; }
+
+    /* 语言切换 */
+    .lang-toggle {
+      display: flex; gap: 0; border-radius: 8px; overflow: hidden;
+      border: 1px solid rgba(56,225,255,.25);
+      flex-shrink: 0;
+    }
+    .lang-toggle button {
+      padding: 6px 14px; font-size: 12px; font-weight: 700;
+      border: none; cursor: pointer; transition: all .2s;
+      background: transparent; color: #9fb0c0;
+      font-family: inherit;
+    }
+    .lang-toggle button.active {
+      background: linear-gradient(110deg, #38e1ff, #22d3ee);
+      color: #05070a;
+    }
+    .lang-toggle button:hover:not(.active) { background: rgba(255,255,255,.06); color: #fff; }
+
+    /* ── 幻灯片舞台 ── */
     .og-stage {
       position: relative;
-      width: min(560px, 90vw);
-      margin: 28px auto 0;
-      min-height: 240px;
-      border: 1px solid var(--border-default, #38383a);
+      width: min(640px, 92vw);
+      margin: 16px auto 0;
+      min-height: 320px;
+      border: 1px solid rgba(56,225,255,.15);
       border-radius: 16px;
-      background: var(--bg-overlay, #141416);
-      padding: 32px 28px;
+      background: rgba(12, 14, 20, 0.75);
+      backdrop-filter: blur(10px);
+      padding: 36px 28px;
       display: flex; flex-direction: column; align-items: center; justify-content: center;
       text-align: center;
+      overflow: hidden;
     }
-    .og-step-icon {
-      font-size: 56px; line-height: 1; margin-bottom: 18px;
-      filter: drop-shadow(0 4px 12px rgba(99,102,241,0.35));
-    }
-    .og-step-title { font-size: 18px; font-weight: 700; margin-bottom: 10px; }
-    .og-step-desc {
-      font-size: 14px; line-height: 1.7; color: var(--text-secondary, #b0b0b5);
-      max-width: 440px;
-    }
-    .og-step { display: none; animation: og-fade .35s ease; }
-    .og-step.active { display: flex; flex-direction: column; align-items: center; }
-    @keyframes og-fade { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
 
+    /* 步骤标签 */
+    .og-step-badge {
+      font-size: 11px; letter-spacing: 3px; font-weight: 700; text-transform: uppercase;
+      color: #38e1ff; opacity: .85; margin-bottom: 12px;
+    }
+    .og-step-badge.star { color: #F59E0B; }
+
+    /* 图标 */
+    .og-step-icon {
+      font-size: 52px; line-height: 1; margin-bottom: 16px;
+      filter: drop-shadow(0 4px 12px rgba(99,102,241,0.35));
+      animation: bob 3s ease-in-out infinite;
+    }
+    @keyframes bob {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-8px); }
+    }
+
+    /* 标题 */
+    .og-step-title {
+      font-size: clamp(17px, 2.5vw, 24px); font-weight: 900; margin-bottom: 12px;
+      background: linear-gradient(90deg, #fff, #bfe9ff);
+      -webkit-background-clip: text; background-clip: text; color: transparent;
+      line-height: 1.25;
+    }
+    .og-step-title.star {
+      background: linear-gradient(90deg, #F59E0B, #fbbf24, #fff);
+      -webkit-background-clip: text; background-clip: text; color: transparent;
+    }
+
+    /* 描述 */
+    .og-step-desc {
+      font-size: 14px; line-height: 1.75; color: #c7d2dc; max-width: 480px;
+      font-weight: 300;
+    }
+
+    /* 着重标记 */
+    .og-star-tag {
+      display: inline-block;
+      font-size: 10px; font-weight: 700; letter-spacing: 0.5px;
+      color: #0a0a0a; background: linear-gradient(110deg, #F59E0B, #fbbf24);
+      padding: 2px 10px; border-radius: 4px; margin-bottom: 10px;
+      animation: badge-pulse 2s ease-in-out infinite alternate;
+    }
+    @keyframes badge-pulse {
+      from { opacity: .85; transform: scale(.98); }
+      to   { opacity: 1; transform: scale(1.02); }
+    }
+
+    /* 步骤显隐 */
+    .og-step { display: none; animation: fadeSlide .4s ease; }
+    .og-step.active { display: flex; flex-direction: column; align-items: center; }
+    @keyframes fadeSlide {
+      from { opacity: 0; transform: translateY(12px); }
+      to   { opacity: 1; transform: none; }
+    }
+
+    /* 模拟 UI 卡片（步骤内嵌的小演示）*/
+    .og-mock-ui {
+      margin-top: 16px; padding: 12px 16px; border-radius: 10px;
+      background: rgba(0,0,0,.35); border: 1px solid rgba(255,255,255,.08);
+      font-family: 'Consolas', 'Monaco', monospace; font-size: 12px;
+      text-align: left; width: 100%; max-width: 420px;
+    }
+    .og-mock-ui .line { padding: 2px 0; color: #8fe6c4; opacity: 0; animation: typeIn .3s forwards; }
+    .og-mock-ui .line:nth-child(1) { animation-delay: .1s; }
+    .og-mock-ui .line:nth-child(2) { animation-delay: .3s; }
+    .og-mock-ui .line:nth-child(3) { animation-delay: .5s; }
+    .og-mock-ui .line .cmd { color: #38e1ff; }
+    .og-mock-ui .line .ok { color: #27c93f; }
+    .og-mock-ui .line .hint { color: #9fb0c0; font-size: 11px; }
+    @keyframes typeIn { to { opacity: 1; } }
+
+    /* ── 圆点导航 ── */
     .og-dots { display: flex; gap: 8px; justify-content: center; margin: 22px 0 4px; }
     .og-dot {
       width: 8px; height: 8px; border-radius: 50%;
-      background: var(--bg-hover, rgba(255,255,255,0.18)); transition: all .25s ease;
+      background: rgba(255,255,255,.15); transition: all .25s ease; cursor: pointer;
     }
-    .og-dot.active { background: var(--accent, #6366f1); width: 22px; border-radius: 4px; }
+    .og-dot.active { background: #38e1ff; width: 22px; border-radius: 4px; box-shadow: 0 0 8px rgba(56,225,255,.5); }
+    .og-dot.star-active { background: #F59E0B; box-shadow: 0 0 8px rgba(245,158,11,.5); }
 
-    .og-controls { display: flex; gap: 10px; justify-content: center; margin: 18px 0 48px; flex-wrap: wrap; }
+    /* ── 控制栏 ── */
+    .og-controls { display: flex; gap: 10px; justify-content: center; margin: 14px 0 32px; flex-wrap: wrap; }
     .og-controls button {
-      font-size: 13px; font-weight: 600; padding: 9px 18px; border-radius: 9px;
-      border: 1px solid var(--border-default, #38383a); cursor: pointer;
-      background: var(--bg-overlay, #1c1c1e); color: var(--text-primary, #f5f5f7);
-      transition: all .15s ease;
+      font-size: 13px; font-weight: 600; padding: 9px 20px; border-radius: 10px;
+      border: 1px solid rgba(56,225,255,.2); cursor: pointer;
+      background: rgba(12,14,20,.8); color: #e8e8f0; transition: all .18s ease;
+      font-family: inherit; backdrop-filter: blur(4px);
     }
-    .og-controls button:hover:not(:disabled) { border-color: var(--accent, #6366f1); }
-    .og-controls button:disabled { opacity: .4; cursor: default; }
-    .og-start { background: linear-gradient(110deg, #0ea5e9, #6366f1); color: #fff; border: none; }
-    .og-next { background: var(--accent, #6366f1); color: #fff; border: none; }
+    .og-controls button:hover:not(:disabled) { border-color: #38e1ff; background: rgba(56,225,255,.08); }
+    .og-controls button:disabled { opacity: .35; cursor: default; }
+    .og-start { background: linear-gradient(110deg, #38e1ff, #6366f1); color: #fff; border: none; box-shadow: 0 0 20px rgba(56,225,255,.3); }
+    .og-start:hover { filter: brightness(1.1); transform: scale(1.02); }
+    .og-next { background: linear-gradient(110deg, #38e1ff, #22d3ee); color: #05070a; border: none; font-weight: 700; }
     .og-controls button.hidden { display: none; }
 
-    .og-foot { font-size: 12px; color: var(--text-tertiary, #6b6b70); margin-bottom: 40px; }
-    .og-foot code { background: var(--bg-hover, rgba(255,255,255,0.08)); padding: 1px 6px; border-radius: 5px; }
+    /* ── 底部提示 ── */
+    .og-foot {
+      font-size: 12px; color: #556; margin-bottom: 36px; text-align: center;
+      max-width: 520px; line-height: 1.6;
+    }
+    .og-foot code {
+      background: rgba(255,255,255,.06); padding: 1px 6px; border-radius: 5px;
+      color: #9fb0c0; font-size: 11px;
+    }
+
+    /* 响应式 */
+    @media (max-width: 500px) {
+      .og-header { flex-direction: column; gap: 10px; text-align: center; }
+      .og-header p { max-width: 100%; }
+      .og-stage { min-height: 280px; padding: 24px 18px; }
+      .og-mock-ui { font-size: 11px; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      #bg::before, .orb, .og-step-icon, .og-star-tag, .og-mock-ui .line,
+      .og-dot { animation: none; }
+      .og-step { animation: none; display: none; }
+      .og-step.active { display: flex; flex-direction: column; align-items: center; }
+    }
   </style>
 </head>
 <body>
+
+<!-- 背景 -->
+<div id="bg"><div class="orb a"></div><div class="orb b"></div><div class="orb c"></div></div>
+
+<div id="app">
+
+  <!-- 头部 -->
   <header class="og-header">
-    <h1>Hesi 2 分钟上手</h1>
-    <p>四步带你玩转本地 AI 中枢</p>
+    <div class="og-header-left">
+      <h1 data-zh="🚀 Hesi 快速上手" data-en="🚀 Hesi Quick Start">🚀 Hesi 快速上手</h1>
+      <p data-zh="四步带你玩转本地 AI 中枢——每步都是真实可用的核心功能。" data-en="Master your local AI hub in minutes — every step is a real, usable feature.">四步带你玩转本地 AI 中枢——每步都是真实可用的核心功能。</p>
+    </div>
+    <div class="lang-toggle" id="langToggle">
+      <button data-lang="zh" class="active">中文</button>
+      <button data-lang="en">EN</button>
+    </div>
   </header>
 
-  <main class="og-stage" id="og-stage">
+  <!-- 幻灯片舞台 -->
+  <main class="og-stage" id="ogStage">
+
+    <!-- Step 1: 预设 -->
     <div class="og-step active" data-step="0">
+      <div class="og-step-badge" data-zh="STEP 01" data-en="STEP 01">STEP 01</div>
       <div class="og-step-icon">🎭</div>
-      <div class="og-step-title">选一个预设</div>
-      <div class="og-step-desc">顶部「预设」决定 AI 扮演什么角色，比如「开发者」。切换后，AI 的语气和擅长领域会跟着变——先选一个再聊。</div>
+      <div class="og-step-title" data-zh="选一个预设角色" data-en="Choose a Persona">选一个预设角色</div>
+      <div class="og-step-desc" data-zh="顶部「预设」决定 AI 扮演什么角色——开发者、写手、分析师……切换后，AI 的语气和擅长领域会跟着变。先选一个再开聊。" data-en="The &quot;Preset&quot; at the top decides the AI's role — Developer, Writer, Analyst… Switch it and the AI's tone & expertise changes instantly. Pick one and start chatting.">顶部「预设」决定 AI 扮演什么角色——开发者、写手、分析师……切换后，AI 的语气和擅长领域会跟着变。先选一个再开聊。</div>
     </div>
+
+    <!-- Step 2: 对话 -->
     <div class="og-step" data-step="1">
+      <div class="og-step-badge" data-zh="STEP 02" data-en="STEP 02">STEP 02</div>
       <div class="og-step-icon">💬</div>
-      <div class="og-step-title">直接对话</div>
-      <div class="og-step-desc">在底部对话框像聊天一样提问：「怎么用 ffmpeg 裁剪视频？」「帮我分析这段终端报错」。Hesi 真能跑命令、看输出。</div>
+      <div class="og-step-title" data-zh="直接对话" data-en="Just Chat">直接对话</div>
+      <div class="og-step-desc" data-zh="在底部对话框像聊天一样提问。Hesi 不只是聊天框——它能真正执行命令、操作浏览器、读写文件。" data-en="Type questions in the chat box at the bottom. Hesi isn't just a chat — it can execute commands, control browsers, read & write files.">在底部对话框像聊天一样提问。Hesi 不只是聊天框——它能真正执行命令、操作浏览器、读写文件。</div>
+      <div class="og-mock-ui">
+        <div class="line"><span class="cmd">$</span> hesi&gt; 怎么用 ffmpeg 裁剪视频？</div>
+        <div class="line"><span class="ok">✓</span> AI 直接运行命令并返回结果</div>
+        <div class="line hint="# 真正能跑命令的 AI 助手 / An AI that really executes commands"</div>
+      </div>
     </div>
+
+    <!-- Step 3: 附件 -->
     <div class="og-step" data-step="2">
+      <div class="og-step-badge" data-zh="STEP 03" data-en="STEP 03">STEP 03</div>
       <div class="og-step-icon">📎</div>
-      <div class="og-step-title">发附件给 AI</div>
-      <div class="og-step-desc">点对话框的 📎 按钮，发送图片或代码文件。AI 真能「看懂」图、读取文件内容，让它帮你审图、读代码。</div>
+      <div class="og-step-title" data-zh="发附件给 AI" data-en="Send Attachments">发附件给 AI</div>
+      <div class="og-step-desc" data-zh="点对话框的 📎 按钮，发送图片、视频或代码文件。AI 真能「看懂」图片内容、「读取」文件文本——不是光看文件名。" data-en="Click 📎 to send images, videos or code files. The AI can actually &quot;see&quot; images and &quot;read&quot; file contents — not just filenames.">点对话框的 📎 按钮，发送图片、视频或代码文件。AI 真能「看懂」图片内容、「读取」文件文本——不是光看文件名。</div>
     </div>
+
+    <!-- Step 4: AI 讨论 ⭐ 核心 -->
     <div class="og-step" data-step="3">
-      <div class="og-step-icon">🏪</div>
-      <div class="og-step-title">逛工具广场</div>
-      <div class="og-step-desc">左侧「广场 / WB广场 / 工具箱」藏着插件、专家和成百上千的工具。按需求扩展 Hesi，越用越强。</div>
+      <div class="og-star-tag" data-zh="⭐ 核心功能" data-en="⭐ KEY FEATURE">⭐ 核心功能</div>
+      <div class="og-step-badge star" data-zh="STEP 04" data-en="STEP 04">STEP 04</div>
+      <div class="og-step-icon star">🤝</div>
+      <div class="og-step-title star" data-zh="AI 圆桌讨论" data-en="AI Roundtable Discussion">AI 圆桌讨论</div>
+      <div class="og-step-desc" data-zh="开启「AI 讨论」后，你的指令会由主 AI 与所选 CLI Agent 按回合协作讨论，过程实时可见。多智能体圆桌辩论——比你单聊 AI 强十倍。这是 Hesi 最强大的差异化能力。" data-en="Turn on &quot;AI Discuss&quot; and your request triggers a roundtable debate between the main AI and selected CLI Agents — visible in real-time. Multi-agent collaboration beats single-chat AI by 10×. This is Hesi's superpower.">开启「AI 讨论」后，你的指令会由主 AI 与所选 CLI Agent 按回合协作讨论，过程实时可见。多智能体圆桌辩论——比你单聊 AI 强十倍。这是 Hesi 最强大的差异化能力。</div>
+      <div class="og-mock-ui">
+        <div class="line"><span class="cmd">&gt;</span> 👤 你: 这个架构方案怎么优化？</div>
+        <div class="line"><span class="ok">🧠</span> 主 AI: 我建议从三方面入手…</div>
+        <div class="line"><span class="cmd">🤖</span> Agent-Go: 从并发模型看，应该…</div>
+        <div class="line"><span class="cmd">🤖</span> Agent-Python: 补充一点，内存管理方面…</div>
+      </div>
     </div>
+
+    <!-- Step 5: 刷新 CLI -->
+    <div class="og-step" data-step="4">
+      <div class="og-step-badge" data-zh="STEP 05" data-en="STEP 05">STEP 05</div>
+      <div class="og-step-icon">⟳</div>
+      <div class="og-step-title" data-zh="刷新发现工具" data-en="Refresh & Discover Tools">刷新发现工具</div>
+      <div class="og-step-desc" data-zh="装了新的命令行工具后，点搜索框旁的 ⟳ 按钮。Hesi 会重新扫描系统 PATH，自动发现并纳入新工具。" data-en="After installing new CLI tools, click the ⟳ button next to the search box. Hesi re-scans your system PATH and auto-discovers new tools.">装了新的命令行工具后，点搜索框旁的 ⟳ 按钮。Hesi 会重新扫描系统 PATH，自动发现并纳入新工具。</div>
+    </div>
+
+    <!-- Step 6: 安装 Agent -->
+    <div class="og-step" data-step="5">
+      <div class="og-step-badge" data-zh="STEP 06" data-en="STEP 06">STEP 06</div>
+      <div class="og-step-icon">🤖</div>
+      <div class="og-step-title" data-zh="安装 AI Agent" data-en="Install AI Agents">安装 AI Agent</div>
+      <div class="og-step-desc" data-zh="在欢迎页或右侧面板可以一键安装预置的 AI Agent（如 OpenCode）。Agent 是专业领域的 AI 专家——让它替你干活，你负责拍板。" data-en="One-click install pre-built AI Agents (like OpenCode) from the Welcome page or right panel. Agents are domain experts — let them do the heavy lifting while you make decisions.">在欢迎页或右侧面板可以一键安装预置的 AI Agent（如 OpenCode）。Agent 是专业领域的 AI 专家——让它替你干活，你负责拍板。</div>
+    </div>
+
+    <!-- Step 7: 工具广场 -->
+    <div class="og-step" data-step="6">
+      <div class="og-step-badge" data-zh="STEP 07 · 完成" data-en="STEP 07 · DONE">STEP 07 · 完成</div>
+      <div class="og-step-icon">🏪</div>
+      <div class="og-step-title" data-zh="逛工具广场" data-en="Explore Tool Plaza">逛工具广场</div>
+      <div class="og-step-desc" data-zh="左侧「广场 / WB广场 / 工具箱」藏着插件、专家和成百上千的工具。按需求扩展 Hesi，越用越强。恭喜，你已经掌握 Hesi 的核心用法了！🎉" data-en="The &quot;Plaza / WB Plaza / Toolbox&quot; on the left holds plugins, experts and hundreds of tools. Extend Hesi as you go. Congratulations — you've mastered the essentials! 🎉">左侧「广场 / WB广场 / 工具箱」藏着插件、专家和成百上千的工具。按需求扩展 Hesi，越用越强。恭喜，你已经掌握 Hesi 的核心用法了！🎉</div>
+    </div>
+
   </main>
 
-  <div class="og-dots" id="og-dots"></div>
+  <!-- 圆点导航 -->
+  <div class="og-dots" id="ogDots"></div>
 
+  <!-- 控制按钮 -->
   <div class="og-controls">
-    <button id="og-skip">跳过</button>
-    <button id="og-prev" disabled>上一步</button>
-    <button id="og-start" class="og-start">▶ 开始体验</button>
-    <button id="og-next" class="og-next hidden">下一步</button>
+    <button id="ogSkip" data-zh="跳过" data-en="Skip">跳过</button>
+    <button id="ogPrev" disabled data-zh="上一步" data-en="Prev">上一步</button>
+    <button id="ogStart" class="og-start" data-zh="▶ 开始体验" data-en="▶ Start Tour">▶ 开始体验</button>
+    <button id="ogNext" class="og-next hidden" data-zh="下一步 ▸" data-en="Next ▸">下一步 ▸</button>
   </div>
 
-  <div class="og-foot">看完后此页会自动标记「已引导」，主界面不再弹出气泡。重看请点左栏「新手指南」。</div>
+  <!-- 底部说明 -->
+  <div class="og-foot" data-zh="看完后此页会自动标记「已引导」，主界面不再弹出气泡指引。随时回看请点左栏「新手指南」。切换语言请点右上角。" data-en="This page marks your onboarding as complete. To revisit, click &quot;Quick Start&quot; in the sidebar. Toggle language at top-right.">看完后此页会自动标记「已引导」，主界面不再弹出气泡指引。随时回看请点左栏「新手指南」。切换语言请点右上角。</div>
 
-  <script>
-    (function () {
-      var KEY = 'hesi_onboarding_v1';
-      var steps = document.querySelectorAll('.og-step');
-      var dotsWrap = document.getElementById('og-dots');
-      var btnSkip = document.getElementById('og-skip');
-      var btnPrev = document.getElementById('og-prev');
-      var btnStart = document.getElementById('og-start');
-      var btnNext = document.getElementById('og-next');
-      var idx = 0, timer = null;
+</div>
 
-      // build dots
-      steps.forEach(function (_, i) {
-        var d = document.createElement('div');
-        d.className = 'og-dot' + (i === 0 ? ' active' : '');
-        dotsWrap.appendChild(d);
-      });
-      var dots = dotsWrap.querySelectorAll('.og-dot');
+<script>
+(function () {
+  var KEY = 'hesi_onboarding_v2';
+  var curLang = 'zh';
 
-      function render() {
-        steps.forEach(function (s, i) { s.classList.toggle('active', i === idx); });
-        dots.forEach(function (d, i) { d.classList.toggle('active', i === idx); });
-        btnPrev.disabled = idx === 0;
-        btnNext.textContent = idx === steps.length - 1 ? '完成 ✓' : '下一步';
-      }
-      function stop() { if (timer) { clearInterval(timer); timer = null; } }
-      function markDone() { try { localStorage.setItem(KEY, '1'); } catch (e) {} }
-      function finish() { markDone(); window.close(); }
+  // ── DOM ──
+  var steps = document.querySelectorAll('.og-step');
+  var dotsWrap = document.getElementById('ogDots');
+  var btnSkip = document.getElementById('ogSkip');
+  var btnPrev = document.getElementById('ogPrev');
+  var btnStart = document.getElementById('ogStart');
+  var btnNext = document.getElementById('ogNext');
+  var idx = 0, timer = null;
 
-      function goNext() {
-        if (idx < steps.length - 1) { idx++; render(); }
-        else { stop(); finish(); }
-      }
-      function goPrev() { if (idx > 0) { idx--; render(); } }
+  // 构建圆点（Step 4 为星标）
+  steps.forEach(function (_, i) {
+    var d = document.createElement('div');
+    d.className = 'og-dot' + (i === 0 ? ' active' : '') + (i === 3 ? ' og-dot-star' : '');
+    if (i === 3) d.classList.add('star-active');
+    d.onclick = function () { stop(); goTo(i); };
+    dotsWrap.appendChild(d);
+  });
+  var dots = dotsWrap.querySelectorAll('.og-dot');
 
-      btnStart.addEventListener('click', function () {
-        btnStart.classList.add('hidden');
-        btnNext.classList.remove('hidden');
-        timer = setInterval(function () {
-          if (idx < steps.length - 1) goNext();
-          else { stop(); }
-        }, 2500);
-      });
-      btnNext.addEventListener('click', goNext);
-      btnPrev.addEventListener('click', goPrev);
-      btnSkip.addEventListener('click', function () { stop(); finish(); });
+  // ── 语言切换 ──
+  function setLang(lang) {
+    curLang = lang;
+    document.querySelectorAll('[data-' + lang + ']').forEach(function (el) {
+      // 优先取 data-lang 属性对应的值
+      var val = el.getAttribute('data-' + lang);
+      if (val) el.textContent = val;
+    });
+    // 更新按钮状态
+    document.querySelectorAll('.lang-toggle button').forEach(function (b) {
+      b.classList.toggle('active', b.getAttribute('data-lang') === lang);
+    });
+    // 更新 html lang
+    document.documentElement.lang = lang === 'zh' ? 'zh-CN' : 'en';
+  }
+  document.getElementById('langToggle').addEventListener('click', function (e) {
+    if (e.target.tagName === 'BUTTON') setLang(e.target.getAttribute('data-lang'));
+  });
 
-      render();
-    })();
-  </script>
+  function render() {
+    steps.forEach(function (s, i) { s.classList.toggle('active', i === idx); });
+    dots.forEach(function (d, i) {
+      d.classList.toggle('active', i === idx);
+      // 星标步特殊高亮
+      if (i === 3) d.classList.add('star-active');
+    });
+    btnPrev.disabled = idx === 0;
+    var isLast = idx === steps.length - 1;
+    btnNext.textContent = isLast
+      ? (curLang === 'zh' ? '完成 ✓' : 'Done ✓')
+      : (curLang === 'zh' ? '下一步 ▸' : 'Next ▸');
+
+    // 重播动画（模拟 UI 行）
+    var mockUi = steps[idx].querySelector('.og-mock-ui');
+    if (mockUi) {
+      mockUi.style.animation = 'none';
+      void mockUi.offsetHeight; // force reflow
+      mockUi.style.animation = '';
+    }
+  }
+
+  function stop() { if (timer) { clearInterval(timer); timer = null; } }
+  function markDone() { try { localStorage.setItem(KEY, '1'); } catch (e) {} }
+  function finish() { markDone(); window.close(); }
+
+  function goTo(n) {
+    if (n >= 0 && n < steps.length) { idx = n; render(); }
+  }
+  function goNext() {
+    if (idx < steps.length - 1) { idx++; render(); }
+    else { stop(); finish(); }
+  }
+  function goPrev() { if (idx > 0) { idx--; render(); } }
+
+  // 「开始体验」→ 自动播放模式
+  btnStart.addEventListener('click', function () {
+    btnStart.classList.add('hidden');
+    btnNext.classList.remove('hidden');
+    timer = setInterval(function () {
+      if (idx < steps.length - 1) goNext();
+      else { stop(); }
+    }, 2800);
+  });
+
+  btnNext.addEventListener('click', goNext);
+  btnPrev.addEventListener('click', goPrev);
+  btnSkip.addEventListener('click', function () { stop(); finish(); });
+
+  // 键盘导航
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'ArrowRight') { stop(); goNext(); }
+    else if (e.key === 'ArrowLeft') { stop(); goPrev(); }
+    else if (e.key === 'Escape') { stop(); finish(); }
+  });
+
+  render();
+})();
+</script>
 </body>
 </html>

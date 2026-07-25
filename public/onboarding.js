@@ -1,15 +1,15 @@
 // @ts-check
 // ============================================================
-// Hesi — 新手引导（Onboarding）
+// Hesi — 新手引导（Onboarding）v2
 // 1) 左栏「新手指南」按钮 → 新标签页打开 /onboarding-guide.html
 // 2) 首次启动（localStorage 未标记）显示气泡指引（coach marks）
-//    锚定 5 个关键点，可下一步 / 跳过 / Esc 关闭，完成写标记。
-// 命名空间：localStorage['hesi_onboarding_v1']，与现有 session-restore 浮层独立。
+//    锚定 8 个关键点（含刷新CLI/安装Agent/AI讨论着重），可下一步 / 跳过 / Esc 关闭
+// 命名空间：localStorage['hesi_onboarding_v2']（v2 版本号，旧 v1 用户重新看）
 // ============================================================
 (function () {
   'use strict';
 
-  const KEY = 'hesi_onboarding_v1';
+  const KEY = 'hesi_onboarding_v2';
 
   /** 打开教程页（新标签页，不抢占主会话） */
   function bindGuideButton() {
@@ -20,32 +20,48 @@
     });
   }
 
-  /** 气泡步骤定义（按出现顺序） */
+  /** 气泡步骤定义（按出现顺序）—— v2: 新增刷新CLI / 安装Agent / AI讨论(着重) */
   const STEPS = [
     {
       target: 'onboarding-guide-btn',
-      title: '新手指南',
-      text: '点这里随时回看 2 分钟上手教程。',
+      title: '🚀 新手指南',
+      text: '点这里随时回看完整教程（中英双语）。',
     },
     {
       target: 'preset-selector',
-      title: '先选个预设',
+      title: '🎭 先选个预设',
       text: '决定 AI 扮演什么角色（如「开发者」），切换后语气和擅长领域会跟着变。',
     },
     {
-      target: 'sidebar-tools-grid',
-      title: '发现工具',
-      text: '插件广场 / WB广场 / 工具箱都在这里，按需求扩展 Hesi。',
-    },
-    {
-      target: 'add-cli-btn',
-      title: '接入你的工具',
-      text: '需要时把命令行工具接入 Hesi，让它帮你跑和管理。',
+      target: 'discuss-bar',
+      title: '⭐ AI 讨论（核心功能）',
+      text: '开启后，你的指令会由 AI 与所选 CLI Agent 按回合协作讨论，过程实时可见。这是 Hesi 最强大的功能之一——多智能体圆桌辩论，比你单聊 AI 强十倍。',
+      highlight: true, // 着重提示：特殊样式
     },
     {
       target: 'chat-file-input',
-      title: '发附件给 AI',
-      text: '点对话框的 📎 发图片或文件，AI 真能看懂图、读代码。',
+      title: '📎 发附件给 AI',
+      text: '点对话框的 📎 发图片、视频或代码文件，AI 真能「看懂」图、读取文件内容。',
+    },
+    {
+      target: 'discover-btn',
+      title: '⟳ 刷新 CLI 列表',
+      text: '装了新命令行工具后点这里，Hesi 会重新扫描 PATH 并自动发现新工具。',
+    },
+    {
+      target: 'sidebar-tools-grid',
+      title: '🔧 发现工具',
+      text: '插件广场 / WB广场 / 工具箱都在这里，按需求扩展 Hesi 的能力。',
+    },
+    {
+      target: 'welcome-agent-install',
+      title: '🤖 安装 AI Agent',
+      text: '在欢迎页或右侧面板可以一键安装预置的 AI Agent（如 OpenCode），让专业 Agent 替你干活。',
+    },
+    {
+      target: 'add-cli-btn',
+      title: '+ 接入你的工具',
+      text: '需要时把自定义命令行工具接入 Hesi，让它帮你跑和管理更多东西。',
     },
   ];
 
@@ -57,10 +73,13 @@
     try { return localStorage.getItem(KEY) === '1'; } catch (e) { return false; }
   }
 
-  /** 单步气泡：高亮目标 + 卡片 */
+  /**
+   * 单步气泡：高亮目标 + 卡片 + 箭头
+   * 改进定位：自动选择最佳方位（上/下/左/右），增加箭头指向目标
+   */
   function buildBubble(step, onNext, onSkip) {
     const el = document.getElementById(step.target);
-    if (!el) return null; // 目标未就绪，跳过此步
+    if (!el) return null;
 
     const overlay = document.createElement('div');
     overlay.className = 'og-overlay';
@@ -68,20 +87,27 @@
     overlay.setAttribute('aria-modal', 'true');
     overlay.setAttribute('aria-label', '新手引导：' + step.title);
 
+    // ── 高亮框：紧贴目标 ──
     const rect = el.getBoundingClientRect();
     const pad = 6;
     const hl = document.createElement('div');
-    hl.className = 'og-highlight';
+    hl.className = 'og-highlight' + (step.highlight ? ' og-highlight-star' : '');
     hl.style.left = (rect.left - pad) + 'px';
     hl.style.top = (rect.top - pad) + 'px';
     hl.style.width = (rect.width + pad * 2) + 'px';
     hl.style.height = (rect.height + pad * 2) + 'px';
     overlay.appendChild(hl);
 
+    // ── 气泡卡片 ──
     const bubble = document.createElement('div');
-    bubble.className = 'og-bubble';
+    bubble.className = 'og-bubble' + (step.highlight ? ' og-bubble-star' : '');
+
+    // 着重步骤加星标 badge
+    const starBadge = step.highlight ? '<div class="og-star-badge">⭐ 核心功能</div>' : '';
+
     bubble.innerHTML =
       '<h4>' + step.title + '</h4>' +
+      starBadge +
       '<p>' + step.text + '</p>' +
       '<div class="og-actions">' +
       '  <button class="og-skip" type="button">跳过</button>' +
@@ -89,25 +115,89 @@
       '</div>';
     overlay.appendChild(bubble);
 
-    // 气泡定位：目标下方，空间不足则上方
-    const bw = 260, bh = 130, gap = 12;
-    let top = rect.bottom + gap;
-    if (top + bh > window.innerHeight) top = rect.top - gap - bh;
-    if (top < 8) top = 8;
-    let left = rect.left + rect.width / 2 - bw / 2;
+    // ── 智能定位：选择空间最大的方位 ──
+    const bw = 280, bh = step.highlight ? 160 : 130, gap = 12;
+    const arrowSize = 10;
+
+    // 四个候选位置的空间
+    const spaceBelow = window.innerHeight - rect.bottom - gap;
+    const spaceAbove = rect.top - gap;
+    const spaceRight = window.innerWidth - rect.right - gap;
+    const spaceLeft = rect.left - gap;
+
+    let top, left, arrowDir; // arrowDir: 'up'|'down'|'left'|'right'
+
+    if (spaceBelow >= bh || spaceBelow >= Math.max(spaceAbove, spaceRight * 0.5, spaceLeft * 0.5)) {
+      // 默认下方
+      top = rect.bottom + gap;
+      left = rect.left + rect.width / 2 - bw / 2;
+      arrowDir = 'up';
+    } else if (spaceAbove >= bh) {
+      top = rect.top - gap - bh;
+      left = rect.left + rect.width / 2 - bw / 2;
+      arrowDir = 'down';
+    } else if (spaceRight >= bw) {
+      top = rect.top + rect.height / 2 - bh / 2;
+      left = rect.right + gap;
+      arrowDir = 'left';
+    } else {
+      top = rect.top + rect.height / 2 - bh / 2;
+      left = rect.left - gap - bw;
+      arrowDir = 'right';
+    }
+
+    // 边界钳位
+    top = Math.max(8, Math.min(top, window.innerHeight - bh - 8));
     left = Math.max(8, Math.min(left, window.innerWidth - bw - 8));
+
     bubble.style.top = top + 'px';
     bubble.style.left = left + 'px';
 
+    // ── 箭头 ──
+    const arrow = document.createElement('div');
+    arrow.className = 'og-arrow og-arrow-' + arrowDir;
+    overlay.appendChild(arrow);
+    positionArrow(arrow, arrowDir, rect, bubble);
+
     bubble.querySelector('.og-next').addEventListener('click', onNext);
     bubble.querySelector('.og-skip').addEventListener('click', onSkip);
-    // 点击遮罩空白处 = 跳过
-    overlay.addEventListener('click', (e) => {
+    overlay.addEventListener('click', function (e) {
       if (e.target === overlay) onSkip();
     });
 
     document.body.appendChild(overlay);
     return overlay;
+  }
+
+  /** 定位箭头到目标边缘与气泡之间 */
+  function positionArrow(arrow, dir, targetRect, bubbleRect) {
+    const bs = bubbleRect.getBoundingClientRect();
+    const arrowSize = 10;
+    arrow.style.width = arrowSize + 'px';
+    arrow.style.height = arrowSize + 'px';
+
+    switch (dir) {
+      case 'up':
+        arrow.style.bottom = '-' + (arrowSize - 2) + 'px';
+        arrow.style.left = '50%';
+        arrow.style.marginLeft = '-' + (arrowSize / 2) + 'px';
+        break;
+      case 'down':
+        arrow.style.top = '-' + (arrowSize - 2) + 'px';
+        arrow.style.left = '50%';
+        arrow.style.marginLeft = '-' + (arrowSize / 2) + 'px';
+        break;
+      case 'left':
+        arrow.style.right = '-' + (arrowSize - 2) + 'px';
+        arrow.style.top = '50%';
+        arrow.style.marginTop = '-' + (arrowSize / 2) + 'px';
+        break;
+      case 'right':
+        arrow.style.left = '-' + (arrowSize - 2) + 'px';
+        arrow.style.top = '50%';
+        arrow.style.marginTop = '-' + (arrowSize / 2) + 'px';
+        break;
+    }
   }
 
   function startTour() {
@@ -127,7 +217,7 @@
       if (current) { current.remove(); current = null; }
       if (i >= STEPS.length) { finish(); return; }
       const overlay = buildBubble(STEPS[i], next, finish);
-      if (!overlay) { i++; next(); return; } // 目标缺失，跳到下一步
+      if (!overlay) { i++; next(); return; }
       current = overlay;
       i++;
       // 最后一步把「下一步」改为「完成」
@@ -148,8 +238,8 @@
   function initOnboarding() {
     bindGuideButton();
     if (hasSeen()) return;
-    // 延迟挂载，避免 chat 视图懒加载导致目标未就绪
-    setTimeout(startTour, 600);
+    // 延迟挂载，确保 DOM 完全就绪（包括懒加载的右面板）
+    setTimeout(startTour, 800);
   }
 
   if (document.readyState === 'loading') {

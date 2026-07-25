@@ -13,6 +13,7 @@
   position: relative;
   transition: width 0.3s var(--ease-in-out), min-width 0.3s var(--ease-in-out);
   overflow-x: hidden;
+  padding-right: var(--space-2);   /* 右侧留白，避免按钮/内容贴边显粗糙 */
 }
 
 /* Collapsed state */
