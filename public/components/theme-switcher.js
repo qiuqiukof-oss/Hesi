@@ -55,7 +55,7 @@ export function getPreferredTheme() {
   if (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) {
     return 'light';
   }
-  return 'dark';
+  return 'light';  // v0.2.5+: 默认亮色
 }
 
 /** @param {string} theme */
