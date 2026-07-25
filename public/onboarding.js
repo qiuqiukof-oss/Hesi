@@ -1,26 +1,60 @@
 // @ts-check
 // ============================================================
-// Hesi — 新手引导（Onboarding）v3
-// 1) 左栏「新手指南」按钮 → 新标签页打开 /onboarding-guide.html
-// 2) 首次启动（localStorage 未标记）显示气泡指引（coach marks）
-//    锚定 8 个关键点（含刷新CLI/安装Agent/AI讨论着重），可下一步 / 跳过 / Esc 关闭
+// Hesi — 新手引导（Onboarding）v4
+// 1) 左栏「新手指南」按钮 → 弹出菜单：🚀 快速引导 / 🔍 深度游（均启动气泡指引）
+// 2) 首次启动（localStorage 未标记）自动播放「快速引导」气泡（coach marks）
+//    锚定关键点（含刷新CLI/安装Agent/AI讨论⭐/全局工作空间⭐/附件），可下一步 / 跳过 / Esc 关闭
+// 3) 深度游：额外 3 个「藏得最深」的能力气泡（右侧工作台面板 / 语音 / 自定义CSS），由菜单手动触发
+// 4) 气泡末步提供「📖 完整介绍」链接 → 打开 /onboarding-guide.html（占位页，后续替换）
 //    气泡时机策略（A+B 混合）：
-//      - B：聊天相关步骤（⭐AI讨论 / 📎附件）自动开 #chat-drawer，讲完自动关回，不遮挡后续欢迎页步骤
+//      - B：聊天相关步骤（⭐AI讨论 / 📎附件）自动开 #chat-drawer，讲完自动关回
 //      - A：目标不可见且无面板关联 → 静默跳过该步
 //      - 方位偏好 prefer：欢迎页/Agent 步骤气泡置上方，避免遮挡下方卡片
 // 命名空间：localStorage['hesi_onboarding_v2']（v2 版本号，旧 v1 用户重新看）
+// 对外暴露：window.QCLI.Onboarding.startTour() / startDeepTour()
 // ============================================================
 (function () {
   'use strict';
 
   const KEY = 'hesi_onboarding_v2';
 
-  /** 打开教程页（新标签页，不抢占主会话） */
+  /**
+   * 左栏「新手指南」按钮 → 弹出菜单：🚀 快速引导 / 🔍 深度游
+   * 两者均启动气泡指引（coach marks），不再打开独立网页。
+   */
   function bindGuideButton() {
     const btn = document.getElementById('onboarding-guide-btn');
     if (!btn) return;
-    btn.addEventListener('click', () => {
-      window.open('/onboarding-guide.html', '_blank');
+    let menu = null;
+
+    function closeMenu() {
+      if (menu) { menu.remove(); menu = null; }
+      btn.setAttribute('aria-expanded', 'false');
+      document.removeEventListener('click', onDocClick, true);
+    }
+    function onDocClick(e) {
+      if (menu && e.target !== btn && !btn.contains(e.target) && !menu.contains(e.target)) {
+        closeMenu();
+      }
+    }
+
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (menu) { closeMenu(); return; }
+      menu = document.createElement('div');
+      menu.className = 'og-menu';
+      menu.setAttribute('role', 'menu');
+      menu.innerHTML =
+        '<button type="button" class="og-menu-item" role="menuitem" data-act="quick">🚀 快速引导</button>' +
+        '<button type="button" class="og-menu-item" role="menuitem" data-act="deep">🔍 深度游（藏得最深的功能）</button>';
+      document.body.appendChild(menu);
+      const r = btn.getBoundingClientRect();
+      menu.style.top = (r.bottom + 6) + 'px';
+      menu.style.left = Math.max(8, r.left) + 'px';
+      menu.querySelector('[data-act="quick"]').addEventListener('click', () => { closeMenu(); startTour(); });
+      menu.querySelector('[data-act="deep"]').addEventListener('click', () => { closeMenu(); startDeepTour(); });
+      btn.setAttribute('aria-expanded', 'true');
+      setTimeout(() => document.addEventListener('click', onDocClick, true), 0);
     });
   }
 
@@ -37,7 +71,7 @@
     {
       target: 'onboarding-guide-btn',
       title: '🚀 新手指南',
-      text: '点这里随时回看完整教程（中英双语）。',
+      text: '点这里重播新手引导（快速引导 / 深度游）。想看图文版，气泡最后一步有「📖 完整介绍」入口。',
     },
     {
       target: 'preset-selector',
@@ -93,6 +127,33 @@
       title: '+ 接入你的工具',
       text: '需要时把自定义命令行工具接入 Hesi，让它帮你跑和管理更多东西。',
       offset: { x: 0, y: -8 },  // 上移8px
+    },
+  ];
+
+  /**
+   * 深度游气泡：藏得最深的 3 个能力，由「新手指南 → 🔍 深度游」手动触发，不进首跑引导。
+   */
+  const DEEP_STEPS = [
+    {
+      target: 'right-panel',
+      title: '📊 右侧工作台（多面板）',
+      text: '右侧栏是 Hesi 的「工作台」，可切换仪表盘、终端、浏览器、文件管理、进程监控等十多个功能面板。很多新用户都没注意到这块宝藏。',
+      prefer: 'left',
+      offset: { x: -12, y: 0 },
+    },
+    {
+      target: 'voice-input-btn',
+      title: '🎤 语音输入 / 🔊 语音播报',
+      text: '点 🎤 用麦克风说话，实时转文字发给 AI，免打字；点状态栏的 🔇 可开启语音播报，AI 回复时自动朗读。AI 设置里能调发音人、语速、音高。',
+      prefer: 'up',
+      offset: { x: -10, y: -8 },
+    },
+    {
+      target: 'custom-css-btn',
+      title: '🖌️ 自定义 CSS',
+      text: '点 🖌️ 打开自定义 CSS 编辑器，可改主题色、圆角、字体，打造你的专属 Hesi。写错也不怕，Reset 一键还原。',
+      prefer: 'up',
+      offset: { x: 0, y: -8 },
     },
   ];
 
@@ -167,7 +228,7 @@
    * align: 水平对齐（'center'|'start'|'end'），影响 left/right 方位的气泡位置
    * offset: { x, y } 像素偏移（正=右/下，负=左/上），在边界钳位前应用
    */
-  function buildBubble(step, onNext, onSkip, prefer, align, offset) {
+  function buildBubble(step, onNext, onSkip, prefer, align, offset, isLast) {
     const el = document.getElementById(step.target);
     if (!el) return null;
 
@@ -219,6 +280,17 @@
       '  <button class="og-next" type="button">下一步</button>' +
       '</div>';
     overlay.appendChild(bubble);
+
+    // ── 末步「📖 完整介绍」链接（仅最后一步显示）──
+    if (isLast) {
+      const fullLink = document.createElement('button');
+      fullLink.type = 'button';
+      fullLink.className = 'og-full-link';
+      fullLink.textContent = '📖 完整介绍';
+      fullLink.title = '查看 Hesi 完整图文介绍（新标签页）';
+      fullLink.addEventListener('click', () => window.open('/onboarding-guide.html', '_blank'));
+      bubble.appendChild(fullLink);
+    }
 
     // ── 智能定位：优先 prefer 方位，否则选空间最大的方位 ──
     const bw = 300, bh = step.highlight ? 170 : 140, gap = 12;
@@ -307,7 +379,7 @@
     return overlay;
   }
 
-  function startTour() {
+  function runTour(steps) {
     let i = 0;
     let current = null;
 
@@ -329,8 +401,9 @@
     }
     async function next() {
       if (current) { current.remove(); current = null; }
-      if (i >= STEPS.length) { finish(); return; }
-      const step = STEPS[i];
+      if (i >= steps.length) { finish(); return; }
+      const step = steps[i];
+      const isLast = (i === steps.length - 1);
 
       // ── 面板协同（B 方案）──
       if (step.panel === 'chat') {
@@ -346,16 +419,16 @@
         }
       } else {
         // 非 chat 步：若上一步是 chat 步，进入前关回抽屉
-        const prev = STEPS[i - 1];
+        const prev = steps[i - 1];
         if (prev && prev.panel === 'chat') { ensureChatClose(); }
       }
 
-      const overlay = buildBubble(step, next, finish, step.prefer, step.align, step.offset);
+      const overlay = buildBubble(step, next, finish, step.prefer, step.align, step.offset, isLast);
       if (!overlay) { i++; next(); return; }
       current = overlay;
       i++;
       // 最后一步把「下一步」改为「完成」
-      if (i >= STEPS.length) {
+      if (isLast) {
         const nb = overlay.querySelector('.og-next');
         if (nb) nb.textContent = '完成 ✓';
       }
@@ -368,6 +441,13 @@
     document.addEventListener('keydown', onKey);
     next();
   }
+
+  function startTour() { runTour(STEPS); }
+  function startDeepTour() { runTour(DEEP_STEPS); }
+
+  // 对外暴露，供其他模块或控制台触发引导
+  window.QCLI = window.QCLI || {};
+  window.QCLI.Onboarding = { startTour: startTour, startDeepTour: startDeepTour };
 
   function initOnboarding() {
     bindGuideButton();
