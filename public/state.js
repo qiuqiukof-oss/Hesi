@@ -217,6 +217,8 @@ export function setupCategoryFilters() {
       }
     });
   });
+  // 初始化：按已恢复/默认的 categoryFilter 同步高亮 chip，避免记忆恢复非 'all' 分类后三者不一致
+  chips.forEach(c => c.classList.toggle('active', c.dataset.category === (state.categoryFilter || 'all')));
 }
 
 // ── QCLI namespace bindings ──
