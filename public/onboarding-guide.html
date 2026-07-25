@@ -1,432 +1,700 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>🚀 新手指南 — Hesi | Quick Start Guide</title>
-  <link rel="stylesheet" href="/css/theme.css" />
-  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-  <style>
-    @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;700;900&family=Inter:wght@300;400;700;900&display=swap');
-    * { box-sizing: border-box; margin: 0; padding: 0; }
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hesi 新手指南 — The Terminal Hub in Your Browser</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Noto+Sans+SC:wght@300;400;500;700;900&display=swap');
 
-    /* ── v5.1 风格背景：深色 + 流光 orb ── */
-    body {
-      font-family: 'Noto Sans SC', 'Inter', 'Microsoft YaHei', sans-serif;
-      background: #050507;
-      color: #e8e8f0;
-      min-height: 100vh;
-      overflow-x: hidden;
-    }
-    #bg {
-      position: fixed; inset: 0; z-index: 0;
-      background: radial-gradient(circle at 30% 20%, #101826 0%, #050507 60%);
-      overflow: hidden;
-    }
-    #bg::before {
-      content: '';
-      position: absolute; inset: -50%;
-      background: conic-gradient(from 0deg, transparent, rgba(56,225,255,.06), transparent 30%, rgba(245,158,11,.05), transparent 60%);
-      animation: spin 26s linear infinite;
-    }
-    .orb {
-      position: absolute; border-radius: 50%;
-      filter: blur(40px); opacity: .45;
-      animation: float 14s ease-in-out infinite;
-    }
-    .orb.a { width: 340px; height: 340px; background: #1b3a5c; left: -80px; top: 10%; animation-delay: 0s; }
-    .orb.b { width: 260px; height: 260px; background: #3a2a12; right: -60px; top: 40%; animation-delay: 4s; }
-    .orb.c { width: 200px; height: 200px; background: #16323a; left: 40%; bottom: -60px; animation-delay: 8s; }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
 
-    @keyframes spin { to { transform: rotate(360deg); } }
-    @keyframes float {
-      0%, 100% { transform: translateY(0) translateX(0); }
-      50% { transform: translateY(-34px) translateX(18px); }
-    }
+        body {
+            font-family: 'Inter', 'Noto Sans SC', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: #050505;
+            height: 100vh;
+            width: 100vw;
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
 
-    /* ── 主容器 ── */
-    #app { position: relative; z-index: 2; display: flex; flex-direction: column; align-items: center; min-height: 100vh; padding: 3vh 2vw; }
+        #container {
+            width: 100vw;
+            height: 100vh;
+            background: radial-gradient(circle at 50% 50%, rgba(10, 14, 39, 0.3) 0%, rgba(5, 5, 5, 0.6) 100%);
+            position: relative;
+            overflow: hidden;
+            display: flex;
+        }
 
-    /* ── 头部：标题 + 语言切换 ── */
-    .og-header {
-      display: flex; align-items: center; justify-content: space-between;
-      width: 100%; max-width: 720px; padding: 20px 0 4px;
-    }
-    .og-header-left { text-align: left; }
-    .og-header h1 {
-      font-size: clamp(22px, 4vw, 36px); font-weight: 900;
-      background: linear-gradient(90deg, #38e1ff, #22d3ee, #6366f1);
-      -webkit-background-clip: text; background-clip: text; color: transparent;
-      line-height: 1.2;
-    }
-    .og-header p { margin-top: 6px; font-size: 13px; color: #9fb0c0; max-width: 420px; line-height: 1.5; }
+        /* Particle background */
+        .particles {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            overflow: hidden;
+            z-index: 2;
+            opacity: 0.4;
+            pointer-events: none;
+        }
+        .particle {
+            position: absolute;
+            background: radial-gradient(circle, rgba(124, 58, 237, 0.4) 0%, transparent 70%);
+            border-radius: 50%;
+            animation: float 15s infinite ease-in-out;
+            filter: blur(2px);
+        }
+        .particle.blue { background: radial-gradient(circle, rgba(59, 130, 246, 0.3) 0%, transparent 70%); }
+        .particle.gold { background: radial-gradient(circle, rgba(245, 158, 11, 0.3) 0%, transparent 70%); }
 
-    /* 语言切换 */
-    .lang-toggle {
-      display: flex; gap: 0; border-radius: 8px; overflow: hidden;
-      border: 1px solid rgba(56,225,255,.25);
-      flex-shrink: 0;
-    }
-    .lang-toggle button {
-      padding: 6px 14px; font-size: 12px; font-weight: 700;
-      border: none; cursor: pointer; transition: all .2s;
-      background: transparent; color: #9fb0c0;
-      font-family: inherit;
-    }
-    .lang-toggle button.active {
-      background: linear-gradient(110deg, #38e1ff, #22d3ee);
-      color: #05070a;
-    }
-    .lang-toggle button:hover:not(.active) { background: rgba(255,255,255,.06); color: #fff; }
+        @keyframes float {
+            0%, 100% { transform: translate(0, 0) scale(1); opacity: 0; }
+            50% { opacity: 0.5; transform: translate(-30px, -60px) scale(1.2); }
+            100% { transform: translate(-50px, -120px) scale(0.8); opacity: 0; }
+        }
 
-    /* ── 幻灯片舞台 ── */
-    .og-stage {
-      position: relative;
-      width: min(640px, 92vw);
-      margin: 16px auto 0;
-      min-height: 320px;
-      border: 1px solid rgba(56,225,255,.15);
-      border-radius: 16px;
-      background: rgba(12, 14, 20, 0.75);
-      backdrop-filter: blur(10px);
-      padding: 36px 28px;
-      display: flex; flex-direction: column; align-items: center; justify-content: center;
-      text-align: center;
-      overflow: hidden;
-    }
+        /* Content area */
+        #content-area {
+            flex: 1;
+            position: relative;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 4vh 6vw 8vh;
+            overflow: hidden;
+        }
 
-    /* 步骤标签 */
-    .og-step-badge {
-      font-size: 11px; letter-spacing: 3px; font-weight: 700; text-transform: uppercase;
-      color: #38e1ff; opacity: .85; margin-bottom: 12px;
-    }
-    .og-step-badge.star { color: #F59E0B; }
+        /* Language toggle */
+        .lang-toggle {
+            position: absolute;
+            top: 20px;
+            right: 300px;
+            z-index: 200;
+            display: flex;
+            background: rgba(20, 20, 30, 0.8);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 20px;
+            padding: 3px;
+            gap: 2px;
+        }
+        .lang-btn {
+            padding: 6px 16px;
+            border: none;
+            border-radius: 16px;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            background: transparent;
+            color: #888;
+            transition: all 0.25s ease;
+            font-family: 'Inter', sans-serif;
+        }
+        .lang-btn.active {
+            background: linear-gradient(135deg, #7C3AED, #6366f1);
+            color: #fff;
+            box-shadow: 0 2px 10px rgba(124, 58, 237, 0.35);
+        }
+        .lang-btn:hover:not(.active) {
+            color: #ccc;
+            background: rgba(255,255,255,0.05);
+        }
 
-    /* 图标 */
-    .og-step-icon {
-      font-size: 52px; line-height: 1; margin-bottom: 16px;
-      filter: drop-shadow(0 4px 12px rgba(99,102,241,0.35));
-      animation: bob 3s ease-in-out infinite;
-    }
-    @keyframes bob {
-      0%, 100% { transform: translateY(0); }
-      50% { transform: translateY(-8px); }
-    }
+        /* Slides */
+        .slide {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            opacity: 0;
+            transition: opacity 0.6s ease;
+            padding: 6vh 6vw;
+            text-align: left;
+            overflow-y: auto;
+        }
+        .slide.active {
+            opacity: 1;
+            z-index: 10;
+            animation: fadeInSlide 0.8s ease-out;
+        }
 
-    /* 标题 */
-    .og-step-title {
-      font-size: clamp(17px, 2.5vw, 24px); font-weight: 900; margin-bottom: 12px;
-      background: linear-gradient(90deg, #fff, #bfe9ff);
-      -webkit-background-clip: text; background-clip: text; color: transparent;
-      line-height: 1.25;
-    }
-    .og-step-title.star {
-      background: linear-gradient(90deg, #F59E0B, #fbbf24, #fff);
-      -webkit-background-clip: text; background-clip: text; color: transparent;
-    }
+        @keyframes fadeInSlide {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes slideUp {
+            from { transform: translateY(50px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+        @keyframes pulse {
+            0%, 100% { box-shadow: 0 0 30px rgba(124, 58, 237, 0.6); }
+            50% { box-shadow: 0 0 50px rgba(124, 58, 237, 0.9); }
+        }
 
-    /* 描述 */
-    .og-step-desc {
-      font-size: 14px; line-height: 1.75; color: #c7d2dc; max-width: 480px;
-      font-weight: 300;
-    }
+        /* ── Start Page ── */
+        .slide.start-page { text-align: center; justify-content: center; }
+        .start-logo {
+            width: 88px; height: 88px; border-radius: 24px;
+            background: linear-gradient(135deg, #7C3AED, #3B82F6);
+            display: flex; align-items: center; justify-content: center;
+            margin-bottom: 2.5vh; font-size: 40px; font-weight: 900; color: #fff;
+            box-shadow: 0 0 48px rgba(124, 58, 237, 0.45);
+            animation: slideUp 0.8s ease;
+        }
+        .start-title {
+            font-size: clamp(42px, 5.5vw, 76px); font-weight: 900; color: #fff;
+            margin-bottom: 0.8vh;
+            background: linear-gradient(135deg, #fff 0%, #a78bfa 100%);
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+            letter-spacing: -1.5px;
+            animation: slideUp 1s ease;
+        }
+        .start-subtitle {
+            font-size: clamp(22px, 2.8vw, 36px);
+            color: #F59E0B; margin-bottom: 1vh; font-weight: 500;
+            animation: slideUp 1.2s ease;
+        }
+        .start-tagline {
+            font-size: clamp(15px, 1.7vw, 22px); color: #94A3B8;
+            margin-bottom: 5vh; font-weight: 300; animation: slideUp 1.3s ease;
+        }
+        .start-btn {
+            background: linear-gradient(135deg, #7C3AED, #5B21B6); color: white;
+            border: none; padding: 2.2vh 7vw; font-size: clamp(20px, 2.4vw, 30px);
+            border-radius: 50px; cursor: pointer; font-weight: 800;
+            box-shadow: 0 0 36px rgba(124, 58, 237, 0.6);
+            transition: all 0.3s; animation: pulse 2s infinite;
+            font-family: 'Inter', 'Noto Sans SC', sans-serif;
+        }
+        .start-btn:hover { transform: scale(1.05); box-shadow: 0 0 56px rgba(124, 58, 237, 0.85); }
 
-    /* 着重标记 */
-    .og-star-tag {
-      display: inline-block;
-      font-size: 10px; font-weight: 700; letter-spacing: 0.5px;
-      color: #0a0a0a; background: linear-gradient(110deg, #F59E0B, #fbbf24);
-      padding: 2px 10px; border-radius: 4px; margin-bottom: 10px;
-      animation: badge-pulse 2s ease-in-out infinite alternate;
-    }
-    @keyframes badge-pulse {
-      from { opacity: .85; transform: scale(.98); }
-      to   { opacity: 1; transform: scale(1.02); }
-    }
+        /* ── Shared typography ── */
+        .title {
+            font-size: clamp(28px, 3.4vw, 48px); font-weight: 800; color: #fff;
+            margin-bottom: 2.5vh; text-align: center;
+            background: linear-gradient(135deg, #fff 0%, #a78bfa 100%);
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+            letter-spacing: -0.5px; z-index: 20; position: relative; flex-shrink: 0;
+        }
+        .content-wrapper {
+            width: 100%; max-width: 900px; z-index: 20; position: relative;
+            max-height: 62vh; scrollbar-width: none; overflow-y: auto;
+        }
+        .content-wrapper::-webkit-scrollbar { display: none; }
+        .content {
+            font-size: clamp(16px, 1.6vw, 21px); line-height: 1.75;
+            color: #e6e6e6; font-weight: 300; letter-spacing: 0.2px;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+        }
+        .fade-in-text {
+            opacity: 0; filter: blur(3px); transform: translateY(8px);
+            transition: opacity 0.7s ease, filter 0.7s ease, transform 0.7s ease;
+            margin-bottom: 1.3vh;
+        }
+        .fade-in-text.visible { opacity: 1; filter: blur(0); transform: translateY(0); }
 
-    /* 步骤显隐 */
-    .og-step { display: none; animation: fadeSlide .4s ease; }
-    .og-step.active { display: flex; flex-direction: column; align-items: center; }
-    @keyframes fadeSlide {
-      from { opacity: 0; transform: translateY(12px); }
-      to   { opacity: 1; transform: none; }
-    }
+        /* Highlights */
+        .highlight { color: #F59E0B; font-weight: 600; }
+        .hl-purple { color: #A78BFA; font-weight: 600; }
+        .hl-blue { color: #60A5FA; font-weight: 600; }
+        .hl-green { color: #34D399; font-weight: 600; }
 
-    /* 模拟 UI 卡片（步骤内嵌的小演示）*/
-    .og-mock-ui {
-      margin-top: 16px; padding: 12px 16px; border-radius: 10px;
-      background: rgba(0,0,0,.35); border: 1px solid rgba(255,255,255,.08);
-      font-family: 'Consolas', 'Monaco', monospace; font-size: 12px;
-      text-align: left; width: 100%; max-width: 420px;
-    }
-    .og-mock-ui .line { padding: 2px 0; color: #8fe6c4; opacity: 0; animation: typeIn .3s forwards; }
-    .og-mock-ui .line:nth-child(1) { animation-delay: .1s; }
-    .og-mock-ui .line:nth-child(2) { animation-delay: .3s; }
-    .og-mock-ui .line:nth-child(3) { animation-delay: .5s; }
-    .og-mock-ui .line .cmd { color: #38e1ff; }
-    .og-mock-ui .line .ok { color: #27c93f; }
-    .og-mock-ui .line .hint { color: #9fb0c0; font-size: 11px; }
-    @keyframes typeIn { to { opacity: 1; } }
+        /* Info boxes */
+        .tip {
+            border-left: 3px solid #10B981; padding-left: 1.5vh;
+            margin: 1.5vh 0; color: #a7f3d0; font-size: 0.95em;
+            background: rgba(16, 185, 129, 0.06); padding: 1vh 1.5vh; border-radius: 0 8px 8px 0;
+        }
+        .warning {
+            border-left: 3px solid #EF4444; padding-left: 1.5vh;
+            margin: 1.5vh 0; color: #fca5a5; font-style: italic; font-size: 0.95em;
+            background: rgba(239, 68, 68, 0.06); padding: 1vh 1.5vh; border-radius: 0 8px 8px 0;
+        }
+        .info-box {
+            background: rgba(124, 58, 237, 0.08);
+            border: 1px solid rgba(124, 58, 237, 0.18);
+            border-radius: 12px; padding: 1.5vh 1.8vw; margin: 1.5vh 0;
+        }
 
-    /* ── 圆点导航 ── */
-    .og-dots { display: flex; gap: 8px; justify-content: center; margin: 22px 0 4px; }
-    .og-dot {
-      width: 8px; height: 8px; border-radius: 50%;
-      background: rgba(255,255,255,.15); transition: all .25s ease; cursor: pointer;
-    }
-    .og-dot.active { background: #38e1ff; width: 22px; border-radius: 4px; box-shadow: 0 0 8px rgba(56,225,255,.5); }
-    .og-dot.star-active { background: #F59E0B; box-shadow: 0 0 8px rgba(245,158,11,.5); }
+        /* Feature grid */
+        .feature-grid {
+            display: grid; grid-template-columns: 1fr 1fr; gap: 1.3vh; margin: 1.5vh 0;
+        }
+        .feature-item {
+            background: rgba(124, 58, 237, 0.07); border: 1px solid rgba(124, 58, 237, 0.13);
+            border-radius: 10px; padding: 1.3vh 1.5vw; text-align: center;
+            font-size: clamp(14px, 1.3vw, 17px); color: #e6e6e6; font-weight: 400;
+            backdrop-filter: blur(5px); transition: all 0.25s ease;
+        }
+        .feature-item:hover {
+            background: rgba(124, 58, 237, 0.14);
+            border-color: rgba(124, 58, 237, 0.28);
+            transform: translateY(-2px);
+        }
+        .feature-item .icon { font-size: clamp(22px, 2vw, 28px); display: block; margin-bottom: 0.5vh; }
 
-    /* ── 控制栏 ── */
-    .og-controls { display: flex; gap: 10px; justify-content: center; margin: 14px 0 32px; flex-wrap: wrap; }
-    .og-controls button {
-      font-size: 13px; font-weight: 600; padding: 9px 20px; border-radius: 10px;
-      border: 1px solid rgba(56,225,255,.2); cursor: pointer;
-      background: rgba(12,14,20,.8); color: #e8e8f0; transition: all .18s ease;
-      font-family: inherit; backdrop-filter: blur(4px);
-    }
-    .og-controls button:hover:not(:disabled) { border-color: #38e1ff; background: rgba(56,225,255,.08); }
-    .og-controls button:disabled { opacity: .35; cursor: default; }
-    .og-start { background: linear-gradient(110deg, #38e1ff, #6366f1); color: #fff; border: none; box-shadow: 0 0 20px rgba(56,225,255,.3); }
-    .og-start:hover { filter: brightness(1.1); transform: scale(1.02); }
-    .og-next { background: linear-gradient(110deg, #38e1ff, #22d3ee); color: #05070a; border: none; font-weight: 700; }
-    .og-controls button.hidden { display: none; }
+        /* Step cards */
+        .step-cards {
+            display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.5vh; margin: 2vh 0;
+        }
+        .step-card {
+            background: rgba(99, 102, 241, 0.06); border: 1px solid rgba(99, 102, 241, 0.15);
+            border-radius: 14px; padding: 2vh 1.5vw; text-align: center;
+            transition: all 0.25s ease;
+        }
+        .step-card:hover {
+            background: rgba(99, 102, 241, 0.12);
+            transform: translateY(-3px);
+            box-shadow: 0 8px 24px rgba(99, 102, 241, 0.15);
+        }
+        .step-num {
+            width: 40px; height: 40px; border-radius: 50%;
+            background: linear-gradient(135deg, #7C3AED, #6366f1);
+            color: #fff; font-size: 18px; font-weight: 800;
+            display: inline-flex; align-items: center; justify-content: center;
+            margin-bottom: 1vh;
+        }
+        .step-card h4 { color: #fff; font-size: 15px; margin-bottom: 0.5vh; }
+        .step-card p { color: #94A3B8; font-size: 12.5px; line-height: 1.5; }
 
-    /* ── 底部提示 ── */
-    .og-foot {
-      font-size: 12px; color: #556; margin-bottom: 36px; text-align: center;
-      max-width: 520px; line-height: 1.6;
-    }
-    .og-foot code {
-      background: rgba(255,255,255,.06); padding: 1px 6px; border-radius: 5px;
-      color: #9fb0c0; font-size: 11px;
-    }
+        /* Star highlight section */
+        .star-section {
+            background: linear-gradient(135deg, rgba(245, 158, 11, 0.08), rgba(245, 158, 11, 0.02));
+            border: 1px solid rgba(245, 158, 11, 0.2);
+            border-radius: 16px; padding: 2.5vh 2vw; margin: 2vh 0;
+            position: relative; overflow: hidden;
+        }
+        .star-section::before {
+            content: '⭐'; position: absolute; top: -10px; right: 12px;
+            font-size: 60px; opacity: 0.08;
+        }
 
-    /* 响应式 */
-    @media (max-width: 500px) {
-      .og-header { flex-direction: column; gap: 10px; text-align: center; }
-      .og-header p { max-width: 100%; }
-      .og-stage { min-height: 280px; padding: 24px 18px; }
-      .og-mock-ui { font-size: 11px; }
-    }
+        /* Page number */
+        .page-number {
+            position: absolute; top: 3.5vh; right: 300px;
+            font-size: clamp(13px, 1.2vw, 17px); color: rgba(255,255,255,0.25);
+            font-weight: 400; z-index: 20; letter-spacing: 1px;
+        }
 
-    @media (prefers-reduced-motion: reduce) {
-      #bg::before, .orb, .og-step-icon, .og-star-tag, .og-mock-ui .line,
-      .og-dot { animation: none; }
-      .og-step { animation: none; display: none; }
-      .og-step.active { display: flex; flex-direction: column; align-items: center; }
-    }
-  </style>
+        /* Control panel */
+        #control-panel {
+            width: 280px; background: rgba(10, 10, 15, 0.88);
+            backdrop-filter: blur(20px);
+            border-left: 1px solid rgba(255, 255, 255, 0.08);
+            display: flex; flex-direction: column; padding: 3vh 2vw; gap: 1.8vh;
+            z-index: 100; box-shadow: -10px 0 30px rgba(0,0,0,0.5);
+            max-height: 100vh; overflow: hidden;
+        }
+        .control-title {
+            color: #7C3AED; font-size: clamp(13px, 1.4vw, 17px); font-weight: 800;
+            text-align: center; letter-spacing: 2px; margin-bottom: 0.5vh;
+            text-transform: uppercase;
+        }
+        .control-btn {
+            background: rgba(255, 255, 255, 0.05); color: #fff;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            padding: 1.4vh; font-size: clamp(13px, 1.1vw, 15px);
+            border-radius: 10px; cursor: pointer;
+            font-family: 'Inter', sans-serif; display: flex; align-items: center;
+            justify-content: center; gap: 8px; font-weight: 500; white-space: nowrap;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .control-btn:hover {
+            background: rgba(124, 58, 237, 0.15); border-color: #7C3AED;
+            transform: translateY(-2px); box-shadow: 0 5px 15px rgba(124, 58, 237, 0.2);
+        }
+        .control-btn.primary {
+            background: linear-gradient(135deg, #7C3AED, #5B21B6); border: none; font-weight: 700;
+        }
+        .control-btn.primary:hover {
+            background: linear-gradient(135deg, #8B5CF6, #7C3AED);
+            box-shadow: 0 5px 20px rgba(124, 58, 237, 0.4);
+        }
+        .control-btn:disabled { opacity: 0.3; cursor: not-allowed; transform: none; filter: grayscale(1); }
+
+        .progress-container {
+            margin-top: auto; padding-top: 1.5vh; border-top: 1px solid rgba(255,255,255,0.1);
+        }
+        .progress-bar {
+            width: 100%; height: 5px; background: rgba(255, 255, 255, 0.1);
+            border-radius: 3px; overflow: hidden;
+        }
+        .progress-fill {
+            height: 100%; background: linear-gradient(90deg, #7C3AED, #F59E0B);
+            width: 0%; transition: width 0.3s ease;
+            box-shadow: 0 0 10px rgba(124, 58, 237, 0.5);
+        }
+        .page-info { color: #666; text-align: center; margin-top: 1vh; font-size: clamp(11px, 0.9vw, 13px); letter-spacing: 1px; }
+
+        /* Responsive */
+        @media (max-width: 1200px) {
+            #control-panel { width: 240px; padding: 3vh 1.5vw; }
+            .slide { padding: 4vh 5vw; }
+            .page-number { right: 260px; }
+            .feature-grid { grid-template-columns: 1fr; }
+            .step-cards { grid-template-columns: 1fr; }
+            .lang-toggle { right: 260px; }
+        }
+        @media (max-width: 900px) {
+            #container { flex-direction: column; }
+            #control-panel { width: 100%; height: auto; max-height: 26vh;
+                flex-direction: row; flex-wrap: wrap; border-left: none; border-top: 1px solid rgba(255,255,255,0.1);
+                padding: 1.5vh; gap: 0.8vh; justify-content: center; }
+            .control-btn { flex: 1; padding: 0.8vh; font-size: 11px; }
+            .slide { padding: 4vh 4vw; }
+            .page-number { right: 2vw; top: 2vh; }
+            .lang-toggle { right: auto; left: 50%; transform: translateX(-50%); top: 2vh; }
+            .feature-grid { grid-template-columns: 1fr 1fr; }
+            .start-title { font-size: 32px; } .start-subtitle { font-size: 18px; }
+        }
+    </style>
 </head>
 <body>
+<div id="container">
+    <div class="particles" id="particles"></div>
 
-<!-- 背景 -->
-<div id="bg"><div class="orb a"></div><div class="orb b"></div><div class="orb c"></div></div>
-
-<div id="app">
-
-  <!-- 头部 -->
-  <header class="og-header">
-    <div class="og-header-left">
-      <h1 data-zh="🚀 Hesi 快速上手" data-en="🚀 Hesi Quick Start">🚀 Hesi 快速上手</h1>
-      <p data-zh="四步带你玩转本地 AI 中枢——每步都是真实可用的核心功能。" data-en="Master your local AI hub in minutes — every step is a real, usable feature.">四步带你玩转本地 AI 中枢——每步都是真实可用的核心功能。</p>
-    </div>
+    <!-- Language Toggle -->
     <div class="lang-toggle" id="langToggle">
-      <button data-lang="zh" class="active">中文</button>
-      <button data-lang="en">EN</button>
-    </div>
-  </header>
-
-  <!-- 幻灯片舞台 -->
-  <main class="og-stage" id="ogStage">
-
-    <!-- Step 1: 预设 -->
-    <div class="og-step active" data-step="0">
-      <div class="og-step-badge" data-zh="STEP 01" data-en="STEP 01">STEP 01</div>
-      <div class="og-step-icon">🎭</div>
-      <div class="og-step-title" data-zh="选一个预设角色" data-en="Choose a Persona">选一个预设角色</div>
-      <div class="og-step-desc" data-zh="顶部「预设」决定 AI 扮演什么角色——开发者、写手、分析师……切换后，AI 的语气和擅长领域会跟着变。先选一个再开聊。" data-en="The &quot;Preset&quot; at the top decides the AI's role — Developer, Writer, Analyst… Switch it and the AI's tone & expertise changes instantly. Pick one and start chatting.">顶部「预设」决定 AI 扮演什么角色——开发者、写手、分析师……切换后，AI 的语气和擅长领域会跟着变。先选一个再开聊。</div>
+        <button class="lang-btn active" data-lang="zh" onclick="switchLang('zh')">中文</button>
+        <button class="lang-btn" data-lang="en" onclick="switchLang('en')">EN</button>
     </div>
 
-    <!-- Step 2: 对话 -->
-    <div class="og-step" data-step="1">
-      <div class="og-step-badge" data-zh="STEP 02" data-en="STEP 02">STEP 02</div>
-      <div class="og-step-icon">💬</div>
-      <div class="og-step-title" data-zh="直接对话" data-en="Just Chat">直接对话</div>
-      <div class="og-step-desc" data-zh="在底部对话框像聊天一样提问。Hesi 不只是聊天框——它能真正执行命令、操作浏览器、读写文件。" data-en="Type questions in the chat box at the bottom. Hesi isn't just a chat — it can execute commands, control browsers, read & write files.">在底部对话框像聊天一样提问。Hesi 不只是聊天框——它能真正执行命令、操作浏览器、读写文件。</div>
-      <div class="og-mock-ui">
-        <div class="line"><span class="cmd">$</span> hesi&gt; 怎么用 ffmpeg 裁剪视频？</div>
-        <div class="line"><span class="ok">✓</span> AI 直接运行命令并返回结果</div>
-        <div class="line hint="# 真正能跑命令的 AI 助手 / An AI that really executes commands"</div>
-      </div>
+    <!-- Content Area -->
+    <div id="content-area">
+
+        <!-- ===== START PAGE ===== -->
+        <div class="slide start-page active" id="startSlide">
+            <div class="start-logo">H</div>
+            <div class="start-title"><span data-zh="Hesi 合思" data-en="Hesi">Hesi 合思</span></div>
+            <div class="start-subtitle"><span data-zh="浏览器里的终端中枢" data-en="The Terminal Hub in Your Browser">浏览器里的终端中枢</span></div>
+            <div class="start-tagline"><span data-zh="让多个 AI 在一起思考" data-en="Where multiple AIs think together">让多个 AI 在一起思考</span></div>
+            <button class="start-btn" onclick="startGuide()">
+                <span data-zh="🚀 开始了解 Hesi" data-en="🚀 Start Exploring Hesi">🚀 开始了解 Hesi</span>
+            </button>
+        </div>
+
+        <!-- ===== SLIDE 1: 名字由来 & 是什么 ===== -->
+        <div class="slide" id="slide1">
+            <div class="page-number">01 / 07</div>
+            <div class="title"><span data-zh="🧠 Hesi 是什么？" data-en="🧠 What is Hesi?">🧠 Hesi 是什么？</span></div>
+            <div class="content-wrapper"><div class="content">
+                <p class="fade-in-text" style="text-align:center;font-size:clamp(22px,2.2vw,30px);">
+                    <span class="hl-purple" data-zh="「合思」= 让多个 AI 在一起思考" data-en="「Hesi」= Where multiple AIs think together">「合思」= 让多个 AI 在一起思考</span>
+                </p>
+                <div class="info-box fade-in-text">
+                    <p><span data-zh="<b>Hesi（合思）</b>是一个运行在浏览器里的通用终端中枢平台。它把终端、AI 助手、浏览器自动化、插件生态整合到一个网页标签页中——打开浏览器就是全部工具。" data-en="<b>Hesi</b> is a universal terminal hub running inside your browser. It integrates terminals, AI assistants, browser automation, and plugin ecosystem into a single browser tab — one tab to command them all."><b>Hesi（合思）</b>是一个运行在浏览器里的通用终端中枢平台。它把终端、AI 助手、浏览器自动化、插件生态整合到一个网页标签页中——打开浏览器就是全部工具。</span></p>
+                </div>
+                <div class="feature-grid fade-in-text">
+                    <div class="feature-item"><span class="icon">🖥️</span><span data-zh="多会话终端" data-en="Multi-Session Terminal">多会话终端</span></div>
+                    <div class="feature-item"><span class="icon">🤖</span><span data-zh="AI 智能体圆桌" data-en="AI Agent Roundtable">AI 智能体圆桌</span></div>
+                    <div class="feature-item"><span class="icon">🌐</span><span data-zh="浏览器控制" data-en="Browser Control">浏览器控制</span></div>
+                    <div class="feature-item"><span class="icon">🔌</span><span data-zh="MCP + 插件市场" data-en="MCP + Plugins">MCP + 插件市场</span></div>
+                </div>
+                <p class="fade-in-text"><span data-zh="💡 <b>名字由来</b>：「合」代表协作与融合，「思」代表思考与智能。Hesi 的核心理念是让多个 AI 协作讨论，而非单打独斗。" data-en="💡 <b>Name Origin</b>: 「He」means collaboration & fusion, 「Si」means thinking & intelligence. Hesi's core philosophy: multiple AIs collaborating in discussion, not fighting alone.">💡 <b>名字由来</b>：「合」代表协作与融合，「思」代表思考与智能。Hesi 的核心理念是让多个 AI 协作讨论，而非单打独斗。</span></p>
+            </div></div>
+        </div>
+
+        <!-- ===== SLIDE 2: 为什么选 Hesi（优势） ===== -->
+        <div class="slide" id="slide2">
+            <div class="page-number">02 / 07</div>
+            <div class="title"><span data-zh="⚡ 为什么选择 Hesi？" data-en="⚡ Why Hesi?">⚡ 为什么选择 Hesi？</span></div>
+            <div class="content-wrapper"><div class="content">
+                <div class="warning fade-in-text">
+                    <span data-zh="⚡ 痛点：终端窗口 + AI 聊天 + 浏览器 + 编辑器 = 几十个标签页来回切，每次切换都在浪费时间。" data-en="⚡ Pain Point: Terminal tabs + AI chat + Browser + Editor = dozens of tabs. Every context switch wastes minutes hunting for the right window.">⚡ 痛点：终端窗口 + AI 聊天 + 浏览器 + 编辑器 = 几十个标签页来回切，每次切换都在浪费时间。</span>
+                </div>
+                <p class="fade-in-text"><span data-zh="Hesi 的核心优势：" data-en="Hesi's core advantages:">Hesi 的核心优势：</span></p>
+                <div class="feature-grid fade-in-text">
+                    <div class="feature-item"><span class="icon">🎯</span><span data-zh="一个标签页搞定所有" data-en="One Tab for Everything">一个标签页搞定所有</span></div>
+                    <div class="feature-item"><span class="icon">🔒</span><span data-zh="本地优先 · 数据不出本机" data-en="Local-First · Data Stays Local">本地优先 · 数据不出本机</span></div>
+                    <div class="feature-item"><span class="icon">🧩</span><span data-zh="离线可用 · U盘即用" data-en="Offline Ready · USB Portable">离线可用 · U盘即用</span></div>
+                    <div class="feature-item"><span class="icon">📖</span><span data-zh="MIT 开源 · 完全可控" data-en="MIT Open Source · Fully Controllable">MIT 开源 · 完全可控</span></div>
+                </div>
+                <p class="fade-in-text"><span data-zh="✅ <span class='highlight'>零安装依赖</span>：自带便携 Node.js 运行时，双击即跑。" data-en="✅ <span class='highlight'>Zero Dependencies</span>: Bundled portable Node.js runtime, double-click to run.">✅ <span class='highlight'>零安装依赖</span>：自带便携 Node.js 运行时，双击即跑。</span></p>
+                <p class="fade-in-text"><span data-zh="✅ <span class='hl-purple'>默认仅监听本地回环</span>（127.0.0.1），绝不暴露到局域网。" data-en="✅ <span class='hl-purple'>Listens on localhost only</span> (127.0.0.1) by default, never exposed to LAN.">✅ <span class='hl-purple'>默认仅监听本地回环</span>（127.0.0.1），绝不暴露到局域网。</span></p>
+                <div class="tip fade-in-text">
+                    <span data-zh="💡 适合人群：开发者、运维工程师、AI 工程师、数据科学家 —— 所有需要同时操作终端和 AI 的人。" data-en="💡 Perfect for: Developers, Ops engineers, AI engineers, Data scientists — anyone who needs terminals AND AI working together.">💡 适合人群：开发者、运维工程师、AI 工程师、数据科学家 —— 所有需要同时操作终端和 AI 的人。</span>
+                </div>
+            </div></div>
+        </div>
+
+        <!-- ===== SLIDE 3: 核心功能一览 ===== -->
+        <div class="slide" id="slide3">
+            <div class="page-number">03 / 07</div>
+            <div class="title"><span data-zh="🛠️ 核心功能一览" data-en="🛠️ Core Features">🛠️ 核心功能一览</span></div>
+            <div class="content-wrapper"><div class="content">
+                <div class="info-box fade-in-text">
+                    <p><strong><span data-zh="🖥️ 多会话终端" data-en="🖥️ Multi-Session Terminal">🖥️ 多会话终端</span></strong></p>
+                    <p><span data-zh="基于 xterm.js + WebGL 渲染，每个标签独立 PTY 进程。会话持久化到 IndexedDB，关闭浏览器回来终端还在。自动检测文件路径/URL 可点击预览。内置 CLI 发现引擎扫描 PATH 一键启动。" data-en="Powered by xterm.js + WebGL rendering, each tab has its own independent PTY process. Sessions persist in IndexedDB — restore after closing browser. Auto-detect file paths & URLs for click-to-preview. Built-in CLI discovery engine scans your PATH.">基于 xterm.js + WebGL 渲染，每个标签独立 PTY 进程。会话持久化到 IndexedDB，关闭浏览器回来终端还在。自动检测文件路径/URL 可点击预览。内置 CLI 发现引擎扫描 PATH 一键启动。</span></p>
+                </div>
+                <div class="info-box fade-in-text">
+                    <p><strong><span data-zh="🌐 浏览器控制中心" data-en="🌐 Browser Control Center">🌐 浏览器控制中心</span></strong></p>
+                    <p><span data-zh="通过 CDP 协议集成 Chrome/Edge：导航页面、截图、点击元素、填表单、执行 JS、抓取网络请求。内置浏览器农场支持多隔离会话并行。" data-en="Integrated with Chrome/Edge via CDP protocol: navigate, screenshot, click elements, fill forms, execute JS, capture network traffic. Built-in browser farm with isolated parallel sessions.">通过 CDP 协议集成 Chrome/Edge：导航页面、截图、点击元素、填表单、执行 JS、抓取网络请求。内置浏览器农场支持多隔离会话并行。</span></p>
+                </div>
+                <div class="info-box fade-in-text">
+                    <p><strong><span data-zh="🔌 MCP 服务 + 插件系统" data-en="🔌 MCP Services + Plugin System">🔌 MCP 服务 + 插件系统</span></strong></p>
+                    <p><span data-zh="模块化 MCP 服务器 + 内置 Session Manager + 安全策略引擎 + 审计日志。Bearer Token 鉴权 + 令牌桶限流。插件市场一键安装、热重载。" data-en="Modular MCP server with Session Manager, security policy engine, audit logging. Bearer Token auth + Token Bucket rate limiting. Plugin marketplace with one-click install & hot-reload.">模块化 MCP 服务器 + 内置 Session Manager + 安全策略引擎 + 审计日志。Bearer Token 鉴权 + 令牌桶限流。插件市场一键安装、热重载。</span></p>
+                </div>
+            </div></div>
+        </div>
+
+        <!-- ===== SLIDE 4: 如何使用（快速上手） ===== -->
+        <div class="slide" id="slide4">
+            <div class="page-number">04 / 07</div>
+            <div class="title"><span data-zh="🚀 如何使用？三步上手" data-en="🚀 Quick Start — 3 Steps">🚀 如何使用？三步上手</span></div>
+            <div class="content-wrapper"><div class="content">
+                <div class="step-cards fade-in-text">
+                    <div class="step-card">
+                        <div class="step-num">1</div>
+                        <h4 data-zh="选择语言环境" data-en="Choose Runtime">选择语言环境</h4>
+                        <p data-zh="从左侧预设选择 Node、Python、Go 等运行环境，或自定义 CLI 配置。" data-en="Pick a preset from the sidebar: Node, Python, Go, or customize your own CLI config.">从左侧预设选择 Node、Python、Go 等运行环境，或自定义 CLI 配置。</p>
+                    </div>
+                    <div class="step-card">
+                        <div class="step-num">2</div>
+                        <h4 data-zh="安装依赖" data-en="Install Dependencies">安装依赖</h4>
+                        <p data-zh="使用 npm/pnpm/pip 安装项目依赖。欢迎页可一键安装预置 AI Agent（如 OpenCode）。" data-en="Use npm/pnpm/pip to install dependencies. Welcome page offers one-click AI Agent install (e.g., OpenCode).">使用 npm/pnpm/pip 安装项目依赖。欢迎页可一键安装预置 AI Agent（如 OpenCode）。</p>
+                    </div>
+                    <div class="step-card">
+                        <div class="step-num">3</div>
+                        <h4 data-zh="开始对话" data-en="Start Chatting">开始对话</h4>
+                        <p data-zh="在对话框输入问题，发送图片/视频/文件给 AI。开启「AI 讨论」让多智能体协作解答。" data-en="Type your question in the chat. Send images/videos/files to AI. Enable 「AI Discuss」for multi-agent collaboration.">在对话框输入问题，发送图片/视频/文件给 AI。开启「AI 讨论」让多智能体协作解答。</p>
+                    </div>
+                </div>
+                <div class="tip fade-in-text">
+                    <span data-zh="✨ 小技巧：对话框支持 📎 发送附件（图片 AI 能看懂、视频 Claude 能分析）；按 Enter 发送，Shift+Enter 换行。" data-en="✨ Tip: Chat supports 📎 attachments (AI can see images, Claude analyzes videos). Press Enter to send, Shift+Enter for newline.">✨ 小技巧：对话框支持 📎 发送附件（图片 AI 能看懂、视频 Claude 能分析）；按 Enter 发送，Shift+Enter 换行。</span>
+                </div>
+                <div class="warning fade-in-text">
+                    <span data-zh="⚡ Windows 用户：双击 tray.bat 启动；macOS/Linux：运行 ./tray.sh。然后打开 http://127.0.0.1:4264 即可。" data-en="⚡ Windows: double-click tray.bat; macOS/Linux: run ./tray.sh. Then open http://127.0.0.1:4264.">⚡ Windows 用户：双击 tray.bat 启动；macOS/Linux：运行 ./tray.sh。然后打开 http://127.0.0.1:4264 即可。</span>
+                </div>
+            </div></div>
+        </div>
+
+        <!-- ===== SLIDE 5: ⭐ AI 讨论（着重） ===== -->
+        <div class="slide" id="slide5">
+            <div class="page-number">05 / 07</div>
+            <div class="title"><span data-zh="⭐ AI 讨论 — 核心亮点" data-en="⭐ AI Discussion — The Star Feature">⭐ AI 讨论 — 核心亮点</span></div>
+            <div class="content-wrapper"><div class="content">
+                <div class="star-section fade-in-text">
+                    <p style="font-size:clamp(19px,2vw,26px);text-align:center;margin-bottom:1.5vh;">
+                        <span class="highlight" data-zh="多智能体圆桌辩论，比你单聊 AI 强十倍" data-en="Multi-Agent Roundtable Debate — 10x Better Than Single AI Chat">多智能体圆桌辩论，比你单聊 AI 强十倍</span>
+                    </p>
+                    <p><span data-zh="开启「AI 讨论」后，你的指令不再只由一个 AI 回答。AI 助手作为协调者，召集你选择的 CLI Agent（OpenCode、Codex、Aider、Claude 等）进行<span class='hl-purple'>多回合协作讨论</span>——互相质疑、补充、完善方案。整个过程实时可见，最终给你经过多方论证的结论。" data-en="When you enable 「AI Discussion」, your prompt isn't answered by just one AI. The AI assistant acts as coordinator, convening chosen CLI Agents (OpenCode, Codex, Aider, Claude, etc.) for <span class='hl-purple'>multi-round collaborative discussion</span> — questioning, supplementing, and refining solutions together. The entire process is visible in real-time, delivering conclusions vetted by multiple perspectives.">开启「AI 讨论」后，你的指令不再只由一个 AI 回答。AI 助手作为协调者，召集你选择的 CLI Agent（OpenCode、Codex、Aider、Claude 等）进行<span class='hl-purple'>多回合协作讨论</span>——互相质疑、补充、完善方案。整个过程实时可见，最终给你经过多方论证的结论。</span></p>
+                </div>
+                <div class="feature-grid fade-in-text">
+                    <div class="feature-item"><span class="icon">🧑‍💼</span><span data-zh="AI 助手 = 协调者 + 裁判" data-en="AI Assistant = Coordinator + Arbiter">AI 助手 = 协调者 + 裁判</span></div>
+                    <div class="feature-item"><span class="icon">🤖</span><span data-zh="CLI Agent = 专业执行者" data-en="CLI Agent = Specialist Executor">CLI Agent = 专业执行者</span></div>
+                    <div class="feature-item"><span class="icon">⚡</span><span data-zh="后台静默执行（无 TUI 噪音）" data-en="Headless Execution (No TUI Noise)">后台静默执行（无 TUI 噪音）</span></div>
+                    <div class="feature-item"><span class="icon">🔄</span><span data-zh="增量裁剪 + 循环检测防失控" data-en="Incremental Pruning + Loop Detection">增量裁剪 + 循环检测防失控</span></div>
+                </div>
+                <div class="tip fade-in-text">
+                    <span data-zh="🌟 这是 Hesi 与其他所有 AI 工具最大的区别 —— 不是「AI 替你干活」，而是「一群 AI 一起帮你思考」。适合架构设计、代码审查、故障排查等需要多角度分析的复杂场景。" data-en="🌟 This is what sets Hesi apart from every other tool — not \"AI does work for you\", but \"multiple AIs think together with you\". Ideal for architecture design, code review, troubleshooting, and any complex scenario needing multi-perspective analysis.">🌟 这是 Hesi 与其他所有 AI 工具最大的区别 —— 不是「AI 替你干活」，而是「一群 AI 一起帮你思考」。适合架构设计、代码审查、故障排查等需要多角度分析的复杂场景。</span>
+                </div>
+            </div></div>
+        </div>
+
+        <!-- ===== SLIDE 6: 多模态对话 ===== -->
+        <div class="slide" id="slide6">
+            <div class="page-number">06 / 07</div>
+            <div class="title"><span data-zh="📎 多模态对话" data-en="📎 Multimodal Chat">📎 多模态对话</span></div>
+            <div class="content-wrapper"><div class="content">
+                <p class="fade-in-text"><span data-zh="Hesi 不只是文字聊天 —— 你可以直接发送多种类型的内容给 AI：" data-en="Hesi isn't just text chat — you can send multiple content types directly to AI:">Hesi 不只是文字聊天 —— 你可以直接发送多种类型的内容给 AI：</span></p>
+                <div class="feature-grid fade-in-text">
+                    <div class="feature-item"><span class="icon">🖼️</span><span data-zh="图片 — AI 真正「看懂」" data-en="Images — AI Truly Sees">图片 — AI 真正「看懂」</span></div>
+                    <div class="feature-item"><span class="icon">🎬</span><span data-zh="视频 — Claude 分析内容" data-en="Video — Claude Analyzes">视频 — Claude 分析内容</span></div>
+                    <div class="feature-item"><span class="icon">📄</span><span data-zh="代码文件 — 直接读取" data-en="Code Files — Direct Read">代码文件 — 直接读取</span></div>
+                    <div class="feature-item"><span class="icon">📊</span><span data-zh="数据文件 — CSV/JSON/日志" data-en="Data Files — CSV/JSON/Logs">数据文件 — CSV/JSON/日志</span></div>
+                </div>
+                <div class="info-box fade-in-text">
+                    <p><span data-zh="📎 点击对话框的附件按钮（或直接拖拽文件），选择要发送的内容。AI 会收到完整信息并基于内容回答问题。支持格式：jpg/png/gif/webp/mp4/webm/pdf/txt/md/json/csv/py/js/ts... 等 30+ 种。" data-en="📎 Click the attachment button (or drag & drop files) in the chat area. AI receives full content and answers based on it. Supports 30+ formats: jpg/png/gif/webp/mp4/webm/pdf/txt/md/json/csv/py/js/ts etc.">📎 点击对话框的附件按钮（或直接拖拽文件），选择要发送的内容。AI 会收到完整信息并基于内容回答问题。支持格式：jpg/png/gif/webp/mp4/webm/pdf/txt/md/json/csv/py/js/ts... 等 30+ 种。</span></p>
+                </div>
+                <div class="tip fade-in-text">
+                    <span data-zh="💡 典型用法：截图报错让 AI 排查、发架构图让 AI review、丢日志文件让 AI 分析异常。" data-en="💡 Use cases: Screenshot errors for AI debugging, share architecture diagrams for review, upload log files for anomaly analysis.">💡 典型用法：截图报错让 AI 排查、发架构图让 AI review、丢日志文件让 AI 分析异常。</span>
+                </div>
+            </div></div>
+        </div>
+
+        <!-- ===== SLIDE 7: 安全 & 结束 ===== -->
+        <div class="slide" id="slide7">
+            <div class="page-number">07 / 07</div>
+            <div class="title"><span data-zh="🛡️ 安全第一 · 开始使用" data-en="🛡️ Security First · Get Started">🛡️ 安全第一 · 开始使用</span></div>
+            <div class="content-wrapper"><div class="content">
+                <div class="info-box fade-in-text">
+                    <p><strong><span data-zh="🔒 安全设计原则" data-en="🔒 Security Design Principles">🔒 安全设计原则</span></strong></p>
+                    <p><span data-zh="✅ 本地优先：默认仅监听 127.0.0.1，改 0.0.0.0 会触发高危警告<br>✅ 环境变量过滤：自动脱敏 API_KEY / TOKEN / PASSWORD<br>✅ 双层限流：全局 API + WebSocket 消息节流<br>✅ 命令策略：内置危险命令黑名单，支持黑白名单模式<br>✅ 审计日志：所有操作可追溯" data-en="✅ Local-first: listens on 127.0.0.1 only by default<br>✅ Env Filter: auto-redacts API_KEY/TOKEN/PASSWORD<br>✅ Dual Rate Limiting: global API + WebSocket throttle<br>✅ Command Policy: built-in dangerous command blocklist, supports allowlist mode<br>✅ Audit Logging: all operations traceable">✅ 本地优先：默认仅监听 127.0.0.1，改 0.0.0.0 会触发高危警告<br>✅ 环境变量过滤：自动脱敏 API_KEY / TOKEN / PASSWORD<br>✅ 双层限流：全局 API + WebSocket 消息节流<br>✅ 命令策略：内置危险命令黑名单，支持黑白名单模式<br>✅ 审计日志：所有操作可追溯</span></p>
+                </div>
+                <div class="fade-in-text" style="text-align:center;margin-top:3vh;">
+                    <p style="font-size:clamp(28px,3vw,40px);font-weight:800;" class="hl-purple"><span data-zh="Hesi" data-en="Hesi">Hesi</span></p>
+                    <p style="font-size:clamp(18px,2vw,26px);margin-top:0.5vh;"><span data-zh="浏览器里的终端中枢" data-en="The Terminal Hub in Your Browser">浏览器里的终端中枢</span></p>
+                    <p style="font-size:clamp(16px,1.8vw,22px);color:#94A3B8;margin-top:0.5vh;"><span data-zh="让多个 AI 在一起思考 🧠" data-en="Where multiple AIs think together 🧠">让多个 AI 在一起思考 🧠</span></p>
+                    <p style="color:#F59E0B;font-weight:700;margin-top:2vh;font-size:clamp(15px,1.6vw,20px);">
+                        <span data-zh="⚡ 你的思考伙伴就在这里" data-en="⚡ Your thinking partner is right here">⚡ 你的思考伙伴就在这里</span>
+                    </p>
+                    <p style="color:#666;font-size:13px;margin-top:1.5vh;">
+                        <span data-zh="搜索「Hesi」获取开源代码 · 离线包双击即用" data-en="Search 「Hesi」on GitHub · Offline pack, double-click to run">搜索「Hesi」获取开源代码 · 离线包双击即用</span>
+                    </p>
+                </div>
+            </div></div>
+        </div>
     </div>
 
-    <!-- Step 3: 附件 -->
-    <div class="og-step" data-step="2">
-      <div class="og-step-badge" data-zh="STEP 03" data-en="STEP 03">STEP 03</div>
-      <div class="og-step-icon">📎</div>
-      <div class="og-step-title" data-zh="发附件给 AI" data-en="Send Attachments">发附件给 AI</div>
-      <div class="og-step-desc" data-zh="点对话框的 📎 按钮，发送图片、视频或代码文件。AI 真能「看懂」图片内容、「读取」文件文本——不是光看文件名。" data-en="Click 📎 to send images, videos or code files. The AI can actually &quot;see&quot; images and &quot;read&quot; file contents — not just filenames.">点对话框的 📎 按钮，发送图片、视频或代码文件。AI 真能「看懂」图片内容、「读取」文件文本——不是光看文件名。</div>
+    <!-- Right Control Panel -->
+    <div id="control-panel">
+        <div class="control-title" data-zh="🎮 控制面板" data-en="🎮 Control Panel">🎮 控制面板</div>
+        <button class="control-btn" id="prevBtn" onclick="prevSlide()" disabled>
+            <span data-zh="⏮ 上一步" data-en="⏮ Previous">⏮ 上一步</span>
+        </button>
+        <button class="control-btn primary" id="nextBtn" onclick="nextSlide()" disabled>
+            <span data-zh="下一步 ⏭" data-en="Next ⏭">下一步 ⏭</span>
+        </button>
+        <button class="control-btn primary" id="playBtn" onclick="toggleAutoPlay()" disabled>
+            ▶ <span data-zh="自动播放" data-en="Auto Play">自动播放</span>
+        </button>
+        <div class="progress-container">
+            <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+            <div class="page-info" id="pageInfo"><span data-zh="准备就绪" data-en="Ready">准备就绪</span></div>
+        </div>
     </div>
-
-    <!-- Step 4: AI 讨论 ⭐ 核心 -->
-    <div class="og-step" data-step="3">
-      <div class="og-star-tag" data-zh="⭐ 核心功能" data-en="⭐ KEY FEATURE">⭐ 核心功能</div>
-      <div class="og-step-badge star" data-zh="STEP 04" data-en="STEP 04">STEP 04</div>
-      <div class="og-step-icon star">🤝</div>
-      <div class="og-step-title star" data-zh="AI 圆桌讨论" data-en="AI Roundtable Discussion">AI 圆桌讨论</div>
-      <div class="og-step-desc" data-zh="开启「AI 讨论」后，你的指令会由主 AI 与所选 CLI Agent 按回合协作讨论，过程实时可见。多智能体圆桌辩论——比你单聊 AI 强十倍。这是 Hesi 最强大的差异化能力。" data-en="Turn on &quot;AI Discuss&quot; and your request triggers a roundtable debate between the main AI and selected CLI Agents — visible in real-time. Multi-agent collaboration beats single-chat AI by 10×. This is Hesi's superpower.">开启「AI 讨论」后，你的指令会由主 AI 与所选 CLI Agent 按回合协作讨论，过程实时可见。多智能体圆桌辩论——比你单聊 AI 强十倍。这是 Hesi 最强大的差异化能力。</div>
-      <div class="og-mock-ui">
-        <div class="line"><span class="cmd">&gt;</span> 👤 你: 这个架构方案怎么优化？</div>
-        <div class="line"><span class="ok">🧠</span> 主 AI: 我建议从三方面入手…</div>
-        <div class="line"><span class="cmd">🤖</span> Agent-Go: 从并发模型看，应该…</div>
-        <div class="line"><span class="cmd">🤖</span> Agent-Python: 补充一点，内存管理方面…</div>
-      </div>
-    </div>
-
-    <!-- Step 5: 刷新 CLI -->
-    <div class="og-step" data-step="4">
-      <div class="og-step-badge" data-zh="STEP 05" data-en="STEP 05">STEP 05</div>
-      <div class="og-step-icon">⟳</div>
-      <div class="og-step-title" data-zh="刷新发现工具" data-en="Refresh & Discover Tools">刷新发现工具</div>
-      <div class="og-step-desc" data-zh="装了新的命令行工具后，点搜索框旁的 ⟳ 按钮。Hesi 会重新扫描系统 PATH，自动发现并纳入新工具。" data-en="After installing new CLI tools, click the ⟳ button next to the search box. Hesi re-scans your system PATH and auto-discovers new tools.">装了新的命令行工具后，点搜索框旁的 ⟳ 按钮。Hesi 会重新扫描系统 PATH，自动发现并纳入新工具。</div>
-    </div>
-
-    <!-- Step 6: 安装 Agent -->
-    <div class="og-step" data-step="5">
-      <div class="og-step-badge" data-zh="STEP 06" data-en="STEP 06">STEP 06</div>
-      <div class="og-step-icon">🤖</div>
-      <div class="og-step-title" data-zh="安装 AI Agent" data-en="Install AI Agents">安装 AI Agent</div>
-      <div class="og-step-desc" data-zh="在欢迎页或右侧面板可以一键安装预置的 AI Agent（如 OpenCode）。Agent 是专业领域的 AI 专家——让它替你干活，你负责拍板。" data-en="One-click install pre-built AI Agents (like OpenCode) from the Welcome page or right panel. Agents are domain experts — let them do the heavy lifting while you make decisions.">在欢迎页或右侧面板可以一键安装预置的 AI Agent（如 OpenCode）。Agent 是专业领域的 AI 专家——让它替你干活，你负责拍板。</div>
-    </div>
-
-    <!-- Step 7: 工具广场 -->
-    <div class="og-step" data-step="6">
-      <div class="og-step-badge" data-zh="STEP 07 · 完成" data-en="STEP 07 · DONE">STEP 07 · 完成</div>
-      <div class="og-step-icon">🏪</div>
-      <div class="og-step-title" data-zh="逛工具广场" data-en="Explore Tool Plaza">逛工具广场</div>
-      <div class="og-step-desc" data-zh="左侧「广场 / WB广场 / 工具箱」藏着插件、专家和成百上千的工具。按需求扩展 Hesi，越用越强。恭喜，你已经掌握 Hesi 的核心用法了！🎉" data-en="The &quot;Plaza / WB Plaza / Toolbox&quot; on the left holds plugins, experts and hundreds of tools. Extend Hesi as you go. Congratulations — you've mastered the essentials! 🎉">左侧「广场 / WB广场 / 工具箱」藏着插件、专家和成百上千的工具。按需求扩展 Hesi，越用越强。恭喜，你已经掌握 Hesi 的核心用法了！🎉</div>
-    </div>
-
-  </main>
-
-  <!-- 圆点导航 -->
-  <div class="og-dots" id="ogDots"></div>
-
-  <!-- 控制按钮 -->
-  <div class="og-controls">
-    <button id="ogSkip" data-zh="跳过" data-en="Skip">跳过</button>
-    <button id="ogPrev" disabled data-zh="上一步" data-en="Prev">上一步</button>
-    <button id="ogStart" class="og-start" data-zh="▶ 开始体验" data-en="▶ Start Tour">▶ 开始体验</button>
-    <button id="ogNext" class="og-next hidden" data-zh="下一步 ▸" data-en="Next ▸">下一步 ▸</button>
-  </div>
-
-  <!-- 底部说明 -->
-  <div class="og-foot" data-zh="看完后此页会自动标记「已引导」，主界面不再弹出气泡指引。随时回看请点左栏「新手指南」。切换语言请点右上角。" data-en="This page marks your onboarding as complete. To revisit, click &quot;Quick Start&quot; in the sidebar. Toggle language at top-right.">看完后此页会自动标记「已引导」，主界面不再弹出气泡指引。随时回看请点左栏「新手指南」。切换语言请点右上角。</div>
-
 </div>
 
 <script>
-(function () {
-  var KEY = 'hesi_onboarding_v2';
-  var curLang = 'zh';
+    // ── State ──
+    let currentSlide = 0;
+    const slides = document.querySelectorAll('.slide');
+    const totalSlides = slides.length;
+    let autoPlayInterval = null;
+    let isPlaying = false;
+    let currentLang = 'zh';
 
-  // ── DOM ──
-  var steps = document.querySelectorAll('.og-step');
-  var dotsWrap = document.getElementById('ogDots');
-  var btnSkip = document.getElementById('ogSkip');
-  var btnPrev = document.getElementById('ogPrev');
-  var btnStart = document.getElementById('ogStart');
-  var btnNext = document.getElementById('ogNext');
-  var idx = 0, timer = null;
-
-  // 构建圆点（Step 4 为星标）
-  steps.forEach(function (_, i) {
-    var d = document.createElement('div');
-    d.className = 'og-dot' + (i === 0 ? ' active' : '') + (i === 3 ? ' og-dot-star' : '');
-    if (i === 3) d.classList.add('star-active');
-    d.onclick = function () { stop(); goTo(i); };
-    dotsWrap.appendChild(d);
-  });
-  var dots = dotsWrap.querySelectorAll('.og-dot');
-
-  // ── 语言切换 ──
-  function setLang(lang) {
-    curLang = lang;
-    document.querySelectorAll('[data-' + lang + ']').forEach(function (el) {
-      // 优先取 data-lang 属性对应的值
-      var val = el.getAttribute('data-' + lang);
-      if (val) el.textContent = val;
-    });
-    // 更新按钮状态
-    document.querySelectorAll('.lang-toggle button').forEach(function (b) {
-      b.classList.toggle('active', b.getAttribute('data-lang') === lang);
-    });
-    // 更新 html lang
-    document.documentElement.lang = lang === 'zh' ? 'zh-CN' : 'en';
-  }
-  document.getElementById('langToggle').addEventListener('click', function (e) {
-    if (e.target.tagName === 'BUTTON') setLang(e.target.getAttribute('data-lang'));
-  });
-
-  function render() {
-    steps.forEach(function (s, i) { s.classList.toggle('active', i === idx); });
-    dots.forEach(function (d, i) {
-      d.classList.toggle('active', i === idx);
-      // 星标步特殊高亮
-      if (i === 3) d.classList.add('star-active');
-    });
-    btnPrev.disabled = idx === 0;
-    var isLast = idx === steps.length - 1;
-    btnNext.textContent = isLast
-      ? (curLang === 'zh' ? '完成 ✓' : 'Done ✓')
-      : (curLang === 'zh' ? '下一步 ▸' : 'Next ▸');
-
-    // 重播动画（模拟 UI 行）
-    var mockUi = steps[idx].querySelector('.og-mock-ui');
-    if (mockUi) {
-      mockUi.style.animation = 'none';
-      void mockUi.offsetHeight; // force reflow
-      mockUi.style.animation = '';
+    // ── Particles ──
+    function createParticles() {
+        const container = document.getElementById('particles');
+        const colors = ['', 'blue', 'gold'];
+        for (let i = 0; i < 35; i++) {
+            const p = document.createElement('div');
+            p.className = 'particle ' + colors[i % 3];
+            p.style.left = Math.random() * 100 + '%';
+            p.style.top = Math.random() * 100 + '%';
+            p.style.width = (Math.random() * 12 + 4) + 'px';
+            p.style.height = p.style.width;
+            p.style.animationDelay = Math.random() * 12 + 's';
+            p.style.animationDuration = (Math.random() * 12 + 12) + 's';
+            container.appendChild(p);
+        }
     }
-  }
 
-  function stop() { if (timer) { clearInterval(timer); timer = null; } }
-  function markDone() { try { localStorage.setItem(KEY, '1'); } catch (e) {} }
-  function finish() { markDone(); window.close(); }
+    // ── Language Switching ──
+    function switchLang(lang) {
+        if (lang === currentLang) return;
+        currentLang = lang;
 
-  function goTo(n) {
-    if (n >= 0 && n < steps.length) { idx = n; render(); }
-  }
-  function goNext() {
-    if (idx < steps.length - 1) { idx++; render(); }
-    else { stop(); finish(); }
-  }
-  function goPrev() { if (idx > 0) { idx--; render(); } }
+        // Update toggle buttons
+        document.querySelectorAll('.lang-btn').forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.lang === lang);
+        });
 
-  // 「开始体验」→ 自动播放模式
-  btnStart.addEventListener('click', function () {
-    btnStart.classList.add('hidden');
-    btnNext.classList.remove('hidden');
-    timer = setInterval(function () {
-      if (idx < steps.length - 1) goNext();
-      else { stop(); }
-    }, 2800);
-  });
+        // Update all text content
+        document.querySelectorAll('[data-zh]').forEach(el => {
+            const text = el.getAttribute('data-' + lang);
+            if (text) el.textContent = text;
+        });
+    }
 
-  btnNext.addEventListener('click', goNext);
-  btnPrev.addEventListener('click', goPrev);
-  btnSkip.addEventListener('click', function () { stop(); finish(); });
+    // ── Slide Navigation ──
+    function showSlide(index) {
+        slides.forEach((slide, i) => {
+            slide.classList.remove('active');
+            if (i === index) {
+                slide.classList.add('active');
+                setTimeout(() => {
+                    const contentDiv = slide.querySelector('.content');
+                    if (contentDiv) {
+                        contentDiv.querySelectorAll('.fade-in-text').forEach((p, idx) => {
+                            setTimeout(() => p.classList.add('visible'), idx * 500);
+                        });
+                    }
+                }, 150);
+            }
+        });
 
-  // 键盘导航
-  document.addEventListener('keydown', function (e) {
-    if (e.key === 'ArrowRight') { stop(); goNext(); }
-    else if (e.key === 'ArrowLeft') { stop(); goPrev(); }
-    else if (e.key === 'Escape') { stop(); finish(); }
-  });
+        const progress = (index / (totalSlides - 1)) * 100;
+        document.getElementById('progressFill').style.width = progress + '%';
+        document.getElementById('pageInfo').textContent =
+            (currentLang === 'zh' ? `第 ${index} / ${totalSlides - 1} 页` : `Page ${index} of ${totalSlides - 1}`);
 
-  render();
-})();
+        document.getElementById('prevBtn').disabled = index <= 1;
+        document.getElementById('nextBtn').disabled = index === totalSlides - 1;
+        if (index === totalSlides - 1) {
+            document.getElementById('nextBtn').innerHTML = '<span data-zh="完成 ✓" data-en="Done ✓">' + (currentLang === 'zh' ? '完成 ✓' : 'Done ✓') + '</span>';
+        } else {
+            document.getElementById('nextBtn').innerHTML = '<span data-zh="下一步 ⏭" data-en="Next ⏭">下一步 ⏭</span>';
+        }
+
+        currentSlide = index;
+    }
+
+    function startGuide() {
+        const startSlide = document.getElementById('startSlide');
+        startSlide.classList.remove('active');
+        showSlide(1);
+
+        document.getElementById('prevBtn').disabled = false;
+        document.getElementById('nextBtn').disabled = false;
+        document.getElementById('playBtn').disabled = false;
+    }
+
+    function nextSlide() {
+        if (currentSlide < totalSlides - 1) {
+            stopAutoPlay();
+            showSlide(currentSlide + 1);
+        } else {
+            stopAutoPlay();
+        }
+    }
+
+    function prevSlide() {
+        if (currentSlide > 1) {
+            stopAutoPlay();
+            showSlide(currentSlide - 1);
+        }
+    }
+
+    function toggleAutoPlay() {
+        if (isPlaying) { stopAutoPlay(); }
+        else { startAutoPlay(); }
+    }
+
+    function startAutoPlay() {
+        if (isPlaying) return;
+        isPlaying = true;
+        document.getElementById('playBtn').textContent = '⏸ ' + (currentLang === 'zh' ? '暂停' : 'Pause');
+        autoPlayInterval = setInterval(() => {
+            if (currentSlide < totalSlides - 1) {
+                showSlide(currentSlide + 1);
+            } else {
+                stopAutoPlay();
+            }
+        }, 5500); // 5.5 seconds per slide
+    }
+
+    function stopAutoPlay() {
+        isPlaying = false;
+        if (autoPlayInterval) clearInterval(autoPlayInterval);
+        autoPlayInterval = null;
+        document.getElementById('playBtn').textContent = '▶ ' + (currentLang === 'zh' ? '自动播放' : 'Auto Play');
+    }
+
+    // ── Keyboard Controls ──
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'ArrowRight') { if (isPlaying) stopAutoPlay(); nextSlide(); }
+        if (e.key === 'ArrowLeft') { if (isPlaying) stopAutoPlay(); prevSlide(); }
+        if (e.key === ' ') { e.preventDefault(); if (currentSlide === 0) startGuide(); else toggleAutoPlay(); }
+    });
+
+    // ── Init ──
+    createParticles();
 </script>
 </body>
 </html>

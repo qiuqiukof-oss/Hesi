@@ -39,7 +39,7 @@
       highlight: true, // 着重提示：特殊样式
     },
     {
-      target: 'chat-file-input',
+      target: 'chat-attach-btn',
       title: '📎 发附件给 AI',
       text: '点对话框的 📎 发图片、视频或代码文件，AI 真能「看懂」图、读取文件内容。',
     },

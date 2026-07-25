@@ -1,7 +1,9 @@
 /* ============================================================
-   Hesi — 新手引导样式 v2
+   Hesi — 新手引导样式 v3
    1) 左栏「新手指南」流光按钮
    2) 首次气泡指引（coach marks）遮罩层 + 箭头 + 着重标记
+   v3 变更：气泡卡片全部强制实心高对比色，不依赖任何主题 CSS 变量
+        （v2 用 var(--bg-overlay) 等变量，暗色主题下文字看不清）
    ============================================================ */
 
 /* ── 左栏流光按钮 ── */
@@ -11,7 +13,7 @@
   justify-content: center;
   gap: 6px;
   width: 100%;
-  margin: 6px 0 2px;
+  margin: 6px var(--space-2, 10px) 2px;
   padding: 9px 12px;
   border: none;
   border-radius: 8px;
@@ -48,15 +50,15 @@
   background: rgba(0, 0, 0, 0.55);
 }
 
-/* 高亮框 */
+/* 高亮框 — 强制紫色，不依赖变量 */
 .og-highlight {
   position: fixed;
   border-radius: 10px;
-  box-shadow: 0 0 0 3px var(--accent, #6366f1), 0 0 18px rgba(99, 102, 241, 0.5);
+  box-shadow: 0 0 0 3px #6366f1, 0 0 18px rgba(99, 102, 241, 0.5);
   pointer-events: none;
   transition: all 0.3s ease;
 }
-/* 着重步骤的高亮框：更醒目的颜色 */
+/* 着重步骤的高亮框：金色 */
 .og-highlight-star {
   box-shadow: 0 0 0 3px #F59E0B, 0 0 24px rgba(245, 158, 11, 0.55), 0 0 48px rgba(245, 158, 11, 0.2);
   animation: og-star-glow 2s ease-in-out infinite alternate;
@@ -66,35 +68,39 @@
   to   { box-shadow: 0 0 0 3px #F59E0B, 0 0 30px rgba(245, 158, 11, 0.65), 0 0 56px rgba(245, 158, 11, 0.25); }
 }
 
-/* ── 气泡卡片 ── */
+/* ── 气泡卡片（v3: 强制高对比度，不依赖主题变量）── */
 .og-bubble {
   position: fixed;
-  max-width: 280px;
-  background: var(--bg-overlay, #1c1c1e);
-  color: var(--text-primary, #f5f5f7);
-  border: 1px solid var(--border-default, #38383a);
-  border-radius: 12px;
-  padding: 14px 16px;
+  max-width: 300px;
+  /* 强制浅色背景 + 深字 → 在任何主题下都清晰可读 */
+  background: #ffffff;
+  color: #1a1a2e;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  padding: 16px 18px;
   z-index: 100000;
-  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.35), 0 0 0 1px rgba(0,0,0,0.05);
 }
-/* 着重步骤气泡：金色边框 + 微背景 */
+/* 着重步骤气泡：品牌渐变边框 + 微暖背景 */
 .og-bubble-star {
-  border-color: rgba(245, 158, 11, 0.45);
-  background: linear-gradient(135deg, #1c1c1e 0%, #1a1810 100%);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.55), 0 0 12px rgba(245, 158, 11, 0.12);
+  border-color: rgba(245, 158, 11, 0.5);
+  background: linear-gradient(135deg, #ffffff 0%, #fffbeb 100%);
+  box-shadow: 0 12px 44px rgba(0, 0, 0, 0.38), 0 0 16px rgba(245, 158, 11, 0.12);
 }
 
 .og-bubble h4 {
-  margin: 0 0 6px;
-  font-size: 14px;
-  font-weight: 700;
+  margin: 0 0 8px;
+  font-size: 15px;
+  font-weight: 800;
+  color: #1a1a2e;
+  letter-spacing: -0.2px;
 }
 .og-bubble p {
-  margin: 0 0 12px;
-  font-size: 12px;
-  line-height: 1.55;
-  color: var(--text-secondary, #b0b0b5);
+  margin: 0 0 14px;
+  font-size: 13px;
+  line-height: 1.6;
+  /* 中灰色 — 在白底上清晰可读 */
+  color: #374151;
 }
 .og-bubble .og-actions {
   display: flex;
@@ -103,56 +109,63 @@
 }
 .og-bubble .og-actions button {
   font-size: 12px;
-  font-weight: 600;
-  padding: 6px 12px;
-  border-radius: 7px;
+  font-weight: 700;
+  padding: 7px 14px;
+  border-radius: 8px;
   border: none;
   cursor: pointer;
-  transition: filter 0.15s ease;
+  transition: all 0.15s ease;
 }
+/* 着重步骤的「下一步」按钮：金色渐变 */
 .og-bubble-star .og-next {
-  background: linear-gradient(110deg, #F59E0B, #fbbf24);
-  color: #0a0a0a;
+  background: linear-gradient(135deg, #F59E0B, #fbbf24);
+  color: #1a1a2e;
+  box-shadow: 0 2px 8px rgba(245, 158, 11, 0.3);
 }
+/* 普通步骤的「下一步」：品牌紫 */
 .og-bubble .og-next {
-  background: var(--accent, #6366f1);
+  background: linear-gradient(135deg, #6366f1, #8b5cf6);
   color: #fff;
+  box-shadow: 0 2px 8px rgba(99, 102, 241, 0.25);
 }
 .og-bubble .og-skip {
-  background: transparent;
-  color: var(--text-tertiary, #98989d);
+  background: #f1f5f9;
+  color: #64748b;
 }
 .og-bubble .og-actions button:hover {
-  filter: brightness(1.12);
+  transform: translateY(-1px);
+  filter: brightness(1.05);
+}
+.og-bubble .og-skip:hover {
+  background: #e2e8f0;
+  color: #475569;
 }
 
 /* ── 星标 badge（着重步骤专用）── */
 .og-star-badge {
   display: inline-block;
   font-size: 10px;
-  font-weight: 700;
+  font-weight: 800;
   letter-spacing: 0.5px;
-  color: #0a0a0a;
-  background: linear-gradient(110deg, #F59E0B, #fbbf24);
-  padding: 2px 8px;
-  border-radius: 4px;
-  margin-bottom: 6px;
+  color: #78350f;
+  background: linear-gradient(135deg, #F59E0B, #fbbf24);
+  padding: 3px 10px;
+  border-radius: 5px;
+  margin-bottom: 8px;
   animation: og-badge-pulse 2s ease-in-out infinite alternate;
 }
 @keyframes og-badge-pulse {
-  from { opacity: 0.85; transform: scale(0.98); }
+  from { opacity: 0.88; transform: scale(0.98); }
   to   { opacity: 1; transform: scale(1.02); }
 }
 
-/* ── 箭头（气泡指向目标）── */
+/* ── 箭头（气泡指向目标）—— v3: 匹配白底气泡颜色 ── */
 .og-arrow {
   position: fixed;
   z-index: 100000;
   pointer-events: none;
   width: 10px;
   height: 10px;
-  background: inherit;
-  /* 通过 ::after 画三角形 */
 }
 .og-arrow::after {
   content: '';
@@ -171,7 +184,7 @@
   top: 2px;
   left: 0;
   border-width: 0 5px 6px 5px;
-  border-color: transparent transparent var(--bg-overlay, #1c1c1e) transparent;
+  border-color: transparent transparent #ffffff transparent;
 }
 /* 下箭头 */
 .og-arrow-down {
@@ -183,7 +196,7 @@
   bottom: 2px;
   left: 0;
   border-width: 6px 5px 0 5px;
-  border-color: var(--bg-overlay, #1c1c1e) transparent transparent transparent;
+  border-color: #ffffff transparent transparent transparent;
 }
 /* 左箭头 */
 .og-arrow-left {
@@ -195,7 +208,7 @@
   right: 2px;
   top: 0;
   border-width: 5px 6px 5px 0;
-  border-color: transparent transparent transparent var(--bg-overlay, #1c1c1e);
+  border-color: transparent transparent transparent #ffffff;
 }
 /* 右箭头 */
 .og-arrow-right {
@@ -207,7 +220,7 @@
   left: 2px;
   top: 0;
   border-width: 5px 0 5px 6px;
-  border-color: transparent var(--bg-overlay, #1c1c1e) transparent transparent;
+  border-color: transparent #ffffff transparent transparent;
 }
 
 /* 尊重减少动效偏好 */
