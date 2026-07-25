@@ -2,13 +2,16 @@
    Welcome Overlay — Glassmorphism Design
    ============================================================ */
 #welcome-overlay {
-  position: fixed;
+  /* 相对 #terminal-container 定位（其为 position:relative），
+     仅覆盖中间内容区；左右栏(#sidebar/#right-panel)与下边栏(#status-bar)
+     是其兄弟节点，不会被盖住。切勿改回 fixed，否则会脱离容器盖死整个视口。 */
+  position: absolute;
   inset: 0;
   display: flex;
   background: rgba(10, 10, 11, 0.92);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
-  z-index: 30;
+  z-index: 5;
   transition: opacity 0.4s var(--ease-out);
   overflow: hidden;
 }
