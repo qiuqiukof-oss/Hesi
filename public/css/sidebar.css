@@ -635,7 +635,7 @@
    ============================================================ */
 #category-filters {
   display: flex;
-  gap: 3px;
+  gap: 5px;
   padding: var(--space-1) var(--space-2);
   border-bottom: 1px solid var(--border-default);
   flex-wrap: wrap;
@@ -643,13 +643,13 @@
 }
 
 .category-chip {
-  flex: 1;
+  flex: 0 1 auto;
   min-width: 0;
   background: transparent;
   border: 1px solid var(--border-default);
   border-radius: 20px;
-  padding: 3px 2px;
-  font-size: 9px;
+  padding: 4px 8px;
+  font-size: 10px;
   font-family: var(--font-ui);
   color: var(--text-tertiary);
   cursor: pointer;
