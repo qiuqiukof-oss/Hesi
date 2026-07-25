@@ -22,7 +22,7 @@
   flex: 1;
   overflow-y: auto;
   overflow-x: hidden;
-  padding: var(--space-5);
+  padding: 8px;
   scrollbar-width: auto;
   scrollbar-color: var(--bg-hover) transparent;
 }
@@ -43,14 +43,14 @@
 .welcome-content {
   max-width: 960px;
   margin: 0 auto;
-  padding: var(--space-5) var(--space-5) 40px;
+  padding: 8px 12px 20px;
   width: 100%;
 }
 
 /* ── Hero Section ── */
 .welcome-header {
   text-align: center;
-  padding: 30px 0 28px;
+  padding: 14px 0 10px;
 }
 
 .welcome-logo {
@@ -62,9 +62,9 @@
 }
 
 .welcome-logo img {
-  width: 144px;
-  height: 144px;
-  border-radius: 28px;
+  width: 96px;
+  height: 96px;
+  border-radius: 20px;
 }
 
 @keyframes welcome-float {
@@ -101,21 +101,21 @@
 
 /* ── Sections ── */
 .welcome-section {
-  margin-top: 32px;
+  margin-top: 14px;
 }
 
 .welcome-section h3 {
   font-size: 16px;
   font-weight: 600;
   color: var(--text-primary);
-  margin-bottom: var(--space-4);
+  margin-bottom: 8px;
   letter-spacing: -0.3px;
 }
 
 /* ── Glassmorphism Cards ── */
 .welcome-grid {
   display: flex;
-  gap: var(--space-3);
+  gap: 8px;
 }
 
 .welcome-card {
@@ -123,7 +123,7 @@
   display: flex;
   align-items: flex-start;
   gap: var(--space-3);
-  padding: var(--space-4) var(--space-4);
+  padding: 9px 11px;
   background: rgba(255, 255, 255, 0.03);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
@@ -582,7 +582,7 @@
   flex: 0 0 100%;
   min-width: 0;
   padding: 0 4px;
-  overflow-y: auto;
+  overflow: hidden;
 }
 
 /* ── Arrow navigation ── */
@@ -817,7 +817,7 @@
 .install-grid-2 {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: var(--space-3);
+  gap: 8px;
 }
 
 .install-grid-2 > .install-card {
