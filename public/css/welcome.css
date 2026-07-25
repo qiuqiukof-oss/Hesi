@@ -20,11 +20,9 @@
 
 .welcome-scroll {
   flex: 1;
-  overflow-y: auto;
-  overflow-x: hidden;
+  overflow: hidden;
   padding: 8px;
-  scrollbar-width: auto;
-  scrollbar-color: var(--bg-hover) transparent;
+  scrollbar-width: none;
 }
 
 .welcome-scroll::-webkit-scrollbar {
@@ -140,9 +138,9 @@
 }
 
 .card-icon {
-  width: 30px;
-  height: 30px;
-  border-radius: 8px;
+  width: 26px;
+  height: 26px;
+  border-radius: 7px;
   background: linear-gradient(135deg, #3b82f6, #06b6d4);
   display: flex;
   align-items: center;
@@ -378,11 +376,11 @@
 /* ── Shortcuts Grid ── */
 .shortcuts-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-  gap: 3px 12px;
-  padding: var(--space-3) var(--space-4);
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 2px 10px;
+  padding: 6px 10px;
   background: rgba(255, 255, 255, 0.02);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-md);
   border: 1px solid var(--border-subtle);
 }
 
@@ -390,8 +388,8 @@
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  font-size: 12px;
-  padding: 3px 0;
+  font-size: 11px;
+  padding: 2px 0;
 }
 
 .shortcut-key {
@@ -419,11 +417,11 @@
 
 /* ── Install Cards ── */
 .install-card {
-  margin-bottom: var(--space-3);
+  margin-bottom: 6px;
   background: rgba(255, 255, 255, 0.02);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-md);
   border: 1px solid var(--border-subtle);
   overflow: hidden;
   transition: border-color 0.2s, box-shadow 0.2s;
@@ -437,39 +435,39 @@
 .install-header {
   display: flex;
   align-items: center;
-  gap: var(--space-3);
-  padding: var(--space-3) var(--space-4);
+  gap: var(--space-2);
+  padding: 6px 10px;
   border-bottom: 1px solid var(--border-subtle);
 }
 
 .install-icon {
-  font-size: 24px;
+  font-size: 18px;
   flex-shrink: 0;
 }
 
 .install-header strong {
   display: block;
-  font-size: 14px;
+  font-size: 13px;
   color: var(--text-primary);
   font-weight: 600;
 }
 
 .install-desc {
   display: block;
-  font-size: 11px;
+  font-size: 10px;
   color: var(--text-tertiary);
   margin-top: 1px;
 }
 
 .install-body {
-  padding: var(--space-3) var(--space-4);
+  padding: 6px 10px;
 }
 
 .install-method {
   display: flex;
   align-items: center;
-  gap: 10px;
-  margin-bottom: var(--space-2);
+  gap: 8px;
+  margin-bottom: 4px;
 }
 
 .install-method:last-child {
@@ -486,10 +484,10 @@
 .install-code {
   flex: 1;
   font-family: var(--font-mono);
-  font-size: 12px;
-  padding: 5px 10px;
+  font-size: 11px;
+  padding: 3px 8px;
   background: rgba(0, 0, 0, 0.3);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-sm);
   color: var(--accent-hover);
   border: 1px solid var(--accent-glow);
   white-space: nowrap;
@@ -499,12 +497,12 @@
 }
 
 /* 手动安装区卡片：高度减半，布局更紧凑规整 */
-.install-grid-2.compact .install-card { margin-bottom: var(--space-2); }
-.install-grid-2.compact .install-header { padding: 6px 12px; }
-.install-grid-2.compact .install-body { padding: 6px 12px; }
-.install-grid-2.compact .install-icon { font-size: 18px; }
-.install-grid-2.compact .install-header strong { font-size: 13px; }
-.install-grid-2.compact .install-desc { margin-top: 0; }
+.install-grid-2.compact .install-card { margin-bottom: 4px; }
+.install-grid-2.compact .install-header { padding: 5px 8px; }
+.install-grid-2.compact .install-body { padding: 5px 8px; }
+.install-grid-2.compact .install-icon { font-size: 16px; }
+.install-grid-2.compact .install-header strong { font-size: 12px; }
+.install-grid-2.compact .install-desc { margin-top: 0; font-size: 9px; }
 
 .install-link {
   font-size: 12px;
@@ -570,19 +568,24 @@
   margin: 0 -16px;
   padding: 0 16px;
   overflow: hidden;
+  max-height: calc(100vh - 120px);
 }
 
 .carousel-track {
   display: flex;
   transition: transform 0.5s var(--ease-out);
   will-change: transform;
+  height: 100%;
 }
 
 .carousel-slide {
   flex: 0 0 100%;
   min-width: 0;
+  height: 100%;
   padding: 0 4px;
   overflow: hidden;
+  overflow-y: auto;
+  scrollbar-width: none;
 }
 
 /* ── Arrow navigation ── */
@@ -1021,8 +1024,8 @@
   border: 1px solid var(--accent, #6366f1);
   background: rgba(99,102,241,0.14);
   color: var(--text-primary, #e5e7eb);
-  padding: 6px 14px; border-radius: 8px;
-  font-size: 13px; cursor: pointer;
+  padding: 4px 10px; border-radius: 6px;
+  font-size: 12px; cursor: pointer;
   transition: background 0.15s ease;
 }
 .ai-install-btn:hover { background: rgba(99,102,241,0.26); }
