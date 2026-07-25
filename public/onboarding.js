@@ -84,6 +84,7 @@
       target: 'add-cli-btn',
       title: '+ 接入你的工具',
       text: '需要时把自定义命令行工具接入 Hesi，让它帮你跑和管理更多东西。',
+      offset: { x: 0, y: -8 },  // 上移8px
     },
   ];
 
