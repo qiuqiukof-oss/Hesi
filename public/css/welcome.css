@@ -2,13 +2,13 @@
    Welcome Overlay — Glassmorphism Design
    ============================================================ */
 #welcome-overlay {
-  position: absolute;
+  position: fixed;
   inset: 0;
   display: flex;
   background: rgba(10, 10, 11, 0.92);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
-  z-index: 5;
+  z-index: 30;
   transition: opacity 0.4s var(--ease-out);
   overflow: hidden;
 }
@@ -554,8 +554,8 @@
    ============================================================ */
 .welcome-carousel {
   position: relative;
-  margin: 0 -16px;
-  padding: 0 16px;
+  margin: 0;
+  padding: 0 4px;
   overflow: hidden;
   max-height: calc(100vh - 120px);
 }
