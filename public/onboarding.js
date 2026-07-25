@@ -74,6 +74,14 @@
       text: '插件广场 / WB广场 / 工具箱都在这里，按需求扩展 Hesi 的能力。',
     },
     {
+      target: 'workspace-dir-btn',
+      title: '📂 全局工作空间（核心功能）',
+      text: '这里统一设置终端和 AI 的默认工作目录。选对项目文件夹后，新终端和 AI 执行命令都会在这个目录下运行，不用每次手动 cd。',
+      highlight: true,
+      prefer: 'down',  // 气泡在按钮上方，箭头向下
+      offset: { x: 0, y: -10 },
+    },
+    {
       target: 'welcome-agent-install',
       title: '🤖 安装 AI Agent',
       text: '在欢迎页可以一键安装预置的 AI Agent（如 OpenCode），让专业 Agent 替你干活。',
