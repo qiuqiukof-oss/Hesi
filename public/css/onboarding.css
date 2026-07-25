@@ -37,14 +37,15 @@
 }
 .onboarding-guide-btn .og-ico { font-size: 14px; line-height: 1; }
 
-/* 新手指南按钮弹出菜单（🚀 快速引导 / 🔍 深度游） */
+/* 新手指南按钮弹出菜单（🚀 快速引导 / 🔍 深度游）
+   强制深色背景+亮字，不依赖主题变量（亮色主题下变量解析为浅色会导致不可读） */
 .og-menu { position: fixed; z-index: 100001; min-width: 188px;
-  background: var(--panel-bg, #1a1b20); border: 1px solid var(--border, #333);
+  background: #1e1f26; border: 1px solid rgba(255,255,255,.12);
   border-radius: 10px; padding: 6px; box-shadow: 0 8px 28px rgba(0,0,0,.45); }
 .og-menu-item { display: block; width: 100%; text-align: left; background: transparent;
-  border: none; color: var(--text-primary, #eee); font-size: 13px; font-weight: 500;
+  border: none; color: #e8eaed; font-size: 13px; font-weight: 500;
   padding: 9px 12px; border-radius: 7px; cursor: pointer; white-space: nowrap; }
-.og-menu-item:hover { background: var(--accent-soft, #e8f1ff); color: var(--accent, #1769ff); }
+.og-menu-item:hover { background: rgba(99,102,241,.18); color: #a5b4fc; }
 
 /* 气泡末步「📖 完整介绍」链接 */
 .og-full-link { display: block; width: 100%; margin-top: 10px; padding-top: 8px;

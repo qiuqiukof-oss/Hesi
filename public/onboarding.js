@@ -113,7 +113,7 @@
       text: '这里统一设置终端和 AI 的默认工作目录。选对项目文件夹后，新终端和 AI 执行命令都会在这个目录下运行，不用每次手动 cd。',
       highlight: true,
       prefer: 'down',  // 气泡在按钮上方，箭头向下
-      offset: { x: 0, y: -10 },
+      offset: { x: 0, y: -32 },  // 气泡上移（仅影响气泡，高亮框钉死按钮上）
     },
     {
       target: 'welcome-agent-install',
@@ -126,7 +126,7 @@
       target: 'add-cli-btn',
       title: '+ 接入你的工具',
       text: '需要时把自定义命令行工具接入 Hesi，让它帮你跑和管理更多东西。',
-      offset: { x: 0, y: -8 },  // 上移8px
+      offset: { x: 0, y: -41 },  // 上移33px（仅影响气泡，高亮框钉死按钮上）
     },
   ];
 
@@ -146,14 +146,14 @@
       title: '🎤 语音输入 / 🔊 语音播报',
       text: '点 🎤 用麦克风说话，实时转文字发给 AI，免打字；点状态栏的 🔇 可开启语音播报，AI 回复时自动朗读。AI 设置里能调发音人、语速、音高。',
       prefer: 'up',
-      offset: { x: -10, y: -8 },
+      offset: { x: -10, y: -41 },  // 上移33px
     },
     {
       target: 'custom-css-btn',
       title: '🖌️ 自定义 CSS',
       text: '点 🖌️ 打开自定义 CSS 编辑器，可改主题色、圆角、字体，打造你的专属 Hesi。写错也不怕，Reset 一键还原。',
       prefer: 'up',
-      offset: { x: 0, y: -8 },
+      offset: { x: 0, y: -41 },  // 上移33px
     },
   ];
 
