@@ -12,8 +12,8 @@
   align-items: center;
   justify-content: center;
   gap: 6px;
-  width: 100%;
-  margin: 6px var(--space-3, 12px) 2px;
+  width: calc(100% - 10px);
+  margin: 6px 0 2px 10px;
   padding: 9px 12px;
   border: none;
   border-radius: 8px;
@@ -198,6 +198,12 @@
   border-width: 6px 5px 0 5px;
   border-color: #ffffff transparent transparent transparent;
 }
+/* align=start 时箭头偏左（指向目标左边缘，如 discuss-bar 的🤝开关） */
+.og-arrow-up.og-arrow-start { left: 28px; margin-left: 0; }
+.og-arrow-down.og-arrow-start { left: 28px; margin-left: 0; }
+/* align=end 时箭头偏右 */
+.og-arrow-up.og-arrow-end { right: 28px; left: auto; margin-left: 0; }
+.og-arrow-down.og-arrow-end { right: 28px; left: auto; margin-left: 0; }
 /* 左箭头 */
 .og-arrow-left {
   right: -5px;

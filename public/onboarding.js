@@ -24,9 +24,13 @@
     });
   }
 
-  /** 气泡步骤定义（按出现顺序）—— v2: 新增刷新CLI / 安装Agent / AI讨论(着重)
+  /**
+   * 气泡步骤定义（按出现顺序）—— v2: 新增刷新CLI / 安装Agent / AI讨论(着重)
    *  panel: 'chat' 表示该步骤目标在聊天抽屉内，需先开抽屉
-   *  prefer: 首选气泡方位（'up'|'down'|'left'|'right'），空间足够则优先用 */
+   *  prefer: 首选气泡方位（'up'|'down'|'left'|'right'），空间足够则优先用
+   *  align: 水平对齐方式（'center'|'start'|'end'），默认 'center'
+   *        'start'=气泡左边缘对齐目标左边缘（适合宽目标如 discuss-bar）
+   */
   const STEPS = [
     {
       target: 'onboarding-guide-btn',
@@ -36,21 +40,23 @@
     {
       target: 'preset-selector',
       title: '🎭 先选个预设',
-      text: '决定 AI 扮演什么角色（如「开发者」），切换后语气和擅长领域会跟着变。',
+      text: '选择运行环境（Node / Python /Go 等），让 Hesi 知道用哪个环境执行你的命令。',
     },
     {
       target: 'discuss-bar',
       title: '⭐ AI 讨论（核心功能）',
       text: '开启后，你的指令会由 AI 与所选 CLI Agent 按回合协作讨论，过程实时可见。这是 Hesi 最强大的功能之一——多智能体圆桌辩论，比你单聊 AI 强十倍。',
-      highlight: true, // 着重提示：特殊样式
-      panel: 'chat',   // 目标在聊天抽屉内 → 自动开抽屉
-      prefer: 'up',
+      highlight: true,
+      panel: 'chat',
+      prefer: 'down',  // 气泡明确放在 discuss-bar 上方（箭头向下指），避免盖住按钮
+      align: 'start',  // 气泡左对齐，箭头指向左侧🤝开关而非居中盖住整条栏
     },
     {
       target: 'chat-attach-btn',
       title: '📎 发附件给 AI',
       text: '点对话框的 📎 发图片、视频或代码文件，AI 真能「看懂」图、读取文件内容。',
       panel: 'chat',
+      prefer: 'up',  // 小按钮：气泡固定在上方，箭头向下精确指向📎
     },
     {
       target: 'discover-btn',
@@ -131,8 +137,9 @@
   /**
    * 单步气泡：高亮目标 + 卡片 + 箭头
    * 改进定位：优先 prefer 方位，否则自动选择最佳方位（上/下/左/右），增加箭头指向目标
+   * align: 水平对齐（'center'|'start'|'end'），影响 left/right 方位的气泡位置
    */
-  function buildBubble(step, onNext, onSkip, prefer) {
+  function buildBubble(step, onNext, onSkip, prefer, align) {
     const el = document.getElementById(step.target);
     if (!el) return null;
 
@@ -190,16 +197,29 @@
     // 在指定方位放置；空间不足返回 false
     function tryPlace(dir) {
       if (dir === 'up' && spaceBelow >= bh) {
-        top = rect.bottom + gap; left = rect.left + rect.width / 2 - bw / 2; arrowDir = 'up'; return true;
+        top = rect.bottom + gap;
+        // 水平对齐：start=左对齐, end=右对齐, center=居中
+        if (align === 'start') left = rect.left;
+        else if (align === 'end') left = rect.right - bw;
+        else left = rect.left + rect.width / 2 - bw / 2;
+        arrowDir = 'up'; return true;
       }
       if (dir === 'down' && spaceAbove >= bh) {
-        top = rect.top - gap - bh; left = rect.left + rect.width / 2 - bw / 2; arrowDir = 'down'; return true;
+        top = rect.top - gap - bh;
+        if (align === 'start') left = rect.left;
+        else if (align === 'end') left = rect.right - bw;
+        else left = rect.left + rect.width / 2 - bw / 2;
+        arrowDir = 'down'; return true;
       }
       if (dir === 'left' && spaceRight >= bw) {
-        top = rect.top + rect.height / 2 - bh / 2; left = rect.right + gap; arrowDir = 'left'; return true;
+        top = rect.top + rect.height / 2 - bh / 2;
+        left = rect.right + gap;
+        arrowDir = 'left'; return true;
       }
       if (dir === 'right' && spaceLeft >= bw) {
-        top = rect.top + rect.height / 2 - bh / 2; left = rect.left - gap - bw; arrowDir = 'right'; return true;
+        top = rect.top + rect.height / 2 - bh / 2;
+        left = rect.left - gap - bw;
+        arrowDir = 'right'; return true;
       }
       return false;
     }
@@ -225,7 +245,14 @@
 
     // ── 箭头：作为气泡子元素，position:absolute 相对气泡定位（见 onboarding.css）──
     const arrow = document.createElement('div');
-    arrow.className = 'og-arrow og-arrow-' + arrowDir;
+    let arrowClass = 'og-arrow og-arrow-' + arrowDir;
+    // align=start/end 时箭头也跟着偏移，指向目标对应边缘
+    if (align === 'start' && (arrowDir === 'up' || arrowDir === 'down')) {
+      arrowClass += ' og-arrow-start';
+    } else if (align === 'end' && (arrowDir === 'up' || arrowDir === 'down')) {
+      arrowClass += ' og-arrow-end';
+    }
+    arrow.className = arrowClass;
     bubble.appendChild(arrow);
 
     bubble.querySelector('.og-next').addEventListener('click', onNext);
@@ -272,7 +299,7 @@
         if (prev && prev.panel === 'chat') ensureChatClose();
       }
 
-      const overlay = buildBubble(step, next, finish, step.prefer);
+      const overlay = buildBubble(step, next, finish, step.prefer, step.align);
       if (!overlay) { i++; next(); return; }
       current = overlay;
       i++;
