@@ -183,6 +183,17 @@ class ChatPanel extends HTMLElement {
     this.fileInput = document.getElementById('chat-file-input');
     this.attachPreviewEl = document.getElementById('chat-attachments');
 
+    // M2b (v0.3.1): 回滚到上一轮检查点按钮
+    if (this.clearBtn && this.clearBtn.parentElement) {
+      const rb = document.createElement('button');
+      rb.id = 'chat-rollback-btn';
+      rb.className = this.clearBtn.className;
+      rb.title = '回滚到上一轮（撤销本轮）';
+      rb.textContent = '⏪';
+      rb.addEventListener('click', () => this.rollbackSession());
+      this.clearBtn.parentElement.insertBefore(rb, this.clearBtn.nextSibling);
+    }
+
     if (!this.el) {
       console.warn('[ChatPanel] #chat-drawer not found');
       return;
@@ -791,6 +802,22 @@ class ChatPanel extends HTMLElement {
     this.scrollToBottom();
   }
 
+  // M2b (v0.3.1): 回滚到上一轮检查点（撤销本轮，恢复本轮开始前的安全态）
+  async rollbackSession() {
+    const id = this._sessionId;
+    if (!id) { console.warn('[ChatPanel] 无会话可回滚（未启用服务端会话持久化）'); return; }
+    if (this.sending) return;
+    try {
+      const resp = await fetch(`/api/memory/sessions/${encodeURIComponent(id)}/rollback`, { method: 'POST' });
+      if (!resp.ok) { console.warn('[ChatPanel] 回滚失败', resp.status); return; }
+      const data = await resp.json();
+      if (!data || !data.ok) { console.warn('[ChatPanel] 无检查点可回滚'); return; }
+      this._applySession(id, data.messages || []);
+    } catch (e) {
+      console.warn('[ChatPanel] 回滚错误', e && e.message);
+    }
+  }
+
   // Hook the memory subsystem: subscribe to session switches and restore the
   // current session's messages.
   //
@@ -1050,6 +1077,7 @@ class ChatPanel extends HTMLElement {
               if (M && M.enabled) {
                 const firstUser = this.messages.find(m => m.role === 'user');
                 sessionId = await M.ensureCurrent({ title: firstUser ? firstUser.content.slice(0, 40) : '新会话' });
+                this._sessionId = sessionId || this._sessionId;
               }
             } catch (e) {
               console.warn('[ChatPanel] ensure session failed:', e && e.message);
