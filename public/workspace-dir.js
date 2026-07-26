@@ -109,6 +109,12 @@
 
     function renderCrumbs() {
       crumbs.innerHTML = '';
+      if (navPath === '::drives') {
+        const span = document.createElement('span');
+        span.textContent = '💽 此电脑（选择磁盘）';
+        crumbs.appendChild(span);
+        return;
+      }
       const segs = navPath.split(/[\\/]/).filter(Boolean);
       let acc = '';
       segs.forEach((s, i) => {
@@ -127,16 +133,38 @@
     }
 
     async function render() {
-      input.value = navPath;
+      // ::drives 是「选择磁盘」视图，不该回填到输入框（否则确认会 POST 哨兵）
+      input.value = navPath === '::drives' ? '' : navPath;
       renderCrumbs();
       list.innerHTML = '<div style="padding:10px 14px;color:#999">加载中…</div>';
       const data = await fetchDirs(navPath).catch(() => ({ dirs: [], parent: '' }));
       list.innerHTML = '';
-      // 「上级目录」导航项：允许跳出当前目录（含跳出工作区本身到其它盘）
+
+      // 磁盘列表视图（Windows）：直接渲染盘符项，无「上级」
+      if (data.isDrives) {
+        (data.dirs || []).forEach((d) => {
+          const item = document.createElement('div');
+          item.className = 'ws-dir-item';
+          item.innerHTML = '<span>💽</span><span>' + escapeHtml(d.name) + '</span>';
+          item.onclick = () => { navPath = d.path; render(); };
+          list.appendChild(item);
+        });
+        if (!(data.dirs || []).length) {
+          const empty = document.createElement('div');
+          empty.style.padding = '10px 14px';
+          empty.style.color = '#999';
+          empty.textContent = '（未探测到磁盘，可直接在下方粘贴路径并确认）';
+          list.appendChild(empty);
+        }
+        return;
+      }
+
+      // 「上级目录」导航项：允许跳出当前目录（含从盘根跳到磁盘选择层）
       if (data.parent && data.parent !== navPath) {
         const up = document.createElement('div');
         up.className = 'ws-dir-item ws-dir-up';
-        up.innerHTML = '<span>📁</span><span>..（上级目录）</span>';
+        const upLabel = data.parent === '::drives' ? '💽 选择其他磁盘' : '..（上级目录）';
+        up.innerHTML = '<span>📁</span><span>' + upLabel + '</span>';
         up.onclick = () => { navPath = data.parent; render(); };
         list.appendChild(up);
       }

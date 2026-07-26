@@ -10,6 +10,31 @@ const express = require('express');
 const fs = require('fs');
 const path = require('path');
 
+const IS_WIN = process.platform === 'win32';
+// Sentinel path that means "list the machine's drive roots" (Windows only).
+const DRIVES_SENTINEL = '::drives';
+
+/**
+ * Enumerate existing drive roots on Windows (C: … Z:). A/B are skipped to
+ * avoid ancient floppy-probe quirks; removable media are normally C+.
+ * @returns {{name:string,path:string}[]}
+ */
+function listDrives() {
+  const out = [];
+  for (let code = 67 /* C */; code <= 90 /* Z */; code++) {
+    const root = `${String.fromCharCode(code)}:\\`;
+    try {
+      if (fs.existsSync(root)) out.push({ name: root, path: root });
+    } catch { /* unreadable drive → skip */ }
+  }
+  return out;
+}
+
+/** True when `dir` is a Windows drive root like "C:\" or "C:". */
+function isWinDriveRoot(dir) {
+  return IS_WIN && /^[A-Za-z]:\\?$/.test(dir);
+}
+
 /**
  * Create an Express router for filesystem browse endpoints.
  * @returns {express.Router}
@@ -24,6 +49,19 @@ function createRouter() {
     if (typeof dir !== 'string' || dir.trim().length === 0) {
       dir = process.cwd();
     }
+
+    // Drive-list view (Windows): return the machine's drive roots so the
+    // picker can hop across disks (C: → D: → H:). Must be handled BEFORE
+    // path.resolve, which would mangle the sentinel.
+    if (dir === DRIVES_SENTINEL) {
+      return res.json({
+        dir: DRIVES_SENTINEL,
+        parent: '',
+        dirs: IS_WIN ? listDrives() : [],
+        isDrives: true,
+      });
+    }
+
     dir = path.resolve(dir);
 
     if (!path.isAbsolute(dir)) {
@@ -50,9 +88,15 @@ function createRouter() {
       return res.status(500).json({ error: e.message });
     }
 
+    // At a Windows drive root, path.dirname("C:\") returns "C:\" (itself), so
+    // the client can't offer an "up" step. Point "parent" at the drives
+    // sentinel instead, giving the picker a disk-selection layer above roots.
+    const rawParent = path.dirname(dir);
+    const parent = isWinDriveRoot(dir) ? DRIVES_SENTINEL : rawParent;
+
     return res.json({
       dir,
-      parent: path.dirname(dir),
+      parent,
       dirs: entries,
     });
   });
