@@ -74,6 +74,27 @@ module.exports = [
       'no-promise-executor-return': 'warn',
       'no-self-compare': 'warn',
 
+      // Security (complementary to P0 command-exec governance): forbid passing a
+      // non-literal (variable / string-concat / template) to child_process.exec,
+      // which runs its argument through a shell and is the classic command-
+      // injection vector. Prefer execFile(base, argsArray) — no shell — or, for
+      // the AI terminal, gate the string through evaluateAiExec() first. Existing
+      // audited call sites carry an inline eslint-disable with justification.
+      'no-restricted-syntax': ['error',
+        {
+          selector: "CallExpression[callee.name='exec'][arguments.0.type='Identifier']",
+          message: 'Do not pass a variable to child_process.exec (shell injection risk). Use execFile(base, argsArray), or gate the command via evaluateAiExec() and add an inline eslint-disable with justification.',
+        },
+        {
+          selector: "CallExpression[callee.name='exec'][arguments.0.type='BinaryExpression']",
+          message: 'Do not build an exec() command via string concatenation (shell injection risk). Use execFile(base, argsArray) with separate arguments.',
+        },
+        {
+          selector: "CallExpression[callee.name='exec'][arguments.0.type='TemplateLiteral']",
+          message: 'Do not build an exec() command via a template literal (shell injection risk). Use execFile(base, argsArray) with separate arguments.',
+        },
+      ],
+
       // Console is used extensively for logging — keep enabled
       'no-console': 'off',
     },

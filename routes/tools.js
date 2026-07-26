@@ -107,6 +107,7 @@ function createRouter() {
                 });
               }
             )
+          // eslint-disable-next-line no-restricted-syntax -- P0-gated: `command` is validated by evaluateAiExec() (allowlist + destructive deny) in isSafeCommand() before reaching here; strict mode uses execFile above.
           : exec(
               command,
               {

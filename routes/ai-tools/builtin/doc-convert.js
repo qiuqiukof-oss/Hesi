@@ -235,6 +235,7 @@ async function convertWithPandoc(inputPath, rawContent, format, title, toc, cust
         const htmlCmd = cmd.replace(`"${outputPath}"`, `"${htmlPath}"`).replace(' --pdf-engine=', ' ').split(' --pdf-engine')[0] + ` -o "${htmlPath}"`;
         try {
           await new Promise((resolve, reject) => {
+            // eslint-disable-next-line no-restricted-syntax -- audited: pandoc command built internally from validated file paths (quoted), not from arbitrary agent shell input; needs shell for redirection.
             exec(htmlCmd, { timeout: 60000, encoding: 'utf8', maxBuffer: 10 * 1024 * 1024 }, (error) => {
               if (error) reject(error); else resolve();
             });
@@ -253,6 +254,7 @@ async function convertWithPandoc(inputPath, rawContent, format, title, toc, cust
     try {
       // 使用异步 exec 避免阻塞事件循环
       const stdout = await new Promise((resolve, reject) => {
+        // eslint-disable-next-line no-restricted-syntax -- audited: pandoc command built internally from validated file paths (quoted), not from arbitrary agent shell input; needs shell for redirection.
         exec(cmd, {
           timeout: 120000,
           encoding: 'utf8',
