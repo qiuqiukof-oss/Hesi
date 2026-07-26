@@ -22,6 +22,7 @@ const { streamOpenAIWithTools } = require('./stream-openai');
 const { streamAnthropicWithTools, parseAnthropicStream, buildAnthropicConversation } = require('./stream-anthropic');
 const { injectAttachments } = require('./attachments');
 const { runDiscussion } = require('./discuss');
+const { recordCompact } = require('./metrics'); // P1.5: 上下文压缩计数累加
 // Long-term memory subsystem (M4): archive + recall + compaction. Importing the
 // facade only — internal modules stay encapsulated.
 const MemoryStore = require('../../lib/memory');
@@ -331,7 +332,11 @@ function createRouter(opts = {}) {
         await MemoryStore.append(sessionId, messages, { model, provider: clientProvider });
         // M1④ (v0.3.1): 上下文压缩接入对话流（方向①闭环）。compactIfNeeded 内部仅在
         // 超出 working window 时触发 summarize，失败静默降级（被外层 catch 覆盖）。
-        try { await MemoryStore.compactIfNeeded(sessionId); } catch (cErr) {
+        try {
+          const cr = await MemoryStore.compactIfNeeded(sessionId);
+          // P1.5: 本轮若发生上下文压缩，累加进共享 metrics（最终随 agent_metrics 广播给前端收益条）。
+          res._hesiMetrics = recordCompact(res._hesiMetrics, cr);
+        } catch (cErr) {
           console.warn('[memory] compact skipped (non-fatal):', cErr && cErr.message);
         }
         const summaryBlock = MemoryStore.getSummaryBlock(sessionId);
@@ -561,9 +566,9 @@ When the user asks you to perform a "system self-check" / "全面自检" / "diag
       const m = res._hesiMetrics;
       const estSaved = (m.cacheReadTokens || 0) + (m.toolCacheHits || 0) * 800 + (m.experienceHits || 0) * 1500;
       try {
-        console.log('[chat-benefits] session=%s cacheRead=%d cacheWrite=%d toolReuse=%d exp=%d skills=%d estSaved=%d actualUsed=%d',
+        console.log('[chat-benefits] session=%s cacheRead=%d cacheWrite=%d toolReuse=%d exp=%d skills=%d compact=%d compactedMsgs=%d estSaved=%d actualUsed=%d',
           sessionId, m.cacheReadTokens || 0, m.cacheCreationTokens || 0, m.toolCacheHits || 0,
-          m.experienceHits || 0, m.skillsInjected || 0, estSaved, m.actualUsed || 0);
+          m.experienceHits || 0, m.skillsInjected || 0, m.compactCount || 0, m.compactedMsgs || 0, estSaved, m.actualUsed || 0);
       } catch {}
     }
   });

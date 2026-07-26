@@ -1273,6 +1273,7 @@ class ChatPanel extends HTMLElement {
             rm.toolReuse = (rm.toolReuse || 0) + (m.toolCacheHits || 0);
             rm.exp = (rm.exp || 0) + (m.experienceHits || 0);
             rm.skills = (rm.skills || 0) + (m.skillsInjected || 0);
+            rm.compactCount = (rm.compactCount || 0) + (m.compactCount || 0);
           },
           onToolLive: (evt) => {
             // Agent 实时事件：在思考指示器里展示进度，减少“卡住/断开”错觉
@@ -1778,6 +1779,7 @@ class ChatPanel extends HTMLElement {
     const toolHits = m.toolCacheHits || 0;
     const expHits = m.experienceHits || 0;
     const skills = m.skillsInjected || 0;
+    const compact = m.compactCount || 0;
 
     // 估算节省 token：缓存命中(直接计入) + 工具复用(估 ~800/次) + 经验命中避免重试(估 ~1500/次)。
     // 技能注入属「精准注入、省全量 prompt」，不直接计为节省（避免误导），仅展示计数。
@@ -1789,6 +1791,7 @@ class ChatPanel extends HTMLElement {
     if (toolHits > 0) parts.push(`⚡ 工具复用 ${toolHits} 次`);
     if (expHits > 0) parts.push(`🧠 经验 ${expHits}`);
     if (skills > 0) parts.push(`🎯 注入技能 ${skills}`);
+    if (compact > 0) parts.push(`🗜️ 上下文压缩 ${compact} 次`);
     if (parts.length === 0) return; // 全为 0 不渲染，避免噪声
 
     const bar = document.createElement('div');
@@ -1797,7 +1800,7 @@ class ChatPanel extends HTMLElement {
       `<span class="rb-title">📊 本轮回合收益</span> ${parts.join('<span class="rb-sep"> · </span> ')}` +
       (estSaved > 0 ? ` <span class="rb-sep">·</span> <span class="rb-item">≈ 节省 ${fmt(estSaved)} tokens</span>` : '') +
       ` <span class="rb-detail-toggle">详情</span>` +
-      `<div class="rb-detail">缓存读取 ${cacheTok} · 缓存写入 ${cacheCreate} · 工具复用 ${toolHits} · 经验命中 ${expHits} · 注入技能 ${skills}` +
+      `<div class="rb-detail">缓存读取 ${cacheTok} · 缓存写入 ${cacheCreate} · 工具复用 ${toolHits} · 经验命中 ${expHits} · 注入技能 ${skills} · 上下文压缩 ${compact} 次` +
       `<br>估算节省 = 缓存读取 ${cacheTok} + 工具复用×800 + 经验命中×1500（仅供参考，真实值以缓存读取为准）</div>`;
 
     const toggle = bar.querySelector('.rb-detail-toggle');
@@ -1814,14 +1817,15 @@ class ChatPanel extends HTMLElement {
 
   /** 从服务端 session.turnMetrics 求和，种子化当前会话的累计节省（刷新/切会话/回滚时调用） */
   _seedSavingsFromTurnMetrics(turnMetrics, sessionId) {
-    let saved = 0, used = 0;
+    let saved = 0, used = 0, compact = 0;
     if (Array.isArray(turnMetrics)) {
       for (const t of turnMetrics) {
         saved += (t.saved != null ? t.saved : (t.estSaved || 0));
         used += (t.used != null ? t.used : (t.actualUsed || 0));
+        compact += (t.compactCount || 0);
       }
     }
-    this._sessionSavings = { saved, used };
+    this._sessionSavings = { saved, used, compact };
     if (sessionId) this.updateSavingsIcon(sessionId);
   }
 
@@ -1836,6 +1840,8 @@ class ChatPanel extends HTMLElement {
       toolReuse: rm.toolReuse || 0,
       exp: rm.exp || 0,
       skills: rm.skills || 0,
+      compactCount: rm.compactCount || 0,
+      compactedMsgs: rm.compactedMsgs || 0,
       estSaved,
       actualUsed: this._roundUsed,
     };
@@ -1860,8 +1866,8 @@ class ChatPanel extends HTMLElement {
   updateSavingsIcon(sessionId) {
     const btn = this.savingsBtn;
     if (!btn) return;
-    const s = this._sessionSavings || { saved: 0, used: 0 };
-    const saved = s.saved, used = s.used;
+    const s = this._sessionSavings || { saved: 0, used: 0, compact: 0 };
+    const saved = s.saved, used = s.used, compact = s.compact || 0;
     const total = saved + used;
     const pct = total > 0 ? Math.round((saved / total) * 100) : 0;
     const pctEl = btn.querySelector('.savings-pct');
@@ -1875,7 +1881,7 @@ class ChatPanel extends HTMLElement {
     }
     const fmt = (n) => (n >= 1000 ? (n / 1000).toFixed(1) + 'k' : String(n));
     btn.title = total > 0
-      ? `本会话已节省 ≈${fmt(saved)} tokens / 实际消耗 ${fmt(used)} tokens（约 ${pct}% 来自缓存命中 / 工具复用 / 经验命中）`
+      ? `本会话已节省 ≈${fmt(saved)} tokens / 实际消耗 ${fmt(used)} tokens（约 ${pct}% 来自缓存命中 / 工具复用 / 经验命中）${compact > 0 ? ` · 上下文压缩 ${compact} 次` : ''}`
       : '本会话暂无节省记录';
     btn.classList.toggle('active', pct > 0);
   }
