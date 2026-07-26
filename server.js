@@ -99,7 +99,9 @@ app.use(compression({
     return compression.filter(req, res);
   }
 }));
-app.use(helmet({ contentSecurityPolicy: false, crossOriginEmbedderPolicy: false }));
+// Relaxed CSP for a local-only loopback app (see lib/csp.js for rationale).
+const cspConfig = require('./lib/csp');
+app.use(helmet(cspConfig));
 // ── CORS ──
 // Default: only same-origin / loopback browsers are allowed. Cross-origin
 // requests are denied unless explicitly listed in QCLI_CORS_ORIGINS
