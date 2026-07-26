@@ -21,6 +21,7 @@ import { safeStorage } from '../lib/storage.js';
 import AgentSessionRenderer from './agent-session-renderer.js';
 import { renderMarkdown } from './message-render.js';
 import { buildBenefitBar } from './benefit-bar.js';
+import { computeSavings } from './savings-icon.js';
 
 /** @typedef {import('../types').QCLI} QCLI */
 /** @typedef {{role:string, content:string}} ChatMessage */
@@ -1775,24 +1776,18 @@ class ChatPanel extends HTMLElement {
   updateSavingsIcon(sessionId) {
     const btn = this.savingsBtn;
     if (!btn) return;
-    const s = this._sessionSavings || { saved: 0, used: 0, compact: 0 };
-    const saved = s.saved, used = s.used, compact = s.compact || 0;
-    const total = saved + used;
-    const pct = total > 0 ? Math.round((saved / total) * 100) : 0;
+    // 纯计算部分抽至 ./savings-icon.js（P2.1）；此处只负责写 DOM。
+    const v = computeSavings(this._sessionSavings);
     const pctEl = btn.querySelector('.savings-pct');
-    if (pctEl) pctEl.textContent = pct + '%';
+    if (pctEl) pctEl.textContent = v.pct + '%';
     const fill = btn.querySelector('.savings-fill');
     if (fill) {
-      const C = 2 * Math.PI * 15; // r=15 → 周长≈94.2
-      fill.style.strokeDasharray = C.toFixed(2);
-      fill.style.strokeDashoffset = (C * (1 - pct / 100)).toFixed(2);
-      fill.style.opacity = pct > 0 ? '1' : '0.25';
+      fill.style.strokeDasharray = v.strokeDasharray;
+      fill.style.strokeDashoffset = v.strokeDashoffset;
+      fill.style.opacity = v.fillOpacity;
     }
-    const fmt = (n) => (n >= 1000 ? (n / 1000).toFixed(1) + 'k' : String(n));
-    btn.title = total > 0
-      ? `本会话已节省 ≈${fmt(saved)} tokens / 实际消耗 ${fmt(used)} tokens（约 ${pct}% 来自缓存命中 / 工具复用 / 经验命中）${compact > 0 ? ` · 上下文压缩 ${compact} 次` : ''}`
-      : '本会话暂无节省记录';
-    btn.classList.toggle('active', pct > 0);
+    btn.title = v.title;
+    btn.classList.toggle('active', v.active);
   }
 
   showThinking() {
