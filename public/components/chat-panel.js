@@ -785,6 +785,7 @@ class ChatPanel extends HTMLElement {
     // 发送进行中（含 ensureCurrent 异步解析）不要覆盖本地已渲染的消息，
     // 否则刚发出的带附件消息会被“发送前”的服务器会话覆盖而消失。
     if (this.sending) return;
+    const Q = qcli();
     const arr = Array.isArray(msgs) ? msgs : [];
     this.messages = arr.map(m => ({
       id: (m && m.id) || this._genId(),
@@ -796,7 +797,6 @@ class ChatPanel extends HTMLElement {
     // from the previously-viewed session lingers in the panel.
     this.renderAll();
     if (this.messages.length === 0 && this.msgsEl && !this.msgsEl.querySelector('.welcome-msg')) {
-      const Q = qcli();
       this.msgsEl.innerHTML = `
         <div class="chat-message welcome-msg">
           <div class="msg-avatar ai-avatar">🤖</div>
@@ -1557,7 +1557,10 @@ class ChatPanel extends HTMLElement {
   // ── Public: Export chat ──
 
   exportChat() {
-    if (this.messages.length === 0) return;
+    if (this.messages.length === 0) {
+      qcli()?.showToast?.('没有可导出的聊天记录', 'info');
+      return;
+    }
     const lines = ['# Hesi 聊天记录导出', '', `> 导出时间：${new Date().toLocaleString()}`, '', '---', ''];
     for (const m of this.messages) {
       const role = m.role === 'user' ? '👤 **You**' : '🟦 **AI 助手**';
@@ -1569,13 +1572,48 @@ class ChatPanel extends HTMLElement {
       lines.push('');
     }
     const md = lines.join('\n');
-    // 用 text/plain + .md 扩展名确保 Windows 浏览器不会忽略扩展名
-    const blob = new Blob([md], { type: 'text/plain;charset=utf-8' });
+    const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+    const filename = `hesi-chat-${dateStr}.md`;
+    this._downloadText(md, filename, 'text/markdown')
+      .then((ok) => { if (ok) qcli()?.showToast?.('已导出聊天记录', 'success'); })
+      .catch((err) => {
+        console.error('[chat] export failed:', err);
+        qcli()?.showToast?.('导出失败：' + (err && err.message ? err.message : String(err)), 'error');
+      });
+  }
+
+  // 跨浏览器可靠下载：优先 File System Access API（showSaveFilePicker）。
+  // 在 CDP / 自动化浏览器下，Chromium 会忽略 <a download> 的文件名，
+  // 导致保存成“无扩展名”的文件——而 save-file-picker 的 suggestedName
+  // 由我们提供、并在原生对话框中预填扩展名，不受该限制影响。
+  // 不支持该 API 的浏览器回退到传统 <a download>。
+  // 返回 Promise<boolean>：true=已保存，false=用户取消。
+  async _downloadText(content, filename, mime = 'text/plain') {
+    const blob = new Blob([content], { type: `${mime};charset=utf-8` });
+    if (typeof window.showSaveFilePicker === 'function') {
+      let handle;
+      try {
+        handle = await window.showSaveFilePicker({
+          suggestedName: filename,
+          types: [
+            { description: 'Markdown', accept: { 'text/markdown': ['.md'] } },
+            { description: '纯文本', accept: { 'text/plain': ['.txt'] } },
+          ],
+        });
+      } catch (err) {
+        if (err && err.name === 'AbortError') return false; // 用户取消
+        throw err;
+      }
+      const writable = await handle.createWritable();
+      await writable.write(blob);
+      await writable.close();
+      return true;
+    }
+    // 传统回退：<a download>
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');
-    a.download = `hesi-chat-${dateStr}.md`;
+    a.download = filename;
     a.style.display = 'none';
     document.body.appendChild(a);
     a.click();
@@ -1583,7 +1621,8 @@ class ChatPanel extends HTMLElement {
     setTimeout(() => {
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
-    }, 100);
+    }, 1000);
+    return true;
   }
 
   // ── Public: Rendering ──
