@@ -10,18 +10,31 @@ const { fetchGet, fetchPost } = require('../internal-api');
 function register(registry) {
   registry.register({
     name: 'read_file',
-    description: '读取工作区内的一个文件。支持文本文件和常见代码文件。文件最大 1MB。',
+    description: '读取工作区内的一个文件。支持文本文件和常见代码文件。文件最大 1MB。大文件建议用 offset/limit 分段读取（行号 1-based）。',
     parameters: {
       type: 'object',
       properties: {
         path: { type: 'string', description: '文件路径（相对于项目根目录）' },
         encoding: { type: 'string', description: '编码，默认 utf8', default: 'utf8' },
+        offset: { type: 'number', description: '起始行号（1-based，可选）。用于大文件分段读取' },
+        limit: { type: 'number', description: '读取行数（可选，配合 offset）。建议 ≤ 400' },
       },
       required: ['path'],
     },
     execute: async (args) => {
       try {
         const data = await fetchGet('/tools/read-file', { path: args.path, encoding: args.encoding || 'utf8' });
+        // v0.3.1 A1：offset/limit 分段读取（向后兼容：不传 = 全文，原行为）
+        const offset = Number.isFinite(Number(args.offset)) && Number(args.offset) > 0 ? Math.floor(Number(args.offset)) : 0;
+        const limit = Number.isFinite(Number(args.limit)) && Number(args.limit) > 0 ? Math.floor(Number(args.limit)) : 0;
+        if (offset || limit) {
+          const lines = String(data.content).split('\n');
+          const start = offset ? offset - 1 : 0; // 1-based → 0-based
+          const end = limit ? start + limit : lines.length;
+          const seg = lines.slice(start, end).join('\n');
+          const rangeNote = `Lines: ${start + 1}-${Math.min(end, lines.length)} of ${lines.length}`;
+          return `File: ${data.path}\nLanguage: ${data.language}\nSize: ${data.size} bytes\n${rangeNote}\n\n${seg}`;
+        }
         return `File: ${data.path}\nLanguage: ${data.language}\nSize: ${data.size} bytes\n\n${data.content}`;
       } catch (err) {
         return `Error: ${err.message}`;

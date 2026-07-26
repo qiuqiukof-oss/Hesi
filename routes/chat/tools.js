@@ -11,6 +11,7 @@ const crypto = require('crypto');
 const { ToolRegistry, LRUCache, ToolResultTruncator, TokenBucketMap, classifyError } = require('../ai-tools');
 const { registerAll } = require('../ai-tools/builtin');
 const experience = require('../../lib/experience/store');
+const sideload = require('../../lib/file-sideload');
 // M3 (v0.3.1): 跨 executeToolCall 实例的「本请求内工具曾失败」标记（requestId 维度）
 const requestFailures = new Map();
 const { mcpToolDefinitions, callMCPTool } = require('../../mcp/bridge');
@@ -43,7 +44,9 @@ function cacheKeyOf(name, args) {
   switch (name) {
     case 'read_file': {
       const enc = (args && (args.encoding || 'utf8')) || 'utf8';
-      return 'read_file:' + _normPath(args && args.path) + (enc !== 'utf8' ? ':' + enc : '');
+      // v0.3.1 A1：offset/limit 分段读取必须进缓存键，否则不同段命中同一缓存
+      const seg = args && (args.offset || args.limit) ? `:${args.offset || 0}+${args.limit || 0}` : '';
+      return 'read_file:' + _normPath(args && args.path) + (enc !== 'utf8' ? ':' + enc : '') + seg;
     }
     case 'web_fetch': {
       const url = (args && args.url) || '';
@@ -169,7 +172,12 @@ async function executeToolCall(name, args, broadcastFn, requestId, metrics) {
       // 放宽截断阈值：原 2000 字符过小，read_file / exec_terminal 等输出动辄被截断，
       // 造成 AI 拿到残缺结果（也是一种“限制”）。20000 字符内原样返回，超出再走 token 感知截断。
       if (!SKIP_TRUNCATE_NAMES.has(name) && typeof result === 'string' && result.length > 20000) {
-        result = toolTruncator.truncate(result);
+        if (name === 'read_file' && sideload.shouldSideload(result)) {
+          // v0.3.1 A1：大文件侧载（头部+结构摘要+分段读提示），代替截断丢信息
+          result = sideload.sideloadFileResult(result, args && args.path);
+        } else {
+          result = toolTruncator.truncate(result);
+        }
       }
       // M2a (v0.3.1): 只读工具结果写入缓存；写/副作用工具执行后清空，保证后续只读读到最新。
       if (_isReadOnly && _cacheKey) toolResultCache.set(_cacheKey, result);
