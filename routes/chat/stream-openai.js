@@ -398,12 +398,16 @@ async function parseStreamAndCollectTools(response, res, sink = null) {
     if (sinkOnUsage) { sinkOnUsage(u); return; }
     if (res) {
       try {
-        res.write(`data: ${JSON.stringify({ type: 'usage', usage: u })}\n\n`);
-        // M1③ (v0.3.1): 累加缓存命中 token 到 request-scoped metrics（M5 统一广播）。
-        if (u && u.prompt_tokens_details && u.prompt_tokens_details.cached_tokens) {
-          res._hesiMetrics = res._hesiMetrics || { cacheReadTokens: 0, cacheCreationTokens: 0, toolCacheHits: 0, experienceHits: 0, skillsInjected: 0 };
-          res._hesiMetrics.cacheReadTokens += u.prompt_tokens_details.cached_tokens;
-        }
+          res.write(`data: ${JSON.stringify({ type: 'usage', usage: u })}\n\n`);
+          // M1③ (v0.3.1): 累加缓存命中/创建 token 到 request-scoped metrics（M5 统一广播）。
+          if (u) {
+            res._hesiMetrics = res._hesiMetrics || { cacheReadTokens: 0, cacheCreationTokens: 0, toolCacheHits: 0, experienceHits: 0, skillsInjected: 0 };
+            // OpenAI 仅在 prompt_tokens_details.cached_tokens 返回「读取命中」量；
+            // 其 API 不暴露「缓存写入」量，故 cacheCreationTokens 在 OpenAI 下恒为 0（provider 限制）。
+            if (u.prompt_tokens_details && u.prompt_tokens_details.cached_tokens) {
+              res._hesiMetrics.cacheReadTokens += u.prompt_tokens_details.cached_tokens;
+            }
+          }
       } catch {}
     }
   };

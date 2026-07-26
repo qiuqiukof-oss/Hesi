@@ -96,10 +96,12 @@ async function parseAnthropicStream(response, res, sink = null) {
       if (res) {
         try {
           res.write(`data: ${JSON.stringify({ type: 'usage', usage: u })}\n\n`);
-          // M1③ (v0.3.1): 累加缓存命中 token 到 request-scoped metrics（M5 统一广播）。
-          if (u && u.cache_read_input_tokens) {
+          // M1③ (v0.3.1): 累加缓存命中/创建 token 到 request-scoped metrics（M5 统一广播）。
+          if (u) {
             res._hesiMetrics = res._hesiMetrics || { cacheReadTokens: 0, cacheCreationTokens: 0, toolCacheHits: 0, experienceHits: 0, skillsInjected: 0 };
-            res._hesiMetrics.cacheReadTokens += u.cache_read_input_tokens;
+            if (u.cache_read_input_tokens) res._hesiMetrics.cacheReadTokens += u.cache_read_input_tokens;
+            // Anthropic usage 在 message_delta 携带 cache_creation_input_tokens（本轮新建缓存的写入量）。
+            if (u.cache_creation_input_tokens) res._hesiMetrics.cacheCreationTokens += u.cache_creation_input_tokens;
           }
         } catch {}
       }
