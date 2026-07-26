@@ -20,6 +20,7 @@
 import { safeStorage } from '../lib/storage.js';
 import AgentSessionRenderer from './agent-session-renderer.js';
 import { renderMarkdown } from './message-render.js';
+import { buildBenefitBar } from './benefit-bar.js';
 
 /** @typedef {import('../types').QCLI} QCLI */
 /** @typedef {{role:string, content:string}} ChatMessage */
@@ -1703,35 +1704,13 @@ class ChatPanel extends HTMLElement {
     const existing = msgsEl.querySelector('.hesi-round-benefit');
     if (existing) existing.remove();
 
-    const fmt = (n) => (n >= 1000 ? (n / 1000).toFixed(1) + 'k' : String(n));
-    const cacheTok = m.cacheReadTokens || 0;
-    const cacheCreate = m.cacheCreationTokens || 0;
-    const toolHits = m.toolCacheHits || 0;
-    const expHits = m.experienceHits || 0;
-    const skills = m.skillsInjected || 0;
-    const compact = m.compactCount || 0;
-
-    // 估算节省 token：缓存命中(直接计入) + 工具复用(估 ~800/次) + 经验命中避免重试(估 ~1500/次)。
-    // 技能注入属「精准注入、省全量 prompt」，不直接计为节省（避免误导），仅展示计数。
-    const estSaved = cacheTok + toolHits * 800 + expHits * 1500;
-
-    const parts = [];
-    if (cacheTok > 0) parts.push(`💾 缓存命中 ${fmt(cacheTok)} tokens`);
-    if (cacheCreate > 0) parts.push(`🆕 缓存写入 ${fmt(cacheCreate)} tokens`);
-    if (toolHits > 0) parts.push(`⚡ 工具复用 ${toolHits} 次`);
-    if (expHits > 0) parts.push(`🧠 经验 ${expHits}`);
-    if (skills > 0) parts.push(`🎯 注入技能 ${skills}`);
-    if (compact > 0) parts.push(`🗜️ 上下文压缩 ${compact} 次`);
-    if (parts.length === 0) return; // 全为 0 不渲染，避免噪声
+    // 纯计算部分抽至 ./benefit-bar.js（P2.1）；此处只负责 DOM 创建与事件绑定。
+    const built = buildBenefitBar(m);
+    if (!built) return; // 全为 0 不渲染，避免噪声
 
     const bar = document.createElement('div');
     bar.className = 'hesi-round-benefit';
-    bar.innerHTML =
-      `<span class="rb-title">📊 本轮回合收益</span> ${parts.join('<span class="rb-sep"> · </span> ')}` +
-      (estSaved > 0 ? ` <span class="rb-sep">·</span> <span class="rb-item">≈ 节省 ${fmt(estSaved)} tokens</span>` : '') +
-      ` <span class="rb-detail-toggle">详情</span>` +
-      `<div class="rb-detail">缓存读取 ${cacheTok} · 缓存写入 ${cacheCreate} · 工具复用 ${toolHits} · 经验命中 ${expHits} · 注入技能 ${skills} · 上下文压缩 ${compact} 次` +
-      `<br>估算节省 = 缓存读取 ${cacheTok} + 工具复用×800 + 经验命中×1500（仅供参考，真实值以缓存读取为准）</div>`;
+    bar.innerHTML = built.innerHtml;
 
     const toggle = bar.querySelector('.rb-detail-toggle');
     if (toggle) {
