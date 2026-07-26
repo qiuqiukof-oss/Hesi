@@ -1,3 +1,4 @@
+// @ts-check
 // ============================================================
 // Policy — command and filesystem security policy engine
 //
@@ -149,7 +150,7 @@ const AI_EXEC_DENY = [
 /** Extract the base command name (basename if given as an absolute path). */
 function aiExecBaseOf(command) {
   const first = (command || '').trim().split(/\s+/)[0] || '';
-  return first.split(/[\\/]/).pop().toLowerCase();
+  return (first.split(/[\\/]/).pop() || '').toLowerCase();
 }
 
 /**
