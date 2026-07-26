@@ -373,7 +373,16 @@ async function parseStreamAndCollectTools(response, res, sink = null) {
   };
   const writeUsage = (u) => {
     if (sinkOnUsage) { sinkOnUsage(u); return; }
-    if (res) { try { res.write(`data: ${JSON.stringify({ type: 'usage', usage: u })}\n\n`); } catch {} }
+    if (res) {
+      try {
+        res.write(`data: ${JSON.stringify({ type: 'usage', usage: u })}\n\n`);
+        // M1③ (v0.3.1): 累加缓存命中 token 到 request-scoped metrics（M5 统一广播）。
+        if (u && u.prompt_tokens_details && u.prompt_tokens_details.cached_tokens) {
+          res._hesiMetrics = res._hesiMetrics || { cacheReadTokens: 0, cacheCreationTokens: 0, toolCacheHits: 0, experienceHits: 0, skillsInjected: 0 };
+          res._hesiMetrics.cacheReadTokens += u.prompt_tokens_details.cached_tokens;
+        }
+      } catch {}
+    }
   };
   const writeDone = () => {
     if (sinkOnDone) { sinkOnDone(); return; }
