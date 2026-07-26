@@ -178,10 +178,17 @@ class ChatPanel extends HTMLElement {
     this.clearBtn = document.getElementById('chat-clear-btn');
     this.terminalToggleBtn = document.getElementById('chat-terminal-toggle');
     this.exportBtn = document.getElementById('chat-export-btn');
+    this.savingsBtn = document.getElementById('chat-savings-btn');
     this.resizeHandle = document.getElementById('chat-resize-handle');
     this.attachBtn = document.getElementById('chat-attach-btn');
     this.fileInput = document.getElementById('chat-file-input');
     this.attachPreviewEl = document.getElementById('chat-attachments');
+
+    // ── 会话级 token 节省记账（M5 后续增强）──
+    // 每个 sessionId 独立累计 saved/used；百分比 = saved/(saved+used)。
+    this._roundUsed = 0;    // 本轮实际消耗 tokens（来自 onUsage 累加）
+    this._roundSaved = 0;   // 本轮估算节省 tokens（来自 agent_metrics）
+    this._savingsCache = null; // 懒加载的 safeStorage 映射
 
     // M2b (v0.3.1): 回滚到上一轮检查点按钮
     if (this.clearBtn && this.clearBtn.parentElement) {
@@ -800,6 +807,8 @@ class ChatPanel extends HTMLElement {
         </div>`;
     }
     this.scrollToBottom();
+    // 切换会话时即时刷新节省百分比图标（对应单独会话）
+    this.updateSavingsIcon(id);
   }
 
   // M2b (v0.3.1): 回滚到上一轮检查点（撤销本轮，恢复本轮开始前的安全态）
@@ -1152,6 +1161,10 @@ class ChatPanel extends HTMLElement {
         const _oldBenefit = this.msgsEl?.querySelector('.hesi-round-benefit');
         if (_oldBenefit) _oldBenefit.remove();
 
+        // 重置本轮节省记账（M5 后续增强）
+        this._roundUsed = 0;
+        this._roundSaved = 0;
+
         api.sendMessage({
           messages: msgs,
           sessionId: sessionId || undefined,
@@ -1231,8 +1244,19 @@ class ChatPanel extends HTMLElement {
           },
           onUsage: (usage) => {
             this._lastUsage = usage;
+            // 累加本轮实际消耗 tokens（input+output / prompt+completion）
+            const used = (usage.input_tokens ?? usage.prompt_tokens ?? 0)
+              + (usage.output_tokens ?? usage.completion_tokens ?? 0);
+            if (used > 0) this._roundUsed += used;
           },
-          onAgentMetrics: (m) => this.renderRoundBenefit(m),
+          onAgentMetrics: (m) => {
+            this.renderRoundBenefit(m);
+            // 累加本轮估算节省 tokens（与 M5 收益条同一估算口径）
+            const saved = (m.cacheReadTokens || 0)
+              + (m.toolCacheHits || 0) * 800
+              + (m.experienceHits || 0) * 1500;
+            this._roundSaved += saved;
+          },
           onToolLive: (evt) => {
             // Agent 实时事件：在思考指示器里展示进度，减少“卡住/断开”错觉
             const indicator = document.getElementById('thinking-indicator');
@@ -1379,6 +1403,12 @@ class ChatPanel extends HTMLElement {
               Q.MemorySession.append(sessionId, this.messages.slice(-50)).catch(() => {});
             }
 
+            // ── 会话级节省记账（M5 后续增强）：本轮结束累加到当前会话 ──
+            if (sessionId) {
+              this._recordRoundSavings(sessionId, this._roundSaved, this._roundUsed);
+              this.updateSavingsIcon(sessionId);
+            }
+
             // ── 语音输出：AI 回复后自动朗读 ──
             if (window.QCLI?.VoiceOutput?.speakAIResponse) {
               window.QCLI.VoiceOutput.speakAIResponse(fullResponse);
@@ -1422,6 +1452,11 @@ class ChatPanel extends HTMLElement {
             this._pendingTerminalLines = null;
             this._endSending();
             if (this.input) this.input.focus();
+            // 错误轮也累加已发生的消耗（若有），保证百分比不漏计
+            if (sessionId) {
+              this._recordRoundSavings(sessionId, this._roundSaved, this._roundUsed);
+              this.updateSavingsIcon(sessionId);
+            }
           },
         });
       });
@@ -1718,6 +1753,55 @@ class ChatPanel extends HTMLElement {
 
     msgsEl.appendChild(bar);
     this.scrollToBottom();
+  }
+
+  // ── 会话级 token 节省百分比图标（M5 后续增强）──
+  _loadSavings() {
+    if (this._savingsCache) return this._savingsCache;
+    try { this._savingsCache = safeStorage.getJSON('hesi-chat-savings-v1') || {}; }
+    catch { this._savingsCache = {}; }
+    return this._savingsCache;
+  }
+  _saveSavings(map) {
+    this._savingsCache = map;
+    try { safeStorage.setJSON('hesi-chat-savings-v1', map); } catch { /* ignore */ }
+  }
+  /** 累加某会话的本轮节省/实际消耗，并持久化 */
+  _recordRoundSavings(sessionId, saved, used) {
+    if (!sessionId) return;
+    const map = this._loadSavings();
+    const cur = map[sessionId] || { saved: 0, used: 0, ts: 0 };
+    cur.saved += saved;
+    cur.used += used;
+    cur.ts = Date.now();
+    map[sessionId] = cur;
+    this._saveSavings(map);
+  }
+  _getSavings(sessionId) {
+    const map = this._loadSavings();
+    return map[sessionId] || { saved: 0, used: 0, ts: 0 };
+  }
+  /** 刷新头部百分比圆环图标（对应单独会话，切换时即时更新） */
+  updateSavingsIcon(sessionId) {
+    const btn = this.savingsBtn;
+    if (!btn) return;
+    const { saved, used } = this._getSavings(sessionId);
+    const total = saved + used;
+    const pct = total > 0 ? Math.round((saved / total) * 100) : 0;
+    const pctEl = btn.querySelector('.savings-pct');
+    if (pctEl) pctEl.textContent = pct + '%';
+    const fill = btn.querySelector('.savings-fill');
+    if (fill) {
+      const C = 2 * Math.PI * 15; // r=15 → 周长≈94.2
+      fill.style.strokeDasharray = C.toFixed(2);
+      fill.style.strokeDashoffset = (C * (1 - pct / 100)).toFixed(2);
+      fill.style.opacity = pct > 0 ? '1' : '0.25';
+    }
+    const fmt = (n) => (n >= 1000 ? (n / 1000).toFixed(1) + 'k' : String(n));
+    btn.title = total > 0
+      ? `本会话已节省 ≈${fmt(saved)} tokens / 实际消耗 ${fmt(used)} tokens（约 ${pct}% 来自缓存命中 / 工具复用 / 经验命中）`
+      : '本会话暂无节省记录';
+    btn.classList.toggle('active', pct > 0);
   }
 
   showThinking() {
