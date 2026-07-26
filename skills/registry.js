@@ -14,6 +14,7 @@ const { parseSkillMd, scanConnectorCacheSkills } = require('./loader');
 // on-demand skill retrieval. Vector reranking slots in later (M6/M7) via
 // the reserved `vec` field on each doc — same pattern as index-store.
 const indexStore = require('../lib/memory/index-store');
+const embed = require('../lib/memory/embed');
 
 const DATA_DIR = path.join(__dirname, '..', 'data', 'skills');
 const CATALOG_PATH = path.join(DATA_DIR, 'catalog.json');
@@ -101,12 +102,22 @@ class SkillRegistry {
     return this._catalog;
   }
 
-  // v0.3.1 M4 — lexical skill search (铺结构版).
-  // Builds an in-memory BM25 index over name + description + body 首 200 字,
-  // cached until the catalog changes. Returns topK matched skills.
-  // 升级空间: docs carry an optional `vec` field; when lib/memory/embed.js
-  // is enabled (M6/M7), rerank hits by cosine similarity here.
-  search(query, topK = 3) {
+  // v0.3.1 B1：embed 启用时对 BM25 top-10 做余弦重排。
+  // index docs carry optional `vec` (set at buildDoc time when embedding enabled)。
+  async rerankHits(hits, query, topK) {
+    if (!embed.enabled() || !hits.length) return hits.slice(0, topK);
+    const qv = await embed.embed(query);
+    if (!qv) return hits.slice(0, topK);
+    const candidates = hits.slice(0, 10);
+    const scored = candidates.map((d) => ({
+      doc: d,
+      score: d.vec ? embed.cosine(qv, d.vec) : -1,
+    }));
+    scored.sort((a, b) => b.score - a.score);
+    return scored.slice(0, topK).map((s) => s.doc);
+  }
+
+  async search(query, topK = 3) {
     if (!query || typeof query !== 'string') return [];
     const skills = this.list();
     if (!skills.length) return [];
@@ -122,7 +133,9 @@ class SkillRegistry {
       this._searchIndexSize = skills.length;
     }
     const hits = indexStore.query(this._searchIndex, query, { topK });
-    return hits
+    // v0.3.1 B1：embed 启用时对 BM25 top-10 做余弦重排取 topK
+    const reranked = await this.rerankHits(hits, query, topK);
+    return reranked
       .map((d) => this.get(d.ref))
       .filter(Boolean);
   }

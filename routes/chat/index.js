@@ -436,7 +436,7 @@ When the user asks you to perform a "system self-check" / "全面自检" / "diag
         const skillRegistry = require('../../skills/registry');
         const lastUserMsg = [...messages].reverse().find(m => m.role === 'user');
         const skillQuery = (lastUserMsg?.content || '').toString().slice(0, 500);
-        const hits = skillQuery ? skillRegistry.search(skillQuery, 2) : [];
+        const hits = skillQuery ? await skillRegistry.search(skillQuery, 2) : [];
         if (hits.length) {
           const lines = hits.map((s) =>
             `### ${s.name || s.id}${s.category ? `（${s.category}）` : ''}\n${s.description || ''}\n${String(s.body || '').slice(0, 300)}`);
