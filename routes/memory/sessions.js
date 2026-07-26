@@ -83,4 +83,25 @@ router.delete('/:id', (req, res) => {
   res.json({ ok: true });
 });
 
+// ── M2b (v0.3.1): 会话检查点 / 回滚 ──
+router.post('/:id/checkpoint', (req, res) => {
+  try {
+    const ok = MemoryStore.checkpoint(req.params.id);
+    if (!ok) return res.status(404).json({ error: 'session not found' });
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+router.post('/:id/rollback', (req, res) => {
+  try {
+    const messages = MemoryStore.rollback(req.params.id);
+    if (!messages) return res.status(404).json({ error: 'no checkpoint available' });
+    res.json({ ok: true, messages });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 module.exports = router;

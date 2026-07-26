@@ -324,6 +324,10 @@ function createRouter(opts = {}) {
       try {
         const lastUserText = (messages[messages.length - 1]?.content || '').toString();
         await MemoryStore.ensure(sessionId, { model, provider: clientProvider });
+        // M2b (v0.3.1): 本轮开始前打检查点（单槽覆盖），供回滚到上一轮安全态。
+        try { await MemoryStore.checkpoint(sessionId); } catch (ckErr) {
+          console.warn('[memory] checkpoint skipped (non-fatal):', ckErr && ckErr.message);
+        }
         await MemoryStore.append(sessionId, messages, { model, provider: clientProvider });
         // M1④ (v0.3.1): 上下文压缩接入对话流（方向①闭环）。compactIfNeeded 内部仅在
         // 超出 working window 时触发 summarize，失败静默降级（被外层 catch 覆盖）。
