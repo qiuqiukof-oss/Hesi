@@ -37,6 +37,7 @@
     .ws-picker-list{max-height:300px;overflow:auto;padding:6px 0}
     .ws-dir-item{display:flex;align-items:center;gap:8px;padding:7px 14px;cursor:pointer}
     .ws-dir-item:hover{background:var(--accent-soft,#eef4ff)}
+    .ws-dir-up{color:var(--accent,#1769ff);font-weight:600}
     .ws-picker-foot{display:flex;gap:8px;padding:12px 14px;border-top:1px solid var(--border,#ddd)}
     .ws-picker-input{flex:1;min-width:0;padding:6px 8px;border:1px solid var(--border,#ccc);border-radius:6px;background:var(--bg,#fff);color:var(--fg,#222)}
     .ws-btn{padding:6px 14px;border:1px solid var(--border,#ccc);border-radius:6px;cursor:pointer;background:var(--bg,#fff);color:var(--fg,#222)}
@@ -129,8 +130,16 @@
       input.value = navPath;
       renderCrumbs();
       list.innerHTML = '<div style="padding:10px 14px;color:#999">加载中…</div>';
-      const data = await fetchDirs(navPath).catch(() => ({ dirs: [] }));
+      const data = await fetchDirs(navPath).catch(() => ({ dirs: [], parent: '' }));
       list.innerHTML = '';
+      // 「上级目录」导航项：允许跳出当前目录（含跳出工作区本身到其它盘）
+      if (data.parent && data.parent !== navPath) {
+        const up = document.createElement('div');
+        up.className = 'ws-dir-item ws-dir-up';
+        up.innerHTML = '<span>📁</span><span>..（上级目录）</span>';
+        up.onclick = () => { navPath = data.parent; render(); };
+        list.appendChild(up);
+      }
       (data.dirs || []).forEach((d) => {
         const item = document.createElement('div');
         item.className = 'ws-dir-item';
