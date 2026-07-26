@@ -325,6 +325,11 @@ function createRouter(opts = {}) {
         const lastUserText = (messages[messages.length - 1]?.content || '').toString();
         await MemoryStore.ensure(sessionId, { model, provider: clientProvider });
         await MemoryStore.append(sessionId, messages, { model, provider: clientProvider });
+        // M1④ (v0.3.1): 上下文压缩接入对话流（方向①闭环）。compactIfNeeded 内部仅在
+        // 超出 working window 时触发 summarize，失败静默降级（被外层 catch 覆盖）。
+        try { await MemoryStore.compactIfNeeded(sessionId); } catch (cErr) {
+          console.warn('[memory] compact skipped (non-fatal):', cErr && cErr.message);
+        }
         const summaryBlock = MemoryStore.getSummaryBlock(sessionId);
         if (summaryBlock) memoryBlocks.push(summaryBlock);
         const memoryBlock = MemoryStore.recall(lastUserText, { topK: memoryConfig.TOPK_RECALL });
@@ -412,9 +417,13 @@ When the user asks you to perform a "system self-check" / "全面自检" / "diag
 - 若收到视频但当前模型无法直接分析，请基于用户的文字描述回答，**不要编造你未看到的内容**。
 - 若附件内容显示“已过期或不存在”，说明文件已被清理，请礼貌请用户重新发送。`;
 
+    // M1 (v0.3.1): 静态段(SELF_AWARE)在前、动态段(memoryBlocks)在后。
+    // ① 让 OpenAI 自动前缀缓存命中（稳定前缀）；
+    // ② 修复 anthropic 分支此前只取第一个 system(=动态记忆块)导致
+    //    SELF_AWARE_PROMPT 被 buildAnthropicConversation 过滤吞掉的 bug。
     contextMessages = [
-      ...memoryBlocks,
       { role: 'system', content: SELF_AWARE_PROMPT },
+      ...memoryBlocks,
       ...contextMessages,
     ];
 
