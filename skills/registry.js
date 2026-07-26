@@ -10,6 +10,10 @@
 const fs = require('fs');
 const path = require('path');
 const { parseSkillMd, scanConnectorCacheSkills } = require('./loader');
+// v0.3.1 M4: reuse the zero-dependency BM25 scorer from lib/memory for
+// on-demand skill retrieval. Vector reranking slots in later (M6/M7) via
+// the reserved `vec` field on each doc — same pattern as index-store.
+const indexStore = require('../lib/memory/index-store');
 
 const DATA_DIR = path.join(__dirname, '..', 'data', 'skills');
 const CATALOG_PATH = path.join(DATA_DIR, 'catalog.json');
@@ -93,7 +97,34 @@ class SkillRegistry {
 
   reingest() {
     this._catalog = ingestFromCache();
+    this._searchIndex = null; // invalidate M4 search index
     return this._catalog;
+  }
+
+  // v0.3.1 M4 — lexical skill search (铺结构版).
+  // Builds an in-memory BM25 index over name + description + body 首 200 字,
+  // cached until the catalog changes. Returns topK matched skills.
+  // 升级空间: docs carry an optional `vec` field; when lib/memory/embed.js
+  // is enabled (M6/M7), rerank hits by cosine similarity here.
+  search(query, topK = 3) {
+    if (!query || typeof query !== 'string') return [];
+    const skills = this.list();
+    if (!skills.length) return [];
+    if (!this._searchIndex || this._searchIndexSize !== skills.length) {
+      this._searchIndex = {
+        docs: skills.map((s) => indexStore.buildDoc({
+          ref: s.id,
+          type: 'skill',
+          title: `${s.name || s.id} ${s.category || ''}`,
+          text: `${s.description || ''}\n${String(s.body || '').slice(0, 200)}`,
+        })),
+      };
+      this._searchIndexSize = skills.length;
+    }
+    const hits = indexStore.query(this._searchIndex, query, { topK });
+    return hits
+      .map((d) => this.get(d.ref))
+      .filter(Boolean);
   }
 
   addSkill(skill) {
@@ -102,6 +133,7 @@ class SkillRegistry {
     if (idx >= 0) cat.skills[idx] = skill;
     else cat.skills.push(skill);
     saveCatalog(cat);
+    this._searchIndex = null; // invalidate M4 search index
     return skill;
   }
 }

@@ -421,6 +421,34 @@ When the user asks you to perform a "system self-check" / "全面自检" / "diag
 - 若收到视频但当前模型无法直接分析，请基于用户的文字描述回答，**不要编造你未看到的内容**。
 - 若附件内容显示“已过期或不存在”，说明文件已被清理，请礼貌请用户重新发送。`;
 
+    // ── M4 (v0.3.1): Skill 按需注入（铺结构版，词法 BM25）──
+    // 与全量塞入相反：只按当前用户输入检索 top-2 相关技能，注入摘要（名称+描述+
+    // 正文首 300 字），放在动态段（memoryBlocks 之后）以不破坏 M1 的稳定缓存前缀。
+    // 升级空间：registry.search 内部预留 vec 字段，M6/M7 接 embed() 向量重排。
+    const skillBlocks = [];
+    if (process.env.HESI_SKILL_INJECT !== '0') {
+      try {
+        const skillRegistry = require('../../skills/registry');
+        const lastUserMsg = [...messages].reverse().find(m => m.role === 'user');
+        const skillQuery = (lastUserMsg?.content || '').toString().slice(0, 500);
+        const hits = skillQuery ? skillRegistry.search(skillQuery, 2) : [];
+        if (hits.length) {
+          const lines = hits.map((s) =>
+            `### ${s.name || s.id}${s.category ? `（${s.category}）` : ''}\n${s.description || ''}\n${String(s.body || '').slice(0, 300)}`);
+          skillBlocks.push({
+            role: 'system',
+            content: `[相关技能参考 - 按当前问题自动检索注入，仅供参考]\n${lines.join('\n\n')}`,
+          });
+          res._hesiMetrics = res._hesiMetrics || { cacheReadTokens: 0, cacheCreationTokens: 0, toolCacheHits: 0, experienceHits: 0, skillsInjected: 0 };
+          res._hesiMetrics.skillsInjected += hits.length;
+          console.log(`[skills] injected ${hits.length}: ${hits.map(s => s.id).join(', ')}`);
+        }
+      } catch (skErr) {
+        // Skill injection is best-effort: never break chat.
+        console.warn('[skills] injection skipped (non-fatal):', skErr && skErr.message);
+      }
+    }
+
     // M1 (v0.3.1): 静态段(SELF_AWARE)在前、动态段(memoryBlocks)在后。
     // ① 让 OpenAI 自动前缀缓存命中（稳定前缀）；
     // ② 修复 anthropic 分支此前只取第一个 system(=动态记忆块)导致
@@ -428,6 +456,7 @@ When the user asks you to perform a "system self-check" / "全面自检" / "diag
     contextMessages = [
       { role: 'system', content: SELF_AWARE_PROMPT },
       ...memoryBlocks,
+      ...skillBlocks,
       ...contextMessages,
     ];
 
