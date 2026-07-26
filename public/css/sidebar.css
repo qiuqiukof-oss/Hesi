@@ -569,6 +569,10 @@
   transform: scale(0.98);
 }
 
+/* +Add CLI 按钮：与侧栏流光按钮统一 —— 默认不动，hover 才流光 */
+#add-cli-btn:hover{background:linear-gradient(110deg,#0ea5e9,#22d3ee,#6366f1,#22d3ee,#0ea5e9);background-size:200% 100%;animation:og-shimmer 3s linear infinite}
+@media (prefers-reduced-motion: reduce){#add-cli-btn:hover{animation:none}}
+
 .secondary-btn {
   background: var(--bg-overlay);
   color: var(--text-primary);

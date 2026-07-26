@@ -1094,14 +1094,14 @@ ${E.join(`
       width:calc(100% - 10px);margin:8px 0 4px 10px;padding:9px 12px;border:none;border-radius:8px;
       color:#fff;font-size:12px;font-weight:700;letter-spacing:.3px;cursor:pointer;
       background:linear-gradient(110deg,#10b981,#34d399,#0ea5e9,#34d399,#10b981);
-      background-size:200% 100%;animation:wsd-shimmer 3.5s linear infinite;
+      background-size:200% 100%;animation:none;
       box-shadow:0 2px 12px rgba(16,185,129,.3);transition:transform .15s ease,filter .15s ease}
-    .ws-dir-sidebar-btn:hover{transform:scale(1.02);filter:brightness(1.06)}
+    .ws-dir-sidebar-btn:hover{transform:scale(1.02);filter:brightness(1.06);animation:wsd-shimmer 3.5s linear infinite}
     .ws-dir-sidebar-btn:active{transform:scale(.98)}
     .ws-dir-sidebar-btn .wsd-ico{font-size:14px;line-height:1}
     .ws-dir-sidebar-btn .wsd-label{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:170px}
     @keyframes wsd-shimmer{0%{background-position:0% 0}100%{background-position:200% 0}}
-    @media (prefers-reduced-motion: reduce){.ws-dir-sidebar-btn{animation:none}}
+    @media (prefers-reduced-motion: reduce){.ws-dir-sidebar-btn,.ws-dir-sidebar-btn:hover{animation:none}}
     #ws-picker-modal{position:fixed;inset:0;z-index:100000;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.5)}
     .ws-picker{width:540px;max-width:92vw;background:var(--bg,#fff);color:var(--fg,#222);border:1px solid var(--border,#ddd);border-radius:10px;box-shadow:0 10px 40px rgba(0,0,0,.3);overflow:hidden;font-size:13px}
     .ws-picker-head{display:flex;align-items:center;gap:8px;padding:12px 14px;border-bottom:1px solid var(--border,#ddd);font-weight:700}
