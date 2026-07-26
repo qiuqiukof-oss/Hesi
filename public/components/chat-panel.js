@@ -184,11 +184,11 @@ class ChatPanel extends HTMLElement {
     this.fileInput = document.getElementById('chat-file-input');
     this.attachPreviewEl = document.getElementById('chat-attachments');
 
-    // ── 会话级 token 节省记账（M5 后续增强）──
-    // 每个 sessionId 独立累计 saved/used；百分比 = saved/(saved+used)。
+    // ── 会话级 token 节省记账（M5 后续增强 → 持久化到 session.turnMetrics，单一数据源）──
     this._roundUsed = 0;    // 本轮实际消耗 tokens（来自 onUsage 累加）
     this._roundSaved = 0;   // 本轮估算节省 tokens（来自 agent_metrics）
-    this._savingsCache = null; // 懒加载的 safeStorage 映射
+    this._roundMetrics = { cacheRead: 0, cacheWrite: 0, toolReuse: 0, exp: 0, skills: 0 }; // 本轮 agent_metrics 字段累计
+    this._sessionSavings = { saved: 0, used: 0 }; // 当前会话累计（从 turnMetrics 种子化 + 本轮累加）
 
     // M2b (v0.3.1): 回滚到上一轮检查点按钮
     if (this.clearBtn && this.clearBtn.parentElement) {
@@ -807,8 +807,17 @@ class ChatPanel extends HTMLElement {
         </div>`;
     }
     this.scrollToBottom();
-    // 切换会话时即时刷新节省百分比图标（对应单独会话）
-    this.updateSavingsIcon(id);
+    // 切换会话/刷新：从服务端 session.turnMetrics 重建节省累计（单一数据源）。
+    // 这样重启服务/刷新页面后，图标与收益条都能恢复，且回滚后经 _applySession 自动回退。
+    if (Q.MemorySession && Q.MemorySession.enabled && id) {
+      fetch('/api/memory/sessions/' + encodeURIComponent(id))
+        .then((r) => (r.ok ? r.json() : null))
+        .then((s) => { if (s) this._seedSavingsFromTurnMetrics(s.turnMetrics, id); })
+        .catch(() => {});
+    } else {
+      this._sessionSavings = { saved: 0, used: 0 };
+      this.updateSavingsIcon(id);
+    }
   }
 
   // M2b (v0.3.1): 回滚到上一轮检查点（撤销本轮，恢复本轮开始前的安全态）
@@ -1164,6 +1173,7 @@ class ChatPanel extends HTMLElement {
         // 重置本轮节省记账（M5 后续增强）
         this._roundUsed = 0;
         this._roundSaved = 0;
+        this._roundMetrics = { cacheRead: 0, cacheWrite: 0, toolReuse: 0, exp: 0, skills: 0 };
 
         api.sendMessage({
           messages: msgs,
@@ -1256,6 +1266,13 @@ class ChatPanel extends HTMLElement {
               + (m.toolCacheHits || 0) * 800
               + (m.experienceHits || 0) * 1500;
             this._roundSaved += saved;
+            // 累加本轮各分项，供 _buildTurnMetric 持久化完整收益
+            const rm = this._roundMetrics || (this._roundMetrics = {});
+            rm.cacheRead = (rm.cacheRead || 0) + (m.cacheReadTokens || 0);
+            rm.cacheWrite = (rm.cacheWrite || 0) + (m.cacheCreationTokens || 0);
+            rm.toolReuse = (rm.toolReuse || 0) + (m.toolCacheHits || 0);
+            rm.exp = (rm.exp || 0) + (m.experienceHits || 0);
+            rm.skills = (rm.skills || 0) + (m.skillsInjected || 0);
           },
           onToolLive: (evt) => {
             // Agent 实时事件：在思考指示器里展示进度，减少“卡住/断开”错觉
@@ -1403,10 +1420,9 @@ class ChatPanel extends HTMLElement {
               Q.MemorySession.append(sessionId, this.messages.slice(-50)).catch(() => {});
             }
 
-            // ── 会话级节省记账（M5 后续增强）：本轮结束累加到当前会话 ──
+            // ── 会话级节省记账（M5 后续增强）：持久化本轮收益 + 累加图标 ──
             if (sessionId) {
-              this._recordRoundSavings(sessionId, this._roundSaved, this._roundUsed);
-              this.updateSavingsIcon(sessionId);
+              this._recordTurnMetrics(sessionId);
             }
 
             // ── 语音输出：AI 回复后自动朗读 ──
@@ -1454,8 +1470,7 @@ class ChatPanel extends HTMLElement {
             if (this.input) this.input.focus();
             // 错误轮也累加已发生的消耗（若有），保证百分比不漏计
             if (sessionId) {
-              this._recordRoundSavings(sessionId, this._roundSaved, this._roundUsed);
-              this.updateSavingsIcon(sessionId);
+              this._recordTurnMetrics(sessionId);
             }
           },
         });
@@ -1756,36 +1771,58 @@ class ChatPanel extends HTMLElement {
   }
 
   // ── 会话级 token 节省百分比图标（M5 后续增强）──
-  _loadSavings() {
-    if (this._savingsCache) return this._savingsCache;
-    try { this._savingsCache = safeStorage.getJSON('hesi-chat-savings-v1') || {}; }
-    catch { this._savingsCache = {}; }
-    return this._savingsCache;
+  // ── 会话级节省记账（v0.3.1 后续：持久化到 session.turnMetrics，单一数据源）──
+
+  /** 从服务端 session.turnMetrics 求和，种子化当前会话的累计节省（刷新/切会话/回滚时调用） */
+  _seedSavingsFromTurnMetrics(turnMetrics, sessionId) {
+    let saved = 0, used = 0;
+    if (Array.isArray(turnMetrics)) {
+      for (const t of turnMetrics) {
+        saved += (t.saved != null ? t.saved : (t.estSaved || 0));
+        used += (t.used != null ? t.used : (t.actualUsed || 0));
+      }
+    }
+    this._sessionSavings = { saved, used };
+    if (sessionId) this.updateSavingsIcon(sessionId);
   }
-  _saveSavings(map) {
-    this._savingsCache = map;
-    try { safeStorage.setJSON('hesi-chat-savings-v1', map); } catch { /* ignore */ }
+
+  /** 构建本轮收益对象（与后端日志/收益条同口径） */
+  _buildTurnMetric() {
+    const rm = this._roundMetrics || {};
+    const estSaved = (rm.cacheRead || 0) + (rm.toolReuse || 0) * 800 + (rm.exp || 0) * 1500;
+    return {
+      ts: Date.now(),
+      cacheRead: rm.cacheRead || 0,
+      cacheWrite: rm.cacheWrite || 0,
+      toolReuse: rm.toolReuse || 0,
+      exp: rm.exp || 0,
+      skills: rm.skills || 0,
+      estSaved,
+      actualUsed: this._roundUsed,
+    };
   }
-  /** 累加某会话的本轮节省/实际消耗，并持久化 */
-  _recordRoundSavings(sessionId, saved, used) {
+
+  /** 本轮结束：持久化收益到服务端 + 累加内存累计并刷新图标（弃用 safeStorage，改为单一数据源） */
+  _recordTurnMetrics(sessionId) {
     if (!sessionId) return;
-    const map = this._loadSavings();
-    const cur = map[sessionId] || { saved: 0, used: 0, ts: 0 };
-    cur.saved += saved;
-    cur.used += used;
-    cur.ts = Date.now();
-    map[sessionId] = cur;
-    this._saveSavings(map);
+    const metric = this._buildTurnMetric();
+    // 累加进内存累计（轮内实时更新图标，refresh/回滚时由 _seedSavingsFromTurnMetrics 重建）
+    if (!this._sessionSavings) this._sessionSavings = { saved: 0, used: 0 };
+    this._sessionSavings.saved += metric.estSaved;
+    this._sessionSavings.used += metric.actualUsed;
+    this.updateSavingsIcon(sessionId);
+    // best-effort 持久化到服务端 session.turnMetrics
+    if (window.QCLI?.MemorySession?.recordTurnMetrics) {
+      window.QCLI.MemorySession.recordTurnMetrics(sessionId, metric).catch(() => {});
+    }
   }
-  _getSavings(sessionId) {
-    const map = this._loadSavings();
-    return map[sessionId] || { saved: 0, used: 0, ts: 0 };
-  }
+
   /** 刷新头部百分比圆环图标（对应单独会话，切换时即时更新） */
   updateSavingsIcon(sessionId) {
     const btn = this.savingsBtn;
     if (!btn) return;
-    const { saved, used } = this._getSavings(sessionId);
+    const s = this._sessionSavings || { saved: 0, used: 0 };
+    const saved = s.saved, used = s.used;
     const total = saved + used;
     const pct = total > 0 ? Math.round((saved / total) * 100) : 0;
     const pctEl = btn.querySelector('.savings-pct');

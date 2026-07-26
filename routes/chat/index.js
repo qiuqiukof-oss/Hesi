@@ -555,6 +555,17 @@ When the user asks you to perform a "system self-check" / "全面自检" / "diag
       MemoryStore.compactIfNeeded(sessionId, { apiKey, provider: clientProvider, model }).catch(() => {});
       MemoryStore.extractFacts(sessionId, { apiKey, provider: clientProvider, model }).catch(() => {});
     }
+
+    // ── M5 后续增强：服务端汇总日志（切模型/跨会话对比用，零存储耦合）──
+    if (sessionId && res._hesiMetrics) {
+      const m = res._hesiMetrics;
+      const estSaved = (m.cacheReadTokens || 0) + (m.toolCacheHits || 0) * 800 + (m.experienceHits || 0) * 1500;
+      try {
+        console.log('[chat-benefits] session=%s cacheRead=%d cacheWrite=%d toolReuse=%d exp=%d skills=%d estSaved=%d actualUsed=%d',
+          sessionId, m.cacheReadTokens || 0, m.cacheCreationTokens || 0, m.toolCacheHits || 0,
+          m.experienceHits || 0, m.skillsInjected || 0, estSaved, m.actualUsed || 0);
+      } catch {}
+    }
   });
 
   // ──────────────────────────────────────────────

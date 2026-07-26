@@ -401,12 +401,16 @@ async function parseStreamAndCollectTools(response, res, sink = null) {
           res.write(`data: ${JSON.stringify({ type: 'usage', usage: u })}\n\n`);
           // M1③ (v0.3.1): 累加缓存命中/创建 token 到 request-scoped metrics（M5 统一广播）。
           if (u) {
-            res._hesiMetrics = res._hesiMetrics || { cacheReadTokens: 0, cacheCreationTokens: 0, toolCacheHits: 0, experienceHits: 0, skillsInjected: 0 };
+            res._hesiMetrics = res._hesiMetrics || { cacheReadTokens: 0, cacheCreationTokens: 0, toolCacheHits: 0, experienceHits: 0, skillsInjected: 0, actualUsed: 0 };
             // OpenAI 仅在 prompt_tokens_details.cached_tokens 返回「读取命中」量；
             // 其 API 不暴露「缓存写入」量，故 cacheCreationTokens 在 OpenAI 下恒为 0（provider 限制）。
             if (u.prompt_tokens_details && u.prompt_tokens_details.cached_tokens) {
               res._hesiMetrics.cacheReadTokens += u.prompt_tokens_details.cached_tokens;
             }
+            // 实际消耗累计（OpenAI usage: prompt_tokens + completion_tokens），用于服务端汇总日志 actualUsed。
+            const _p = u.prompt_tokens ?? 0;
+            const _c = u.completion_tokens ?? 0;
+            if (_p || _c) res._hesiMetrics.actualUsed += _p + _c;
           }
       } catch {}
     }

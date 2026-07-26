@@ -273,6 +273,18 @@ const MemorySession = {
     } catch (e) { /* best-effort persistence */ }
   },
 
+  // M5 后续增强：追加一轮回合收益到 session.turnMetrics（持久化收益条/图标，单一数据源）。
+  async recordTurnMetrics(id, metrics) {
+    if (!id || !metrics || typeof metrics !== 'object') return;
+    try {
+      await fetch('/api/memory/sessions/' + encodeURIComponent(id) + '/turn-metrics', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ metrics }),
+      });
+    } catch (e) { /* best-effort persistence */ }
+  },
+
   // ── rename / remove ──
   async rename(id, title) {
     const r = await fetch('/api/memory/sessions/' + encodeURIComponent(id), {

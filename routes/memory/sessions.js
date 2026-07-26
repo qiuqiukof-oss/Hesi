@@ -104,4 +104,19 @@ router.post('/:id/rollback', (req, res) => {
   }
 });
 
+// ── M5 后续增强：追加一轮回合收益到 session.turnMetrics ──
+router.post('/:id/turn-metrics', (req, res) => {
+  const { metrics } = req.body || {};
+  if (!metrics || typeof metrics !== 'object') {
+    return res.status(400).json({ error: '"metrics" object is required' });
+  }
+  try {
+    const ok = MemoryStore.appendTurnMetrics(req.params.id, metrics);
+    if (!ok) return res.status(404).json({ error: 'session not found' });
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 module.exports = router;
