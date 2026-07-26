@@ -21,6 +21,19 @@ const toolRegistry = new ToolRegistry();
 const toolCache = new LRUCache(50, 5 * 60 * 1000);
 // M2a (v0.3.1): 只读工具结果缓存（降耗）。独立实例，避免与 web_search 的 toolCache 互相干扰。
 const toolResultCache = new LRUCache(200, 10 * 60 * 1000);
+
+// v0.3.1 A2：exec 长输出头 30% 尾 70% 截断（错误/结果多在尾部）
+const EXEC_OUTPUT_MAX = parseInt(process.env.HESI_EXEC_OUTPUT_MAX, 10) || 12000;
+function truncateExecOutput(text) {
+  if (typeof text !== 'string' || text.length <= EXEC_OUTPUT_MAX) return text;
+  const headLen = Math.floor(EXEC_OUTPUT_MAX * 0.3);
+  const tailLen = EXEC_OUTPUT_MAX - headLen;
+  const head = text.slice(0, headLen);
+  const tail = text.slice(-tailLen);
+  const omitted = text.length - EXEC_OUTPUT_MAX;
+  return `${head}\n\n... [中间省略 ${omitted} 字符] ...\n\n${tail}`;
+}
+
 // 仅缓存纯只读、无副作用的 registry 工具；写/副作用工具一律不缓存，且执行后清空本缓存。
 const CACHEABLE_TOOLS = new Set([
   'read_file', 'web_fetch', 'get_self_info', 'list_clis',
@@ -170,11 +183,14 @@ async function executeToolCall(name, args, broadcastFn, requestId, metrics) {
     try {
       let result = await toolRegistry.execute(name, args, broadcastFn, requestId);
       // 放宽截断阈值：原 2000 字符过小，read_file / exec_terminal 等输出动辄被截断，
-      // 造成 AI 拿到残缺结果（也是一种“限制”）。20000 字符内原样返回，超出再走 token 感知截断。
+      // 造成 AI 拿到残缺结果（也是一种"限制"）。20000 字符内原样返回，超出再走 token 感知截断。
       if (!SKIP_TRUNCATE_NAMES.has(name) && typeof result === 'string' && result.length > 20000) {
         if (name === 'read_file' && sideload.shouldSideload(result)) {
           // v0.3.1 A1：大文件侧载（头部+结构摘要+分段读提示），代替截断丢信息
           result = sideload.sideloadFileResult(result, args && args.path);
+        } else if (name === 'exec_terminal') {
+          // v0.3.1 A2：exec 长输出单独阈值，头 30% + 尾 70% 截断（错误多在尾部）
+          result = truncateExecOutput(result);
         } else {
           result = toolTruncator.truncate(result);
         }
