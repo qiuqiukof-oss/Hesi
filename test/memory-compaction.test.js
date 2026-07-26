@@ -74,6 +74,66 @@ test('compaction: degrades to keep-raw when LLM unavailable', async () => {
   assert.strictEqual(s.summary, '', 'no summary written on degrade');
 });
 
+// v0.3.1 A3：切点落在工具轮中间时自动顺延到下一条 user 边界
+test('compaction A3: cut point defers to next user boundary (no orphan tool msg)', async () => {
+  llm.setLLMCaller(async () => '【摘要】边界守卫测试摘要。');
+  try {
+    const id = 's_a3_' + Date.now().toString(36);
+    MemoryStore.ensure(id, { title: '工具轮跨切点' });
+    // 40 条（窗口 24 → 原始切点=16）。构造 15-19 为一个工具轮：
+    // 15=assistant(发起工具), 16..18=tool 结果, 19=assistant(总结), 20=user。
+    const ms = [];
+    for (let i = 0; i < 40; i++) {
+      let role;
+      if (i === 15 || i === 19) role = 'assistant';
+      else if (i >= 16 && i <= 18) role = 'tool';
+      else if (i === 20) role = 'user';
+      else role = i % 2 === 0 ? 'user' : 'assistant';
+      ms.push({ id: 'm_' + i, role, content: '内容 ' + i + ' '.repeat(40), ts: 1700000000000 + i });
+    }
+    await MemoryStore.append(id, ms);
+
+    const result = await compaction.compactIfNeeded(id, {});
+    assert.strictEqual(result.compacted, true, 'should compact');
+    assert.strictEqual(result.dropped, 20, 'cut deferred from 16 to 20 (user boundary)');
+
+    const after = MemoryStore.get(id);
+    assert.strictEqual(after.messages.length, 20, '40 - 20 dropped = 20 retained');
+    assert.strictEqual(after.messages[0].role, 'user', 'retained segment starts at user');
+    assert.strictEqual(after.messages[0].id, 'm_20', 'first retained is the boundary user msg');
+  } finally {
+    llm.setLLMCaller(null);
+  }
+});
+
+// v0.3.1 A3：保留段内完全无 user 边界（极端全工具轮）→ 跳过本次压缩
+test('compaction A3: skips when no user boundary after cut point', async () => {
+  let calls = 0;
+  llm.setLLMCaller(async () => { calls++; return '不该被调用'; });
+  try {
+    const id = 's_a3skip_' + Date.now().toString(36);
+    MemoryStore.ensure(id, { title: '全工具轮' });
+    // 前 16 条正常对话；16 以后全是 assistant/tool，无 user 边界。
+    const ms = [];
+    for (let i = 0; i < 40; i++) {
+      let role;
+      if (i < 16) role = i % 2 === 0 ? 'user' : 'assistant';
+      else role = i % 2 === 0 ? 'tool' : 'assistant';
+      ms.push({ id: 'm_' + i, role, content: '内容 ' + i + ' '.repeat(40), ts: 1700000000000 + i });
+    }
+    await MemoryStore.append(id, ms);
+
+    const result = await compaction.compactIfNeeded(id, {});
+    assert.strictEqual(result.skipped, true, 'should skip');
+    assert.strictEqual(result.reason, 'no-user-boundary', 'reports no-user-boundary');
+    assert.strictEqual(calls, 0, 'LLM not called');
+    const s = MemoryStore.get(id);
+    assert.strictEqual(s.messages.length, 40, 'messages untouched');
+  } finally {
+    llm.setLLMCaller(null);
+  }
+});
+
 test('compaction: no-op when session is within working window', async () => {
   llm.setLLMCaller(null);
   const id = 's_small_' + Date.now().toString(36);
