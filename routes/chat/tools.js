@@ -7,6 +7,7 @@
 // limiting for AI tool call chains.
 // ============================================================
 
+const crypto = require('crypto');
 const { ToolRegistry, LRUCache, ToolResultTruncator, TokenBucketMap, classifyError } = require('../ai-tools');
 const { registerAll } = require('../ai-tools/builtin');
 const { mcpToolDefinitions, callMCPTool } = require('../../mcp/bridge');
@@ -14,6 +15,12 @@ const { mcpToolDefinitions, callMCPTool } = require('../../mcp/bridge');
 // ── Registry & infrastructure ──
 const toolRegistry = new ToolRegistry();
 const toolCache = new LRUCache(50, 5 * 60 * 1000);
+// M2a (v0.3.1): 只读工具结果缓存（降耗）。独立实例，避免与 web_search 的 toolCache 互相干扰。
+const toolResultCache = new LRUCache(200, 10 * 60 * 1000);
+// 仅缓存纯只读、无副作用的 registry 工具；写/副作用工具一律不缓存，且执行后清空本缓存。
+const CACHEABLE_TOOLS = new Set([
+  'read_file', 'web_fetch', 'get_self_info', 'list_clis',
+]);
 const toolTruncator = new ToolResultTruncator(4000);
 // 限流：仅作为防止工具调用失控死循环的安全阀，阈值放宽到正常长任务绝不会触碰的水平。
 // 单轮初始 300 次额度（每轮 reset），每 30s 补充 100 次；exec_terminal 消耗 1、web_search 消耗 2。
@@ -85,12 +92,27 @@ async function executeToolCall(name, args, broadcastFn, requestId) {
 
   emitToolEvent('tool_call_start');
 
+  // M2a (v0.3.1): 只读工具结果缓存检查。命中直接返回（跳过 registry/MCP 执行），降重算。
+  const _isReadOnly = CACHEABLE_TOOLS.has(name);
+  let _cacheKey = null;
+  if (process.env.HESI_TOOL_CACHE !== '0' && _isReadOnly) {
+    _cacheKey = `${name}:${crypto.createHash('sha1').update(JSON.stringify(args)).digest('hex')}`;
+    const cached = toolResultCache.get(_cacheKey);
+    if (cached !== null && cached !== undefined) {
+      console.log('[tool-cache] HIT', name, _cacheKey.slice(0, 16));
+      emitToolEvent('tool_cache_hit');
+      emitToolEvent('tool_call_end', { durMs: Date.now() - _tcStart, cached: true });
+      return cached;
+    }
+  }
+
   // ── MCP Bridge Tools ──
   if (MCP_TOOL_NAMES.has(name)) {
     const mcpStart = Date.now();
     try {
       const mcpResult = await callMCPTool(name, args);
       emitToolEvent('tool_call_end', { durMs: Date.now() - mcpStart });
+      toolResultCache.clear(); // M2a: 副作用工具执行后清空只读缓存，保证后续只读读到最新
       return mcpResult;
     } catch (err) {
       emitToolEvent('tool_call_error', { error: err.message });
@@ -107,6 +129,9 @@ async function executeToolCall(name, args, broadcastFn, requestId) {
       if (!SKIP_TRUNCATE_NAMES.has(name) && typeof result === 'string' && result.length > 20000) {
         result = toolTruncator.truncate(result);
       }
+      // M2a (v0.3.1): 只读工具结果写入缓存；写/副作用工具执行后清空，保证后续只读读到最新。
+      if (_isReadOnly && _cacheKey) toolResultCache.set(_cacheKey, result);
+      else toolResultCache.clear();
       emitToolEvent('tool_call_end', { durMs: Date.now() - _tcStart });
       return result;
     } catch (err) {
