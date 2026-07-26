@@ -71,10 +71,19 @@ async function parseAnthropicStream(response, res, sink = null) {
     if (sinkOnToken) { sinkOnToken(c); return; }
     if (res) { try { res.write(`data: ${JSON.stringify({ type: 'token', content: c })}\n\n`); } catch {} }
   };
-  const writeUsage = (u) => {
-    if (sinkOnUsage) { sinkOnUsage(u); return; }
-    if (res) { try { res.write(`data: ${JSON.stringify({ type: 'usage', usage: u })}\n\n`); } catch {} }
-  };
+    const writeUsage = (u) => {
+      if (sinkOnUsage) { sinkOnUsage(u); return; }
+      if (res) {
+        try {
+          res.write(`data: ${JSON.stringify({ type: 'usage', usage: u })}\n\n`);
+          // M1③ (v0.3.1): 累加缓存命中 token 到 request-scoped metrics（M5 统一广播）。
+          if (u && u.cache_read_input_tokens) {
+            res._hesiMetrics = res._hesiMetrics || { cacheReadTokens: 0, cacheCreationTokens: 0, toolCacheHits: 0, experienceHits: 0, skillsInjected: 0 };
+            res._hesiMetrics.cacheReadTokens += u.cache_read_input_tokens;
+          }
+        } catch {}
+      }
+    };
   const writeDone = () => {
     if (sinkOnDone) { sinkOnDone(); return; }
     if (res) { try { res.write('data: [DONE]\n\n'); res.end(); } catch {} }
@@ -302,6 +311,10 @@ async function streamAnthropicWithTools(res, messages, apiKey, model, baseUrl, t
     description: t.function.description,
     input_schema: t.function.parameters || { type: 'object', properties: {} },
   })) : undefined;
+  // M1② (v0.3.1): 工具表整体打 cache_control，缓存工具定义前缀（降重发 token）。
+  if (anthropicTools && process.env.HESI_PROMPT_CACHE !== '0') {
+    anthropicTools[anthropicTools.length - 1].cache_control = { type: 'ephemeral' };
+  }
 
   let currentMessages = [...messages];
   let toolCallCount = 0;
@@ -351,11 +364,11 @@ async function streamAnthropicWithTools(res, messages, apiKey, model, baseUrl, t
   // 内部对「中途断流」按 STREAM_MAX_RETRIES 重试（相同 messages 重发）。
   // 返回 parseAnthropicStream 的结果（truncated 标记交由外层决定重试或断点续传）。
   let rateLimited = false; // 命中 429 限流后置位，阻止后续重试/续传挥霍额度
-  async function doModelCall(conversation, systemText) {
+  async function doModelCall(conversation, systemBlocks) {
     const body = {
       model: modelName,
       messages: conversation,
-      system: systemText || undefined,
+      system: systemBlocks && systemBlocks.length ? systemBlocks : undefined,
       max_tokens: 32768,
       stream: true,
     };
@@ -426,12 +439,18 @@ async function streamAnthropicWithTools(res, messages, apiKey, model, baseUrl, t
       return;
     }
 
-    const systemMsg = currentMessages.find(m => m.role === 'system');
+    const systemMsgs = currentMessages.filter(m => m.role === 'system');
     const conversation = buildAnthropicConversation(currentMessages);
-    const systemText = systemMsg?.content || undefined;
+    // M1② (v0.3.1): 收集所有 system 块；静态段(第一个=SELF_AWARE)打 cache_control 以命中前缀缓存。
+    const promptCacheOn = process.env.HESI_PROMPT_CACHE !== '0';
+    const systemBlocks = systemMsgs.map((m, i) => {
+      const block = { type: 'text', text: m.content };
+      if (i === 0 && promptCacheOn) block.cache_control = { type: 'ephemeral' };
+      return block;
+    });
 
     // ── 本轮：fetch + 流式解析（内部对中途断流按 STREAM_MAX_RETRIES 重试）──
-    let parseResult = await doModelCall(conversation, systemText);
+    let parseResult = await doModelCall(conversation, systemBlocks);
 
     if (_aborted) {
       console.log('[chat] client disconnected (stop), aborting stream');
