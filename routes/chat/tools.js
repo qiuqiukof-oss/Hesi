@@ -24,6 +24,43 @@ const toolResultCache = new LRUCache(200, 10 * 60 * 1000);
 const CACHEABLE_TOOLS = new Set([
   'read_file', 'web_fetch', 'get_self_info', 'list_clis',
 ]);
+
+// M2a (v0.3.1) 缓存键修复：原始实现用 sha1(JSON.stringify(args))，对可选参数
+// (如 read_file 的 encoding 默认 utf8) 与路径写法(./pkg vs pkg) 过于敏感，
+// 导致「同一文件两次读取」因 args 形态细微差异而 miss。改为语义化稳定键：
+// 路径归一化(去 ./、解析 ..、小写)、忽略 encoding 默认值、web_fetch 归一化 URL。
+function _normPath(p) {
+  if (!p) return '';
+  const out = [];
+  for (const s of String(p).replace(/\\/g, '/').split('/')) {
+    if (s === '' || s === '.') continue;
+    if (s === '..') { if (out.length) out.pop(); continue; }
+    out.push(s);
+  }
+  return out.join('/').toLowerCase();
+}
+function cacheKeyOf(name, args) {
+  switch (name) {
+    case 'read_file': {
+      const enc = (args && (args.encoding || 'utf8')) || 'utf8';
+      return 'read_file:' + _normPath(args && args.path) + (enc !== 'utf8' ? ':' + enc : '');
+    }
+    case 'web_fetch': {
+      const url = (args && args.url) || '';
+      try {
+        const u = new URL(url);
+        u.hash = '';
+        u.searchParams.sort();
+        return 'web_fetch:' + u.toString().toLowerCase();
+      } catch { return 'web_fetch:' + url.toLowerCase(); }
+    }
+    case 'get_self_info':
+    case 'list_clis':
+      return name + ':';
+    default:
+      return name + ':' + crypto.createHash('sha1').update(JSON.stringify(args)).digest('hex');
+  }
+}
 const toolTruncator = new ToolResultTruncator(4000);
 // 限流：仅作为防止工具调用失控死循环的安全阀，阈值放宽到正常长任务绝不会触碰的水平。
 // 单轮初始 300 次额度（每轮 reset），每 30s 补充 100 次；exec_terminal 消耗 1、web_search 消耗 2。
@@ -99,7 +136,7 @@ async function executeToolCall(name, args, broadcastFn, requestId, metrics) {
   const _isReadOnly = CACHEABLE_TOOLS.has(name);
   let _cacheKey = null;
   if (process.env.HESI_TOOL_CACHE !== '0' && _isReadOnly) {
-    _cacheKey = `${name}:${crypto.createHash('sha1').update(JSON.stringify(args)).digest('hex')}`;
+    _cacheKey = cacheKeyOf(name, args);
     const cached = toolResultCache.get(_cacheKey);
     if (cached !== null && cached !== undefined) {
       console.log('[tool-cache] HIT', name, _cacheKey.slice(0, 16));
