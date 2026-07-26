@@ -4,10 +4,10 @@
 // These are stateless helpers that AI agents can invoke.
 // ============================================================
 const express = require('express');
-const { exec } = require('child_process');
+const { exec, execFile } = require('child_process');
 const fs = require('fs');
 const path = require('path');
-const { checkCommand } = require('../mcp/security/policy');
+const { evaluateAiExec } = require('../mcp/security/policy');
 const { getWorkspace } = require('../lib/workspace');
 
 // ── Config ──
@@ -24,7 +24,7 @@ const EXEC_TIMEOUT = 120000; // 120s default timeout
  * Returns { allowed: boolean, reason: string }.
  */
 function isSafeCommand(command) {
-  return checkCommand(command, { profile: 'aiExec' });
+  return evaluateAiExec(command);
 }
 
 /**
@@ -88,23 +88,44 @@ function createRouter() {
 
     try {
       const result = await new Promise((resolve, reject) => {
-        const child = exec(
-          command,
-          {
-            cwd: cwd ? safeResolve(cwd) : getWorkspace(),
-            timeout: Math.min(timeout || EXEC_TIMEOUT, 300000),
-            maxBuffer: MAX_OUTPUT_SIZE,
-            windowsHide: true,
-          },
-          (error, stdout, stderr) => {
-            resolve({
-              stdout: stdout || '',
-              stderr: stderr || '',
-              exitCode: error ? (error.code || error.status || 1) : 0,
-              error: error ? error.message : null,
-            });
-          }
-        );
+        const child = safety.mode === 'strict'
+          ? execFile(
+              safety.base,
+              safety.args,
+              {
+                cwd: cwd ? safeResolve(cwd) : getWorkspace(),
+                timeout: Math.min(timeout || EXEC_TIMEOUT, 300000),
+                maxBuffer: MAX_OUTPUT_SIZE,
+                windowsHide: true,
+              },
+              (error, stdout, stderr) => {
+                resolve({
+                  stdout: stdout || '',
+                  stderr: stderr || '',
+                  exitCode: error ? (error.code || error.status || 1) : 0,
+                  error: error ? error.message : null,
+                });
+              }
+            )
+          : exec(
+              command,
+              {
+                cwd: cwd ? safeResolve(cwd) : getWorkspace(),
+                timeout: Math.min(timeout || EXEC_TIMEOUT, 300000),
+                maxBuffer: MAX_OUTPUT_SIZE,
+                windowsHide: true,
+              },
+              (error, stdout, stderr) => {
+                resolve({
+                  stdout: stdout || '',
+                  stderr: stderr || '',
+                  exitCode: error ? (error.code || error.status || 1) : 0,
+                  error: error ? error.message : null,
+                });
+              }
+            );
+        // Surface process errors (e.g. ENOENT in strict mode) as a 500.
+        child.on('error', (err) => reject(err));
       });
 
       const duration = Date.now() - startTime;

@@ -75,42 +75,110 @@ function matchesEntry(entry, command) {
   return cmdName === entry || command === entry || command.startsWith(entry + ' ');
 }
 
-// ── AI-exec command blocklist (stricter than the terminal profile) ──
+// ── AI-exec command policy (stricter, agent-facing) ──
 // Used by routes/tools.js and the AI terminal tool, where a (potentially
-// autonomous) agent runs commands. These are destructive / reconnaissance /
-// abuse patterns an AI should never be allowed to invoke, independent of the
-// operator-customizable terminal policy. Entries use the same token and
-// `/regex/` (with `(^|\s)` anchoring) forms as the terminal policy so the
-// matching algorithm is shared via matchesEntry(). NOTE: regex entries must
-// NOT include a trailing flag — matchesEntry() applies the 'i' flag itself
-// and only recognizes `/.../` (not `/.../i`) as a regex.
-const AI_EXEC_BLOCKLIST = [
-  // File deletion / move / rename (any flags)
-  '/(^|\\s)(rm\\s+-|rmdir\\s+|rd\\s+|del\\s+\\/|deltree\\s+)/',
-  '/(^|\\s)(mv\\s+-[a-z]|ren\\s|rename\\s)/',
-  'rm', 'rmdir', 'mv', 'del', 'rd', 'ren', 'rename',
-  // Disk / partition
-  '/(^|\\s)(format|diskpart|fdisk)\\b/',
-  '/(^|\\s)cipher\\s+\\/w/',
-  // Power / init
-  '/(^|\\s)(shutdown|reboot|halt|poweroff|init\\s+(0|6))\\b/',
-  // Windows privilege / registry / ownership
-  '/(^|\\s)taskkill\\s+\\/f/',
-  '/(^|\\s)reg\\s+(delete|add|import)\\s/',
-  '/(^|\\s)(takeown|icacls|cacls|attrib)\\s/',
-  // Unix destructive
-  '/(^|\\s)dd\\s+if=/',
-  '/(^|\\s)mkfs\\./',
-  '/(^|\\s)chmod\\s+777/',
-  '/(^|\\s)chown\\s/',
-  '/(^|\\s)kill\\s+-9\\s/',
-  '/(^|\\s)pkill\\s+-9/',
-  // Network reconnaissance
+// autonomous) agent runs commands. Threat model: prompt injection via tool
+// output (web_fetch, an untrusted file read, etc.) could trick the agent into
+// running hostile commands.
+//
+// The ALLOWLIST is the PRIMARY gate: any base command not on the list is
+// rejected. This closes the "arbitrary binary execution" hole — including
+// classic indirection like `sh -c "..."`, `bash -c "..."`, `node -e "..."`,
+// `python -c "..."`, since `sh`/`bash`/`node`(with -e)/`python`(with -c) are
+// either absent from the list or matched by the destructive DENY below.
+//
+// Shell features (pipes `|`, `&&`, redirection, `$()`) are PRESERVED by default
+// so the agent can do real coding work (e.g. `npm run build && npm test`,
+// `git log --since="$(date)"`). A SECONDARY destructive-pattern DENY-list
+// catches the worst ops even for allowed bases, and also blocks destructive
+// leaves hidden inside `$(...)` / backtick substitution.
+//
+// Set HESI_AI_EXEC_STRICT=1 for MAXIMUM lockdown: no shell, metachar ban,
+// execFile-only (breaks pipe/chain workflows — only for high-trust-reduction
+// scenarios). Extend the allowlist at runtime via HESI_AI_EXEC_ALLOW (csv).
+//
+// NOTE: regex entries below must NOT include a trailing flag — matchesEntry()
+// applies the 'i' flag itself and only recognizes `/.../` as a regex.
+const AI_EXEC_ALLOWLIST = new Set([
+  // shells-as-base are intentionally ABSENT (sh/bash/cmd/powershell base => blocked)
+  'ls', 'dir', 'cat', 'type', 'echo', 'pwd', 'cd', 'cls', 'clear', 'head', 'tail', 'wc', 'nl',
+  'sort', 'uniq', 'cut', 'tr', 'tee', 'grep', 'egrep', 'fgrep', 'sed', 'awk', 'jq',
+  'node', 'node.exe', 'python', 'python3', 'pip', 'pip3', 'npm', 'npx', 'yarn', 'pnpm',
+  'bun', 'deno', 'git', 'cargo', 'go', 'rustc', 'make', 'cmake', 'gcc', 'g++', 'clang',
+  'clang++', 'ruby', 'perl', 'php', 'java', 'javac', 'tsc', 'eslint', 'prettier', 'biome',
+  'curl', 'wget', 'find', 'xargs', 'diff', 'patch', 'tar', 'unzip', 'zip', 'gzip', 'gunzip',
+  'brotli', 'docker', 'kubectl', 'ps', 'pgrep', 'top', 'htop', 'netstat', 'ss', 'ping',
+  'env', 'printenv', 'which', 'where', 'command', 'stat', 'file', 'read', 'test', 'tree',
+  'less', 'more', 'mkdir', 'touch', 'cp', 'mv', 'rmdir', 'chmod', 'date', 'whoami', 'id',
+  'uname', 'df', 'du', 'free', 'iconv', 'xxd', 'base64', 'openssl', 'sqlite3', 'psql',
+  'mysql', 'redis-cli', 'gh', 'dotnet', 'swift', 'ktlint', 'goimports',
+]);
+
+/** Operator extension: comma-separated extra allowed base commands. */
+function aiExecAllowExtra() {
+  const raw = process.env.HESI_AI_EXEC_ALLOW;
+  if (!raw) return [];
+  return raw.split(',').map((s) => s.trim().toLowerCase()).filter(Boolean);
+}
+
+// Secondary destructive deny — applies even to allowed bases.
+const AI_EXEC_DENY = [
+  // code-exec indirection (base 'node'/'python' allowed, but -e/-c must be blocked)
+  '/(^|\\s)(node|node\\.exe)\\s+(-e|--eval|\\/e\\s)/',
+  '/(^|\\s)(python|python3)\\s+(-c|--command)\\b/',
+  '/(^|\\s)(perl|ruby)\\s+-e\\b/',
+  '/(^|\\s)(sh|bash|cmd|powershell|pwsh)\\s+(-c|-Command|-enc|-e)\\b/',
+  // destructive ops (base names also omitted from allowlist — double covered)
+  '/(^|\\s)(rm|del|deltree|rd\\s)\\b/',
+  '/(^|\\s)(dd\\s+if=|mkfs\\.|shutdown|reboot|halt|poweroff|init\\s+(0|6))\\b/',
+  '/(^|\\s)(format|diskpart|fdisk|cipher\\s+\\/w)\\b/',
+  '/(^|\\s)(chmod\\s+777|chown\\s|chmod\\s+-R\\s+0+|chown\\s+-R\\s+0+)\\b/',
+  '/(^|\\s)(kill\\s+-9|pkill\\s+-9|taskkill\\s+\\/f)\\b/',
   '/(^|\\s)(nmap|masscan|zmap)\\s/',
-  // Cryptominer / suspicious downloads
-  '/(^|\\s)wget\\s+.*(?:miner|coin|crypt)/',
-  '/(^|\\s)curl\\s+.*(?:miner|coin|crypt)/',
+  '/(^|\\s)(curl|wget)[^|]*\\|\\s*(ba)?sh\\b/',
+  '/(^|\\s)(curl|wget)\\s+.*(?:miner|coin|crypt)\\b/',
+  '/:\\(\\)\\s*\\{.*\\};/',
+  '/(^|\\s)(sudo|su\\s)\\b/',
+  '/(^|\\s)(reg\\s+(delete|add|import))\\s/',
+  '/(^|\\s)(takeown|icacls|cacls|attrib)\\s/',
+  // command substitution / backticks carrying a destructive leaf
+  '/\\$\\([^)]*(rm|dd|mkfs|shutdown|reboot|del|deltree)\\b/',
+  '/`[^`]*\\b(rm|dd|mkfs|shutdown|reboot|del|deltree)\\b[^`]*`/',
 ];
+
+/** Extract the base command name (basename if given as an absolute path). */
+function aiExecBaseOf(command) {
+  const first = (command || '').trim().split(/\s+/)[0] || '';
+  return first.split(/[\\/]/).pop().toLowerCase();
+}
+
+/**
+ * Evaluate a command for the AI-exec (autonomous agent) profile.
+ * @returns {{ allowed: boolean, reason?: string, mode?: 'shell'|'strict', base?: string, args?: string[] }}
+ */
+function evaluateAiExec(command) {
+  const trimmed = (command || '').trim();
+  if (!trimmed) return { allowed: false, reason: 'Empty command' };
+  const base = aiExecBaseOf(trimmed);
+  const strict = process.env.HESI_AI_EXEC_STRICT === '1';
+  const allow = new Set([...AI_EXEC_ALLOWLIST, ...aiExecAllowExtra()]);
+  if (!allow.has(base)) {
+    return { allowed: false, reason: `Command '${base}' is not permitted for AI execution (not in allowlist)` };
+  }
+  const denied = AI_EXEC_DENY.some((pat) => matchesEntry(pat, trimmed));
+  if (denied) {
+    return { allowed: false, reason: `Command '${base}' is blocked by AI-exec security policy` };
+  }
+  if (strict) {
+    // no-shell: reject any shell metachar, then run via execFile (array args)
+    if (/[;&|`$()<>#\n\r]/.test(trimmed)) {
+      return { allowed: false, reason: 'Shell metacharacters are not allowed in strict AI-exec mode' };
+    }
+    const args = trimmed.split(/\s+/).slice(1);
+    return { allowed: true, mode: 'strict', base, args };
+  }
+  return { allowed: true, mode: 'shell', base, args: [] };
+}
 
 let _policy = null;
 
@@ -163,20 +231,14 @@ function checkCommand(command, options = {}) {
     return { allowed: true };
   }
 
-  // ── AI-exec profile: stricter, self-contained blocklist ──
-  // Autonomous agents must never run destructive ops, regardless of the
-  // terminal policy an operator configures.
+  // ── AI-exec profile: stricter, allowlist-based gate ──
+  // Autonomous agents run through an allowlist of base commands + a destructive
+  // deny-list (see evaluateAiExec). This closes the arbitrary-binary-execution
+  // hole that a pure blocklist (incl. `sh -c`, `node -e`, `python -c`) could
+  // bypass, while preserving shell features so the agent can code.
   if (options && options.profile === "aiExec") {
-    const trimmed = (command || "").trim();
-    if (!trimmed) {
-      return { allowed: false, reason: "Empty command" };
-    }
-    const blocked = AI_EXEC_BLOCKLIST.some((b) => matchesEntry(b, trimmed));
-    if (blocked) {
-      const cmdName = trimmed.split(/\s+/)[0];
-      return { allowed: false, reason: `Command '${cmdName}' is blocked by AI-exec security policy` };
-    }
-    return { allowed: true };
+    const r = evaluateAiExec(command);
+    return { allowed: r.allowed, reason: r.reason };
   }
 
   const cmdName = command.trim().split(/\s+/)[0];
@@ -237,4 +299,4 @@ function reloadPolicy() {
 // Initialize on load
 loadPolicy();
 
-module.exports = { checkCommand, checkFilePath, loadPolicy, reloadPolicy, matchesEntry };
+module.exports = { checkCommand, checkFilePath, loadPolicy, reloadPolicy, matchesEntry, evaluateAiExec };
