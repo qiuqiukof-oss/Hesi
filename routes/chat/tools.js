@@ -10,6 +10,9 @@
 const crypto = require('crypto');
 const { ToolRegistry, LRUCache, ToolResultTruncator, TokenBucketMap, classifyError } = require('../ai-tools');
 const { registerAll } = require('../ai-tools/builtin');
+const experience = require('../../lib/experience/store');
+// M3 (v0.3.1): 跨 executeToolCall 实例的「本请求内工具曾失败」标记（requestId 维度）
+const requestFailures = new Map();
 const { mcpToolDefinitions, callMCPTool } = require('../../mcp/bridge');
 
 // ── Registry & infrastructure ──
@@ -132,12 +135,40 @@ async function executeToolCall(name, args, broadcastFn, requestId) {
       // M2a (v0.3.1): 只读工具结果写入缓存；写/副作用工具执行后清空，保证后续只读读到最新。
       if (_isReadOnly && _cacheKey) toolResultCache.set(_cacheKey, result);
       else toolResultCache.clear();
+      // M3 (v0.3.1): 若本请求内该工具曾失败，记录修复（Reflexion-lite）
+      if (process.env.HESI_EXPERIENCE !== '0' && requestId) {
+        const s = requestFailures.get(requestId);
+        if (s && s.has(name)) {
+          try { experience.recordFix(name, '', '本轮重试成功'); } catch {}
+          s.delete(name);
+          if (s.size === 0) requestFailures.delete(requestId);
+        }
+      }
       emitToolEvent('tool_call_end', { durMs: Date.now() - _tcStart });
       return result;
     } catch (err) {
       const e = classifyError(err);
+      // M3 (v0.3.1): 经验库 — 记录失败并检索历史相似修复，注入给 LLM 降重试
+      let extraHint = '';
+      try {
+        if (process.env.HESI_EXPERIENCE !== '0') {
+          experience.recordFailure(name, args, e.message);
+          if (requestId) {
+            const s = requestFailures.get(requestId) || new Set();
+            s.add(name);
+            requestFailures.set(requestId, s);
+            if (requestFailures.size > 1000) requestFailures.clear();
+          }
+          const sim = experience.findSimilar(name, e.message, 1)[0];
+          if (sim && sim.fix) {
+            extraHint = `\n💡 历史经验：上次同类失败因「${sim.fix.fixDesc}」解决（原错误：${String(sim.error).slice(0, 80)}）`;
+            console.log('[experience] HIT', name);
+            emitToolEvent('experience_hit');
+          }
+        }
+      } catch (expErr) { /* 经验库降级静默 */ }
       emitToolEvent('tool_call_error', { error: e.message });
-      return `[${e.type}] ${e.message}`;
+      return `[${e.type}] ${e.message}${extraHint}`;
     }
   }
 
