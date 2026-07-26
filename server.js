@@ -313,9 +313,20 @@ function startServer() {
         console.warn('[SECURITY] Only do this on a trusted network; prefer the default loopback and set QCLI_ACCESS_TOKEN.');
       }
       // One-time startup tasks (run once even when dual-bound)
-      if (!started) {
-        started = true;
-        if (!NODE_PTY_AVAILABLE) {
+        if (!started) {
+          started = true;
+          // Opt-in file logging (HESI_LOG_FILE). Off by default — stdout only,
+          // so existing behavior is unchanged. Rotating, best-effort.
+          const _lf = process.env.HESI_LOG_FILE;
+          if (_lf) {
+            try {
+              const _lp = (_lf === '1' || _lf === 'true')
+                ? path.join(__dirname, 'data', 'logs', 'server.log')
+                : _lf;
+              global.__hesiLogRestore = require('./lib/logger').teeConsole(_lp);
+            } catch (e) { console.warn('[logger] init failed:', e && e.message); }
+          }
+          if (!NODE_PTY_AVAILABLE) {
           console.warn('[PTY] node-pty native addon not built — terminal/agent disabled. Run npm rebuild node-pty and restart.');
         }
         console.log(`Platform: ${  process.platform  } | Node ${  process.version}`);
@@ -350,6 +361,8 @@ function shutdown() {
   if (mcpManager) { try { mcpManager.shutdown(); } catch (e) { /* already gone */ } }
   try { wsManager.close(); } catch (e) { /* already closed */ }
   for (const srv of servers) { try { srv.close(); } catch (e) { /* already closed */ } }
+  // Restore console + close rotating log stream (if file logging was enabled).
+  try { if (typeof global.__hesiLogRestore === 'function') global.__hesiLogRestore(); } catch { /* ignore */ }
   process.exit(0);
 }
 
