@@ -326,6 +326,9 @@ function startServer() {
               global.__hesiLogRestore = require('./lib/logger').teeConsole(_lp);
             } catch (e) { console.warn('[logger] init failed:', e && e.message); }
           }
+          // Reclaim the browser-automation profile when it looks stale, so
+          // data/cdp-profile can't grow unbounded. Regenerated on demand.
+          try { require('./lib/disk-cleanup').removeCdpProfile(); } catch (e) { /* ignore */ }
           if (!NODE_PTY_AVAILABLE) {
           console.warn('[PTY] node-pty native addon not built — terminal/agent disabled. Run npm rebuild node-pty and restart.');
         }
@@ -363,6 +366,8 @@ function shutdown() {
   for (const srv of servers) { try { srv.close(); } catch (e) { /* already closed */ } }
   // Restore console + close rotating log stream (if file logging was enabled).
   try { if (typeof global.__hesiLogRestore === 'function') global.__hesiLogRestore(); } catch { /* ignore */ }
+  // Reclaim the browser-automation profile on exit.
+  try { require('./lib/disk-cleanup').removeCdpProfile(); } catch { /* ignore */ }
   process.exit(0);
 }
 
