@@ -28,6 +28,26 @@ const { pruneToolContext } = require('./token-budget');
 const { killDelegatePTY, abortDelegate } = require('../ai-tools/builtin/agent');
 
 /**
+ * M5 (v0.3.1): 轮末结算广播「agent_metrics」。
+ * 在 SSE 流结束（[DONE]）之前调用，确保前端 chat-api.js 的 SSE 解析能收到。
+ * 仅当本轮回合确有节省项（缓存命中/工具复用/经验/技能注入任一 >0）才发，避免无收益刷噪声。
+ * 幂等：用 res._hesiMetricsSent 标记，同一请求只发一次。broadcastFn 可空（parser 环境无 WS 句柄）。
+ * @param {import('express').Response} res
+ * @param {Function} [broadcastFn]
+ */
+function emitAgentMetrics(res, broadcastFn) {
+  if (!res || res._hesiMetricsSent || !res._hesiMetrics) return;
+  const m = res._hesiMetrics;
+  const anySaving = (m.cacheReadTokens || 0) + (m.cacheCreationTokens || 0)
+    + (m.toolCacheHits || 0) + (m.experienceHits || 0) + (m.skillsInjected || 0);
+  if (anySaving <= 0) return;
+  const payload = { type: 'agent_metrics', data: m };
+  try { res.write(`data: ${JSON.stringify(payload)}\n\n`); } catch {}
+  if (typeof broadcastFn === 'function') { try { broadcastFn(payload); } catch {} }
+  res._hesiMetricsSent = true;
+}
+
+/**
  * Convert internal message format to Anthropic Messages API format.
  * Handles both string content (initial messages) and content block arrays (tool rounds).
  * @param {Array<{role?:string, content?:string|Array}>} messages
@@ -84,9 +104,12 @@ async function parseAnthropicStream(response, res, sink = null) {
         } catch {}
       }
     };
-  const writeDone = () => {
+    const writeDone = () => {
     if (sinkOnDone) { sinkOnDone(); return; }
-    if (res) { try { res.write('data: [DONE]\n\n'); res.end(); } catch {} }
+    if (res) {
+      emitAgentMetrics(res, undefined); // M5 (v0.3.1): 结算广播须早于 [DONE]
+      try { res.write('data: [DONE]\n\n'); res.end(); } catch {}
+    }
   };
 
   /** @type {Array<{type:string, text?:string, id?:string, name?:string, input?:object}>} */
@@ -546,7 +569,9 @@ async function streamAnthropicWithTools(res, messages, apiKey, model, baseUrl, t
       const tcStart = Date.now();
       let result, tcError;
       try {
-        result = await executeToolCall(tc.name, args, broadcastFn, requestId);
+        // M5 (v0.3.1): 传入本请求 metrics（与 cacheReadTokens/skillsInjected 共享同一对象）。
+      const _metrics = (res._hesiMetrics = res._hesiMetrics || { cacheReadTokens: 0, cacheCreationTokens: 0, toolCacheHits: 0, experienceHits: 0, skillsInjected: 0 });
+      result = await executeToolCall(tc.name, args, broadcastFn, requestId, _metrics);
       } catch (unexpectedErr) {
         result = `[Tool Error] ${unexpectedErr.message}`;
         tcError = unexpectedErr.message;
@@ -591,6 +616,7 @@ async function streamAnthropicWithTools(res, messages, apiKey, model, baseUrl, t
   // 避免把「用户停止/断连」误报成「已达到最大工具调用次数」。
   if (!_aborted) {
     res.write(`data: ${JSON.stringify({ type: 'token', content: '\n\n[已达到最大工具调用次数(50轮)，部分结果可能不完整]' })}\n\n`);
+    emitAgentMetrics(res, broadcastFn); // M5 (v0.3.1): 轮次硬上限退场也结算一次
     res.write('data: [DONE]\n\n');
     res.end();
   }

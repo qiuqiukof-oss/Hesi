@@ -74,7 +74,7 @@ const SKIP_TRUNCATE_NAMES = new Set([
  * @param {string} [requestId] - 每请求隔离标识，用于限流桶归属（P2-3）
  * @returns {Promise<string>}
  */
-async function executeToolCall(name, args, broadcastFn, requestId) {
+async function executeToolCall(name, args, broadcastFn, requestId, metrics) {
   const _tcStart = Date.now();
 
   // Emit tool_call_start SSE event for frontend tracking
@@ -104,6 +104,8 @@ async function executeToolCall(name, args, broadcastFn, requestId) {
     if (cached !== null && cached !== undefined) {
       console.log('[tool-cache] HIT', name, _cacheKey.slice(0, 16));
       emitToolEvent('tool_cache_hit');
+      // M5 (v0.3.1): 累加工具复用次数到 request-scoped metrics（轮末统一广播）。
+      if (metrics) metrics.toolCacheHits++;
       emitToolEvent('tool_call_end', { durMs: Date.now() - _tcStart, cached: true });
       return cached;
     }
@@ -164,6 +166,8 @@ async function executeToolCall(name, args, broadcastFn, requestId) {
             extraHint = `\n💡 历史经验：上次同类失败因「${sim.fix.fixDesc}」解决（原错误：${String(sim.error).slice(0, 80)}）`;
             console.log('[experience] HIT', name);
             emitToolEvent('experience_hit');
+            // M5 (v0.3.1): 累加经验命中到 request-scoped metrics（轮末统一广播）。
+            if (metrics) metrics.experienceHits++;
           }
         }
       } catch (expErr) { /* 经验库降级静默 */ }

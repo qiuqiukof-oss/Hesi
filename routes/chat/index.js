@@ -116,7 +116,7 @@ async function nonStreamingOpenAI(messages, apiKey, model, baseUrl, broadcastFn,
           args = JSON.parse(toolCall.function.arguments);
         } catch { /* use empty args */ }
 
-        const result = await executeToolCall(toolCall.function.name, args, broadcastFn, requestId);
+        const result = await executeToolCall(toolCall.function.name, args, broadcastFn, requestId, null);
         currentMessages.push({
           role: 'tool',
           tool_call_id: toolCall.id,
@@ -228,7 +228,7 @@ async function nonStreamingAnthropic(messages, apiKey, model, baseUrl, broadcast
     for (const tc of toolCalls) {
       let args = {};
       try { args = tc.input || {}; } catch { /* use empty */ }
-      const result = await executeToolCall(tc.name, args, broadcastFn, requestId);
+      const result = await executeToolCall(tc.name, args, broadcastFn, requestId, null);
       toolResultBlocks.push({
         type: 'tool_result',
         tool_use_id: tc.id,

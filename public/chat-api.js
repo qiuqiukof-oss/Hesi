@@ -102,11 +102,12 @@ export const ChatAPI = {
      * @param {function(object)} options.onToolCall - Called with {type:'start'|'end', name, durMs, names, truncated}
      * @param {function(object)} options.onToolLive - Called with agent live events ({ev, agent, data, question, ...}) during long tool runs
      * @param {function(object)} options.onUsage - Called with {input_tokens, output_tokens} or {prompt_tokens, completion_tokens, total_tokens}
+     * @param {function(object)} [options.onAgentMetrics] - M5 (v0.3.1): Called once at round end with {cacheReadTokens, cacheCreationTokens, toolCacheHits, experienceHits, skillsInjected}
      * @param {string} [options.terminalContext] - Current terminal buffer content for AI context
      * @param {boolean} [options.terminalContextChanged] - Whether terminal content has changed since last message
      * @param {AbortSignal} [options.signal] - Optional abort signal
      */
-    async sendMessage({ messages, onToken, onDone, onError, onStatus, onToolCall, onToolLive, onUsage, terminalContext, terminalContextChanged, signal, discuss, partner, partners, maxTurns, onDiscuss, sessionId }) {
+    async sendMessage({ messages, onToken, onDone, onError, onStatus, onToolCall, onToolLive, onUsage, onAgentMetrics, terminalContext, terminalContextChanged, signal, discuss, partner, partners, maxTurns, onDiscuss, sessionId }) {
       const apiKey = this.getApiKey();
       const provider = this.getProvider();
       const model = this.getModel();
@@ -196,6 +197,9 @@ export const ChatAPI = {
                 } else if (parsed.type === 'tool_live') {
                   // Agent 实时输出/回呼，转发给上层以减少“卡住/断开”错觉
                   onToolLive?.(parsed.payload);
+                } else if (parsed.type === 'agent_metrics') {
+                  // M5 (v0.3.1): 轮末结算的用量收益指标，转发给上层渲染收益条
+                  onAgentMetrics?.(parsed.data);
                 } else if (parsed.type === 'error') {
                   // Pass structured error info: detect timeout / rate-limit from message
                   const errMsg = parsed.message || 'Unknown error';

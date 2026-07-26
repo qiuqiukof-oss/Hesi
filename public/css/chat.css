@@ -197,6 +197,48 @@ chat-panel {
   user-select: text;
 }
 
+/* ── M5 (v0.3.1): 本轮回合收益条（用量可见化） ── */
+.hesi-round-benefit {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin: 2px 0 4px;
+  padding: 7px 12px;
+  border: 1px solid var(--border-default, #313244);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--accent, #4f46e5) 9%, transparent);
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--text-secondary, #9399b2);
+}
+.hesi-round-benefit .rb-title {
+  font-weight: 600;
+  color: var(--accent, #4f46e5);
+  margin-right: 2px;
+}
+.hesi-round-benefit .rb-item { white-space: nowrap; }
+.hesi-round-benefit .rb-sep { opacity: 0.45; }
+.hesi-round-benefit .rb-detail-toggle {
+  cursor: pointer;
+  margin-left: 2px;
+  text-decoration: underline dotted;
+  opacity: 0.85;
+  user-select: none;
+}
+.hesi-round-benefit .rb-detail-toggle:hover { opacity: 1; }
+.hesi-round-benefit .rb-detail {
+  flex-basis: 100%;
+  display: none;
+  margin-top: 5px;
+  padding-top: 5px;
+  border-top: 1px dashed var(--border-default, #313244);
+  opacity: 0.85;
+  line-height: 1.5;
+}
+.hesi-round-benefit.open .rb-detail { display: block; }
+
+
 #chat-messages::-webkit-scrollbar {
   width: 4px;
 }

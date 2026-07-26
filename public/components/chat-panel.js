@@ -1148,6 +1148,10 @@ class ChatPanel extends HTMLElement {
           }
         }
 
+        // M5 (v0.3.1): 新一轮开始时移除上一轮回合收益条，避免其残留在消息流中间
+        const _oldBenefit = this.msgsEl?.querySelector('.hesi-round-benefit');
+        if (_oldBenefit) _oldBenefit.remove();
+
         api.sendMessage({
           messages: msgs,
           sessionId: sessionId || undefined,
@@ -1228,6 +1232,7 @@ class ChatPanel extends HTMLElement {
           onUsage: (usage) => {
             this._lastUsage = usage;
           },
+          onAgentMetrics: (m) => this.renderRoundBenefit(m),
           onToolLive: (evt) => {
             // Agent 实时事件：在思考指示器里展示进度，减少“卡住/断开”错觉
             const indicator = document.getElementById('thinking-indicator');
@@ -1663,6 +1668,56 @@ class ChatPanel extends HTMLElement {
     requestAnimationFrame(() => {
       if (this.msgsEl) this.msgsEl.scrollTop = this.msgsEl.scrollHeight;
     });
+  }
+
+  /**
+   * M5 (v0.3.1): 渲染「本轮回合收益」条（用量可见化）。
+   * 挂在 #chat-messages 底部（非气泡内、非实时动画），每轮只保留一条；
+   * 事件未收到（无节省项）时前端静默不渲染，降级安全。
+   * @param {{cacheReadTokens?:number, cacheCreationTokens?:number, toolCacheHits?:number, experienceHits?:number, skillsInjected?:number}} m
+   */
+  renderRoundBenefit(m) {
+    const msgsEl = this.msgsEl;
+    if (!msgsEl || !m) return;
+    // 只保留一条：移除上一轮收益条
+    const existing = msgsEl.querySelector('.hesi-round-benefit');
+    if (existing) existing.remove();
+
+    const fmt = (n) => (n >= 1000 ? (n / 1000).toFixed(1) + 'k' : String(n));
+    const cacheTok = m.cacheReadTokens || 0;
+    const cacheCreate = m.cacheCreationTokens || 0;
+    const toolHits = m.toolCacheHits || 0;
+    const expHits = m.experienceHits || 0;
+    const skills = m.skillsInjected || 0;
+
+    // 估算节省 token：缓存命中(直接计入) + 工具复用(估 ~800/次) + 经验命中避免重试(估 ~1500/次)。
+    // 技能注入属「精准注入、省全量 prompt」，不直接计为节省（避免误导），仅展示计数。
+    const estSaved = cacheTok + toolHits * 800 + expHits * 1500;
+
+    const parts = [];
+    if (cacheTok > 0) parts.push(`💾 缓存命中 ${fmt(cacheTok)} tokens`);
+    if (cacheCreate > 0) parts.push(`🆕 缓存写入 ${fmt(cacheCreate)} tokens`);
+    if (toolHits > 0) parts.push(`⚡ 工具复用 ${toolHits} 次`);
+    if (expHits > 0) parts.push(`🧠 经验 ${expHits}`);
+    if (skills > 0) parts.push(`🎯 注入技能 ${skills}`);
+    if (parts.length === 0) return; // 全为 0 不渲染，避免噪声
+
+    const bar = document.createElement('div');
+    bar.className = 'hesi-round-benefit';
+    bar.innerHTML =
+      `<span class="rb-title">📊 本轮回合收益</span> ${parts.join('<span class="rb-sep"> · </span> ')}` +
+      (estSaved > 0 ? ` <span class="rb-sep">·</span> <span class="rb-item">≈ 节省 ${fmt(estSaved)} tokens</span>` : '') +
+      ` <span class="rb-detail-toggle">详情</span>` +
+      `<div class="rb-detail">缓存读取 ${cacheTok} · 缓存写入 ${cacheCreate} · 工具复用 ${toolHits} · 经验命中 ${expHits} · 注入技能 ${skills}` +
+      `<br>估算节省 = 缓存读取 ${cacheTok} + 工具复用×800 + 经验命中×1500（仅供参考，真实值以缓存读取为准）</div>`;
+
+    const toggle = bar.querySelector('.rb-detail-toggle');
+    if (toggle) {
+      toggle.addEventListener('click', () => bar.classList.toggle('open'));
+    }
+
+    msgsEl.appendChild(bar);
+    this.scrollToBottom();
   }
 
   showThinking() {
