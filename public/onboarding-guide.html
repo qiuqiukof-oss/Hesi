@@ -133,6 +133,13 @@ body.with-panel .slide{right:300px}
 #ticker .run{white-space:nowrap;animation:tick 22s linear infinite;padding-left:100%}
 @keyframes tick{to{transform:translateX(-100%)}}
 
+/* 性能优化：页面隐藏时暂停全部动画；尊重系统“减少动态效果” */
+html.hesi-paused *{animation-play-state:paused !important}
+@media (prefers-reduced-motion: reduce){
+  #bg::before,.orb{animation:none !important}
+  .orb{opacity:.25}
+}
+
 /* 右侧控制面板 */
 #panel{position:fixed;top:0;right:0;width:300px;height:100vh;background:rgba(10,10,18,.92);backdrop-filter:blur(20px);border-left:1px solid rgba(255,255,255,.08);display:flex;flex-direction:column;padding:3vh 1.6vw;gap:1.6vh;box-shadow:-10px 0 30px rgba(0,0,0,.5);z-index:70;pointer-events:auto;transition:transform .35s}
 body.no-panel #panel{transform:translateX(100%)}
@@ -410,6 +417,16 @@ function initVoices(){
 }
 if(speechSynthesis.onvoiceschanged!==undefined)speechSynthesis.onvoiceschanged=initVoices;
 setTimeout(initVoices,100);
+
+/* 性能优化：切到后台 tab 时暂停所有动画并停 TTS，避免持续占用 GPU/共享显存 */
+document.addEventListener('visibilitychange',()=>{
+  if(document.hidden){
+    document.documentElement.classList.add('hesi-paused');
+    try{speechSynthesis.cancel();}catch(e){}
+  }else{
+    document.documentElement.classList.remove('hesi-paused');
+  }
+});
 
 function previewVoice(){try{speechSynthesis.cancel();}catch(e){}const u=new SpeechSynthesisUtterance(currentLang==='en'?"This is Hesi's current narration voice — it applies the moment you switch.":'这是 Hesi 当前的旁白嗓色，切换后立即生效。');u.lang=selVoice?selVoice.lang:(currentLang==='en'?'en-US':'zh-CN');u.rate=rate;u.pitch=0;u.volume=1;if(selVoice)u.voice=selVoice;speechSynthesis.speak(u);}
 function changeVoice(){userPicked=true;const n=document.getElementById('voiceSel').value;const v=voices.find(x=>x.voiceURI===n||x.name===n);const note=document.getElementById('voiceNote');if(v){selVoice=v;if(note)note.textContent='';}else{if(note)note.textContent='⚠ 当前系统未装该语音包，请到 Windows 设置 → 时间和语言 → 语音 → 添加在线语音 ('+n+')';}if(narrating)playNar();else previewVoice();}
