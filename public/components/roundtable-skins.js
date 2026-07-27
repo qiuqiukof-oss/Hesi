@@ -56,7 +56,11 @@ export const SKINS = {
     tileAnim: true,
     css: `
 .rt.skin-mahjong{
-  background:radial-gradient(ellipse at center,#2f6b34 0%,#1c3f20 70%,#15301a 100%);
+  width:min(460px,100%);
+  height:460px;
+  margin:6px auto;
+  border-radius:18px;
+  background:radial-gradient(circle at center,#2f6b34 0%,#1c3f20 70%,#15301a 100%);
   border:6px solid #6b4a2b;
   box-shadow:inset 0 0 40px rgba(0,0,0,.45);
   overflow:hidden;
