@@ -1,0 +1,39 @@
+{
+  "template": "test-suite",
+  "title": "自动化测试套件",
+  "description": "并行执行多类测试 + 汇总报告。适用于回归验收、发版前检查。",
+  "usage": "按项目实际把 {{单元测试命令}} 等替换掉；并行任务无依赖，汇总任务 dependsOn 全部测试。",
+  "suggested": { "maxConcurrency": 3 },
+  "tasks": [
+    {
+      "id": "unit",
+      "agentId": "opencode",
+      "role": "tester",
+      "task": "运行单元测试（{{单元测试命令}}），输出通过/失败统计与失败用例明细。",
+      "maxRetries": 1,
+      "onFailure": "continue"
+    },
+    {
+      "id": "lint",
+      "agentId": "opencode",
+      "role": "tester",
+      "task": "运行 lint / 静态检查（{{lint命令}}），仅报告 error 级问题与所在文件行号。",
+      "onFailure": "continue"
+    },
+    {
+      "id": "e2e",
+      "agentId": "codex",
+      "role": "tester",
+      "task": "执行关键路径冒烟验证：{{冒烟场景}}。逐条给出结果。",
+      "onFailure": "continue"
+    },
+    {
+      "id": "report",
+      "agentId": "opencode",
+      "role": "reviewer",
+      "task": "汇总上游三项测试结果，输出一份验收结论：可发布 / 需修复清单（按严重度排序）。",
+      "dependsOn": ["unit", "lint", "e2e"],
+      "onFailure": "stop"
+    }
+  ]
+}

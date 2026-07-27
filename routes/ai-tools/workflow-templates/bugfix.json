@@ -1,0 +1,35 @@
+{
+  "template": "bugfix",
+  "title": "Bug 修复流水线",
+  "description": "定位 → 修复 → 回归。适用于有明确报错/复现路径的缺陷。",
+  "usage": "把 {{bug描述}} / {{疑似文件}} 替换为具体内容；定位步骤产出的结论会通过共享黑板传递给后续任务。",
+  "suggested": { "maxConcurrency": 1 },
+  "tasks": [
+    {
+      "id": "diagnose",
+      "agentId": "opencode",
+      "role": "debugger",
+      "task": "定位 bug：{{bug描述}}。从 {{疑似文件}} 入手，给出根因分析与最小修复方案，不要直接大改。",
+      "files": ["{{疑似文件}}"],
+      "maxRetries": 1,
+      "onFailure": "stop"
+    },
+    {
+      "id": "fix",
+      "agentId": "opencode",
+      "role": "coder",
+      "task": "按上一步的根因分析实施最小修复，先检查关联调用方再动手，避免引入新 bug。",
+      "dependsOn": ["diagnose"],
+      "maxRetries": 1,
+      "onFailure": "stop"
+    },
+    {
+      "id": "regress",
+      "agentId": "codex",
+      "role": "tester",
+      "task": "回归验证：确认 {{bug描述}} 已修复且相关测试全部通过，无新增失败。",
+      "dependsOn": ["fix"],
+      "onFailure": "continue"
+    }
+  ]
+}

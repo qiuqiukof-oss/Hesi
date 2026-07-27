@@ -486,6 +486,17 @@ function register(registry) {
       '  { id: "step2", agentId: "codex", task: "审查上一步代码", dependsOn: ["step1"] },\n' +
       '  { id: "step3", agentId: "freebuff", task: "运行测试", dependsOn: ["step1"] }\n' +
       ']\n\n' +
+      '【启动前先自评任务复杂度（硬规则）】\n' +
+      '- 不要为简单任务启动工作流：涉及 ≤2 个文件的单一改动、纯查询/解释类任务，直接自己完成或用单个 run_agent。\n' +
+      '- 满足以下任一条件才值得启动：跨 ≥3 个文件或多模块联动、多个可并行的独立子任务、需要不同角色分工（实现/审查/测试）、或明确的多阶段依赖链。\n' +
+      '- 拿不准时倾向于不启动——多 Agent 有额外开销，误用比不用更糟。\n\n' +
+      '【预置协作模板（推荐先套用再微调）】\n' +
+      '常见任务类型已有现成任务链模板，位于 routes/ai-tools/workflow-templates/ 目录：\n' +
+      '- code-review.json：实现→审查→回归测试\n' +
+      '- test-suite.json：并行多类测试→汇总报告\n' +
+      '- build-deploy.json：构建→验证→部署（严格串行）\n' +
+      '- bugfix.json：定位→修复→回归\n' +
+      '用法：先 read_file 读取对应模板，将 {{占位符}} 替换为具体内容、按需调整 agentId/任务措辞，再传给本工具。模板含推荐的角色、依赖与失败策略，勿凭空另起炉灶。\n\n' +
       '注意：工作流异步执行，启动后使用 workflow_status 检查进度。最大 50 个任务，30 分钟超时。',
     parameters: {
       type: 'object',

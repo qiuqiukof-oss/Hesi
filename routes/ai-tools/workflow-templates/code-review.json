@@ -1,0 +1,35 @@
+{
+  "template": "code-review",
+  "title": "代码审查流水线",
+  "description": "实现 → 审查 → 回归测试。适用于新功能开发或较大改动，需要第二双眼睛把关的场景。",
+  "usage": "把 {{目标}} / {{文件}} 替换为具体内容后传给 workflow_start；agentId 可换成当前可用的 Agent。",
+  "suggested": { "maxConcurrency": 2 },
+  "tasks": [
+    {
+      "id": "impl",
+      "agentId": "opencode",
+      "role": "coder",
+      "task": "实现 {{目标}}。只改必要文件，保持模块化，完成后总结改动点。",
+      "files": ["{{文件}}"],
+      "maxRetries": 1,
+      "onFailure": "stop"
+    },
+    {
+      "id": "review",
+      "agentId": "codex",
+      "role": "reviewer",
+      "task": "审查上一步对 {{文件}} 的改动：正确性、边界条件、是否引入臃肿单文件、是否破坏关联调用方。列出问题清单。",
+      "dependsOn": ["impl"],
+      "onFailure": "continue"
+    },
+    {
+      "id": "test",
+      "agentId": "opencode",
+      "role": "tester",
+      "task": "针对 {{目标}} 运行/补充相关测试，报告通过情况与失败原因。",
+      "dependsOn": ["impl"],
+      "maxRetries": 1,
+      "onFailure": "continue"
+    }
+  ]
+}

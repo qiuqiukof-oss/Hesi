@@ -1,0 +1,33 @@
+{
+  "template": "build-deploy",
+  "title": "构建部署流水线",
+  "description": "构建 → 验证 → 部署，严格串行，任一步失败即停止。适用于发布类任务。",
+  "usage": "替换 {{构建命令}} / {{部署目标}}；部署步骤建议保留人工确认语义（让 Agent 输出待执行命令而非直接执行高危操作）。",
+  "suggested": { "maxConcurrency": 1 },
+  "tasks": [
+    {
+      "id": "build",
+      "agentId": "opencode",
+      "role": "coder",
+      "task": "执行构建（{{构建命令}}），确认产物生成；失败则给出完整错误定位。",
+      "maxRetries": 1,
+      "onFailure": "stop"
+    },
+    {
+      "id": "verify",
+      "agentId": "opencode",
+      "role": "tester",
+      "task": "对构建产物做基本验证：产物存在、体积正常、关键入口可运行/可加载。",
+      "dependsOn": ["build"],
+      "onFailure": "stop"
+    },
+    {
+      "id": "deploy",
+      "agentId": "codex",
+      "role": "deployer",
+      "task": "准备部署到 {{部署目标}}：列出将执行的部署步骤与回滚方式，输出待确认命令清单（不直接执行不可逆操作）。",
+      "dependsOn": ["verify"],
+      "onFailure": "stop"
+    }
+  ]
+}
