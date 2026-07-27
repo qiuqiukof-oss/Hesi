@@ -65,6 +65,60 @@ chat-panel {
   background: transparent;
 }
 
+/* ── 围炉圆桌 / 麻将闲谈 抽屉（与黑板同款 fixed 右侧伸缩，聊天上下文常驻）── */
+#mahjong-embed {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 400px;
+  max-width: 85vw;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-elevated);
+  border-left: 1px solid var(--border-default);
+  box-shadow: -8px 0 28px rgba(0, 0, 0, 0.3);
+  z-index: 40;
+  animation: bb-slide-in 0.22s var(--ease-out, ease-out);
+}
+
+#mahjong-embed.hidden {
+  display: none;
+}
+
+#mahjong-embed .mj-embed-bar {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border-default);
+  font-size: 13px;
+}
+
+#mahjong-embed .mj-embed-title {
+  font-weight: 600;
+  margin-right: auto;
+}
+
+#mahjong-embed .mj-embed-open {
+  text-decoration: none;
+  color: inherit;
+  opacity: 0.75;
+  padding: 2px 6px;
+}
+
+#mahjong-embed .mj-embed-open:hover {
+  opacity: 1;
+}
+
+#mahjong-embed iframe {
+  flex: 1;
+  width: 100%;
+  border: 0;
+  background: transparent;
+}
+
 #chat-drawer {
   flex-shrink: 0;
   height: 280px;

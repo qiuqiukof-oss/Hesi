@@ -62,6 +62,7 @@ class ChatPanel extends HTMLElement {
     this.terminalToggleBtn = null;
     this.exportBtn = null;
     this.blackboardBtn = null;
+    this.mahjongBtn = null;
     this.mermaidPreviewEl = null;
     this._mermaidPreviewTimer = null;
 
@@ -113,6 +114,7 @@ class ChatPanel extends HTMLElement {
     this.terminalToggleBtn = document.getElementById('chat-terminal-toggle');
     this.exportBtn = document.getElementById('chat-export-btn');
     this.blackboardBtn = document.getElementById('chat-blackboard-btn');
+    this.mahjongBtn = document.getElementById('chat-mahjong-btn');
     this.savingsBtn = document.getElementById('chat-savings-btn');
     this.contextBtn = document.getElementById('chat-context-btn'); // P0.6 占用率圆环
     this.resizeHandle = document.getElementById('chat-resize-handle');
@@ -538,6 +540,10 @@ class ChatPanel extends HTMLElement {
       // ⚠️ ✕ 收起按钮不能在此绑定：#blackboard-embed 在 body 末尾，
       // bundle.js 同步加载（无 defer）执行到这里时该节点尚未解析，getElementById 为 null。
       // 改为 toggleBlackboardPanel() 内首次展开时懒绑定。
+    }
+    if (this.mahjongBtn) {
+      this.mahjongBtn.addEventListener('click', () => this.toggleMahjongPanel());
+      // 同 blackboard：#mahjong-embed 在 body 末尾，✕/Esc 懒绑定（见 toggleMahjongPanel）。
     }
     // ── Drag resize via resize handle ──
     if (this.resizeHandle) {
@@ -1522,6 +1528,33 @@ class ChatPanel extends HTMLElement {
       frame.setAttribute('src', 'about:blank'); // 卸载页面，停止 iframe 内轮询
     }
     if (this.blackboardBtn) this.blackboardBtn.classList.toggle('active', show);
+  }
+
+  // ── Public: 围炉圆桌 / 麻将闲谈 嵌入抽屉（iframe 零逻辑重复；收起清空 src 停轮询）──
+
+  /** @param {boolean} [force] true=强制展开 / false=强制收起 / 省略=切换 */
+  toggleMahjongPanel(force) {
+    const panel = document.getElementById('mahjong-embed');
+    const frame = /** @type {HTMLIFrameElement|null} */ (document.getElementById('mj-embed-frame'));
+    if (!panel || !frame) return;
+    // 懒绑定 ✕ / Esc（容器在 body 末尾，bundle 同步执行时未解析，须点击时才绑）
+    if (!this._mjCloseBound) {
+      this._mjCloseBound = true;
+      const closeBtn = document.getElementById('mj-embed-close');
+      if (closeBtn) closeBtn.addEventListener('click', () => this.toggleMahjongPanel(false));
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && !panel.classList.contains('hidden')) this.toggleMahjongPanel(false);
+      });
+    }
+    const show = force !== undefined ? force : panel.classList.contains('hidden');
+    panel.classList.toggle('hidden', !show);
+    if (show) {
+      // 每次展开重新加载（拿到最新状态；关闭期间零轮询）；默认麻将皮肤
+      frame.setAttribute('src', '/roundtable.html?skin=mahjong&embed=1');
+    } else {
+      frame.setAttribute('src', 'about:blank'); // 卸载页面，停止 iframe 内轮询
+    }
+    if (this.mahjongBtn) this.mahjongBtn.classList.toggle('active', show);
   }
 
   // ── Public: Export chat ──

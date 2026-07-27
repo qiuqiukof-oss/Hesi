@@ -74,6 +74,9 @@ const Roundtable = {
     this.skin = this.resolveSkin();
     this.skinObj = getSkin(this.skin);
     applySkin(this.rt, this.skin);
+    try {
+      if (new URLSearchParams(location.search).get('embed')) document.body.classList.add('embed');
+    } catch { /* ignore */ }
     this.sessionId = this.resolveSession();
     this.bindStaticUI();
     this.fetchState();
