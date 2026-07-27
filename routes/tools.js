@@ -9,6 +9,8 @@ const fs = require('fs');
 const path = require('path');
 const { evaluateAiExec } = require('../mcp/security/policy');
 const { getWorkspace } = require('../lib/workspace');
+// Phase 2：文件写类副作用快照（挂到当前轮检查点，供多轮回滚还原）
+const MemoryStore = require('../lib/memory');
 
 // ── Config ──
 // WORKSPACE is now dynamic (see lib/workspace.js) — read via getWorkspace().
@@ -213,6 +215,23 @@ function createRouter() {
       }
 
       const enc = encoding || 'utf-8';
+      // Phase 2：写前快照原文件，挂到「当前轮检查点」的 sideEffects（供多轮回滚还原文件）。
+      // 仅在记忆会话下生效；失败静默降级，绝不阻断正常写文件。
+      const sessionId = req.body && req.body.sessionId;
+      if (sessionId && MemoryStore.enabled) {
+        try {
+          let isNew = false;
+          let before = '';
+          if (fs.existsSync(resolved)) {
+            before = fs.readFileSync(resolved, enc);
+          } else {
+            isNew = true;
+          }
+          MemoryStore.recordSideEffect(sessionId, resolved, before, isNew);
+        } catch (snapErr) {
+          console.warn('[write-file] side-effect snapshot skipped (non-fatal):', snapErr && snapErr.message);
+        }
+      }
       fs.writeFileSync(resolved, String(content), enc);
 
       return res.json({

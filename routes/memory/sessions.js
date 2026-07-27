@@ -96,9 +96,39 @@ router.post('/:id/checkpoint', (req, res) => {
 
 router.post('/:id/rollback', (req, res) => {
   try {
-    const messages = MemoryStore.rollback(req.params.id);
-    if (!messages) return res.status(404).json({ error: 'no checkpoint available' });
-    res.json({ ok: true, messages });
+    const { turn } = req.body || {};
+    let result;
+    if (Number.isInteger(turn)) {
+      result = MemoryStore.rollbackTo(req.params.id, turn);
+      if (!result) return res.status(404).json({ error: 'checkpoint not found' });
+    } else {
+      const messages = MemoryStore.rollback(req.params.id);
+      if (!messages) return res.status(404).json({ error: 'no checkpoint available' });
+      result = { messages };
+    }
+    res.json({ ok: true, messages: result.messages || [], savings: result.savings || null });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ── 多轮回滚：列出某会话的检查点栈 ──
+router.get('/:id/checkpoints', (req, res) => {
+  try {
+    const list = MemoryStore.listCheckpoints(req.params.id);
+    res.json({ checkpoints: list });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Phase 2：回滚前的文件副作用预览（供前端二次确认弹窗列出将还原/删除的文件）
+router.get('/:id/rollback-preview', (req, res) => {
+  try {
+    const seq = parseInt(req.query.seq, 10);
+    if (!Number.isFinite(seq)) return res.status(400).json({ error: '"seq" query is required' });
+    const files = MemoryStore.getRollbackPreview(req.params.id, seq);
+    res.json({ files: files || [] });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }

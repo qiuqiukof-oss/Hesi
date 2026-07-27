@@ -125,9 +125,10 @@ const SKIP_TRUNCATE_NAMES = new Set([
  * @param {object} args - Tool arguments
  * @param {Function} [broadcastFn] - WebSocket broadcast for frontend metrics
  * @param {string} [requestId] - 每请求隔离标识，用于限流桶归属（P2-3）
+ * @param {string} [sessionId] - 记忆会话标识，透传给文件写类工具做副作用快照（Phase 2）
  * @returns {Promise<string>}
  */
-async function executeToolCall(name, args, broadcastFn, requestId, metrics) {
+async function executeToolCall(name, args, broadcastFn, requestId, metrics, sessionId) {
   const _tcStart = Date.now();
 
   // Emit tool_call_start SSE event for frontend tracking
@@ -181,7 +182,7 @@ async function executeToolCall(name, args, broadcastFn, requestId, metrics) {
   // ── Registry Tools ──
   if (toolRegistry.has(name)) {
     try {
-      let result = await toolRegistry.execute(name, args, broadcastFn, requestId);
+      let result = await toolRegistry.execute(name, args, broadcastFn, requestId, sessionId);
       // 放宽截断阈值：原 2000 字符过小，read_file / exec_terminal 等输出动辄被截断，
       // 造成 AI 拿到残缺结果（也是一种"限制"）。20000 字符内原样返回，超出再走 token 感知截断。
       if (!SKIP_TRUNCATE_NAMES.has(name) && typeof result === 'string' && result.length > 20000) {

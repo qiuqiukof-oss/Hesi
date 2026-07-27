@@ -45,14 +45,15 @@ class ToolRegistry {
    * @param {object} args
    * @param {Function} [broadcastFn]
    * @param {string} [requestId] - 每请求隔离标识，透传给工具 handler（限流归属用）
+   * @param {string} [sessionId] - 记忆会话标识，透传给工具 handler（Phase 2 文件写副作用快照）
    * @returns {Promise<string>}
    */
-  async execute(name, args, broadcastFn, requestId) {
+  async execute(name, args, broadcastFn, requestId, sessionId) {
     const tool = this._tools.get(name);
     if (!tool) {
       throw new Error(`Unknown tool: ${name}`);
     }
-    return tool.execute(args, broadcastFn, requestId);
+    return tool.execute(args, broadcastFn, requestId, sessionId);
   }
 
   /** 检查工具是否存在 */

@@ -55,15 +55,15 @@ function _newRequestId() {
  * @param {Function} [broadcastFn] - WebSocket broadcast for metrics
  * @returns {Promise<{content: string, toolCalls: number, usage: object|null, timedout?: boolean}>}
  */
-async function nonStreamingChat(messages, apiKey, model, provider, baseUrl, broadcastFn) {
+async function nonStreamingChat(messages, apiKey, model, provider, baseUrl, broadcastFn, sessionId) {
   const deadline = Date.now() + NON_STREAMING_CHAIN_TIMEOUT;
   if (provider === 'anthropic') {
-    return nonStreamingAnthropic(messages, apiKey, model, baseUrl, broadcastFn, deadline);
+    return nonStreamingAnthropic(messages, apiKey, model, baseUrl, broadcastFn, deadline, sessionId);
   }
-  return nonStreamingOpenAI(messages, apiKey, model, baseUrl, broadcastFn, deadline);
+  return nonStreamingOpenAI(messages, apiKey, model, baseUrl, broadcastFn, deadline, sessionId);
 }
 
-async function nonStreamingOpenAI(messages, apiKey, model, baseUrl, broadcastFn, deadline) {
+async function nonStreamingOpenAI(messages, apiKey, model, baseUrl, broadcastFn, deadline, sessionId) {
   const modelName = model || 'gpt-4o-mini';
   const url = buildApiUrl(baseUrl, 'https://api.openai.com/v1', '/chat/completions');
   const requestId = _newRequestId();
@@ -119,7 +119,7 @@ async function nonStreamingOpenAI(messages, apiKey, model, baseUrl, broadcastFn,
           args = JSON.parse(toolCall.function.arguments);
         } catch { /* use empty args */ }
 
-        const result = await executeToolCall(toolCall.function.name, args, broadcastFn, requestId, null);
+        const result = await executeToolCall(toolCall.function.name, args, broadcastFn, requestId, null, sessionId);
         currentMessages.push({
           role: 'tool',
           tool_call_id: toolCall.id,
@@ -144,7 +144,7 @@ async function nonStreamingOpenAI(messages, apiKey, model, baseUrl, broadcastFn,
   };
 }
 
-async function nonStreamingAnthropic(messages, apiKey, model, baseUrl, broadcastFn, deadline) {
+async function nonStreamingAnthropic(messages, apiKey, model, baseUrl, broadcastFn, deadline, sessionId) {
   const modelName = model || 'claude-sonnet-4-20250514';
   const requestId = _newRequestId();
 
@@ -231,7 +231,7 @@ async function nonStreamingAnthropic(messages, apiKey, model, baseUrl, broadcast
     for (const tc of toolCalls) {
       let args = {};
       try { args = tc.input || {}; } catch { /* use empty */ }
-      const result = await executeToolCall(tc.name, args, broadcastFn, requestId, null);
+      const result = await executeToolCall(tc.name, args, broadcastFn, requestId, null, sessionId);
       toolResultBlocks.push({
         type: 'tool_result',
         tool_use_id: tc.id,
@@ -269,7 +269,11 @@ function createRouter(opts = {}) {
   // Response: SSE stream of tokens
   // ──────────────────────────────────────────────
   router.post('/chat', async (req, res) => {
-    const { messages, model, apiKey: clientKey, provider: clientProvider, baseUrl: clientBaseUrl, disableTools, terminalContext, terminalContextChanged, discuss, partner, partners, maxTurns, sessionId } = req.body;
+    const { messages, model, apiKey: clientKey, provider: clientProvider, baseUrl: clientBaseUrl, disableTools, terminalContext, terminalContextChanged, discuss, partner, partners, maxTurns, sessionId, category } = req.body;
+    // Phase 2：把 sessionId 挂到请求上，供流式路径里的 executeToolCall 透传到 /tools/write-file 做副作用快照。
+    req._hesiSessionId = sessionId || '';
+    // 分类 Chips（小功能）：当前对话模式 → 注入 [当前模式] 系统提示段 + Skill 检索加权
+    const CHAT_CATEGORIES = { daily: '日常开发', web: '网站开发', agent: 'Agent 应用', skill: 'Skill 开发', cicd: 'CI/CD', docs: '文档' };
 
     if (!messages || !Array.isArray(messages) || messages.length === 0) {
       return res.status(400).json({ error: 'messages array is required' });
@@ -437,6 +441,12 @@ When the user asks you to perform a "system self-check" / "全面自检" / "diag
 2. **少 bug（先查关联再动手）**：改动前先仔细检查关联项——调用方/被调用方、跨文件引用、前端 bundle 归属（main vs lazy）、路由/中间件挂载点、相关单测——确认影响面后再改。改动保持小步、单 commit 可回退；改完跑相关测试/lint 再交付。
 3. 结构性改动前先出方案（范围/步骤/风险/回滚/验收），确认后再执行——与「先方案后动手」一脉相承。`;
 
+    // ── 分类 Chips（小功能）：当前对话模式 → [当前模式] 系统提示段 ──
+    // 未选（category 空或非法）时零注入，行为完全不变。
+    if (category && CHAT_CATEGORIES[category]) {
+      SELF_AWARE_PROMPT += `\n\n## 当前对话模式\n用户将本会话标记为「${CHAT_CATEGORIES[category]}」模式。回答时优先贴合该领域（相关术语、工具链、内置 Skill 与文档），但你仍是通用 AI 助手，不局限于此模式。`;
+    }
+
     // ── M4 (v0.3.1): Skill 按需注入（铺结构版，词法 BM25）──
     // 与全量塞入相反：只按当前用户输入检索 top-2 相关技能，注入摘要（名称+描述+
     // 正文首 300 字），放在动态段（memoryBlocks 之后）以不破坏 M1 的稳定缓存前缀。
@@ -447,7 +457,7 @@ When the user asks you to perform a "system self-check" / "全面自检" / "diag
         const skillRegistry = require('../../skills/registry');
         const lastUserMsg = [...messages].reverse().find(m => m.role === 'user');
         const skillQuery = (lastUserMsg?.content || '').toString().slice(0, 500);
-        const hits = skillQuery ? await skillRegistry.search(skillQuery, 2) : [];
+        const hits = skillQuery ? await skillRegistry.search(skillQuery, 2, (category && CHAT_CATEGORIES[category]) ? { category } : undefined) : [];
         if (hits.length) {
           const lines = hits.map((s) =>
             `### ${s.name || s.id}${s.category ? `（${s.category}）` : ''}\n${s.description || ''}\n${String(s.body || '').slice(0, 300)}`);
@@ -655,7 +665,7 @@ When the user asks you to perform a "system self-check" / "全面自检" / "diag
   // Used by MCP's ai_chat tool (avoids SSE parsing issues)
   // ──────────────────────────────────────────────
   router.post('/chat/tools', async (req, res) => {
-    const { messages, model, apiKey: clientKey, provider: clientProvider, baseUrl: clientBaseUrl } = req.body;
+    const { messages, model, apiKey: clientKey, provider: clientProvider, baseUrl: clientBaseUrl, sessionId } = req.body;
 
     if (!messages || !Array.isArray(messages) || messages.length === 0) {
       return res.status(400).json({ error: 'messages array is required' });
@@ -672,7 +682,7 @@ When the user asks you to perform a "system self-check" / "全面自检" / "diag
     if (!apiKey) {
       if (clientBaseUrl) {
         try {
-          const result = await nonStreamingChat(messages, '', model || 'local-model', 'openai', clientBaseUrl, broadcastFn);
+          const result = await nonStreamingChat(messages, '', model || 'local-model', 'openai', clientBaseUrl, broadcastFn, sessionId);
           return res.json({ success: true, ...result });
         } catch (_) { /* custom base URL failed */ }
       }
@@ -681,7 +691,7 @@ When the user asks you to perform a "system self-check" / "全面自检" / "diag
       try {
         const healthResp = await fetch(`${lmStudioBase}/v1/models`, { signal: AbortSignal.timeout(2000) });
         if (healthResp.ok) {
-          const result = await nonStreamingChat(messages, '', model || 'local-model', 'openai', lmStudioBase, broadcastFn);
+          const result = await nonStreamingChat(messages, '', model || 'local-model', 'openai', lmStudioBase, broadcastFn, sessionId);
           return res.json({ success: true, ...result });
         }
       } catch (_) { /* LM Studio not available */ }
@@ -692,7 +702,7 @@ When the user asks you to perform a "system self-check" / "全面自检" / "diag
     }
 
     try {
-      const result = await nonStreamingChat(messages, apiKey, model, provider, clientBaseUrl, broadcastFn);
+      const result = await nonStreamingChat(messages, apiKey, model, provider, clientBaseUrl, broadcastFn, sessionId);
       res.json({ success: true, ...result });
     } catch (err) {
       res.status(500).json({ error: err.message });

@@ -23,6 +23,7 @@ import { renderMarkdown } from './message-render.js';
 import { buildBenefitBar } from './benefit-bar.js';
 import { computeSavings } from './savings-icon.js';
 import { computeContextUsage } from './context-usage.js';
+import { mountCategoryChips, getActiveCategory } from './category-chips.js';
 
 /** @typedef {import('../types').QCLI} QCLI */
 /** @typedef {{role:string, content:string}} ChatMessage */
@@ -136,6 +137,14 @@ class ChatPanel extends HTMLElement {
       rb.textContent = '⏪';
       rb.addEventListener('click', () => this.rollbackSession());
       this.clearBtn.parentElement.insertBefore(rb, this.clearBtn.nextSibling);
+      // 🕘 多轮回滚：历史轮次面板
+      const hb = document.createElement('button');
+      hb.id = 'chat-history-btn';
+      hb.className = this.clearBtn.className;
+      hb.title = '历史轮次回滚（选择任意一轮恢复）';
+      hb.textContent = '🕘';
+      hb.addEventListener('click', () => this.openHistoryPanel());
+      this.clearBtn.parentElement.insertBefore(hb, this.clearBtn.nextSibling);
     }
 
     if (!this.el) {
@@ -147,6 +156,7 @@ class ChatPanel extends HTMLElement {
     this._setupDiscussControls();
     this._restoreState();
     this._patchQCLI();
+    this._initCategoryChips();
     this._initMemory();
 
     // Subscribe to stores — sync component state to store FIRST so the
@@ -453,8 +463,10 @@ class ChatPanel extends HTMLElement {
     const inputArea = this.el?.querySelector('.chat-input-area');
     if (inputArea) {
       inputArea.addEventListener('dragover', (e) => {
-        // 只接受携带 mermaid 数据的拖放
-        if (e.dataTransfer.types.includes('text/x-mermaid')) {
+        // 接受 mermaid 文本拖放 + 普通文件拖放
+        const hasMermaid = e.dataTransfer.types.includes('text/x-mermaid');
+        const hasFiles = e.dataTransfer.types.includes('Files');
+        if (hasMermaid || hasFiles) {
           e.preventDefault();
           e.stopPropagation();
           e.dataTransfer.dropEffect = 'copy';
@@ -471,6 +483,11 @@ class ChatPanel extends HTMLElement {
         e.preventDefault();
         e.stopPropagation();
         inputArea.classList.remove('chat-input-droptarget');
+        // 普通文件拖入 → 上传为附件（复用 _handleFiles，与 📎 选择同源）
+        if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+          this._handleFiles(e.dataTransfer.files);
+          return;
+        }
         const source = e.dataTransfer.getData('text/x-mermaid');
         if (!source || !this.input) return;
 
@@ -495,6 +512,9 @@ class ChatPanel extends HTMLElement {
 
         if (Q.showToast) Q.showToast('✅ 图表已拖入聊天输入区', 'success');
       });
+
+      // 粘贴上传：Ctrl+V 图片/视频/文件 → 走 _handleFiles（与 📎 选择同源）
+      inputArea.addEventListener('paste', (e) => this._onPaste(e));
     }
 
     // Event delegation: send-to-terminal + copy buttons inside chat messages
@@ -767,19 +787,162 @@ class ChatPanel extends HTMLElement {
   }
 
   // M2b (v0.3.1): 回滚到上一轮检查点（撤销本轮，恢复本轮开始前的安全态）
-  async rollbackSession() {
+  // turn 传数字 → 回滚到指定轮次（多轮回滚）；不传 → 兼容 ⏪ 回滚一轮。
+  async rollbackSession(turn) {
     const id = this._sessionId;
     if (!id) { console.warn('[ChatPanel] 无会话可回滚（未启用服务端会话持久化）'); return; }
     if (this.sending) return;
     try {
-      const resp = await fetch(`/api/memory/sessions/${encodeURIComponent(id)}/rollback`, { method: 'POST' });
+      const resp = await fetch(`/api/memory/sessions/${encodeURIComponent(id)}/rollback`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(typeof turn === 'number' ? { turn } : {}),
+      });
       if (!resp.ok) { console.warn('[ChatPanel] 回滚失败', resp.status); return; }
       const data = await resp.json();
       if (!data || !data.ok) { console.warn('[ChatPanel] 无检查点可回滚'); return; }
       this._applySession(id, data.messages || []);
+      this._closeHistoryPanel();
     } catch (e) {
       console.warn('[ChatPanel] 回滚错误', e && e.message);
     }
+  }
+
+  // Phase 2：回滚前二次确认（列出将还原/删除的文件副作用）
+  async confirmRollback(seq) {
+    const id = this._sessionId;
+    if (!id || this.sending) return;
+    let files = [];
+    try {
+      const resp = await fetch(`/api/memory/sessions/${encodeURIComponent(id)}/rollback-preview?seq=${encodeURIComponent(seq)}`);
+      if (resp.ok) { const d = await resp.json(); files = (d && d.files) || []; }
+    } catch (e) {
+      console.warn('[ChatPanel] 回滚预览失败（直接回滚）', e && e.message);
+    }
+    if (!files.length) return this.rollbackSession(seq); // 无文件副作用 → 直接回滚
+    this._showRollbackConfirm(seq, files);
+  }
+
+  _showRollbackConfirm(seq, files) {
+    this._closeRollbackConfirm();
+    const overlay = document.createElement('div');
+    overlay.className = 'chat-rollback-confirm-overlay';
+    overlay.addEventListener('click', (ev) => { if (ev.target === overlay) this._closeRollbackConfirm(); });
+    const box = document.createElement('div');
+    box.className = 'chat-rollback-confirm-box';
+    const title = document.createElement('div');
+    title.className = 'chat-rollback-confirm-title';
+    title.textContent = `回滚到 #${seq} 将影响以下文件`;
+    const listEl = document.createElement('div');
+    listEl.className = 'chat-rollback-confirm-list';
+    files.forEach((f) => {
+      const row = document.createElement('div');
+      row.className = `chat-rollback-confirm-item fx-${f.action}`;
+      const tag = document.createElement('span');
+      tag.className = 'chat-rollback-confirm-tag';
+      tag.textContent = f.action === 'delete' ? '删除' : f.action === 'restore' ? '还原' : '过大·跳过';
+      const p = document.createElement('span');
+      p.className = 'chat-rollback-confirm-path';
+      p.textContent = f.path;
+      row.appendChild(tag); row.appendChild(p);
+      listEl.appendChild(row);
+    });
+    const hint = document.createElement('div');
+    hint.className = 'chat-rollback-confirm-hint';
+    hint.textContent = '确认后将把以上文件恢复到该轮开始时的状态（覆盖回滚期间的新改动）。对话内容同步回滚。';
+    const actions = document.createElement('div');
+    actions.className = 'chat-rollback-confirm-actions';
+    const cancel = document.createElement('button');
+    cancel.type = 'button';
+    cancel.className = 'chat-rollback-confirm-cancel';
+    cancel.textContent = '取消';
+    cancel.addEventListener('click', () => this._closeRollbackConfirm());
+    const ok = document.createElement('button');
+    ok.type = 'button';
+    ok.className = 'chat-rollback-confirm-ok';
+    ok.textContent = '确认回滚';
+    ok.addEventListener('click', () => {
+      this._closeRollbackConfirm();
+      this.rollbackSession(seq);
+    });
+    actions.appendChild(cancel); actions.appendChild(ok);
+    box.appendChild(title); box.appendChild(listEl); box.appendChild(hint); box.appendChild(actions);
+    overlay.appendChild(box);
+    const host = this.el || document.getElementById('chat-drawer');
+    if (host) host.appendChild(overlay);
+  }
+
+  _closeRollbackConfirm() {
+    const stray = document.querySelector('.chat-rollback-confirm-overlay');
+    if (stray) stray.remove();
+  }
+
+  // 🕘 多轮回滚：打开历史轮次选择浮层
+  async openHistoryPanel() {
+    const id = this._sessionId;
+    if (!id) { console.warn('[ChatPanel] 无会话（未启用服务端会话持久化）'); return; }
+    this._closeHistoryPanel();
+    let list = [];
+    try {
+      const resp = await fetch(`/api/memory/sessions/${encodeURIComponent(id)}/checkpoints`);
+      if (resp.ok) { const d = await resp.json(); list = (d && d.checkpoints) || []; }
+    } catch (e) { console.warn('[ChatPanel] 读取检查点失败', e && e.message); }
+    const overlay = this._renderHistoryPanel(list);
+    const host = this.el || document.getElementById('chat-drawer');
+    if (host) host.appendChild(overlay);
+  }
+
+  // 渲染轮次面板（纯 textContent，避免 XSS）
+  _renderHistoryPanel(list) {
+    const overlay = document.createElement('div');
+    overlay.className = 'chat-history-overlay';
+    overlay.addEventListener('click', (ev) => { if (ev.target === overlay) this._closeHistoryPanel(); });
+    const box = document.createElement('div');
+    box.className = 'chat-history-panel';
+    const title = document.createElement('div');
+    title.className = 'chat-history-title';
+    title.textContent = '历史轮次回滚';
+    const close = document.createElement('button');
+    close.className = 'chat-history-close';
+    close.type = 'button';
+    close.textContent = '✕';
+    close.addEventListener('click', () => this._closeHistoryPanel());
+    title.appendChild(close);
+    box.appendChild(title);
+    if (!list.length) {
+      const empty = document.createElement('div');
+      empty.className = 'chat-history-empty';
+      empty.textContent = '暂无检查点（先发送几轮对话）';
+      box.appendChild(empty);
+    } else {
+      const ul = document.createElement('div');
+      ul.className = 'chat-history-list';
+      list.slice().reverse().forEach((c) => { // 倒序：最新轮在上
+        const item = document.createElement('button');
+        item.className = 'chat-history-item';
+        item.type = 'button';
+        const seq = document.createElement('span');
+        seq.className = 'chat-history-seq';
+        seq.textContent = `#${c.seq}`;
+        const label = document.createElement('span');
+        label.className = 'chat-history-label';
+        label.textContent = c.label || '初始';
+        const time = document.createElement('span');
+        time.className = 'chat-history-time';
+        time.textContent = c.ts ? new Date(c.ts).toLocaleString() : '';
+        item.appendChild(seq); item.appendChild(label); item.appendChild(time);
+        item.addEventListener('click', () => this.confirmRollback(c.seq));
+        ul.appendChild(item);
+      });
+      box.appendChild(ul);
+    }
+    overlay.appendChild(box);
+    return overlay;
+  }
+
+  _closeHistoryPanel() {
+    const stray = document.querySelector('.chat-history-overlay');
+    if (stray) stray.remove();
   }
 
   // Hook the memory subsystem: subscribe to session switches and restore the
@@ -821,6 +984,17 @@ class ChatPanel extends HTMLElement {
       // Give up after 5s so we never leak a timer if something is badly broken.
       setTimeout(() => clearInterval(t), 5000);
     }
+  }
+
+  // ── 分类 Chips（对话模式选择条，小功能）──
+  _initCategoryChips() {
+    const el = document.getElementById('category-chips');
+    if (el) mountCategoryChips(el);
+    this.category = getActiveCategory();
+    // 跨标签同步（在另一个标签页修改分类时，本页后续发送采用新值）
+    window.addEventListener('storage', (e) => {
+      if (e.key === 'qcli-active-category') this.category = getActiveCategory();
+    });
   }
 
   // ── Textarea auto-resize ──
@@ -893,6 +1067,43 @@ class ChatPanel extends HTMLElement {
       }
     }
     this._renderPendingAttachments();
+  }
+
+  // ── 粘贴上传：Ctrl+V 图片/视频/文件（来自截图工具或文件管理器复制）──
+  _onPaste(e) {
+    if (!e.clipboardData) return;
+    const files = [];
+    const items = e.clipboardData.items;
+    if (items) {
+      for (const it of items) {
+        if (it.kind === 'file' && it.getAsFile) {
+          const f = it.getAsFile();
+          if (f) files.push(f);
+        }
+      }
+    }
+    if (e.clipboardData.files && e.clipboardData.files.length) {
+      for (const f of e.clipboardData.files) files.push(f);
+    }
+    if (!files.length) return; // 纯文本粘贴，照常插入输入框，不拦截
+    // 去重（items 与 files 可能指向同一对象，避免重复上传）
+    const seen = new Set();
+    const dedup = [];
+    for (const f of files) {
+      const k = `${f.name}:${f.size}:${f.type}`;
+      if (!seen.has(k)) { seen.add(k); dedup.push(f); }
+    }
+    if (!dedup.length) return;
+    e.preventDefault(); // 阻止图片以 base64 文本插入文本框
+    // 文件名兜底：截图粘贴常无扩展名（如 "image.png" 或空）
+    const norm = dedup.map((f) => {
+      const hasName = f.name && f.name !== 'image.png';
+      if (hasName) return f;
+      const ext = (f.type.split('/')[1] || 'png').replace(/[^a-z0-9]/gi, '');
+      const base = `pasted-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+      return new File([f], `${base}.${ext}`, { type: f.type });
+    });
+    this._handleFiles(norm);
   }
 
   _compressImage(file, maxEdge, maxBytes) {
@@ -1123,6 +1334,7 @@ class ChatPanel extends HTMLElement {
 
         api.sendMessage({
           messages: msgs,
+          category: this.category || undefined,
           sessionId: sessionId || undefined,
           terminalContext: terminalContext || undefined,
           terminalContextChanged: contextChanged,

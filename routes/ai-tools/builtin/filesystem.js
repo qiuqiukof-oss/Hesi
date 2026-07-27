@@ -54,9 +54,9 @@ function register(registry) {
       },
       required: ['path', 'content'],
     },
-    execute: async (args) => {
+    execute: async (args, _broadcastFn, _requestId, sessionId) => {
       try {
-        const result = await fetchPost('/tools/write-file', { path: args.path, content: args.content });
+        const result = await fetchPost('/tools/write-file', { path: args.path, content: args.content, sessionId });
         return `Written ${result.size} bytes to ${result.path}`;
       } catch (err) {
         return `Error: ${err.message}`;

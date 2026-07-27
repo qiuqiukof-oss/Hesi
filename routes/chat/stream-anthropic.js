@@ -579,7 +579,7 @@ async function streamAnthropicWithTools(res, messages, apiKey, model, baseUrl, t
       try {
         // M5 (v0.3.1): 传入本请求 metrics（与 cacheReadTokens/skillsInjected 共享同一对象）。
       const _metrics = (res._hesiMetrics = res._hesiMetrics || { cacheReadTokens: 0, cacheCreationTokens: 0, toolCacheHits: 0, experienceHits: 0, skillsInjected: 0 });
-      result = await executeToolCall(tc.name, args, broadcastFn, requestId, _metrics);
+      result = await executeToolCall(tc.name, args, broadcastFn, requestId, _metrics, req && req._hesiSessionId);
       } catch (unexpectedErr) {
         result = `[Tool Error] ${unexpectedErr.message}`;
         tcError = unexpectedErr.message;

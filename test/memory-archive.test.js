@@ -21,9 +21,9 @@ const config = require('../lib/memory/config');
 test('archive.remove also deletes the rollback checkpoint shadow', () => {
   const id = 's_ckpt_' + Date.now().toString(36);
   MemoryStore.ensure(id, { title: 'ckpt-cleanup' });
-  MemoryStore.checkpoint(id); // writes <id>.ckpt.json
+  MemoryStore.checkpoint(id); // writes <id>.ckpt.1.json (multi-turn stack, seq=1)
 
-  const ckpt = path.join(config.SESSIONS_DIR, `${id}.ckpt.json`);
+  const ckpt = path.join(config.SESSIONS_DIR, `${id}.ckpt.1.json`);
   assert.ok(fs.existsSync(ckpt), 'checkpoint should exist before removal');
 
   const ok = MemoryStore.remove(id);

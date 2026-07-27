@@ -117,7 +117,7 @@ class SkillRegistry {
     return scored.slice(0, topK).map((s) => s.doc);
   }
 
-  async search(query, topK = 3) {
+  async search(query, topK = 3, opts = {}) {
     if (!query || typeof query !== 'string') return [];
     const skills = this.list();
     if (!skills.length) return [];
@@ -135,9 +135,18 @@ class SkillRegistry {
     const hits = indexStore.query(this._searchIndex, query, { topK });
     // v0.3.1 B1：embed 启用时对 BM25 top-10 做余弦重排取 topK
     const reranked = await this.rerankHits(hits, query, topK);
-    return reranked
-      .map((d) => this.get(d.ref))
-      .filter(Boolean);
+    let scored = reranked
+      .map((d, i) => ({ s: this.get(d.ref), rank: i }))
+      .filter((x) => x.s);
+    // 分类 Chips：命中当前对话模式的 Skill 优先置顶（稳定排序，不动 BM25 相对序）
+    if (opts && opts.category) {
+      const cat = opts.category;
+      scored = scored
+        .map((x) => ({ s: x.s, rank: (x.s.category || '') === cat ? x.rank - 1000 : x.rank }))
+        .sort((a, b) => a.rank - b.rank)
+        .map((x) => x.s);
+    }
+    return scored.slice(0, topK);
   }
 
   addSkill(skill) {
