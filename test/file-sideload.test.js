@@ -51,3 +51,14 @@ test('sideload: outline caps at 80 entries and skips super-long lines', () => {
   assert.strictEqual(outlineCount, 80, 'outline capped at 80');
   assert.ok(!out.includes('longline'), 'super-long line excluded from outline');
 });
+
+test('sideload: threshold ~10K lets ~18KB file trigger (regression for big-file bomb)', () => {
+  // 18KB 文件：旧 20K 阈值下不触发（整文件进上下文），新 10K 阈值下必须触发。
+  const midFile = 'File: src/large.js\nLanguage: javascript\n\n' + 'const x = 1;\n'.repeat(1400);
+  assert.ok(midFile.length > 12000 && midFile.length < 20000, 'fixture is ~18KB-range');
+  assert.ok(midFile.length > SIDELOAD_THRESHOLD, '~18KB exceeds new 10K threshold');
+  assert.strictEqual(shouldSideload(midFile), true, '~18KB file is sideloaded at 10K threshold');
+  // 5KB 小文件仍不触发
+  const small = 'a'.repeat(5000);
+  assert.strictEqual(shouldSideload(small), false, '5KB file not sideloaded');
+});
