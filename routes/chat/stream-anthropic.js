@@ -621,7 +621,7 @@ async function streamAnthropicWithTools(res, messages, apiKey, model, baseUrl, t
   // 仅当真正达到轮次硬上限才提示；被中断(_aborted)时由 finally 静默补 [DONE]，
   // 避免把「用户停止/断连」误报成「已达到最大工具调用次数」。
   if (!_aborted) {
-    res.write(`data: ${JSON.stringify({ type: 'token', content: '\n\n[已达到最大工具调用次数(50轮)，部分结果可能不完整]' })}\n\n`);
+    res.write(`data: ${JSON.stringify({ type: 'token', content: `\n\n[已达到最大工具调用次数(${MAX_TOOL_ROUNDS}轮)，部分结果可能不完整]` })}\n\n`);
     emitAgentMetrics(res, broadcastFn); // M5 (v0.3.1): 轮次硬上限退场也结算一次
     res.write('data: [DONE]\n\n');
     res.end();
