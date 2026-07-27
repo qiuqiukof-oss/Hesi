@@ -14,6 +14,7 @@ const videoGen = require('./video-gen');
 const docConvert = require('./doc-convert');
 const workbuddy = require('./workbuddy');
 const agent = require('./agent');
+const blackboard = require('./blackboard');
 
 /**
  * 注册所有内置 AI 工具。
@@ -33,6 +34,7 @@ function registerAll(registry, deps) {
   docConvert.register(registry);
   workbuddy.register(registry);
   agent.register(registry);
+  blackboard.register(registry);
 }
 
 module.exports = { registerAll };
