@@ -462,6 +462,10 @@ const RoundTableView = {
             }
             this.setSeat(seatId, { state: 'speaking', name: evt.label });
             this.startMemoTurn(evt.label);
+          } else if (evt.speaker === 'summary') {
+            // 结论汇总无专属席位，但仍需独立成段；否则正文会被丢弃或误并入上一位发言
+            this.activeSeat = null;
+            this.startMemoTurn(evt.label);
           }
         } else if (evt.type === 'end') {
           if (this.activeSeat) this.setSeat(this.activeSeat, { state: 'done' });
