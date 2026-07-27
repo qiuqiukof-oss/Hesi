@@ -477,7 +477,9 @@ function register(registry) {
       '- task: 任务描述\n' +
       '- dependsOn: 依赖的上游任务 ID 数组（可选）\n' +
       '- maxRetries: 失败重试次数（默认 0）\n' +
-      '- onFailure: 失败策略 — stop（停止全部）/ continue（继续）/ skip-dependents（跳过依赖）\n\n' +
+      '- onFailure: 失败策略 — stop（停止全部）/ continue（继续）/ skip-dependents（跳过依赖）\n' +
+      '- role: 可选角色（coder/debugger/reviewer/tester/deployer），注入角色提示；带角色的任务失败重试时自动转岗 debugger\n' +
+      '- files: 可选，该任务负责的文件路径数组，状态会同步到共享黑板（blackboard_read 可查）\n\n' +
       '示例：代码审查流水线\n' +
       'tasks: [\n' +
       '  { id: "step1", agentId: "opencode", task: "实现文件上传功能" },\n' +
@@ -504,6 +506,8 @@ function register(registry) {
               dependsOn: { type: 'array', items: { type: 'string' }, description: '依赖的上游任务 ID' },
               maxRetries: { type: 'number', description: '失败重试次数（默认 0）' },
               onFailure: { type: 'string', enum: ['stop', 'continue', 'skip-dependents'], description: '失败策略' },
+              role: { type: 'string', enum: ['coder', 'debugger', 'reviewer', 'tester', 'deployer'], description: '可选角色（失败重试自动转岗 debugger）' },
+              files: { type: 'array', items: { type: 'string' }, description: '该任务负责的文件路径（同步到共享黑板）' },
             },
             required: ['agentId', 'task'],
           },
@@ -512,6 +516,10 @@ function register(registry) {
           type: 'number',
           description: '最大并行任务数（默认 3）',
           default: 3,
+        },
+        projectId: {
+          type: 'string',
+          description: '共享黑板 projectId（默认 default）；任务状态会在 start/done/error 节点自动同步到黑板',
         },
       },
       required: ['tasks'],
@@ -525,7 +533,7 @@ function register(registry) {
         return JSON.stringify({ ok: false, error: 'tasks 数组不能为空' });
       }
 
-      return workflowManager.start(name, tasks, { maxConcurrency });
+      return workflowManager.start(name, tasks, { maxConcurrency, projectId: args.projectId });
     },
   });
 
@@ -587,6 +595,8 @@ function register(registry) {
               dependsOn: { type: 'array', items: { type: 'string' }, description: '依赖' },
               maxRetries: { type: 'number' },
               onFailure: { type: 'string', enum: ['stop', 'continue', 'skip-dependents'] },
+              role: { type: 'string', enum: ['coder', 'debugger', 'reviewer', 'tester', 'deployer'], description: '可选角色' },
+              files: { type: 'array', items: { type: 'string' }, description: '负责的文件路径（黑板同步）' },
             },
             required: ['agentId', 'task'],
           },

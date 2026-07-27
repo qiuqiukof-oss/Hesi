@@ -18,7 +18,10 @@
 //   - 上下文传递 (上游输出注入下游 prompt)
 // ============================================================
 
+const crypto = require('crypto');
 const { agentPool } = require('./agent-pool');
+const agentRoles = require('../../lib/agent-roles');
+const blackboard = require('../../lib/blackboard');
 
 // ── 配置常量 ──
 const MAX_WORKFLOWS = 20;           // 最大工作流数
@@ -38,6 +41,15 @@ let _idCounter = 0;
 function generateId() {
   _idCounter++;
   return `wf-${Date.now().toString(36)}-${_idCounter}`;
+}
+
+/** 计算文本的短哈希（黑板 files.hash 用，非安全用途） */
+function shortHash(text) {
+  try {
+    return crypto.createHash('sha1').update(String(text || '')).digest('hex').slice(0, 8);
+  } catch {
+    return '';
+  }
 }
 
 /**
@@ -87,6 +99,8 @@ class WorkflowManager {
         dependsOn: Array.isArray(t.dependsOn) ? t.dependsOn : [],
         maxRetries: t.maxRetries || 0,
         onFailure: t.onFailure || 'stop',  // stop / continue / skip-dependents
+        role: (typeof t.role === 'string' && t.role) ? t.role : null,          // S3/S5: 可选角色（失败自动转岗）
+        files: Array.isArray(t.files) ? t.files.filter(f => typeof f === 'string') : [], // S4: 该任务负责的文件（黑板同步）
         status: 'pending',
         retries: 0,
         result: '',
@@ -127,6 +141,7 @@ class WorkflowManager {
         tasks: normalizedTasks,
         status: 'running',
         maxConcurrency: opts.maxConcurrency || 3,
+        projectId: (typeof opts.projectId === 'string' && opts.projectId) ? opts.projectId : 'default', // S4: 黑板 projectId
         startTime: Date.now(),
         lastActivity: Date.now(),
     runningCount: 0,
@@ -174,6 +189,7 @@ class WorkflowManager {
         id: t.id,
         label: t.label,
         agentId: t.agentId,
+        role: t.role || undefined,
         status: t.status,
         retries: t.retries,
         maxRetries: t.maxRetries,
@@ -240,6 +256,8 @@ class WorkflowManager {
           dependsOn: Array.isArray(nt.dependsOn) ? nt.dependsOn : [],
           maxRetries: nt.maxRetries || 0,
           onFailure: nt.onFailure || 'stop',
+          role: (typeof nt.role === 'string' && nt.role) ? nt.role : null,
+          files: Array.isArray(nt.files) ? nt.files.filter(f => typeof f === 'string') : [],
           status: 'pending',
           retries: 0,
           result: '',
@@ -261,6 +279,67 @@ class WorkflowManager {
     } catch (err) {
       return JSON.stringify({ ok: false, error: `添加任务失败: ${err.message}` });
     }
+  }
+
+  // ── 黑板同步（S4：仅 start/done/error 三个关键节点，事件驱动） ──
+
+  /**
+   * best-effort 黑板 patch：失败只记日志，绝不阻断/中断工作流执行。
+   * 各任务只 patch 自己的 task/files 键（字段级合并），并行互不覆盖（隔离性）。
+   * @param {object} wf
+   * @param {object} partial
+   */
+  _bbPatch(wf, partial) {
+    try {
+      blackboard.patch(wf.projectId || 'default', partial).catch(err => {
+        console.error(`[Workflow] 黑板同步失败（已忽略，不影响执行）: ${err.message}`);
+      });
+    } catch (err) {
+      console.error(`[Workflow] 黑板同步失败（已忽略，不影响执行）: ${err.message}`);
+    }
+  }
+
+  /** 步骤开始：task→in_progress，登记角色与负责文件 */
+  _bbTaskStart(wf, task) {
+    const partial = {
+      tasks: [{ id: task.id, status: 'in_progress', assignee: task.agentId, workflowId: wf.workflowId }],
+      logs: [{ ts: Date.now(), actor: 'workflow', msg: `任务 ${task.id} 开始（agent=${task.agentId}${task.role ? `, role=${task.role}` : ''}）` }],
+    };
+    if (task.role) partial.roles = { [task.agentId]: task.role };
+    if (task.files.length) {
+      partial.files = {};
+      for (const p of task.files) partial.files[p] = { status: 'in_progress' };
+    }
+    this._bbPatch(wf, partial);
+  }
+
+  /** 步骤完成：task→done，负责文件→done + 产出短哈希 */
+  _bbTaskDone(wf, task) {
+    const partial = {
+      tasks: [{ id: task.id, status: 'done' }],
+      logs: [{ ts: Date.now(), actor: 'workflow', msg: `任务 ${task.id} 完成` }],
+    };
+    if (task.files.length) {
+      partial.files = {};
+      const hash = shortHash(task.result);
+      for (const p of task.files) partial.files[p] = { status: 'done', hash };
+    }
+    this._bbPatch(wf, partial);
+  }
+
+  /** 步骤失败/重试：retrying 或 failed + lastError */
+  _bbTaskError(wf, task, errMsg, retrying) {
+    const status = retrying ? 'retrying' : 'failed';
+    const partial = {
+      tasks: [{ id: task.id, status, lastError: String(errMsg || '').slice(0, 500) }],
+      logs: [{ ts: Date.now(), actor: 'workflow', msg: `任务 ${task.id} ${retrying ? `失败，转岗重试（第 ${task.retries} 次${task.role ? `, role=${task.role}` : ''}）` : '彻底失败'}: ${String(errMsg || '').slice(0, 200)}` }],
+    };
+    if (retrying && task.role) partial.roles = { [task.agentId]: task.role };
+    if (!retrying && task.files.length) {
+      partial.files = {};
+      for (const p of task.files) partial.files[p] = { status: 'failed' };
+    }
+    this._bbPatch(wf, partial);
   }
 
   // ── 调度引擎（内部） ──
@@ -351,6 +430,9 @@ class WorkflowManager {
 
   async _executeTask(wf, task) {
     try {
+      // S4: 黑板同步 — 步骤开始
+      this._bbTaskStart(wf, task);
+
       // 构建包含上下文 prompt
       let prompt = task.task || task.label || '';
       const contextParts = [];
@@ -421,6 +503,7 @@ class WorkflowManager {
         task.status = 'completed';
         task.endedAt = Date.now();
         wf.runningCount--;
+        this._bbTaskDone(wf, task); // S4: 黑板同步 — 步骤完成（poll 异常按完成处理，沿用原语义）
         this._schedule(wf.workflowId).catch(() => {});
         return;
       }
@@ -430,6 +513,7 @@ class WorkflowManager {
         task.status = 'completed';
         task.endedAt = Date.now();
         wf.runningCount--;
+        this._bbTaskDone(wf, task); // S4: 黑板同步 — 步骤完成
         this._schedule(wf.workflowId).catch(() => {});
         return;
       }
@@ -450,6 +534,13 @@ class WorkflowManager {
 
     if (task.retries < task.maxRetries) {
       task.retries++;
+      // S5: 隔离恢复 — 有角色的任务失败后自动转岗（如 coder→debugger）重试；
+      // 无角色任务保持原行为（零行为变化）。
+      if (task.role) {
+        const next = agentRoles.resolveRecoveryRole(task.role);
+        if (next && next !== task.role) task.role = next;
+      }
+      this._bbTaskError(wf, task, err.message, true); // 黑板: retrying
       task.status = 'pending';
       task.startedAt = null;
       // 重新调度
@@ -458,6 +549,7 @@ class WorkflowManager {
     }
 
     task.status = 'failed';
+    this._bbTaskError(wf, task, err.message, false); // S4: 黑板同步 — 步骤彻底失败
 
     if (task.onFailure === 'continue') {
       this._schedule(wf.workflowId).catch(() => {});
