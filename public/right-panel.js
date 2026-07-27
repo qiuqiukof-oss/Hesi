@@ -70,6 +70,21 @@ const TAB_LAYOUT_VERSION = '2';
 // ============================================================
 // Initialization
 // ============================================================
+
+// Deep-link: if the URL hash names a registered tab (e.g. /#browser-scripts),
+// activate it instead of the saved/default tab. Used by the toolbox page so a
+// card can jump straight into a specific right-panel tab.
+function activateFromHash() {
+  const hash = (location.hash || '').replace(/^#/, '').trim();
+  if (!hash) return;
+  const UIR = Q.UIRegistry;
+  if (!UIR || !UIR.getTabs) return;
+  const matched = UIR.getTabs().find(function(t) { return t.id === hash; });
+  if (!matched) return;
+  RightPanel.activeTab = hash;
+  if (RightPanel.collapsed) RightPanel.open();
+}
+
 function init() {
   el = document.getElementById('right-panel');
   if (!el) return;
@@ -81,6 +96,9 @@ function init() {
 
   // Restore saved state
   restoreState();
+
+  // Deep-link: a hash in the URL (e.g. /#browser-scripts) overrides the saved tab
+  activateFromHash();
 
   // Wire up toggle button
   if (toggleBtn) {
@@ -102,9 +120,28 @@ function init() {
   if (Q.UIRegistry) {
     Q.UIRegistry.onTabRegistered = function(tabDef) {
       scheduleRerenderAll();
+      // A late-registered tab may be the one requested via URL hash deep-link
+      const hash = (location.hash || '').replace(/^#/, '').trim();
+      if (tabDef && tabDef.id === hash) {
+        if (RightPanel.collapsed) RightPanel.open();
+        switchTab(hash, true);
+      }
       console.log('[RightPanel] Late-registered plugin tab:', tabDef.id);
     };
   }
+
+  // React to hash changes so deep-links keep working after the app has loaded
+  // (e.g. navigating from the toolbox page to /#browser-scripts).
+  window.addEventListener('hashchange', function() {
+    const hash = (location.hash || '').replace(/^#/, '').trim();
+    if (!hash) return;
+    const UIR = Q.UIRegistry;
+    if (!UIR || !UIR.getTabs) return;
+    const matched = UIR.getTabs().find(function(t) { return t.id === hash; });
+    if (!matched) return;
+    if (RightPanel.collapsed) RightPanel.open();
+    if (RightPanel.activeTab !== hash) switchTab(hash, true);
+  });
 
   // ── Populate tab bar with all currently registered tabs ──
   // This must come AFTER onTabRegistered is set so that already-registered
