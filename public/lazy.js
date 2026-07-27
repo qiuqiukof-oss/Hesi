@@ -26,9 +26,9 @@ import './stock-analysis.js'; // Stocks → stock/fund charts in right panel
 // NOTE: This module registers itself as a plugin tab via Q.UIRegistry.registerTab('media', ...)
 import './multi-media.js';   // Media → media gallery in right panel
 
-// ── Phase 2: 围炉圆桌（多 Agent 可视化协作，独立页 /roundtable.html，懒加载防主包膨胀）──
-import './components/roundtable-skins.js'; // RoundtableSkins → 皮肤注册表(SKINS/applySkin)，被 roundtable.js 依赖
-import './components/roundtable.js';   // Roundtable → 圆桌可视化控制器（消费 roundtable-skins）
+// ── Phase 2: 围炉圆桌（多 Agent 可视化协作，作为 AI讨论 的一种视图，进 lazy 防主包膨胀）──
+import './components/roundtable-skins.js'; // RoundtableSkins → 皮肤注册表(SKINS/applySkin)，被 roundtable-view.js 依赖
+import './components/roundtable-view.js';   // RoundTableView → 圆桌视图渲染器（引擎复用 Q.ChatAPI，容器 #mahjong-embed）
 
 // ── Dashboard panel — system status, CLI stats, runtime overview ──
 import './dashboard.js';     // Dashboard → system dashboard tab

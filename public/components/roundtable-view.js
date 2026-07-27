@@ -1,11 +1,14 @@
 // @ts-check
 // ============================================================
-// Phase 2 S4/S5 — 围炉圆桌控制器（懒加载，进 lazy bundle）
+// 围炉圆桌 · 视图渲染器（懒加载，进 lazy bundle）
 //
-// 把 Phase 1 的共享黑板 / 多 Agent 讨论（discuss.js）从纯文本升级为
-// 可视化协作空间：4 个可爱 Agent 围坐 + 中心共享桌布 + 实时闲谈气泡。
-// 只读渲染 discuss SSE，不改内核。支持：空座、⚙ 自定义、抛话题、
-// 点赞、纪要持久化（落对话）+ 导出 Markdown。
+// 统一架构：圆桌 = AI讨论 的一种「视图」。引擎复用 chat-panel 的
+// Q.ChatAPI.sendMessage（discuss 模式），本模块只负责把归一化后的
+// discuss 事件（onToken / onDiscuss / onDone / onError / onStatus）
+// 渲染成席位 SVG + 气泡 + 纪要。不再自持 fetch/SSE。
+//
+// 容器：主应用 #mahjong-embed 抽屉内的 #rt（席位区）及配套控件。
+// 通过 window.QCLI.RoundTableView.{open,close,setSkin} 由 chat-panel 调起。
 // ============================================================
 'use strict';
 
@@ -39,22 +42,12 @@ function getStore() {
     set: (k, v) => { try { localStorage.setItem(k, String(v)); } catch { /* ignore */ } },
   };
 }
-function getAI() {
-  const s = getStore();
-  return {
-    apiKey: s.get('qcli-ai-key', ''),
-    provider: s.get('qcli-ai-provider', 'openai'),
-    model: s.get('qcli-ai-model', ''),
-    baseUrl: s.get('qcli-ai-base-url', ''),
-  };
-}
 
 function getFavorites() {
   try {
     const raw = localStorage.getItem('qcli-favorites');
     if (!raw) return [];
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : [];
+    return JSON.parse(raw).filter((x) => typeof x === 'string');
   } catch { return []; }
 }
 
@@ -68,7 +61,7 @@ function getRounds() {
   return v;
 }
 
-const Roundtable = {
+const RoundTableView = {
   root: null,
   rt: null,
   roster: [],
@@ -86,6 +79,7 @@ const Roundtable = {
   topic: '',
   sessionId: '',
   running: false,
+  _stateLoaded: false,
 
   init() {
     this.root = document.getElementById('rt');
@@ -94,19 +88,14 @@ const Roundtable = {
     this.skin = this.resolveSkin();
     this.skinObj = getSkin(this.skin);
     applySkin(this.rt, this.skin);
-    try {
-      if (new URLSearchParams(location.search).get('embed')) document.body.classList.add('embed');
-    } catch { /* ignore */ }
     this.sessionId = this.resolveSession();
     this.bindStaticUI();
     this.fetchState();
+    this._stateLoaded = true;
   },
 
   resolveSkin() {
     try {
-      const p = new URLSearchParams(location.search);
-      const fromUrl = p.get('skin');
-      if (fromUrl && SKINS[fromUrl]) return fromUrl;
       const stored = getStore().get('qcli-roundtable-skin', 'hearth');
       if (stored && SKINS[stored]) return stored;
     } catch { /* ignore */ }
@@ -129,9 +118,6 @@ const Roundtable = {
   },
 
   resolveSession() {
-    const p = new URLSearchParams(location.search);
-    const fromUrl = p.get('sessionId');
-    if (fromUrl) return fromUrl;
     const s = getStore();
     let id = s.get('qcli-roundtable-session', '');
     if (!id) { id = (crypto.randomUUID ? crypto.randomUUID() : 'rt-' + Date.now()); s.set('qcli-roundtable-session', id); }
@@ -162,17 +148,27 @@ const Roundtable = {
     this.elModalBody = $('modalBody');
     this.elToast = $('toast');
 
-    this.elStart.addEventListener('click', () => this.startDiscussion());
-    this.elExport.addEventListener('click', () => this.exportMemo());
-    this.elSave.addEventListener('click', () => this.saveToConversation());
-    this.elCustom.addEventListener('click', () => this.openCustomize());
+    if (this.elStart) this.elStart.addEventListener('click', () => this.start());
+    if (this.elExport) this.elExport.addEventListener('click', () => this.exportMemo());
+    if (this.elSave) this.elSave.addEventListener('click', () => this.saveToConversation());
+    if (this.elCustom) this.elCustom.addEventListener('click', () => this.openCustomize());
     document.querySelectorAll('[data-skin]').forEach((btn) => {
       btn.addEventListener('click', () => this.setSkin(btn.getAttribute('data-skin')));
     });
     this.updateSkinSwitch();
-    this.elHideEmpty.addEventListener('change', () => {
-      this.rt.classList.toggle('hide-empty', !this.elHideEmpty.checked);
-    });
+    if (this.elHideEmpty) {
+      this.elHideEmpty.addEventListener('change', () => {
+        this.rt.classList.toggle('hide-empty', !this.elHideEmpty.checked);
+      });
+    }
+    // 模态保存/取消
+    const modalSave = document.getElementById('modalSave');
+    if (modalSave) modalSave.addEventListener('click', () => this.saveCustomize());
+    const modalCancel = document.getElementById('modalCancel');
+    if (modalCancel) modalCancel.addEventListener('click', () => this.closeCustomize());
+    if (this.elModal) {
+      this.elModal.addEventListener('click', (e) => { if (e.target.id === 'modal') this.closeCustomize(); });
+    }
     // 会话提示卡片
     this.renderSessionCard({ saved: false });
   },
@@ -234,11 +230,14 @@ const Roundtable = {
         const b = st.blackboard;
         const tasks = Array.isArray(b.tasks) ? b.tasks.length : (b.tasks ? Object.keys(b.tasks).length : 0);
         const files = b.files ? Object.keys(b.files).length : 0;
-        document.getElementById('bbTasks').textContent = `任务 ${tasks} · 文件 ${files}`;
-        document.getElementById('bbRound').textContent = `第 ${b.round || 0} 回合`;
-        document.getElementById('bbFiles').textContent = '黑板已活跃';
+        const bbTasks = document.getElementById('bbTasks');
+        const bbRound = document.getElementById('bbRound');
+        const bbFiles = document.getElementById('bbFiles');
+        if (bbTasks) bbTasks.textContent = `任务 ${tasks} · 文件 ${files}`;
+        if (bbRound) bbRound.textContent = `第 ${b.round || 0} 回合`;
+        if (bbFiles) bbFiles.textContent = '黑板已活跃';
       }
-      this.elProtocol.textContent = this.protocol ? '协议：' + this.protocol : '';
+      if (this.elProtocol) this.elProtocol.textContent = this.protocol ? '协议：' + this.protocol : '';
       this.renderCliList();
       this.renderSeats();
     } catch (e) {
@@ -258,26 +257,25 @@ const Roundtable = {
     const favs = new Set(getFavorites());
     const byId = this.allClisById || {};
     // 可选项 = 过滤出的 agent/manual + 收藏夹中存在于全量 registry 的项
-    // （含被识别为 tool/directory 的 agent，交还用户主动权）
     const present = new Map(this.availableClis.map((c) => [c.id, c]));
     const selectable = [...this.availableClis];
     const unknownFavs = [];
     for (const id of favs) {
-      if (present.has(id)) continue;            // 已在可用列表
+      if (present.has(id)) continue;
       const c = byId[id];
       if (c) {
         if (!selectable.some((x) => x.id === id)) {
           selectable.push({ id: c.id, name: c.name, displayName: c.displayName || c.name, category: c.category, discovered: c.discovered });
         }
       } else {
-        unknownFavs.push(id);                     // 收藏了但全量 registry 也查不到
+        unknownFavs.push(id);
       }
     }
+    if (!this.elCliList) return;
     if (!selectable.length && !unknownFavs.length) {
       this.elCliList.innerHTML = '<span class="tip">未检测到可用 CLI Agent（opencode/codex 等）。可先在「工具箱」安装，圆桌仍可可视化展示。</span>';
       return;
     }
-    // 收藏的 CLI 置顶
     selectable.sort((a, b) => (favs.has(b.id) ? 1 : 0) - (favs.has(a.id) ? 1 : 0));
 
     this.elCliList.innerHTML = '';
@@ -303,12 +301,10 @@ const Roundtable = {
   },
 
   renderSeats() {
-    // 清掉旧席位（保留 center）
+    if (!this.rt) return;
     this.rt.querySelectorAll('.rtseat').forEach((n) => n.remove());
     this.seats = {};
-    // 主持人
     this.buildSeat('host', this.host, { host: true });
-    // 4 个 Agent：前 N 个被选中 CLI 占用，其余空座
     const occupied = this.selected.slice(0, AGENT_SEAT_ORDER.length);
     AGENT_SEAT_ORDER.forEach((seatId, idx) => {
       const agent = this.roster[idx];
@@ -358,7 +354,7 @@ const Roundtable = {
   },
 
   applyHideEmpty() {
-    this.rt.classList.toggle('hide-empty', !this.elHideEmpty.checked);
+    if (this.rt && this.elHideEmpty) this.rt.classList.toggle('hide-empty', !this.elHideEmpty.checked);
   },
 
   setSeat(seatId, { state, name, bubble }) {
@@ -405,10 +401,11 @@ const Roundtable = {
     }
   },
 
-  async startDiscussion() {
+  // ── 引擎：复用 Q.ChatAPI.sendMessage（discuss 模式）──
+  start() {
     if (this.running) return;
-    const ai = getAI();
-    if (!ai.apiKey) { this.toast('未配置 API Key（设置 → AI Key）'); return; }
+    const apiKey = (Q.ChatAPI && Q.ChatAPI.getApiKey) ? Q.ChatAPI.getApiKey() : getStore().get('qcli-ai-key', '');
+    if (!apiKey) { this.toast('未配置 API Key（设置 → AI Key）'); return; }
     if (!this.selected.length) { this.toast('请至少选择一个参与 Agent'); return; }
     const topic = this.elTopic.value.trim();
     if (!topic) { this.toast('请输入议题'); return; }
@@ -437,98 +434,51 @@ const Roundtable = {
       }
     });
 
-    const body = {
+    const api = Q.ChatAPI;
+    if (!api || !api.sendMessage) { this.toast('讨论引擎不可用'); this.finishDiscussion(); return; }
+    api.sendMessage({
       messages: [{ role: 'user', content: topic }],
       discuss: true,
       partners: this.selected,
-      maxTurns: this.getRounds(),
-      apiKey: ai.apiKey,
-      provider: ai.provider,
-      model: ai.model,
-      baseUrl: ai.baseUrl,
+      maxTurns: getRounds(),
       sessionId: this.sessionId,
-    };
-
-    try {
-      const resp = await fetch('/api/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-      });
-      if (!resp.ok) {
-        const err = await resp.text().catch(() => '');
-        this.toast('讨论启动失败：' + resp.status);
-        console.error('[roundtable]', err);
-        this.finishDiscussion();
-        return;
-      }
-      await this.consumeSSE(resp);
-    } catch (e) {
-      this.toast('讨论出错：' + e.message);
-      this.finishDiscussion();
-    }
-  },
-
-  async consumeSSE(resp) {
-    const reader = resp.body.getReader();
-    const dec = new TextDecoder();
-    let buf = '';
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      buf += dec.decode(value, { stream: true });
-      let idx;
-      while ((idx = buf.indexOf('\n\n')) >= 0) {
-        const chunk = buf.slice(0, idx);
-        buf = buf.slice(idx + 2);
-        const line = chunk.split('\n').find((l) => l.startsWith('data: '));
-        if (line) {
-          try { this.handleEvent(JSON.parse(line.slice(6))); } catch { /* ignore malformed */ }
-        }
-      }
-    }
-  },
-
-  handleEvent(evt) {
-    switch (evt.type) {
-      case 'status':
-        this.log(evt.message);
-        break;
-      case 'discuss_start': {
-        const seatId = this.participantSeats[evt.label] || null;
-        this.activeSeat = seatId;
-        if (seatId) {
-          const s = this.seats[seatId];
-          if (s) {
-            s._bub = ''; s.bubEl.style.display = 'none'; s.bubEl.innerHTML = '';
-            if (this.skinObj.tileAnim) {
-              s.el.classList.add('tile-out');
-              setTimeout(() => s.el.classList.remove('tile-out'), 520);
+      onToken: (content) => {
+        if (this.activeSeat) this.setSeat(this.activeSeat, { bubble: content });
+        this.appendMemo(content);
+      },
+      onDiscuss: (evt) => {
+        if (!evt) return;
+        if (evt.type === 'start') {
+          const seatId = this.participantSeats[evt.label] || null;
+          this.activeSeat = seatId;
+          if (seatId) {
+            const s = this.seats[seatId];
+            if (s) {
+              s._bub = ''; s.bubEl.style.display = 'none'; s.bubEl.innerHTML = '';
+              if (this.skinObj.tileAnim) {
+                s.el.classList.add('tile-out');
+                setTimeout(() => s.el.classList.remove('tile-out'), 520);
+              }
             }
+            this.setSeat(seatId, { state: 'speaking', name: evt.label });
+            this.startMemoTurn(evt.label);
           }
-          this.setSeat(seatId, { state: 'speaking', name: evt.label });
-          this.startMemoTurn(evt.label);
+        } else if (evt.type === 'end') {
+          if (this.activeSeat) this.setSeat(this.activeSeat, { state: 'done' });
+        } else if (evt.type === 'stats') {
+          this.stats = evt.stats;
         }
-        break;
-      }
-      case 'token':
-        if (this.activeSeat) this.setSeat(this.activeSeat, { bubble: evt.content });
-        this.appendMemo(evt.content);
-        break;
-      case 'discuss_end':
-        if (this.activeSeat) this.setSeat(this.activeSeat, { state: 'done' });
-        break;
-      case 'discuss_stats':
-        this.stats = evt.stats;
-        break;
-      case 'error':
-        this.log('⚠️ ' + evt.message);
-        this.toast(evt.message);
-        break;
-      case '[DONE]':
+      },
+      onStatus: (msg) => this.log(msg),
+      onDone: () => this.finishDiscussion(),
+      onError: (err) => {
+        let msg = (typeof err === 'string') ? err : (err && err.message) || '讨论出错';
+        if (msg === 'NEEDS_KEY') msg = '未配置 API Key（设置 → AI Key）';
+        this.log('⚠️ ' + msg);
+        this.toast(msg);
         this.finishDiscussion();
-        break;
-    }
+      },
+    });
   },
 
   log(msg) {
@@ -546,6 +496,7 @@ const Roundtable = {
     this.renderMemo();
   },
   renderMemo() {
+    if (!this.elMemoBody) return;
     this.elMemoBody.innerHTML = this.transcript
       .filter((t) => t.label !== '·' || t.text)
       .map((t) => {
@@ -562,10 +513,10 @@ const Roundtable = {
 
   finishDiscussion() {
     this.running = false;
-    this.elStart.disabled = false;
+    if (this.elStart) this.elStart.disabled = false;
     if (this.transcript.some((t) => t.label !== '·' && t.text.trim())) {
-      this.elExport.disabled = false;
-      this.elSave.disabled = false;
+      if (this.elExport) this.elExport.disabled = false;
+      if (this.elSave) this.elSave.disabled = false;
     }
     // 占出席位回到待命（含主持人位）
     ['host', ...AGENT_SEAT_ORDER].forEach((sid) => { if (this.seats[sid] && !this.seats[sid].empty) this.setSeat(sid, { state: 'idle' }); });
@@ -630,6 +581,7 @@ const Roundtable = {
   },
 
   openCustomize() {
+    if (!this.elModalBody) return;
     this.elModalBody.innerHTML = '';
     for (const a of this.roster) {
       const seat = document.createElement('div');
@@ -679,7 +631,7 @@ const Roundtable = {
     }
   },
 
-  closeCustomize() { this.elModal.classList.remove('show'); },
+  closeCustomize() { if (this.elModal) this.elModal.classList.remove('show'); },
 
   toast(msg) {
     if (!this.elToast) return;
@@ -692,18 +644,34 @@ const Roundtable = {
   esc(s) {
     return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   },
+
+  // ── 由 chat-panel 调起的弹层控制 ──
+  open(skin) {
+    const el = document.getElementById('mahjong-embed');
+    if (!el) return;
+    el.classList.remove('hidden');
+    if (skin && SKINS[skin]) this.setSkin(skin);
+    if (!this._stateLoaded) { this._stateLoaded = true; this.fetchState(); }
+  },
+  close() {
+    const el = document.getElementById('mahjong-embed');
+    if (el) el.classList.add('hidden');
+  },
 };
 
-// 模态按钮
-document.getElementById('modalSave') && document.getElementById('modalSave').addEventListener('click', () => Roundtable.saveCustomize());
-document.getElementById('modalCancel') && document.getElementById('modalCancel').addEventListener('click', () => Roundtable.closeCustomize());
-if (document.getElementById('modal')) {
-  document.getElementById('modal').addEventListener('click', (e) => { if (e.target.id === 'modal') Roundtable.closeCustomize(); });
-}
+window.QCLI.RoundTableView = RoundTableView;
+window.RoundTableView = RoundTableView;
 
 function init() {
   if (!document.getElementById('rt')) return;
-  Roundtable.init();
+  RoundTableView.init();
+  // URL 自动展开：?view=roundtable[&skin=mahjong]
+  try {
+    const p = new URLSearchParams(location.search);
+    if (p.get('view') === 'roundtable') {
+      RoundTableView.open(p.get('skin') || undefined);
+    }
+  } catch { /* ignore */ }
 }
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
 else init();

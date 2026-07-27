@@ -14,6 +14,7 @@
   <link rel="stylesheet" href="/css/memory-sessions.css" />
   <link rel="stylesheet" href="/css/toast.css" />
   <link rel="stylesheet" href="/css/modal.css" />
+  <link rel="stylesheet" href="/css/roundtable-view.css" />
   <link rel="stylesheet" href="/css/workflow.css" />
   <link rel="stylesheet" href="/css/orchestrator.css" />
     <link rel="stylesheet" href="/css/sidebar-core.css" />
@@ -205,7 +206,8 @@
             <button id="chat-terminal-toggle" class="chat-action-btn terminal-toggle active" title="终端上下文：已启用">📟</button>
             <button id="chat-export-btn" class="chat-action-btn" title="导出聊天记录">📥</button>
             <button id="chat-blackboard-btn" class="chat-action-btn" title="多 Agent 黑板面板">🗂️</button>
-            <button id="chat-mahjong-btn" class="chat-action-btn" title="围炉圆桌 / 麻将闲谈">🀄</button>
+            <button id="chat-roundtable-btn" class="chat-action-btn" title="围炉圆桌 · 多 Agent 可视化讨论">🍵</button>
+            <button id="chat-mahjong-btn" class="chat-action-btn" title="围炉圆桌（麻将皮肤）">🀄</button>
             <button id="chat-memory-btn" class="chat-action-btn" title="记忆（用户画像 / 已记住的事实）">🧠</button>
             <button id="chat-savings-btn" class="chat-action-btn savings" title="本会话暂无节省记录">
               <span class="savings-ring" aria-hidden="true">
@@ -851,15 +853,90 @@
     <iframe id="bb-embed-frame" title="多 Agent 黑板"></iframe>
   </div>
 
-  <!-- ====== 围炉圆桌 / 麻将闲谈：右侧伸缩抽屉（与黑板同款 fixed 定位，聊天上下文常驻）====== -->
+  <!-- ====== 围炉圆桌：右侧伸缩抽屉（与黑板同款 fixed 定位，聊天上下文常驻）====== -->
+  <!-- 圆桌 = AI讨论 的一种视图：引擎复用 chat-panel 的 Q.ChatAPI，本抽屉仅作渲染容器 -->
   <div id="mahjong-embed" class="hidden">
     <div class="drawer-resize-handle" data-drawer="mahjong-embed" title="拖拽调整宽度"></div>
     <div class="mj-embed-bar">
-      <span class="mj-embed-title">🀄 围炉圆桌</span>
-      <a class="mj-embed-open" href="/roundtable.html" target="_blank" rel="noopener noreferrer" title="新标签页打开完整版">⛶</a>
+      <span class="mj-embed-title">🍵 围炉圆桌</span>
+      <a class="mj-embed-open" href="/index.html?view=roundtable" target="_blank" rel="noopener noreferrer" title="新标签页打开圆桌">⛶</a>
       <button id="mj-embed-close" class="chat-action-btn" title="收起面板">✕</button>
     </div>
-    <iframe id="mj-embed-frame" title="围炉圆桌"></iframe>
+    <div class="rt-scroll">
+      <div class="panel">
+        <div class="controls">
+          <div class="field" style="flex:1;min-width:220px">
+            <label>议题 / 想讨论什么</label>
+            <textarea id="topic" placeholder="例如：登录页要做哪些改动？给个多方视角的方案"></textarea>
+          </div>
+          <div class="field" style="width:120px">
+            <label>讨论轮数</label>
+            <select id="rounds" title="每轮 = AI 助手与每个 CLI Agent 各发言一次（1–12）">
+              <option value="1">1 轮</option>
+              <option value="2">2 轮</option>
+              <option value="3">3 轮</option>
+              <option value="4">4 轮</option>
+              <option value="6" selected>6 轮</option>
+              <option value="8">8 轮</option>
+              <option value="10">10 轮</option>
+              <option value="12">12 轮</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>&nbsp;</label>
+            <button class="primary" id="startBtn">开始圆桌讨论</button>
+          </div>
+        </div>
+        <div class="field" style="margin-top:10px">
+          <label>参与 Agent（映射到席位；未选则留空座）</label>
+          <div class="clilist" id="clilist"><span class="tip">加载中…</span></div>
+        </div>
+        <div class="bar">
+          <button id="customBtn">⚙ 自定义</button>
+          <label class="tip" style="display:inline-flex;gap:5px;align-items:center;cursor:pointer">
+            <input type="checkbox" id="hideEmpty" checked> 显示空座
+          </label>
+          <span class="skin-switch" title="切换圆桌皮肤">
+            <button data-skin="hearth" class="active">🔥 围炉</button>
+            <button data-skin="mahjong">🀄 麻将</button>
+          </span>
+          <span class="tip" id="protocolTip"></span>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="rt" id="rt">
+          <div class="center">
+            <div class="t">共享桌布</div>
+            <div class="n" id="bbTasks">—</div>
+            <div class="r" id="bbRound">第 0 回合</div>
+            <div class="m" id="bbFiles">无活跃黑板</div>
+          </div>
+          <!-- seats injected by roundtable-view.js -->
+        </div>
+        <div class="bar">
+          <button id="exportBtn" disabled>导出纪要 .md</button>
+          <button id="saveBtn" disabled>保存到对话</button>
+          <span class="tip" id="sessionTip"></span>
+        </div>
+      </div>
+
+      <div class="memo" id="memo">
+        <h3>📋 圆桌纪要（实时）</h3>
+        <div id="memoBody"></div>
+      </div>
+    </div>
+
+    <!-- 自定义模态 -->
+    <div class="modal" id="modal">
+      <div class="mpanel">
+        <h3>⚙ 自定义席位</h3>
+        <div id="modalBody"></div>
+        <div class="mclose"><button id="modalSave">保存</button> <button id="modalCancel">取消</button></div>
+      </div>
+    </div>
+
+    <div class="toast" id="toast"></div>
   </div>
 
 </body>

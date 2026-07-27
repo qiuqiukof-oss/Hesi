@@ -72,9 +72,9 @@ chat-panel {
   top: 0;
   right: 0;
   bottom: 0;
-  width: 400px;
-  min-width: 360px;
-  max-width: 85vw;
+  width: 720px;
+  min-width: 480px;
+  max-width: 95vw;
   display: flex;
   flex-direction: column;
   background: var(--bg-elevated);
