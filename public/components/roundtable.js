@@ -157,7 +157,16 @@ const Roundtable = {
       this.overrides = st.overrides || {};
       this.availableClis = st.availableClis || [];
       this.protocol = st.protocol || '';
-      this.host = st.host || { id: 'host', name: '你 · 主持人', roleLabel: 'Moderator' };
+      const rawHost = st.host || {
+        id: 'host',
+        name: 'AI 助手 · 主持人',
+        roleLabel: 'Moderator',
+        avatar: { type: 'emoji', value: '🤖' },
+      };
+      this.host = {
+        ...rawHost,
+        roleLabel: rawHost.roleLabel || rawHost.role || 'Moderator',
+      };
       this.roster = applyOverrides(AGENT_ROSTER, this.overrides);
       if (st.blackboard) {
         const b = st.blackboard;
@@ -299,15 +308,20 @@ const Roundtable = {
     this.elMemo.classList.add('show');
     this.renderMemo();
 
-    // 参与者顺序：AI 助手 + 选中的 CLI
-    const participants = ['AI 助手', ...this.selected.map((id) => {
+    // 参与者映射：AI 助手坐主持人位（上首），选中的 CLI 依次入座 fox/panda/owl/bunny
+    this.participantSeats = { 'AI 助手': 'host' };
+    this.selected.forEach((id, i) => {
       const c = this.availableClis.find((x) => x.id === id);
-      return c ? (c.displayName || c.name) : id;
-    })];
-    this.participantSeats = {};
-    participants.forEach((label, i) => { this.participantSeats[label] = AGENT_SEAT_ORDER[i] || null; });
+      const label = c ? (c.displayName || c.name) : id;
+      this.participantSeats[label] = AGENT_SEAT_ORDER[i];
+    });
     // 重置席位为待命
-    AGENT_SEAT_ORDER.forEach((sid) => { if (this.seats[sid] && !this.seats[sid].empty) this.setSeat(sid, { state: 'idle', name: this.roster[AGENT_SEAT_ORDER.indexOf(sid)].name }); });
+    ['host', ...AGENT_SEAT_ORDER].forEach((sid) => {
+      if (this.seats[sid] && !this.seats[sid].empty) {
+        const name = sid === 'host' ? this.host.name : this.roster[AGENT_SEAT_ORDER.indexOf(sid)].name;
+        this.setSeat(sid, { state: 'idle', name });
+      }
+    });
 
     const body = {
       messages: [{ role: 'user', content: topic }],
@@ -439,8 +453,8 @@ const Roundtable = {
       this.elExport.disabled = false;
       this.elSave.disabled = false;
     }
-    // 占出席位回到待命
-    AGENT_SEAT_ORDER.forEach((sid) => { if (this.seats[sid] && !this.seats[sid].empty) this.setSeat(sid, { state: 'idle' }); });
+    // 占出席位回到待命（含主持人位）
+    ['host', ...AGENT_SEAT_ORDER].forEach((sid) => { if (this.seats[sid] && !this.seats[sid].empty) this.setSeat(sid, { state: 'idle' }); });
     this.activeSeat = null;
   },
 
@@ -450,11 +464,12 @@ const Roundtable = {
     parts.push('');
     parts.push(`**议题**：${this.topic}`);
     parts.push(`**时间**：${new Date().toLocaleString()}`);
-    const participants = ['AI 助手', ...this.selected.map((id) => {
+    parts.push('**主持**：AI 助手');
+    const participants = this.selected.map((id) => {
       const c = this.availableClis.find((x) => x.id === id);
       return c ? (c.displayName || c.name) : id;
-    })];
-    parts.push(`**参与**：${participants.join(' / ')}`);
+    });
+    parts.push(`**参与 Agent**：${participants.join(' / ') || '无'}`);
     parts.push('');
     parts.push('## 发言记录');
     for (const t of this.transcript) {
