@@ -6,16 +6,23 @@
 
 <p align="center">
   <a href="https://github.com/qiuqiukof-oss/Hesi/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License"></a>
+  <a href="https://github.com/qiuqiukof-oss/Hesi/releases"><img src="https://img.shields.io/github/v/release/qiuqiukof-oss/Hesi?color=blue" alt="Release"></a>
+  <a href="https://github.com/qiuqiukof-oss/Hesi/stargazers"><img src="https://img.shields.io/github/stars/qiuqiukof-oss/Hesi?style=flat&color=yellow" alt="Stars"></a>
   <a href="https://nodejs.org/en/"><img src="https://img.shields.io/badge/node-%3E%3D18.0.0-brightgreen" alt="Node Version"></a>
-  <img src="https://img.shields.io/badge/tested_on-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey" alt="Platform Support">
 </p>
 
 <p align="center">
- <img width="2549" height="1191" alt="image" src="https://github.com/user-attachments/assets/9b4fe940-8b2f-417c-a63a-35a3bf6c7190" />
+ <img width="2549" height="1191" alt="a6d1bd8740c54c5bae68892be82b5011" src="https://github.com/user-attachments/assets/fd85026b-57bb-4bb1-8860-41000bcbf65b" />
 </p>
 
 <p align="center">
   <b>Turn your browser into a command center for development.</b> Multi-session terminals, multi-agent round-table collaboration, browser automation, and an MCP server — all self-hosted and ready to go.
+</p>
+
+<p align="center">
+  <a href="https://qiuqiukof-oss.github.io/Hesi/">▶ Live Round-Table Demo (no install)</a> ·
+  <a href="#-30-second-quick-start">🚀 30s Quick Start</a> ·
+  <a href="./README.md">中文</a>
 </p>
 
 ---
@@ -28,14 +35,26 @@
 
 ---
 
+## 🚀 30-Second Quick Start
+
+| Goal | Action |
+|------|--------|
+| 🖥️ **See it in action** (no install) | [▶ Live Round-Table Demo](https://qiuqiukof-oss.github.io/Hesi/) |
+| 💻 **Try offline** (recommended) | Download the [v0.4.1 Desktop Tray Bundle](https://github.com/qiuqiukof-oss/Hesi/releases/tag/v0.4.1), extract, double-click `tray.bat` (Windows) / `./tray.sh` (macOS/Linux), browser opens `http://127.0.0.1:4264` |
+| 🛠️ **Run from source** (devs) | `git clone` → `npm install` → `npm run build` → `npm start`, then open `http://127.0.0.1:4264` |
+| 🤖 **Start a round-table** | Add `OPENAI_API_KEY` or `ANTHROPIC_API_KEY` in Settings, click "Discuss" in the chat, pick 2–4 CLI agents, and enter your topic |
+
+> 💡 Not sure where to start? Try: **Click "Discuss" → select opencode + aider → enter "Design a logging module for this project"** and watch them debate.
+
+📖 **Getting Started Guide**: [docs/getting-started.md](./docs/getting-started.md) ｜ 🧑‍💻 **Contributing**: [CONTRIBUTING.md](./CONTRIBUTING.md)
+
+---
+
 ## ✨ Why Hesi
 
-- 🧭 **One tab to rule them all** — terminals, AI agents, browsers, document conversion, and MCP tools, unified in a single web console.
 - 🤝 **Multi-Agent Round-Table** — let opencode, Codex, aider and friends debate the same task over multiple rounds, instead of working alone.
 - 🛡️ **Headless by design** — CLI agents run headless in the background; their rendering is fully decoupled from your interactive terminal, so nothing clashes.
-- 🔌 **Open & extensible** — a modular MCP server, a plugin system, and CLI preset templates let you wire in your own toolchain.
-- 💻 **Desktop tray bundle** — ships with an offline Node runtime; double-click `tray.bat` and you're ready, zero install.
-- 🔒 **Secure & auditable** — per-session auth, audit logs, and security policies; loopback-local runs with zero config.
+- 🔒 **Local-first & auditable** — all sessions, memories, and command logs stored locally; MIT open source, self-hosted, loopback-only by default.
 
 ---
 
@@ -440,16 +459,6 @@ After `npm install`, `npm audit` may report some vulnerabilities (including a mo
 ## License
 
 MIT License — see [LICENSE](./LICENSE) for details.
-
-## Badges
-
-> Placeholder badges below — replace with real CI / version / download links.
-
-[![CI](https://img.shields.io/badge/CI-passing-brightgreen?style=flat)](https://github.com/qiuqiukof-oss/Hesi/actions)
-[![Version](https://img.shields.io/badge/version-0.2.1-blue.svg)](https://github.com/qiuqiukof-oss/Hesi/releases)
-[![License](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
-[![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey)](https://github.com/qiuqiukof-oss/Hesi)
-[![Stars](https://img.shields.io/badge/stars-%E2%98%85%20your__stars__here-yellow?style=flat)](https://github.com/qiuqiukof-oss/Hesi/stargazers)
 
 <p align="center">
   <sub>Built with ❤️ by Hesi Contributors</sub>

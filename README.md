@@ -8,7 +8,8 @@
   <a href="https://github.com/qiuqiukof-oss/Hesi/releases"><img src="https://img.shields.io/github/v/release/qiuqiukof-oss/Hesi?color=blue" alt="Release"></a>
   <a href="https://github.com/qiuqiukof-oss/Hesi/stargazers"><img src="https://img.shields.io/github/stars/qiuqiukof-oss/Hesi?style=flat&color=yellow" alt="Stars"></a>
   <a href="https://nodejs.org/en/"><img src="https://img.shields.io/badge/node-%3E%3D18.0.0-brightgreen" alt="Node Version"></a>
-  <img width="2549" height="1191" alt="image" src="https://github.com/user-attachments/assets/e1e08978-11bd-4638-9647-4ce979df5efa" />
+ <img width="2549" height="1191" alt="a6d1bd8740c54c5bae68892be82b5011" src="https://github.com/user-attachments/assets/aceabec4-a18e-41a6-9262-fc6886e9d710" />
+
 
 </p>
 
