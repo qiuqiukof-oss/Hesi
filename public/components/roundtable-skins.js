@@ -47,7 +47,7 @@ export const SKINS = {
     messageIcon: () => '🔥',
     tileAnim: false,
     css: `
-.rt.skin-hearth{
+#mahjong-embed .rt.skin-hearth{
   width:min(736px,100%);
   height:560px;
   margin:6px auto;
@@ -57,13 +57,13 @@ export const SKINS = {
   box-shadow:inset 0 0 40px rgba(0,0,0,.45);
   overflow:hidden;
 }
-.rt.skin-hearth::before{
+#mahjong-embed .rt.skin-hearth::before{
   content:'🔥';position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
   font-size:140px;opacity:.05;pointer-events:none;
 }
-.rt.skin-hearth .center{border-radius:50%;background:rgba(255,255,255,.96);width:150px;height:150px}
-.rt.skin-hearth .rt-av{border-color:#caa06b;background:#fbf3ea}
-.rt.skin-hearth .rtst{background:#caa06b!important}
+#mahjong-embed .rt.skin-hearth .center{border-radius:50%;background:rgba(255,255,255,.96);width:150px;height:150px}
+#mahjong-embed .rt.skin-hearth .rt-av{border-color:#caa06b;background:#fbf3ea}
+#mahjong-embed .rt.skin-hearth .rtst{background:#caa06b!important}
 `,
   },
   mahjong: {
@@ -73,7 +73,7 @@ export const SKINS = {
     messageIcon: (seatId) => TILE_BY_SEAT[seatId] || '🀄',
     tileAnim: true,
     css: `
-.rt.skin-mahjong{
+#mahjong-embed .rt.skin-mahjong{
   width:min(736px,100%);
   height:560px;
   margin:6px auto;
@@ -83,15 +83,15 @@ export const SKINS = {
   box-shadow:inset 0 0 40px rgba(0,0,0,.45);
   overflow:hidden;
 }
-.rt.skin-mahjong::before{
+#mahjong-embed .rt.skin-mahjong::before{
   content:'🀄';position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
   font-size:140px;opacity:.06;pointer-events:none;
 }
-.rt.skin-mahjong .center{border-radius:16px;background:rgba(255,255,255,.92);width:150px;height:150px}
-.rt.skin-mahjong .rt-av{border-color:#3B6D11;background:#f3f7ee}
-.rt.skin-mahjong .rtst{background:#3B6D11!important}
+#mahjong-embed .rt.skin-mahjong .center{border-radius:0;background:rgba(255,255,255,.92);width:150px;height:150px}
+#mahjong-embed .rt.skin-mahjong .rt-av{border-color:#3B6D11;background:#f3f7ee}
+#mahjong-embed .rt.skin-mahjong .rtst{background:#3B6D11!important}
 @media (prefers-reduced-motion:no-preference){
-  .rt.skin-mahjong .rtseat.tile-out .rt-av{animation:rt-tile-throw .5s var(--ease-out,ease-out)}
+  #mahjong-embed .rt.skin-mahjong .rtseat.tile-out .rt-av{animation:rt-tile-throw .5s var(--ease-out,ease-out)}
 }
 @keyframes rt-tile-throw{
   0%{transform:scale(.7) translateY(8px);opacity:0}

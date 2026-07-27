@@ -62,7 +62,6 @@ class ChatPanel extends HTMLElement {
     this.terminalToggleBtn = null;
     this.exportBtn = null;
     this.blackboardBtn = null;
-    this.mahjongBtn = null;
     this.mermaidPreviewEl = null;
     this._mermaidPreviewTimer = null;
 
@@ -114,7 +113,6 @@ class ChatPanel extends HTMLElement {
     this.terminalToggleBtn = document.getElementById('chat-terminal-toggle');
     this.exportBtn = document.getElementById('chat-export-btn');
     this.blackboardBtn = document.getElementById('chat-blackboard-btn');
-    this.mahjongBtn = document.getElementById('chat-mahjong-btn');
     this.roundtableBtn = document.getElementById('chat-roundtable-btn');
     this.savingsBtn = document.getElementById('chat-savings-btn');
     this.contextBtn = document.getElementById('chat-context-btn'); // P0.6 占用率圆环
@@ -541,10 +539,6 @@ class ChatPanel extends HTMLElement {
       // ⚠️ ✕ 收起按钮不能在此绑定：#blackboard-embed 在 body 末尾，
       // bundle.js 同步加载（无 defer）执行到这里时该节点尚未解析，getElementById 为 null。
       // 改为 toggleBlackboardPanel() 内首次展开时懒绑定。
-    }
-    if (this.mahjongBtn) {
-      this.mahjongBtn.addEventListener('click', () => this.toggleMahjongPanel(undefined, 'mahjong'));
-      // 同 blackboard：#mahjong-embed 在 body 末尾，✕/Esc 懒绑定（见 toggleMahjongPanel）。
     }
     if (this.roundtableBtn) {
       this.roundtableBtn.addEventListener('click', () => this.toggleMahjongPanel(undefined, 'hearth'));
@@ -1560,7 +1554,6 @@ class ChatPanel extends HTMLElement {
     } else {
       if (rt) rt.close();
     }
-    if (this.mahjongBtn) this.mahjongBtn.classList.toggle('active', show);
     if (this.roundtableBtn) this.roundtableBtn.classList.toggle('active', show);
   }
 
