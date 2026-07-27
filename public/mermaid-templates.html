@@ -184,8 +184,74 @@
     </div>
   </div>
 
-  <!-- Mermaid 图表库（与主应用一致，使用 CDN） -->
-  <script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+  <!-- Mermaid 图表库：多 CDN 镜像回退，不本地化（避免仓库增重 3M+） -->
+  <script>
+  (function () {
+    'use strict';
+    var MERMAID_CDN_URLS = [
+      'https://cdn.jsdelivr.net/npm/mermaid@11.4.0/dist/mermaid.min.js',
+      'https://fastly.jsdelivr.net/npm/mermaid@11.4.0/dist/mermaid.min.js',
+      'https://gcore.jsdelivr.net/npm/mermaid@11.4.0/dist/mermaid.min.js',
+      'https://testingcf.jsdelivr.net/npm/mermaid@11.4.0/dist/mermaid.min.js',
+      'https://cdn.staticfile.org/mermaid/11.4.0/mermaid.min.js',
+      'https://cdn.staticfile.net/mermaid/11.4.0/mermaid.min.js',
+      'https://cdn.bootcdn.net/ajax/libs/mermaid/11.4.0/mermaid.min.js'
+    ];
+    var TIMEOUT_PER_URL = 6000;
+    window.MT_LOAD_DONE = false;
+    window.MT_LOAD_ERROR = null;
+
+    function tryLoad(urls, cb) {
+      if (!urls || !urls.length) {
+        window.MT_LOAD_DONE = true;
+        window.MT_LOAD_ERROR = 'all CDN fallbacks failed';
+        cb(false);
+        return;
+      }
+      var url = urls[0];
+      var s = document.createElement('script');
+      s.async = true;
+      s.src = url;
+      var done = false, timer = null;
+      function finish(ok, reason) {
+        if (done) return;
+        done = true;
+        if (timer) { clearTimeout(timer); timer = null; }
+        s.onload = s.onerror = null;
+        if (ok && window.mermaid) {
+          window.MT_LOAD_DONE = true;
+          cb(true);
+        } else {
+          window.MT_LOAD_ERROR = (reason || 'load failed') + ': ' + url;
+          tryLoad(urls.slice(1), cb);
+        }
+      }
+      s.onload = function () {
+        setTimeout(function () { finish(!!window.mermaid, 'script loaded but mermaid not exposed'); }, 60);
+      };
+      s.onerror = function () { finish(false, 'script error'); };
+      timer = setTimeout(function () { finish(false, 'timeout'); }, TIMEOUT_PER_URL);
+      document.head.appendChild(s);
+    }
+
+    window.mtRetryLoadMermaid = function () {
+      if (window.mermaid) return true;
+      window.MT_LOAD_ERROR = null;
+      window.MT_LOAD_DONE = false;
+      tryLoad(MERMAID_CDN_URLS, function () {});
+      return false;
+    };
+
+    window.mtRetryAll = function () {
+      window.mtRetryLoadMermaid();
+      setTimeout(function () {
+        if (window.MT_RENDER_ALL) window.MT_RENDER_ALL();
+      }, 500);
+    };
+
+    tryLoad(MERMAID_CDN_URLS, function () {});
+  })();
+  </script>
 
   <script>
   (function () {
@@ -294,8 +360,8 @@
           } catch (e) { /* 初始化失败也尝试渲染 */ }
         }
         cb(true);
-      } else if (Date.now() - startTime > 20000) {
-        cb(false); // 超时：CDN 加载失败
+      } else if (Date.now() - startTime > 35000) {
+        cb(false); // 超时：所有 CDN 镜像均无法加载
       } else {
         setTimeout(function () { ensureMermaid(cb); }, 200);
       }
@@ -307,7 +373,7 @@
       el.innerHTML = '<div class="mt-card-loading">⏳ 渲染中...</div>';
       ensureMermaid(function (ok) {
         if (!ok) {
-          el.innerHTML = '<div class="mt-error">⚠️ 图表库加载失败，请检查网络后刷新</div>';
+          el.innerHTML = '<div class="mt-error">⚠️ 多 CDN 镜像均无法加载 mermaid（' + (window.MT_LOAD_ERROR || '网络超时') + '）<br><button class="mt-btn mt-btn-retry" onclick="window.mtRetryAll()">🔄 重试</button></div>';
           return;
         }
         var id = 'mmd-' + Math.random().toString(36).slice(2, 10);
@@ -324,6 +390,12 @@
         }
       });
     }
+
+    // Expose global re-render helper so the retry button can refresh all previews
+    window.MT_RENDER_ALL = function () {
+      var els = document.querySelectorAll('.mt-diagram');
+      for (var i = 0; i < els.length; i++) { renderDiagram(els[i]); }
+    };
 
     // ──────────────────────────────────────────────
     // 渲染 UI
