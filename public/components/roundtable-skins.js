@@ -48,12 +48,12 @@ export const SKINS = {
     tileAnim: false,
     css: `
 .rt.skin-hearth{
-  width:min(520px,100%);
-  height:520px;
+  width:min(620px,100%);
+  height:560px;
   margin:6px auto;
   border-radius:18px;
-  background:radial-gradient(circle at center,#2f6b34 0%,#1c3f20 70%,#15301a 100%);
-  border:6px solid #8b5a2b;
+  background:radial-gradient(circle at center,#a9713f 0%,#7d4f29 60%,#5e3a1f 100%);
+  border:6px solid #4a2f18;
   box-shadow:inset 0 0 40px rgba(0,0,0,.45);
   overflow:hidden;
 }
@@ -61,10 +61,9 @@ export const SKINS = {
   content:'🔥';position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
   font-size:140px;opacity:.05;pointer-events:none;
 }
-.rt.skin-hearth .center{background:rgba(255,255,255,.92);border-radius:16px;width:150px;height:150px}
-.rt.skin-hearth .rt-av{border-color:#5a8c3e;background:#f3f7ee}
-.rt.skin-hearth .rtst{background:#5a8c3e!important}
-.rt.skin-hearth .bub{background:#fbfdf7;border-color:#9ec48a}
+.rt.skin-hearth .center{border-radius:50%;background:rgba(255,255,255,.96);width:150px;height:150px}
+.rt.skin-hearth .rt-av{border-color:#caa06b;background:#fbf3ea}
+.rt.skin-hearth .rtst{background:#caa06b!important}
 `,
   },
   mahjong: {
@@ -75,8 +74,8 @@ export const SKINS = {
     tileAnim: true,
     css: `
 .rt.skin-mahjong{
-  width:min(520px,100%);
-  height:520px;
+  width:min(620px,100%);
+  height:560px;
   margin:6px auto;
   border-radius:18px;
   background:radial-gradient(circle at center,#2f6b34 0%,#1c3f20 70%,#15301a 100%);
@@ -88,10 +87,9 @@ export const SKINS = {
   content:'🀄';position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
   font-size:140px;opacity:.06;pointer-events:none;
 }
-.rt.skin-mahjong .center{background:rgba(255,255,255,.92);border-radius:16px;width:150px;height:150px}
+.rt.skin-mahjong .center{border-radius:16px;background:rgba(255,255,255,.92);width:150px;height:150px}
 .rt.skin-mahjong .rt-av{border-color:#3B6D11;background:#f3f7ee}
 .rt.skin-mahjong .rtst{background:#3B6D11!important}
-.rt.skin-mahjong .bub{background:#fbfdf7;border-color:#9ec48a}
 @media (prefers-reduced-motion:no-preference){
   .rt.skin-mahjong .rtseat.tile-out .rt-av{animation:rt-tile-throw .5s var(--ease-out,ease-out)}
 }

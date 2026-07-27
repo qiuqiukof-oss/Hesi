@@ -21,13 +21,13 @@ import { SKINS, applySkin, getSkin } from './roundtable-skins.js';
 /** @type {any} */
 const Q = window.QCLI = window.QCLI || {};
 
-// 座位几何：主持人上首，4 Agent 分居四角，给中心桌布与气泡留足空间。
+// 座位几何：主持人上首，4 Agent 分居四角并向外扩，给中心桌布与气泡留足空间。
 const SEAT_POS = {
-  host:  { style: 'left:50%;top:10px;transform:translateX(-50%)' },
-  fox:   { style: 'left:28px;top:170px' },
-  panda: { style: 'right:28px;top:170px' },
-  owl:   { style: 'left:28px;top:360px' },
-  bunny: { style: 'right:28px;top:360px' },
+  host:  { style: 'left:50%;top:14px;transform:translateX(-50%)' },
+  fox:   { style: 'left:30px;top:215px' },
+  panda: { style: 'right:30px;top:215px' },
+  owl:   { style: 'left:30px;top:445px' },
+  bunny: { style: 'right:30px;top:445px' },
 };
 // 讨论参与者（AI 助手 + 各 CLI）按顺序映射到这 4 个席位。
 const AGENT_SEAT_ORDER = ['fox', 'panda', 'owl', 'bunny'];
@@ -65,6 +65,7 @@ const Roundtable = {
   host: null,
   protocol: '',
   availableClis: [],
+  allClisById: {},   // 全量 registry（含 tool/directory 类），供收藏夹解析与标签显示
   overrides: {},
   seats: {},          // seatId -> { el, avEl, nameEl, roleEl, stEl, bubEl, likeEl, likes, empty }
   selected: [],       // 选中的 CLI id 列表
@@ -204,6 +205,14 @@ const Roundtable = {
         roleLabel: rawHost.roleLabel || rawHost.role || 'Moderator',
       };
       this.roster = applyOverrides(AGENT_ROSTER, this.overrides);
+      // 全量 registry（含被识别为 tool/directory 的 CLI），供收藏夹解析与显示名
+      try {
+        const cr = await fetch('/api/clis');
+        const cj = await cr.json();
+        const map = {};
+        (cj.clis || []).forEach((c) => { map[c.id] = c; });
+        this.allClisById = map;
+      } catch { /* ignore */ }
       if (st.blackboard) {
         const b = st.blackboard;
         const tasks = Array.isArray(b.tasks) ? b.tasks.length : (b.tasks ? Object.keys(b.tasks).length : 0);
@@ -212,7 +221,7 @@ const Roundtable = {
         document.getElementById('bbRound').textContent = `第 ${b.round || 0} 回合`;
         document.getElementById('bbFiles').textContent = '黑板已活跃';
       }
-      this.elProtocol.textContent = this.protocol ? '协议：' + this.protocol.slice(0, 24) + '…' : '';
+      this.elProtocol.textContent = this.protocol ? '协议：' + this.protocol : '';
       this.renderCliList();
       this.renderSeats();
     } catch (e) {
@@ -220,23 +229,47 @@ const Roundtable = {
     }
   },
 
+  // CLI 显示名解析：优先全量 registry（含 tool/directory 类收藏项），回落 availableClis，再回落 id
+  cliLabel(id) {
+    const full = this.allClisById && this.allClisById[id];
+    if (full) return full.displayName || full.name;
+    const c = this.availableClis.find((x) => x.id === id);
+    return c ? (c.displayName || c.name) : id;
+  },
+
   renderCliList() {
     const favs = new Set(getFavorites());
-    if (!this.availableClis.length && !favs.size) {
+    const byId = this.allClisById || {};
+    // 可选项 = 过滤出的 agent/manual + 收藏夹中存在于全量 registry 的项
+    // （含被识别为 tool/directory 的 agent，交还用户主动权）
+    const present = new Map(this.availableClis.map((c) => [c.id, c]));
+    const selectable = [...this.availableClis];
+    const unknownFavs = [];
+    for (const id of favs) {
+      if (present.has(id)) continue;            // 已在可用列表
+      const c = byId[id];
+      if (c) {
+        if (!selectable.some((x) => x.id === id)) {
+          selectable.push({ id: c.id, name: c.name, displayName: c.displayName || c.name, category: c.category, discovered: c.discovered });
+        }
+      } else {
+        unknownFavs.push(id);                     // 收藏了但全量 registry 也查不到
+      }
+    }
+    if (!selectable.length && !unknownFavs.length) {
       this.elCliList.innerHTML = '<span class="tip">未检测到可用 CLI Agent（opencode/codex 等）。可先在「工具箱」安装，圆桌仍可可视化展示。</span>';
       return;
     }
-    // 收藏的 CLI 置顶，未注册但收藏的灰显展示
-    const present = new Map(this.availableClis.map((c) => [c.id, c]));
-    const missingFavs = Array.from(favs).filter((id) => !present.has(id));
-    const sorted = [...this.availableClis].sort((a, b) => (favs.has(b.id) ? 1 : 0) - (favs.has(a.id) ? 1 : 0));
+    // 收藏的 CLI 置顶
+    selectable.sort((a, b) => (favs.has(b.id) ? 1 : 0) - (favs.has(a.id) ? 1 : 0));
 
     this.elCliList.innerHTML = '';
     const mkChip = (c, { disabled = false, starred = false } = {}) => {
       const chip = document.createElement('label');
       chip.className = 'clichip' + (disabled ? ' disabled' : '') + (starred ? ' starred' : '');
       const star = starred ? '⭐ ' : '';
-      chip.innerHTML = `<input type="checkbox" value="${c.id}" ${disabled ? 'disabled' : ''}> ${star}${c.displayName || c.name}`;
+      const catTag = (!disabled && c.category && c.category !== 'agent') ? ` <span class="cat">${c.category}</span>` : '';
+      chip.innerHTML = `<input type="checkbox" value="${c.id}" ${disabled ? 'disabled' : ''}> ${star}${c.displayName || c.name}${catTag}`;
       if (!disabled) {
         chip.querySelector('input').addEventListener('change', (ev) => {
           chip.classList.toggle('on', ev.target.checked);
@@ -246,8 +279,8 @@ const Roundtable = {
       }
       return chip;
     };
-    for (const c of sorted) this.elCliList.appendChild(mkChip(c, { starred: favs.has(c.id) }));
-    for (const id of missingFavs) {
+    for (const c of selectable) this.elCliList.appendChild(mkChip(c, { starred: favs.has(c.id) }));
+    for (const id of unknownFavs) {
       this.elCliList.appendChild(mkChip({ id, name: id, displayName: id }, { disabled: true, starred: true }));
     }
   },
@@ -328,8 +361,8 @@ const Roundtable = {
       const color = (s.agent && s.agent.themeColor) || '#c9ced4';
       const av = renderAvatarInner(s.agent);
       const nm = this.esc(name || s.agent.name || '');
-      s.bubEl.style.borderColor = color;
-      s.bubEl.innerHTML = `<div class="bub-hd"><span class="bub-av" style="border:1.5px solid ${color}">${av}</span><span class="bub-name">${nm}</span></div><div class="bub-body">${this.esc(s._bub.slice(-200))}</div>`;
+      s.bubEl.style.borderLeftColor = color;
+      s.bubEl.innerHTML = `<div class="bub-hd"><span class="bub-av" style="border:1.5px solid ${color}">${av}</span><span class="bub-name">${nm}</span></div><div class="bub-body">${this.esc(s._bub)}</div>`;
       this.positionBubble(seatId);
     }
   },
@@ -376,8 +409,7 @@ const Roundtable = {
     // 参与者映射：AI 助手坐主持人位（上首），选中的 CLI 依次入座 fox/panda/owl/bunny
     this.participantSeats = { 'AI 助手': 'host' };
     this.selected.forEach((id, i) => {
-      const c = this.availableClis.find((x) => x.id === id);
-      const label = c ? (c.displayName || c.name) : id;
+      const label = this.cliLabel(id);
       this.participantSeats[label] = AGENT_SEAT_ORDER[i];
     });
     // 重置席位为待命
@@ -530,10 +562,7 @@ const Roundtable = {
     parts.push(`**议题**：${this.topic}`);
     parts.push(`**时间**：${new Date().toLocaleString()}`);
     parts.push('**主持**：AI 助手');
-    const participants = this.selected.map((id) => {
-      const c = this.availableClis.find((x) => x.id === id);
-      return c ? (c.displayName || c.name) : id;
-    });
+    const participants = this.selected.map((id) => this.cliLabel(id));
     parts.push(`**参与 Agent**：${participants.join(' / ') || '无'}`);
     parts.push('');
     parts.push('## 发言记录');
