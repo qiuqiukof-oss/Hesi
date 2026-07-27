@@ -8,17 +8,14 @@
   <a href="https://github.com/qiuqiukof-oss/Hesi/releases"><img src="https://img.shields.io/github/v/release/qiuqiukof-oss/Hesi?color=blue" alt="Release"></a>
   <a href="https://github.com/qiuqiukof-oss/Hesi/stargazers"><img src="https://img.shields.io/github/stars/qiuqiukof-oss/Hesi?style=flat&color=yellow" alt="Stars"></a>
   <a href="https://nodejs.org/en/"><img src="https://img.shields.io/badge/node-%3E%3D18.0.0-brightgreen" alt="Node Version"></a>
-  <img src="https://img.shields.io/badge/tested_on-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey" alt="Platform Support">
+  <img width="2549" height="1191" alt="image" src="https://github.com/user-attachments/assets/e1e08978-11bd-4638-9647-4ce979df5efa" />
+
 </p>
 
 <p align="center">
   <a href="https://qiuqiukof-oss.github.io/Hesi/">▶ 在线体验圆桌 Demo（无需安装）</a> ·
   <a href="#-30-秒快速体验">🚀 30 秒上手</a> ·
   <a href="./README_en.md">English</a>
-</p>
-
-<p align="center">
-  <img src="./screenshots/roundtable.png" alt="Hesi 多 Agent 圆桌讨论" width="840" />
 </p>
 
 <p align="center">
