@@ -14,6 +14,7 @@ const { createHeadlessExec } = require('../../ws/pty');
 const { loadRegistry } = require('../../cli-discovery');
 const { AgentCallbackManager, CLIQ_ASK_PROMPT } = require('./agent-callbacks');
 const { tryAcquireAgent, releaseAgent, getActiveAgentCount, MAX_GLOBAL_AGENTS } = require('./agent-concurrency');
+const agentRoles = require('../../lib/agent-roles');
 
 // ── 配置常量 ──
 const MAX_POOL_SIZE = 10;         // 最大 session 数（含已完成）
@@ -56,7 +57,7 @@ class AgentPoolManager {
    * @param {Function} [broadcastFn] - 实时输出广播
    * @returns {Promise<string>} 会话信息 JSON（含 sessionId）
    */
-  async start(agentId, task, context, broadcastFn) {
+  async start(agentId, task, context, broadcastFn, role) {
     // 在 try 外声明，确保 catch 中清理逻辑可安全引用（早期错误时为 null）
     let sessionId = null;
     try {
@@ -141,6 +142,7 @@ class AgentPoolManager {
 
       // 构建 prompt
       const promptParts = [];
+      promptParts.push(...agentRoles.rolePrefix(role));
       promptParts.push(`你现在作为 CLI Agent "${agentEntry.name}" 执行以下任务。请专注于完成目标，输出过程和结果。`);
       if (context) {
         promptParts.push(`\n## 附加上下文\n${context}`);

@@ -379,7 +379,7 @@ class WorkflowManager {
           await new Promise(r => setTimeout(r, this._startRetryDelay));
         }
         try {
-          const result = await agentPool.start(task.agentId, prompt, '', null);
+          const result = await agentPool.start(task.agentId, prompt, '', null, task.role);
           parsed = JSON.parse(result);
           if (parsed.ok) break;
           lastError = parsed.error || 'agent start failed';

@@ -12,6 +12,7 @@ const { loadRegistry } = require('../../../cli-discovery');
 const { agentPool } = require('../agent-pool');
 const { workflowManager } = require('../workflow-manager');
 const { tryAcquireAgent, releaseAgent, getActiveAgentCount, MAX_GLOBAL_AGENTS } = require('../agent-concurrency');
+const agentRoles = require('../../../lib/agent-roles');
 
 // Agent 输出截断限制
 const MAX_AGENT_OUTPUT_CHARS = 100_000;  // 每 session 最大保留字符数
@@ -53,7 +54,7 @@ function abortDelegate() { _agentAborted = true; killDelegatePTY(); }
  * @param {Function} [broadcastFn] - 用于实时推送输出的事件广播
  * @returns {Promise<string>} Agent 输出
  */
-function executeAgent(agentId, task, context, timeout = 120000, broadcastFn) {
+function executeAgent(agentId, task, context, timeout = 120000, broadcastFn, role) {
   _agentAborted = false; // 每次委派独立，避免上一次中断标志污染本次
   let aborted = false;
   const abortFn = () => { aborted = true; };
@@ -84,6 +85,7 @@ function executeAgent(agentId, task, context, timeout = 120000, broadcastFn) {
 
     // 构建 prompt：角色设定 + 任务描述 + 上下文
     const promptParts = [];
+    promptParts.push(...agentRoles.rolePrefix(role));
     promptParts.push(`你现在作为 CLI Agent "${agentEntry.name}" 执行以下任务。请专注于完成目标，输出过程和结果。`);
     if (context) {
       promptParts.push(`\n## 附加上下文\n${context}`);
@@ -258,6 +260,11 @@ function register(registry) {
           description: '超时时间（毫秒），默认 120000（2 分钟），最大 300000（5 分钟）',
           default: 120000,
         },
+        role: {
+          type: 'string',
+          description: '可选角色预设（coder/debugger/reviewer/tester/deployer），注入对应 system 片段与工具引导',
+          enum: ['coder', 'debugger', 'reviewer', 'tester', 'deployer'],
+        },
       },
       required: ['agentId', 'task'],
     },
@@ -270,7 +277,7 @@ function register(registry) {
       if (!agentId) return '[agent_delegate] 错误：agentId 参数不能为空';
       if (!task) return '[agent_delegate] 错误：task 参数不能为空';
 
-      return executeAgent(agentId, task, context, timeout, broadcastFn);
+      return executeAgent(agentId, task, context, timeout, broadcastFn, args.role);
     },
   });
 
@@ -303,6 +310,11 @@ function register(registry) {
           type: 'string',
           description: '附加上下文（可选）',
         },
+        role: {
+          type: 'string',
+          description: '可选角色预设（coder/debugger/reviewer/tester/deployer），注入对应 system 片段与工具引导',
+          enum: ['coder', 'debugger', 'reviewer', 'tester', 'deployer'],
+        },
       },
       required: ['agentId', 'task'],
     },
@@ -314,7 +326,7 @@ function register(registry) {
       if (!agentId) return JSON.stringify({ ok: false, error: 'agentId 参数不能为空' });
       if (!task) return JSON.stringify({ ok: false, error: 'task 参数不能为空' });
 
-      return agentPool.start(agentId, task, context, broadcastFn);
+      return agentPool.start(agentId, task, context, broadcastFn, args.role);
     },
   });
 
