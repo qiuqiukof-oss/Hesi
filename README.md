@@ -19,10 +19,6 @@
 </p>
 
 <p align="center">
-  <img src="./screenshots/roundtable.png" alt="Hesi 多 Agent 圆桌讨论" width="840" />
-</p>
-
-<p align="center">
   <b>把浏览器变成你的 AI 协作中枢</b> — 选一个议题，让 AI 助手与 opencode / codex / aider 等 CLI Agent 围桌辩论、互相质疑、收敛方案。
 </p>
 
