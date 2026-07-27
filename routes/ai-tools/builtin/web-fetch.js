@@ -86,8 +86,8 @@ function register(registry) {
         }
 
         if (content.length > maxLength) {
-          content = content.slice(0, maxLength) +
-            `\n\n[... 内容已截断，共 ${content.length} 字符，显示前 ${maxLength} 字符]`;
+          content = `${content.slice(0, maxLength) 
+            }\n\n[... 内容已截断，共 ${content.length} 字符，显示前 ${maxLength} 字符]`;
         }
 
         return `URL: ${url}\nStatus: ${statusCode}\nContent-Type: ${contentType}\n\n${content}`;

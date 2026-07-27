@@ -17,12 +17,12 @@ if (!process.env.HESI_MEMORY_DIR) {
 const MemoryStore = require('../lib/memory');
 
 function assert(cond, msg) {
-  if (!cond) throw new Error('ASSERT FAILED: ' + msg);
+  if (!cond) throw new Error(`ASSERT FAILED: ${  msg}`);
 }
 
 (async () => {
   // 1. create + append
-  const id = 's_smoke_' + Date.now().toString(36);
+  const id = `s_smoke_${  Date.now().toString(36)}`;
   MemoryStore.ensure(id, { title: 'Hesi 记忆功能测试', model: 'gpt-4o-mini', provider: 'openai' });
   await MemoryStore.append(id, [
     { id: 'm1', role: 'user', content: '我想给 Hesi 加一个跨会话记忆功能，能记住用户偏好。' },

@@ -59,7 +59,7 @@ function cacheKeyOf(name, args) {
       const enc = (args && (args.encoding || 'utf8')) || 'utf8';
       // v0.3.1 A1：offset/limit 分段读取必须进缓存键，否则不同段命中同一缓存
       const seg = args && (args.offset || args.limit) ? `:${args.offset || 0}+${args.limit || 0}` : '';
-      return 'read_file:' + _normPath(args && args.path) + (enc !== 'utf8' ? ':' + enc : '') + seg;
+      return `read_file:${  _normPath(args && args.path)  }${enc !== 'utf8' ? `:${  enc}` : ''  }${seg}`;
     }
     case 'web_fetch': {
       const url = (args && args.url) || '';
@@ -67,14 +67,14 @@ function cacheKeyOf(name, args) {
         const u = new URL(url);
         u.hash = '';
         u.searchParams.sort();
-        return 'web_fetch:' + u.toString().toLowerCase();
-      } catch { return 'web_fetch:' + url.toLowerCase(); }
+        return `web_fetch:${  u.toString().toLowerCase()}`;
+      } catch { return `web_fetch:${  url.toLowerCase()}`; }
     }
     case 'get_self_info':
     case 'list_clis':
-      return name + ':';
+      return `${name  }:`;
     default:
-      return name + ':' + crypto.createHash('sha1').update(JSON.stringify(args)).digest('hex');
+      return `${name  }:${  crypto.createHash('sha1').update(JSON.stringify(args)).digest('hex')}`;
   }
 }
 const toolTruncator = new ToolResultTruncator(4000);

@@ -28,7 +28,7 @@ function parseArgs(argv) {
 async function main() {
   const marker = MemoryStore.config.MIGRATED_MARKER;
   if (fs.existsSync(marker)) {
-    console.log('[memory-migrate] already migrated (' + marker + ' exists) — no-op.');
+    console.log(`[memory-migrate] already migrated (${  marker  } exists) — no-op.`);
     return;
   }
 
@@ -36,13 +36,13 @@ async function main() {
   let messages = [];
   if (file) {
     if (!fs.existsSync(file)) {
-      console.warn('[memory-migrate] input file not found: ' + file + ' — no-op.');
+      console.warn(`[memory-migrate] input file not found: ${  file  } — no-op.`);
       return;
     }
     try {
       messages = JSON.parse(fs.readFileSync(file, 'utf-8'));
     } catch (e) {
-      console.error('[memory-migrate] failed to parse ' + file + ': ' + e.message);
+      console.error(`[memory-migrate] failed to parse ${  file  }: ${  e.message}`);
       process.exitCode = 1;
       return;
     }
@@ -56,10 +56,10 @@ async function main() {
   }
 
   const s = await MemoryStore.importLegacy(messages, { title: '迁移自旧版对话' });
-  console.log('[memory-migrate] imported', messages.length, 'messages → session', s.id, '(' + s.title + ')');
+  console.log('[memory-migrate] imported', messages.length, 'messages → session', s.id, `(${  s.title  })`);
 
   try { fs.writeFileSync(marker, new Date().toISOString()); } catch (e) {
-    console.warn('[memory-migrate] could not write marker: ' + e.message);
+    console.warn(`[memory-migrate] could not write marker: ${  e.message}`);
   }
 }
 

@@ -10,7 +10,7 @@
 const API_BASE = () => `http://127.0.0.1:${process.env.PORT || 3001}/api`;
 
 /** Ensure path starts with '/' */
-const normalizePath = (p) => p.startsWith('/') ? p : '/' + p;
+const normalizePath = (p) => p.startsWith('/') ? p : `/${  p}`;
 
 /**
  * Build a full URL with query parameters.
@@ -23,7 +23,7 @@ function buildUrl(path, params = {}) {
     .filter(([, v]) => v !== undefined && v !== null)
     .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(String(v))}`)
     .join('&');
-  return `${API_BASE()}${normalizedPath}${query ? '?' + query : ''}`;
+  return `${API_BASE()}${normalizedPath}${query ? `?${  query}` : ''}`;
 }
 
 /**

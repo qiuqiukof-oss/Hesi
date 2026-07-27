@@ -234,7 +234,7 @@ function createHandlers() {
       }
 
       const output = await session.read({
-        mode: mode,
+        mode,
         tailLines: args.tailLines || 50,
         pollTimeout: args.pollTimeout || 5000,
       });
@@ -242,7 +242,7 @@ function createHandlers() {
       return {
         content: [{
           type: "text",
-          text: truncated ? output.slice(-50000) + "\n[--output truncated to 50000 chars--]" : output,
+          text: truncated ? `${output.slice(-50000)  }\n[--output truncated to 50000 chars--]` : output,
         }],
       };
     },

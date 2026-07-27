@@ -38,7 +38,7 @@ function createRouter(wsManager) {
 
     // CLI registry stats
     const registry = getCLIRegistry();
-    let cliStats = { total: 0, agent: 0, tool: 0, env: 0 };
+    const cliStats = { total: 0, agent: 0, tool: 0, env: 0 };
     if (registry) {
       try {
         const reg = registry.loadRegistry();
@@ -54,7 +54,7 @@ function createRouter(wsManager) {
     }
 
     // WebSocket status
-    let wsInfo = { connected: false, activeSessions: 0 };
+    const wsInfo = { connected: false, activeSessions: 0 };
     if (wsManager) {
       try {
         const wss = wsManager.wss;

@@ -95,7 +95,7 @@ async function runWebEndpoint(task, prompt) {
   const init = buildInit(ex, finalPrompt);
   // 凭据：仅来自当次任务，不落盘。
   if (ex.auth && ex.auth.type === 'bearer' && ex.auth.token) {
-    init.headers = Object.assign({}, init.headers, { Authorization: 'Bearer ' + ex.auth.token });
+    init.headers = Object.assign({}, init.headers, { Authorization: `Bearer ${  ex.auth.token}` });
   } else if (ex.auth && ex.auth.type === 'cookie' && ex.auth.token) {
     init.headers = Object.assign({}, init.headers, { Cookie: ex.auth.token });
   }
@@ -107,11 +107,11 @@ async function runWebEndpoint(task, prompt) {
     const res = await fetch(endpoint, Object.assign({ signal: ctrl.signal }, init));
     const text = await res.text();
     if (!res.ok) {
-      return { output: '[web] HTTP ' + res.status + ': ' + String(extractAnswer(text)).slice(0, 600), exitCode: -1 };
+      return { output: `[web] HTTP ${  res.status  }: ${  String(extractAnswer(text)).slice(0, 600)}`, exitCode: -1 };
     }
     return { output: String(extractAnswer(text)).slice(0, 8000), exitCode: 0 };
   } catch (e) {
-    return { output: '[web] 调用失败: ' + e.message, exitCode: -1 };
+    return { output: `[web] 调用失败: ${  e.message}`, exitCode: -1 };
   } finally {
     clearTimeout(timer);
   }

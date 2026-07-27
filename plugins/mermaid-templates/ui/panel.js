@@ -37,7 +37,7 @@
 
   function addCustomTemplate({ name, desc, source }) {
     const tpl = {
-      id: 'cst_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8),
+      id: `cst_${  Date.now()  }_${  Math.random().toString(36).slice(2, 8)}`,
       name: name || '未命名模板',
       desc: desc || '',
       source: source || '',
@@ -269,8 +269,8 @@
         const cat = getCategory(key);
         if (!cat) continue;
         const btn = document.createElement('button');
-        btn.className = 'mt-cat-btn' + (key === activeCategory ? ' active' : '');
-        btn.innerHTML = cat.icon + ' ' + cat.label;
+        btn.className = `mt-cat-btn${  key === activeCategory ? ' active' : ''}`;
+        btn.innerHTML = `${cat.icon  } ${  cat.label}`;
         btn.dataset.cat = key;
         btn.addEventListener('click', () => {
           activeCategory = key;
@@ -290,109 +290,109 @@
 
       let extraHTML = '';
       if (isCustom) {
-        extraHTML = '<div class="mt-custom-header"><button class="mt-btn mt-btn-new" id="mt-btn-new">✨ 新建模板</button><span class="mt-custom-count">共 ' + cat.items.length + ' 个模板</span></div>';
+        extraHTML = `<div class="mt-custom-header"><button class="mt-btn mt-btn-new" id="mt-btn-new">✨ 新建模板</button><span class="mt-custom-count">共 ${  cat.items.length  } 个模板</span></div>`;
         if (cat.items.length === 0) {
           extraHTML += '<div class="mt-custom-empty"><div class="mt-custom-empty-icon">📭</div><div class="mt-custom-empty-text">还没有自定义模板</div><div class="mt-custom-empty-hint">点击上方「新建模板」创建你的第一个图表模板</div></div>';
         }
       }
 
-      var gridHTML = '<div class="mt-grid">';
-      for (var i = 0; i < cat.items.length; i++) {
-        var item = cat.items[i];
-        var isCustomItem = isCustom && item.id;
-        gridHTML += '<div class="mt-card' + (isCustomItem ? ' mt-card-custom' : '') + '" draggable="true" data-index="' + i + '">';
-        gridHTML += '<div class="mt-card-header">' + (isCustomItem ? '<span class="mt-card-badge">⭐ 自定义</span>' : '') + '<span class="mt-card-name">' + escapeHtml(item.name) + '</span><span class="mt-card-desc">' + escapeHtml(item.desc || '') + '</span></div>';
-        gridHTML += '<div class="mt-card-preview"><div class="mermaid">' + escapeHtml(item.source) + '</div><div class="mt-card-loading">⏳ 渲染中...</div></div>';
+      let gridHTML = '<div class="mt-grid">';
+      for (let i = 0; i < cat.items.length; i++) {
+        const item = cat.items[i];
+        const isCustomItem = isCustom && item.id;
+        gridHTML += `<div class="mt-card${  isCustomItem ? ' mt-card-custom' : ''  }" draggable="true" data-index="${  i  }">`;
+        gridHTML += `<div class="mt-card-header">${  isCustomItem ? '<span class="mt-card-badge">⭐ 自定义</span>' : ''  }<span class="mt-card-name">${  escapeHtml(item.name)  }</span><span class="mt-card-desc">${  escapeHtml(item.desc || '')  }</span></div>`;
+        gridHTML += `<div class="mt-card-preview"><div class="mermaid">${  escapeHtml(item.source)  }</div><div class="mt-card-loading">⏳ 渲染中...</div></div>`;
         gridHTML += '<div class="mt-card-actions">';
         gridHTML += '<button class="mt-btn mt-btn-copy" title="复制源代码">📋 复制源码</button>';
         gridHTML += '<button class="mt-btn mt-btn-chat" title="发送到聊天面板">💬 发送到聊天</button>';
         gridHTML += '<button class="mt-btn mt-btn-expand" title="查看源码">📄 源码</button>';
         if (isCustomItem) {
-          gridHTML += '<button class="mt-btn mt-btn-edit" data-id="' + item.id + '" title="编辑模板">✏️ 编辑</button>';
-          gridHTML += '<button class="mt-btn mt-btn-delete" data-id="' + item.id + '" title="删除模板">🗑️ 删除</button>';
+          gridHTML += `<button class="mt-btn mt-btn-edit" data-id="${  item.id  }" title="编辑模板">✏️ 编辑</button>`;
+          gridHTML += `<button class="mt-btn mt-btn-delete" data-id="${  item.id  }" title="删除模板">🗑️ 删除</button>`;
         }
         gridHTML += '</div>';
-        gridHTML += '<div class="mt-card-source hidden"><pre><code>' + escapeHtml(item.source) + '</code></pre></div>';
+        gridHTML += `<div class="mt-card-source hidden"><pre><code>${  escapeHtml(item.source)  }</code></pre></div>`;
         gridHTML += '</div>';
       }
       gridHTML += '</div>';
 
       contentEl.innerHTML = extraHTML + gridHTML;
 
-      requestAnimationFrame(function () {
+      requestAnimationFrame(() => {
         if (Q.MermaidRenderer) {
           Q.MermaidRenderer.renderAll();
         }
       });
 
-      var newBtn = document.getElementById('mt-btn-new');
+      const newBtn = document.getElementById('mt-btn-new');
       if (newBtn) {
-        newBtn.addEventListener('click', function () { showTemplateModal('new'); });
+        newBtn.addEventListener('click', () => { showTemplateModal('new'); });
       }
 
-      var cards = contentEl.querySelectorAll('.mt-card');
-      for (var j = 0; j < cards.length; j++) {
+      const cards = contentEl.querySelectorAll('.mt-card');
+      for (let j = 0; j < cards.length; j++) {
         (function (card) {
-          var idx = parseInt(card.dataset.index, 10);
-          var item = cat.items[idx];
+          const idx = parseInt(card.dataset.index, 10);
+          const item = cat.items[idx];
           if (!item) return;
 
-          card.addEventListener('dragstart', function (e) {
+          card.addEventListener('dragstart', (e) => {
             e.dataTransfer.setData('text/plain', item.source);
             e.dataTransfer.setData('text/x-mermaid', item.source);
             e.dataTransfer.effectAllowed = 'copy';
             card.classList.add('mt-card-dragging');
           });
-          card.addEventListener('dragend', function () {
+          card.addEventListener('dragend', () => {
             card.classList.remove('mt-card-dragging');
           });
 
-          var copyBtn = card.querySelector('.mt-btn-copy');
+          const copyBtn = card.querySelector('.mt-btn-copy');
           if (copyBtn) {
-            copyBtn.addEventListener('click', function () {
-              navigator.clipboard.writeText(item.source).catch(function () {});
+            copyBtn.addEventListener('click', () => {
+              navigator.clipboard.writeText(item.source).catch(() => {});
               copyBtn.textContent = '✅ 已复制';
-              setTimeout(function () { copyBtn.textContent = '📋 复制源码'; }, 2000);
+              setTimeout(() => { copyBtn.textContent = '📋 复制源码'; }, 2000);
             });
           }
 
-          var chatBtn = card.querySelector('.mt-btn-chat');
+          const chatBtn = card.querySelector('.mt-btn-chat');
           if (chatBtn) {
-            chatBtn.addEventListener('click', function () {
-              var chatInput = document.getElementById('chat-input');
+            chatBtn.addEventListener('click', () => {
+              const chatInput = document.getElementById('chat-input');
               if (chatInput) {
-                chatInput.value = '请帮我生成以下 Mermaid 图表：\n\n```mermaid\n' + item.source + '\n```';
+                chatInput.value = `请帮我生成以下 Mermaid 图表：\n\n\`\`\`mermaid\n${  item.source  }\n\`\`\``;
                 chatInput.dispatchEvent(new Event('input'));
                 if (Q.ChatUI && Q.ChatUI.toggleChat) Q.ChatUI.toggleChat();
-                setTimeout(function () { chatInput.focus(); }, 300);
+                setTimeout(() => { chatInput.focus(); }, 300);
               } else {
-                navigator.clipboard.writeText(item.source).catch(function () {});
+                navigator.clipboard.writeText(item.source).catch(() => {});
                 if (Q.showToast) Q.showToast('已复制到剪贴板（聊天面板未打开）', 'info');
               }
             });
           }
 
-          var expandBtn = card.querySelector('.mt-btn-expand');
-          var sourceBlock = card.querySelector('.mt-card-source');
+          const expandBtn = card.querySelector('.mt-btn-expand');
+          const sourceBlock = card.querySelector('.mt-card-source');
           if (expandBtn && sourceBlock) {
-            expandBtn.addEventListener('click', function () {
-              var isHidden = sourceBlock.classList.contains('hidden');
+            expandBtn.addEventListener('click', () => {
+              const isHidden = sourceBlock.classList.contains('hidden');
               sourceBlock.classList.toggle('hidden');
               expandBtn.textContent = isHidden ? '🙈 收起' : '📄 源码';
             });
           }
 
           if (isCustom) {
-            var editBtn = card.querySelector('.mt-btn-edit');
+            const editBtn = card.querySelector('.mt-btn-edit');
             if (editBtn) {
-              editBtn.addEventListener('click', function () { showTemplateModal('edit', item); });
+              editBtn.addEventListener('click', () => { showTemplateModal('edit', item); });
             }
-            var deleteBtn = card.querySelector('.mt-btn-delete');
+            const deleteBtn = card.querySelector('.mt-btn-delete');
             if (deleteBtn) {
-              deleteBtn.addEventListener('click', function () {
-                if (confirm('确定要删除模板「' + item.name + '」吗？')) {
+              deleteBtn.addEventListener('click', () => {
+                if (confirm(`确定要删除模板「${  item.name  }」吗？`)) {
                   deleteCustomTemplate(item.id);
-                  if (Q.showToast) Q.showToast('🗑️ 已删除「' + item.name + '」', 'info');
+                  if (Q.showToast) Q.showToast(`🗑️ 已删除「${  item.name  }」`, 'info');
                   renderTemplates();
                 }
               });
@@ -409,7 +409,7 @@
       activeCategory = 'custom';
     } else {
       // Default to the first non-empty builtin category (e.g. 'flowchart')
-      var firstBuiltin = categoryKeys.find(function(k) { return k !== 'custom'; });
+      const firstBuiltin = categoryKeys.find((k) => { return k !== 'custom'; });
       if (firstBuiltin) activeCategory = firstBuiltin;
     }
 

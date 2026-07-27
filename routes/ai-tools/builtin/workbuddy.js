@@ -41,7 +41,7 @@ function executeWorkbuddy(cmd, timeout = 30000) {
       try { pty.kill(); } catch { /* ignore */ }
       const output = outputChunks.join('').trim();
       resolve(output
-        ? output + '\n\n[WorkBuddy] 命令执行超时，以上为已捕获的输出'
+        ? `${output  }\n\n[WorkBuddy] 命令执行超时，以上为已捕获的输出`
         : '[WorkBuddy] 命令执行超时，未捕获到输出'
       );
     }, timeout);
@@ -59,7 +59,7 @@ function executeWorkbuddy(cmd, timeout = 30000) {
           resolve(output || '(命令执行成功，无输出)');
         } else {
           resolve(output
-            ? output + `\n\n[WorkBuddy] 命令退出码: ${exitCode}${signal ? ` (signal: ${signal})` : ''}`
+            ? `${output  }\n\n[WorkBuddy] 命令退出码: ${exitCode}${signal ? ` (signal: ${signal})` : ''}`
             : `[WorkBuddy] 命令执行失败 (退出码: ${exitCode})`
           );
         }

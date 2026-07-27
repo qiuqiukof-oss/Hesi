@@ -149,13 +149,13 @@ function matchesUrlPattern(pattern, url) {
     } else if (ch === '?') {
       regexStr += '[^/]';
     } else if (/[.+^${}()|\\]/.test(ch)) {
-      regexStr += '\\' + ch;
+      regexStr += `\\${  ch}`;
     } else {
       regexStr += ch;
     }
   }
   try {
-    return new RegExp('^' + regexStr + '$', 'i').test(url);
+    return new RegExp(`^${  regexStr  }$`, 'i').test(url);
   } catch {
     return false;
   }
@@ -189,7 +189,7 @@ function createRouter() {
     const list = Array.from(scripts.values()).map(s => ({
       ...s,
       // 返回时截断 code 以防响应过大
-      code: s.code.length > 500 ? s.code.slice(0, 500) + '\n// ... [截断]' : s.code,
+      code: s.code.length > 500 ? `${s.code.slice(0, 500)  }\n// ... [截断]` : s.code,
     }));
     res.json({ scripts: list, total: scripts.size });
   });

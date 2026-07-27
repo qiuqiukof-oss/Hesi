@@ -297,7 +297,7 @@ function createRouter() {
     }
     for (const t of tasks) {
       if (t && hasReplacement(t.label || '') ) {
-        return res.status(400).json({ success: false, error: '任务「' + (t.id || '?') + '」的标签含乱码，请修正后重试' });
+        return res.status(400).json({ success: false, error: `任务「${  t.id || '?'  }」的标签含乱码，请修正后重试` });
       }
     }
 
@@ -307,7 +307,7 @@ function createRouter() {
     for (const t of tasks) {
       const id = typeof t.id === 'string' ? t.id.trim() : '';
       if (!id) return res.status(400).json({ success: false, error: '存在缺少 id 的任务' });
-      if (seen.has(id)) return res.status(400).json({ success: false, error: '任务 id 重复：' + id });
+      if (seen.has(id)) return res.status(400).json({ success: false, error: `任务 id 重复：${  id}` });
       seen.add(id);
       const deps = Array.isArray(t.dependsOn)
         ? t.dependsOn.map((d) => String(d).trim()).filter(Boolean)
@@ -324,9 +324,9 @@ function createRouter() {
 
     // 解析并净化 id（仅允许 ASCII 安全字符，防路径穿越）
     let id = typeof body.id === 'string' && body.id.trim() ? body.id.trim() : slugify(name);
-    if (!id) id = 'workflow-' + Date.now();
+    if (!id) id = `workflow-${  Date.now()}`;
     id = id.replace(/[^A-Za-z0-9_-]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '').slice(0, 64)
-      || ('wf-' + Date.now());
+      || (`wf-${  Date.now()}`);
 
     const wf = {
       id,
@@ -342,17 +342,17 @@ function createRouter() {
     try {
       const workflowsDir = path.join(__dirname, '..', 'workflows');
       if (!fs.existsSync(workflowsDir)) fs.mkdirSync(workflowsDir, { recursive: true });
-      let file = id + '.json';
+      let file = `${id  }.json`;
       // 重名防覆盖：追加时间戳
       if (fs.existsSync(path.join(workflowsDir, file))) {
-        file = id + '-' + Date.now() + '.json';
+        file = `${id  }-${  Date.now()  }.json`;
       }
       const filePath = path.join(workflowsDir, file);
       fs.writeFileSync(filePath, JSON.stringify(wf, null, 2), 'utf-8');
       res.json({ success: true, id, file, path: filePath });
     } catch (e) {
       console.error('[Workflows] Save failed:', e);
-      res.status(500).json({ success: false, error: '保存失败：' + e.message });
+      res.status(500).json({ success: false, error: `保存失败：${  e.message}` });
     }
   });
 

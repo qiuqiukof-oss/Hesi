@@ -194,7 +194,7 @@ export function initWelcomeCarousel() {
 
   dots.forEach(function(dot) {
     dot.addEventListener('click', function() {
-      var idx = parseInt(dot.dataset.slide);
+      const idx = parseInt(dot.dataset.slide);
       if (!isNaN(idx)) goToSlide(idx);
     });
   });
@@ -218,7 +218,7 @@ export function initWelcomeCarousel() {
 // Auto-init — patch onto QCLI for backward compat
 // ============================================================
 Promise.resolve().then(function() {
-  var Q = window.QCLI || {};
+  const Q = window.QCLI || {};
   Q.Welcome = Q.Welcome || {};
   Q.Welcome.renderWelcome = renderWelcome;
   Q.initWelcomeCarousel = initWelcomeCarousel;

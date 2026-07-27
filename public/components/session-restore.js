@@ -15,14 +15,14 @@ function Q() { return /** @type {QCLI} */ (window.QCLI || {}); }
 
 /** @param {Date} date */
 function formatSessionTime(date) {
-  var now = Date.now();
-  var diffMs = now - date.getTime();
-  var diffMin = Math.floor(diffMs / 60000);
+  const now = Date.now();
+  const diffMs = now - date.getTime();
+  const diffMin = Math.floor(diffMs / 60000);
   if (diffMin < 1) return "just now";
   if (diffMin < 60) return diffMin + "m ago";
-  var diffHr = Math.floor(diffMin / 60);
+  const diffHr = Math.floor(diffMin / 60);
   if (diffHr < 24) return diffHr + "h ago";
-  var diffDay = Math.floor(diffHr / 24);
+  const diffDay = Math.floor(diffHr / 24);
   return diffDay + "d ago";
 }
 
@@ -31,16 +31,16 @@ async function checkSavedSessions() {
   await new Promise(function(r) { setTimeout(r, 500); });
   if (!Q().SessionStore) return;
   try {
-    var sessions = await Q().SessionStore.loadAllSessions();
+    const sessions = await Q().SessionStore.loadAllSessions();
     if (!sessions || sessions.length === 0) {
       // No saved sessions — auto-launch default CLI
       if (Q().launchDefaultCLI) Q().launchDefaultCLI();
       return;
     }
 
-    var overlay = document.getElementById("session-restore-overlay");
-    var list = document.getElementById("session-restore-list");
-    var countEl = document.getElementById("session-restore-count");
+    const overlay = document.getElementById("session-restore-overlay");
+    const list = document.getElementById("session-restore-list");
+    const countEl = document.getElementById("session-restore-count");
     if (!overlay || !list) return;
 
     // Update count
@@ -49,36 +49,36 @@ async function checkSavedSessions() {
     // Populate list
     list.innerHTML = "";
     sessions.forEach(function(session) {
-      var item = document.createElement("div");
+      const item = document.createElement("div");
       item.className = "session-restore-item selected";
       item.dataset.tabId = session.tabId;
 
       // Icon
-      var icon = document.createElement("span");
+      const icon = document.createElement("span");
       icon.className = "sr-item-icon";
       icon.textContent = session.icon || "\u25B6";
       item.appendChild(icon);
 
       // Info
-      var info = document.createElement("div");
+      const info = document.createElement("div");
       info.className = "sr-item-info";
 
-      var name = document.createElement("div");
+      const name = document.createElement("div");
       name.className = "sr-item-name";
       name.textContent = session.name || session.cliId || "Terminal";
       info.appendChild(name);
 
-      var meta = document.createElement("div");
+      const meta = document.createElement("div");
       meta.className = "sr-item-meta";
 
-      var timeStr = session.timestamp ? formatSessionTime(new Date(session.timestamp)) : "";
-      var timeSpan = document.createElement("span");
+      const timeStr = session.timestamp ? formatSessionTime(new Date(session.timestamp)) : "";
+      const timeSpan = document.createElement("span");
       timeSpan.className = "sr-item-time";
       timeSpan.textContent = timeStr;
       meta.appendChild(timeSpan);
 
-      var bufSize = session.buffer ? session.buffer.length : 0;
-      var sizeSpan = document.createElement("span");
+      const bufSize = session.buffer ? session.buffer.length : 0;
+      const sizeSpan = document.createElement("span");
       sizeSpan.textContent = bufSize > 0 ? (bufSize / 1024).toFixed(0) + "KB" : "(empty)";
       sizeSpan.style.cssText = "font-size:9px;opacity:0.5";
       meta.appendChild(sizeSpan);
@@ -87,7 +87,7 @@ async function checkSavedSessions() {
       item.appendChild(info);
 
       // Checkbox
-      var checkbox = document.createElement("span");
+      const checkbox = document.createElement("span");
       checkbox.className = "sr-item-checkbox";
       checkbox.textContent = "\u2713";
       item.appendChild(checkbox);
@@ -95,7 +95,7 @@ async function checkSavedSessions() {
       // Click to toggle selection
       item.addEventListener("click", function() {
         item.classList.toggle("selected");
-        var check = item.querySelector(".sr-item-checkbox");
+        const check = item.querySelector(".sr-item-checkbox");
         if (check) {
           check.textContent = item.classList.contains("selected") ? "\u2713" : "";
         }
@@ -105,8 +105,8 @@ async function checkSavedSessions() {
     });
 
     // Wire up buttons
-    var ignoreBtn = document.getElementById("session-restore-ignore");
-    var restoreBtn = document.getElementById("session-restore-all");
+    const ignoreBtn = document.getElementById("session-restore-ignore");
+    const restoreBtn = document.getElementById("session-restore-all");
 
     if (ignoreBtn) {
       ignoreBtn.onclick = function() {
@@ -118,18 +118,18 @@ async function checkSavedSessions() {
 
     if (restoreBtn) {
       restoreBtn.onclick = function() {
-        var selectedItems = list.querySelectorAll(".session-restore-item.selected");
-        var selectedSessions = [];
+        const selectedItems = list.querySelectorAll(".session-restore-item.selected");
+        const selectedSessions = [];
         selectedItems.forEach(function(el) {
-          var s = sessions.find(function(sess) { return sess.tabId === el.dataset.tabId; });
+          const s = sessions.find(function(sess) { return sess.tabId === el.dataset.tabId; });
           if (s) selectedSessions.push(s);
         });
 
         if (selectedSessions.length > 0 && Q().Tabs) {
           Q().Tabs.restoreSessions(selectedSessions);
           // Set pending init for each restored tab
-          for (var i = 0; i < selectedSessions.length; i++) {
-            var s = selectedSessions[i];
+          for (let i = 0; i < selectedSessions.length; i++) {
+            const s = selectedSessions[i];
             if (s.init && Q()._pendingInit) Q()._pendingInit.set(s.cliId, s.init);
           }
         }
@@ -151,6 +151,6 @@ async function checkSavedSessions() {
 // Auto-init — patch onto QCLI for backward compat
 // ============================================================
 Promise.resolve().then(function() {
-  var q = Q();
+  const q = Q();
   q.checkSavedSessions = checkSavedSessions;
 });

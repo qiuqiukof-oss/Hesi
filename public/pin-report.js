@@ -18,7 +18,7 @@ const Q = /** @type {QCLI} */ (window.QCLI = window.QCLI || {});
 
   // ── State ──
   let pinOrder = [];            // ordered pin IDs (for sorted display)
-  let selectedPins = new Set(); // pin IDs selected for merge
+  const selectedPins = new Set(); // pin IDs selected for merge
   let mergeMode = false;
   let sortBy = 'date';          // 'date' | 'source' | 'title'
 

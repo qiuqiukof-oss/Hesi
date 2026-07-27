@@ -278,7 +278,7 @@ class AgentPoolManager {
       const full = session.outputChunks.join('');
       let cursor = session._pollCursor || 0;
       if (cursor > full.length) cursor = 0; // 截断等异常导致游标失效，则从头重发剩余内容
-      let delta = cursor > 0 ? full.slice(cursor) : full;
+      const delta = cursor > 0 ? full.slice(cursor) : full;
 
       const MAX_POLL_OUTPUT = 10000;
       let returned;
@@ -347,7 +347,7 @@ class AgentPoolManager {
         return JSON.stringify({ ok: false, error: 'Agent PTY 不可用' });
       }
 
-      session.pty.write(input + '\n');
+      session.pty.write(`${input  }\n`);
       session.lastActivity = Date.now();
 
       // Agent 发送了输入 → 标记回呼为已回答（指定 callbackId 时仅标记该条）

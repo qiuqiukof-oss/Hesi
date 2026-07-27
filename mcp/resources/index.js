@@ -45,7 +45,7 @@ function matchHandler(uri) {
     const matches = typeof pattern === "string" && !pattern.includes("*")
       ? baseUri === pattern
       : typeof pattern === "string" && pattern.includes("*")
-        ? new RegExp("^" + pattern.replace(/[.+?^${}()|[\]\\]/g, "\\$&").replace(/\*/g, "[^/]+") + "$").test(baseUri)
+        ? new RegExp(`^${  pattern.replace(/[.+?^${}()|[\]\\]/g, "\\$&").replace(/\*/g, "[^/]+")  }$`).test(baseUri)
         : pattern instanceof RegExp
           ? pattern.test(uri)
           : false;

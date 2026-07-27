@@ -47,7 +47,7 @@ function measureFirstPaint() {
     // When this module executes, the main bundle has finished booting.
     const appReadyMs = Math.round(performance.now());
     const metrics = { fcp: fcpMs, domReady: domReadyMs, load: loadMs, appReady: appReadyMs };
-    // eslint-disable-next-line no-console
+     
     console.info('[telemetry] first-paint', metrics);
     report('first_paint', metrics);
   } catch (_) { /* measurement failure is non-fatal */ }
@@ -63,7 +63,7 @@ function installErrorBoundary() {
   window.addEventListener('error', (e) => {
     const evt = /** @type {ErrorEvent} */ (e);
     const msg = (evt && evt.message) || 'Unknown error';
-    // eslint-disable-next-line no-console
+     
     console.error('[app-error]', msg, evt && evt.error);
     surfaceError(msg);
     report('client_error', {
@@ -77,7 +77,7 @@ function installErrorBoundary() {
     const evt = /** @type {PromiseRejectionEvent} */ (e);
     const reason = evt && evt.reason;
     const msg = (reason && (reason.message || reason.toString())) || 'Unhandled promise rejection';
-    // eslint-disable-next-line no-console
+     
     console.error('[app-error:rejection]', msg, reason);
     surfaceError(msg);
     report('client_error', {

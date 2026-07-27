@@ -417,7 +417,7 @@ class WorkflowManager {
       const data = JSON.parse(pollResult);
 
       if (!data.ok) {
-        task.result = (task.result || '') + `\n[poll error] ${data.error}`;
+        task.result = `${task.result || ''  }\n[poll error] ${data.error}`;
         task.status = 'completed';
         task.endedAt = Date.now();
         wf.runningCount--;

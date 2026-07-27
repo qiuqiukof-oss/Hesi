@@ -43,7 +43,7 @@ function createFormsRouter() {
 
             const field = {
               tag: el.tagName.toLowerCase(),
-              type: type,
+              type,
               name: input.name || undefined,
               id: input.id || undefined,
               placeholder: input.placeholder || undefined,

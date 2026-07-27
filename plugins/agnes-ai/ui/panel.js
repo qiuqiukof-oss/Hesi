@@ -7,39 +7,39 @@
 // ============================================================
 (function () {
   'use strict';
-  var Q = window.QCLI;
+  const Q = window.QCLI;
   if (!Q || !Q.UIRegistry) {
     console.warn('[Agnes] UIRegistry 不可用，跳过 Tab 注册');
     return;
   }
 
-  var FRAME_SRC = '/plugin-assets/agnes-ai/web/index.html';
+  const FRAME_SRC = '/plugin-assets/agnes-ai/web/index.html';
 
   Q.UIRegistry.registerTab('agnes-ai', {
     icon: '🎬',
     label: 'Agnes 创作',
     category: 'monitor',
     order: 2,
-    render: function (container) {
+    render (container) {
       container.innerHTML =
-        '<div class="agnes-plugin-wrap">' +
-        '  <div class="agnes-plugin-bar">' +
-        '    <span class="agnes-plugin-title">🎬 Agnes AI 创作台</span>' +
-        '    <button type="button" class="agnes-plugin-pop" title="在新窗口全屏打开">⧉ 新窗口</button>' +
-        '  </div>' +
-        '  <iframe class="agnes-plugin-frame" src="' + FRAME_SRC + '" frameborder="0"></iframe>' +
-        '</div>';
+        `<div class="agnes-plugin-wrap">` +
+        `  <div class="agnes-plugin-bar">` +
+        `    <span class="agnes-plugin-title">🎬 Agnes AI 创作台</span>` +
+        `    <button type="button" class="agnes-plugin-pop" title="在新窗口全屏打开">⧉ 新窗口</button>` +
+        `  </div>` +
+        `  <iframe class="agnes-plugin-frame" src="${  FRAME_SRC  }" frameborder="0"></iframe>` +
+        `</div>`;
 
-      var pop = container.querySelector('.agnes-plugin-pop');
+      const pop = container.querySelector('.agnes-plugin-pop');
       if (pop) {
-        pop.addEventListener('click', function () {
+        pop.addEventListener('click', () => {
           window.open(FRAME_SRC, 'agnes-ai', 'width=1440,height=900');
         });
       }
 
       // Inject one-time styles
       if (!document.getElementById('agnes-plugin-style')) {
-        var s = document.createElement('style');
+        const s = document.createElement('style');
         s.id = 'agnes-plugin-style';
         s.textContent =
           '.agnes-plugin-wrap{display:flex;flex-direction:column;height:100%;min-height:0;}' +

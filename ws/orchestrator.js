@@ -129,8 +129,8 @@ function createOrchestrator({ createHeadlessPTY, getAgentCommand, lookupCommand,
   // Convert a legacy flat `step` into a DAG task (dependsOn previous).
   function stepToTask(step, index, prevId) {
     return {
-      id: step.id || ('step-' + (index + 1)),
-      label: step.label || (step.task ? step.task.slice(0, 48) : ('Task ' + (index + 1))),
+      id: step.id || (`step-${  index + 1}`),
+      label: step.label || (step.task ? step.task.slice(0, 48) : (`Task ${  index + 1}`)),
       agentId: step.agentId,
       task: step.task,
       role: step.role || null,
@@ -160,8 +160,8 @@ function createOrchestrator({ createHeadlessPTY, getAgentCommand, lookupCommand,
   function normalizeDef(def) {
     if (def.tasks && Array.isArray(def.tasks) && def.tasks.length > 0) {
       const tasks = def.tasks.map((t, i) => ({
-        id: t.id || ('task-' + (i + 1)),
-        label: t.label || ('Task ' + (i + 1)),
+        id: t.id || (`task-${  i + 1}`),
+        label: t.label || (`Task ${  i + 1}`),
         agentId: t.agentId,
         task: t.task,
         role: t.role || null,
@@ -234,7 +234,7 @@ function createOrchestrator({ createHeadlessPTY, getAgentCommand, lookupCommand,
 
   // Send a message from one task to another; resolves on response.
   function sendAgentMessage(rs, from, to, payload, timeout = BUS_TIMEOUT) {
-    const msgId = 'm' + Date.now() + '-' + Math.random().toString(36).slice(2, 8);
+    const msgId = `m${  Date.now()  }-${  Math.random().toString(36).slice(2, 8)}`;
     return new Promise((resolve, reject) => {
       const timer = setTimeout(() => {
         rs.bus.pending.delete(msgId);
@@ -330,7 +330,7 @@ function createOrchestrator({ createHeadlessPTY, getAgentCommand, lookupCommand,
         reject(Object.assign(new Error(`[timeout] agent ${agentId} exceeded ${DEFAULT_STEP_TIMEOUT}ms without exit`), { output: _log.join() }));
       }, DEFAULT_STEP_TIMEOUT);
 
-      p.write(prompt + '\n');
+      p.write(`${prompt  }\n`);
     });
   }
 
@@ -343,20 +343,20 @@ function createOrchestrator({ createHeadlessPTY, getAgentCommand, lookupCommand,
       return runAgentPTY(rs, task.id, agent.agentId, agent.task, {
         WORKFLOW_AGENT_INDEX: String(i),
       }).then((r) => ({ agentId: agent.agentId, output: r.output, exitCode: r.exitCode }))
-        .catch((e) => ({ agentId: agent.agentId, output: (e && e.output) || ('[error] ' + e.message), exitCode: -1 }));
+        .catch((e) => ({ agentId: agent.agentId, output: (e && e.output) || (`[error] ${  e.message}`), exitCode: -1 }));
     }));
 
     const agentLabels = { opencode: 'OpenCode', codebuff: 'Codebuff', freebuff: 'Freebuff', aider: 'Aider', claude: 'Claude', codex: 'CODEX' };
     const sections = results.map((r) => {
       const label = agentLabels[r.agentId] || r.agentId;
       const icon = r.exitCode === 0 ? '[OK]' : (r.exitCode === null ? '[TMO]' : '[ERR]');
-      const sep = '\n' + '='.repeat(52) + '\n';
-      return sep + '  ' + icon + ' Agent: ' + label + ' (' + r.agentId + ')\n' + sep + '\n' + (r.output || '(no output)') + '\n';
+      const sep = `\n${  '='.repeat(52)  }\n`;
+      return `${sep  }  ${  icon  } Agent: ${  label  } (${  r.agentId  })\n${  sep  }\n${  r.output || '(no output)'  }\n`;
     }).join('\n\n');
 
-    const header = '\n' + '#'.repeat(54) + '\n  AI ENSEMBLE - MERGED OUTPUT\n' + '#'.repeat(54) + '\n';
-    const footer = '\n' + '-'.repeat(54) + '\n  Agents: ' + results.length +
-      ' | Success: ' + results.filter((r) => r.exitCode === 0).length + '\n' + '-'.repeat(54) + '\n';
+    const header = `\n${  '#'.repeat(54)  }\n  AI ENSEMBLE - MERGED OUTPUT\n${  '#'.repeat(54)  }\n`;
+    const footer = `\n${  '-'.repeat(54)  }\n  Agents: ${  results.length 
+      } | Success: ${  results.filter((r) => r.exitCode === 0).length  }\n${  '-'.repeat(54)  }\n`;
     const summary = header + sections + footer;
     const exitCode = results.some((r) => r.exitCode !== 0 && r.exitCode !== null) ? 1 : 0;
 
@@ -400,7 +400,7 @@ function createOrchestrator({ createHeadlessPTY, getAgentCommand, lookupCommand,
     for (const depId of (task.dependsOn || [])) {
       const dep = rs.tasks.get(depId);
       if (dep && dep.result) {
-        const slice = dep.result.length > cap ? dep.result.slice(0, cap) + '\n... [truncated]' : dep.result;
+        const slice = dep.result.length > cap ? `${dep.result.slice(0, cap)  }\n... [truncated]` : dep.result;
         prompt = `[Context from task "${dep.label}"]\n${slice}\n\n---\n\n${prompt}`;
       }
     }
@@ -434,8 +434,8 @@ function createOrchestrator({ createHeadlessPTY, getAgentCommand, lookupCommand,
         const ex = expertRegistry.get(task.expertId);
         if (ex) {
           const hints = [];
-          if (Array.isArray(ex.allowedSkills) && ex.allowedSkills.length) hints.push('可用技能: ' + ex.allowedSkills.join(', '));
-          if (Array.isArray(ex.allowedConnectors) && ex.allowedConnectors.length) hints.push('可接入连接器: ' + ex.allowedConnectors.join(', '));
+          if (Array.isArray(ex.allowedSkills) && ex.allowedSkills.length) hints.push(`可用技能: ${  ex.allowedSkills.join(', ')}`);
+          if (Array.isArray(ex.allowedConnectors) && ex.allowedConnectors.length) hints.push(`可接入连接器: ${  ex.allowedConnectors.join(', ')}`);
           if (hints.length) prompt = `[专家能力] ${hints.join('；')}\n---\n\n${prompt}`;
         }
       }
@@ -673,7 +673,7 @@ function createOrchestrator({ createHeadlessPTY, getAgentCommand, lookupCommand,
     const arr = Array.isArray(taskDef) ? taskDef : [taskDef];
     const added = [];
     for (const td of arr) {
-      const id = td.id || ('task-dyn-' + (rs.tasks.size + 1));
+      const id = td.id || (`task-dyn-${  rs.tasks.size + 1}`);
       const t = {
         id, label: td.label || id, agentId: td.agentId, task: td.task,
         role: td.role || null, roleName: td.roleName || null, persona: td.persona || null,

@@ -162,7 +162,7 @@ function createProcessRouter(activePTYs) {
       return res.json({ success: false, error: 'Missing or invalid pid' });
     }
 
-    let detail = { pid, threads: 0, handles: 0, cpuTime: '', cmdLine: '' };
+    const detail = { pid, threads: 0, handles: 0, cpuTime: '', cmdLine: '' };
 
     try {
       if (isWin) {

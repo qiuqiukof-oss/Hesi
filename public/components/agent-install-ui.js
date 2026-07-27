@@ -14,7 +14,7 @@
 (function () {
   'use strict';
 
-  var Q = (window.QCLI = window.QCLI || {});
+  const Q = (window.QCLI = window.QCLI || {});
 
   // i18n helper — resolves via QCLI.__ (set by i18n.js). Falls back to the
   // key itself if i18n isn't ready yet.
@@ -23,8 +23,8 @@
   }
 
   // ── 共享进度 WebSocket（一个 tab 仅一个，供所有卡片共用） ──
-  var progressWS = null;
-  var wsListeners = [];
+  let progressWS = null;
+  const wsListeners = [];
   function getWSURL() {
     return (location.protocol === 'https:' ? 'wss:' : 'ws:') + '//' + location.host;
   }
@@ -35,10 +35,10 @@
     try {
       progressWS = new WebSocket(getWSURL());
       progressWS.onmessage = function (ev) {
-        var msg;
+        let msg;
         try { msg = JSON.parse(ev.data); } catch (e) { return; }
         if (msg && typeof msg.type === 'string' && msg.type.indexOf('agent:install:') === 0) {
-          for (var i = 0; i < wsListeners.length; i++) {
+          for (let i = 0; i < wsListeners.length; i++) {
             try { wsListeners[i](msg); } catch (e) { /* ignore */ }
           }
         }
@@ -60,10 +60,10 @@
   }
 
   // ── 状态映射 ──
-  var cards = {}; // agentId -> { el, fill, log, status, btn, jobId }
+  const cards = {}; // agentId -> { el, fill, log, status, btn, jobId }
 
   function setStatusBadge(card, kind, text) {
-    var b = card.el.querySelector('.ai-badge');
+    const b = card.el.querySelector('.ai-badge');
     if (!b) return;
     b.className = 'ai-badge ai-' + kind;
     b.textContent = text;
@@ -101,7 +101,7 @@
     card.btn.dataset.action = 'install';
     card.fill.style.width = '100%';
     if (error) {
-      var line = document.createElement('div');
+      const line = document.createElement('div');
       line.className = 'ai-log-line ai-log-err';
       line.textContent = '✗ ' + error;
       card.log.appendChild(line);
@@ -121,7 +121,7 @@
 
   function appendLog(card, message) {
     if (!message) return;
-    var line = document.createElement('div');
+    const line = document.createElement('div');
     line.className = 'ai-log-line';
     line.textContent = message;
     card.log.appendChild(line);
@@ -133,14 +133,14 @@
   function onProgress(card, msg) {
     if (msg.stage) appendLog(card, '[' + msg.stage + '] ' + (msg.message || ''));
     // 进度条做平滑推进（真实百分比未知，用阶段近似 + 抖动）
-    var pct = parseInt(card.fill.style.width, 10) || 8;
+    let pct = parseInt(card.fill.style.width, 10) || 8;
     pct = Math.min(95, pct + 6);
     card.fill.style.width = pct + '%';
   }
 
   // ── 安装动作 ──
   function startInstall(agentId) {
-    var card = cards[agentId];
+    const card = cards[agentId];
     if (!card) return;
     card.btn.disabled = true;
     ensureProgressWS();
@@ -156,7 +156,7 @@
   }
 
   function cancelInstall(agentId) {
-    var card = cards[agentId];
+    const card = cards[agentId];
     if (!card) return;
     card.btn.disabled = true;
     api('/api/agents/install/' + agentId + '/cancel', { method: 'POST' }).then(function (r) {
@@ -171,7 +171,7 @@
 
   // ── 渲染 ──
   function buildCard(agent) {
-    var el = document.createElement('div');
+    const el = document.createElement('div');
     el.className = 'agent-install-card';
     el.innerHTML =
       '<div class="ai-head">' +
@@ -189,7 +189,7 @@
       '</div>' +
       '<button class="ai-install-btn" data-action="install">' + __('agent.btn.install') + '</button>';
 
-    var card = {
+    const card = {
       el: el,
       fill: el.querySelector('.ai-progress-fill'),
       log: el.querySelector('.ai-progress-log'),
@@ -212,10 +212,10 @@
   function render(container, registry, statuses) {
     container.innerHTML = '';
     // 状态映射
-    var statusMap = {};
+    const statusMap = {};
     (statuses || []).forEach(function (a) { statusMap[a.id] = a; });
 
-    var list = (registry || []).filter(function (a) { return a.featured; });
+    const list = (registry || []).filter(function (a) { return a.featured; });
     // 保持注册表顺序，featured 在前
     list.sort(function (a, b) { return (b.featured ? 1 : 0) - (a.featured ? 1 : 0); });
 
@@ -225,9 +225,9 @@
     }
 
     list.forEach(function (agent) {
-      var card = buildCard(agent);
+      const card = buildCard(agent);
       container.appendChild(card.el);
-      var st = statusMap[agent.id];
+      const st = statusMap[agent.id];
       if (st && st.installed) {
         setDone(card, st.version);
       } else {
@@ -243,8 +243,8 @@
       api('/api/agents/install/registry'),
       api('/api/agents'),
     ]).then(function (res) {
-      var registry = (res[0].body && res[0].body.agents) || [];
-      var statuses = (res[1].body && res[1].body.agents) || [];
+      const registry = (res[0].body && res[0].body.agents) || [];
+      const statuses = (res[1].body && res[1].body.agents) || [];
       render(container, registry, statuses);
     }).catch(function (e) {
       container.innerHTML = '<p class="ai-empty">' + __('agent.loadfail') + (e.message || e) + '</p>';
@@ -253,7 +253,7 @@
 
   // ── 进度事件路由 ──
   wsListeners.push(function (msg) {
-    var card = cards[msg.agentId];
+    const card = cards[msg.agentId];
     if (!card) return;
     if (msg.type === 'agent:install:progress') {
       onProgress(card, msg);
@@ -270,7 +270,7 @@
   var containerRef = null;
 
   function mountInto(selector) {
-    var container = typeof selector === 'string' ? document.querySelector(selector) : selector;
+    const container = typeof selector === 'string' ? document.querySelector(selector) : selector;
     if (!container) return;
     containerRef = container;
     refresh(container);
@@ -278,7 +278,7 @@
 
   // ── 自动挂载 ──
   function autoMount() {
-    var el = document.getElementById('welcome-agent-install');
+    const el = document.getElementById('welcome-agent-install');
     if (el) mountInto(el);
   }
   if (document.readyState === 'loading') {

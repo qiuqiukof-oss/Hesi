@@ -23,7 +23,7 @@ function toTencentCode(symbolId) {
     return (symbolId.startsWith('6') ? 'sh' : 'sz') + symbolId;
   }
   if (symbolId.endsWith('.HK')) {
-    return 'hk' + symbolId.replace('.HK', '');
+    return `hk${  symbolId.replace('.HK', '')}`;
   }
   return null;
 }
@@ -165,10 +165,10 @@ function toSinaCode(symbolId, type) {
     return (symbolId.startsWith('6') ? 'sh' : 'sz') + symbolId;
   }
   if (symbolId.endsWith('.HK')) {
-    return 'hk' + symbolId.replace('.HK', '');
+    return `hk${  symbolId.replace('.HK', '')}`;
   }
   if (type === 'us-stock') {
-    return 'gb_' + symbolId.toLowerCase();
+    return `gb_${  symbolId.toLowerCase()}`;
   }
   return null;
 }

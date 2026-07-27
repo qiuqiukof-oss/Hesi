@@ -117,9 +117,9 @@ function generateOHLCV(basePrice, tfKey) {
 
     const ts = new Date(now - i * intervalMs);
     if (tfKey === '1d') {
-      labels.push((ts.getMonth() + 1) + '/' + ts.getDate());
+      labels.push(`${ts.getMonth() + 1  }/${  ts.getDate()}`);
     } else {
-      labels.push(ts.getHours().toString().padStart(2, '0') + ':' + ts.getMinutes().toString().padStart(2, '0'));
+      labels.push(`${ts.getHours().toString().padStart(2, '0')  }:${  ts.getMinutes().toString().padStart(2, '0')}`);
     }
   }
 

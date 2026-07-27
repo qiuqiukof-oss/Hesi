@@ -94,7 +94,7 @@ function readConnectorsFromCache() {
     if (fs.existsSync(iconPath)) {
       try {
         const buf = fs.readFileSync(iconPath);
-        iconDataUri = 'data:image/svg+xml;base64,' + buf.toString('base64');
+        iconDataUri = `data:image/svg+xml;base64,${  buf.toString('base64')}`;
       } catch (e) { /* ignore */ }
     }
 

@@ -251,7 +251,7 @@ export function drawSparkline() {
 
   /** @type {QCLI} */
     const _ph2r = Q.ChartCore && Q.ChartCore.parseHexToRgba ? Q.ChartCore.parseHexToRgba : function() { return null; };
-  let grd = ctx.createLinearGradient(0, 0, 0, h);
+  const grd = ctx.createLinearGradient(0, 0, 0, h);
   const color0 = _ph2r(accent, 0.25);
   const color1 = _ph2r(accent, 0.02);
   if (color0 && color1) {

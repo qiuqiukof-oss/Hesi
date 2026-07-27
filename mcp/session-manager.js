@@ -134,7 +134,7 @@ class Session {
   write(input) {
     if (!this.alive) throw new Error("Session is not alive");
     this.lastActivity = Date.now();
-    this._ws.send(JSON.stringify({ type: "input", data: input + "\n", tabId: `mcp-${this.id}` }));
+    this._ws.send(JSON.stringify({ type: "input", data: `${input  }\n`, tabId: `mcp-${this.id}` }));
   }
 
   /**

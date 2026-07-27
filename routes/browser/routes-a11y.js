@@ -131,10 +131,10 @@ function createA11yRouter() {
 
         // 辅助函数：生成简单 CSS 选择器
         function getSimpleSelector(el) {
-          if (el.id) return '#' + CSS.escape(el.id);
+          if (el.id) return `#${  CSS.escape(el.id)}`;
           const tag = el.tagName.toLowerCase();
           if (el.className && typeof el.className === 'string') {
-            const classes = el.className.split(/\s+/).slice(0, 2).map(c => '.' + CSS.escape(c)).join('');
+            const classes = el.className.split(/\s+/).slice(0, 2).map(c => `.${  CSS.escape(c)}`).join('');
             return tag + classes;
           }
           return tag;

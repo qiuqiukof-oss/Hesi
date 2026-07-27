@@ -286,7 +286,7 @@ async function _getDiskUsageAsync() {
         for (let i = 1; i < lines.length; i++) {
           const parts = lines[i].split(',');
           if (parts.length >= 3) {
-            const mountpoint = (parts[0] || '').replace(/"/g, '').trim() + ':';
+            const mountpoint = `${(parts[0] || '').replace(/"/g, '').trim()  }:`;
             const usedBytes = parseInt(parts[1], 10) || 0;
             const freeBytes = parseInt(parts[2], 10) || 0;
             const totalBytes = usedBytes + freeBytes;
@@ -382,7 +382,7 @@ function _getDiskUsage() {
         for (let i = 1; i < lines.length; i++) {
           const parts = lines[i].split(',');
           if (parts.length >= 3) {
-            const mountpoint = (parts[0] || '').replace(/"/g, '').trim() + ':';
+            const mountpoint = `${(parts[0] || '').replace(/"/g, '').trim()  }:`;
             const usedBytes = parseInt(parts[1], 10) || 0;
             const freeBytes = parseInt(parts[2], 10) || 0;
             const totalBytes = usedBytes + freeBytes;

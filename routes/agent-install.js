@@ -101,7 +101,7 @@ function findLocalAgentBin(agentId) {
   if (!spec) return null;
   const base = path.join(ROOT, spec.targetDir, 'bin');
   const names = isWin
-    ? [spec.binName + '.cmd', spec.binName + '.bat', spec.binName + '.exe', spec.binName]
+    ? [`${spec.binName  }.cmd`, `${spec.binName  }.bat`, `${spec.binName  }.exe`, spec.binName]
     : [spec.binName];
   for (const n of names) {
     const p = path.join(base, n);
@@ -382,7 +382,7 @@ function createRouter({ broadcastFn } = {}) {
       return res.status(409).json({ error: '安装已在进行中', jobId: existing });
     }
 
-    const jobId = 'job-' + (++jobSeq) + '-' + Date.now().toString(36);
+    const jobId = `job-${  ++jobSeq  }-${  Date.now().toString(36)}`;
     jobs.set(jobId, { agentId, pid: null, status: 'running', log: [], startedAt: Date.now(), finishedAt: null });
     activeByAgent.set(agentId, jobId);
 

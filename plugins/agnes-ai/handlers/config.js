@@ -25,7 +25,7 @@ function saveConfig(cfg) {
 
 function maskKey(key) {
   if (!key || key.length < 8) return key || '';
-  return key.slice(0, 4) + '…' + key.slice(-4);
+  return `${key.slice(0, 4)  }…${  key.slice(-4)}`;
 }
 
 /**

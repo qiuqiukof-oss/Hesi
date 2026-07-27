@@ -134,7 +134,7 @@ function createAgentSessionManager({ createHeadlessPTY, resolveCommand, contextS
       },
       onExit: ({ exitCode, signal }) => {
         const duration = Date.now() - (p ? p._startTime || Date.now() : Date.now());
-        console.log('[AgentSrv] PTY exited:', agentId, '| session:', sessionId, '| code:', exitCode, '| signal:', signal, '| duration:', Math.round(duration / 1000) + 's');
+        console.log('[AgentSrv] PTY exited:', agentId, '| session:', sessionId, '| code:', exitCode, '| signal:', signal, '| duration:', `${Math.round(duration / 1000)  }s`);
         const orphan = orphanedAgents.get(sessionId);
         if (orphan) {
           // PTY exited while the client was disconnected — keep the entry so a
@@ -334,7 +334,7 @@ function createAgentSessionManager({ createHeadlessPTY, resolveCommand, contextS
    */
   function nextSessionId() {
     agentSessionCounter++;
-    return 'agent-' + agentSessionCounter;
+    return `agent-${  agentSessionCounter}`;
   }
 
   return {

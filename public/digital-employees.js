@@ -82,8 +82,8 @@ function renderTeamPanel() {
     team.members.length === 0
       ? '<div style="padding:20px;text-align:center;color:var(--text-tertiary);font-size:12px;">暂无已注册的数字员工<br>点击上方按钮注册</div>'
       : team.members.map(function(m) {
-          var statusDot = m.status === 'idle' ? '#22c55e' : (m.status === 'working' ? '#3b82f6' : (m.status === 'waiting_human' ? '#f59e0b' : '#ef4444'));
-          var statusText = m.status === 'idle' ? '空闲' : (m.status === 'working' ? '工作中' : (m.status === 'waiting_human' ? '等待人工' : '错误'));
+          const statusDot = m.status === 'idle' ? '#22c55e' : (m.status === 'working' ? '#3b82f6' : (m.status === 'waiting_human' ? '#f59e0b' : '#ef4444'));
+          const statusText = m.status === 'idle' ? '空闲' : (m.status === 'working' ? '工作中' : (m.status === 'waiting_human' ? '等待人工' : '错误'));
           return [
             '<div class="de-member-item" data-id="', escapeHtml(m.id), '" style="display:flex;align-items:center;padding:10px 12px;background:var(--bg-card);border-radius:8px;margin-bottom:6px;cursor:pointer;transition:all 0.15s;" onmouseover="this.style.background=\'var(--bg-hover)\'" onmouseout="this.style.background=\'var(--bg-card)\'">',
             '<div style="width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:16px;margin-right:10px;background:', escapeHtml(m.color), '20;">', escapeHtml(m.icon), '</div>',
@@ -105,7 +105,7 @@ function renderTeamPanel() {
   // ── 绑定事件 ──
 
   // 刷新按钮
-  var refreshBtn = document.getElementById('de-refresh-btn');
+  const refreshBtn = document.getElementById('de-refresh-btn');
   if (refreshBtn) {
     refreshBtn.addEventListener('click', function() {
       loadTeamStatus();
@@ -113,7 +113,7 @@ function renderTeamPanel() {
   }
 
   // 注册按钮：弹出模态框
-  var registerBtn = document.getElementById('de-register-btn');
+  const registerBtn = document.getElementById('de-register-btn');
   if (registerBtn) {
     registerBtn.addEventListener('click', function() {
       showRegisterModal();
@@ -123,8 +123,8 @@ function renderTeamPanel() {
   // 点击成员展开详情（显示任务统计等）
   panel.querySelectorAll('.de-member-item').forEach(function(el) {
     el.addEventListener('click', function() {
-      var id = this.dataset.id;
-      var member = DigitalEmployees.team.members.find(function(m) { return m.id === id; });
+      const id = this.dataset.id;
+      const member = DigitalEmployees.team.members.find(function(m) { return m.id === id; });
       if (member) {
         showMemberDetail(member);
       }
@@ -136,14 +136,14 @@ function renderTeamPanel() {
  * 显示注册数字员工的模态框。
  */
 function showRegisterModal() {
-  var overlay = document.createElement('div');
+  const overlay = document.createElement('div');
   overlay.className = 'modal-overlay hidden';
   overlay.id = 'de-register-modal';
   overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:1000;';
 
-  var roles = DigitalEmployees.availableRoles;
-  var roleOptions = roles.map(function(r) {
-    var registered = r.registered ? ' (已注册)' : '';
+  const roles = DigitalEmployees.availableRoles;
+  const roleOptions = roles.map(function(r) {
+    const registered = r.registered ? ' (已注册)' : '';
     return '<option value="' + escapeHtml(r.role) + '"' + (r.registered ? ' disabled' : '') + '>' + escapeHtml(r.icon) + ' ' + escapeHtml(r.name) + registered + '</option>';
   }).join('');
 
@@ -181,13 +181,13 @@ function showRegisterModal() {
   });
 
   overlay.querySelector('#de-modal-confirm').addEventListener('click', function() {
-    var roleSelect = document.getElementById('de-role-select');
-    var nameInput = document.getElementById('de-name-input');
-    var agentInput = document.getElementById('de-agent-input');
+    const roleSelect = document.getElementById('de-role-select');
+    const nameInput = document.getElementById('de-name-input');
+    const agentInput = document.getElementById('de-agent-input');
 
-    var role = roleSelect ? roleSelect.value : '';
-    var name = nameInput ? nameInput.value.trim() : '';
-    var agentId = agentInput ? agentInput.value.trim() : 'opencode';
+    const role = roleSelect ? roleSelect.value : '';
+    const name = nameInput ? nameInput.value.trim() : '';
+    const agentId = agentInput ? agentInput.value.trim() : 'opencode';
 
     if (!role) return;
 
@@ -212,7 +212,7 @@ function showRegisterModal() {
  * @param {object} member
  */
 function showMemberDetail(member) {
-  var overlay = document.createElement('div');
+  const overlay = document.createElement('div');
   overlay.className = 'modal-overlay hidden';
   overlay.id = 'de-detail-modal';
   overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:1000;';
@@ -275,7 +275,7 @@ function showMemberDetail(member) {
  * @param {object} msg — { taskId, employeeName, question, expectedFormat, workflowId, stepIndex }
  */
 function showHumanInputDialog(msg) {
-  var overlay = document.createElement('div');
+  const overlay = document.createElement('div');
   overlay.className = 'modal-overlay hidden';
   overlay.id = 'human-input-modal';
   overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.6);display:flex;align-items:center;justify-content:center;z-index:1000;';
@@ -319,8 +319,8 @@ function showHumanInputDialog(msg) {
   });
 
   overlay.querySelector('#human-input-submit').addEventListener('click', function() {
-    var answer = document.getElementById('human-answer-input');
-    var text = answer ? answer.value.trim() : '';
+    const answer = document.getElementById('human-answer-input');
+    const text = answer ? answer.value.trim() : '';
     if (!text) {
       answer?.focus();
       return;
@@ -338,7 +338,7 @@ function showHumanInputDialog(msg) {
 
   // 自动聚焦
   setTimeout(function() {
-    var ta = document.getElementById('human-answer-input');
+    const ta = document.getElementById('human-answer-input');
     if (ta) ta.focus();
   }, 200);
 
@@ -391,9 +391,9 @@ function handleWSMessage(msg) {
  * 初始化数字员工面板。
  */
 function init() {
-  var UIR = Q.UIRegistry;
+  const UIR = Q.UIRegistry;
   if (UIR) {
-    var registered = UIR.registerTab('digital-employees', {
+    const registered = UIR.registerTab('digital-employees', {
       icon: '👥',
       label: '数字员工',
       order: 5,

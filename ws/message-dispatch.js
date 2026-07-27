@@ -56,7 +56,7 @@ function dispatchWSMessage(ctx, ws, msg) {
         return;
       }
 
-      const tabId = msg.tabId || ('tab-' + (++counters.tabId));
+      const tabId = msg.tabId || (`tab-${  ++counters.tabId}`);
 
       const cols = typeof msg.cols === 'number'
         ? Math.max(10, Math.min(500, Math.floor(msg.cols)))

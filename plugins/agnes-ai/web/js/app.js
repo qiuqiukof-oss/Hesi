@@ -306,7 +306,7 @@ const API = {
       },
       body: JSON.stringify({
         model: State.chatModel,
-        messages: messages,
+        messages,
         temperature: State.temperature,
         stream: false
       })
@@ -332,8 +332,8 @@ const API = {
     const body = {
       model: State.imageModel,
       prompt: fullPrompt,
-      n: n,
-      size: size,
+      n,
+      size,
       extra_body: {
         response_format: 'b64_json'
       }
@@ -369,7 +369,7 @@ const API = {
 
     const body = {
       model: State.videoModel,
-      prompt: prompt,
+      prompt,
       num_frames: frames,
       frame_rate: fps,
     };
@@ -429,7 +429,7 @@ const ChatModule = {
     // Auto-resize textarea
     DOM.chatInput.addEventListener('input', () => {
       DOM.chatInput.style.height = 'auto';
-      DOM.chatInput.style.height = Math.min(DOM.chatInput.scrollHeight, 120) + 'px';
+      DOM.chatInput.style.height = `${Math.min(DOM.chatInput.scrollHeight, 120)  }px`;
     });
 
     this.loadHistory();
@@ -550,7 +550,7 @@ const ChatModule = {
 
     // Wrap consecutive <li> in <ul> or <ol>
     html = html.replace(/(<li>.*<\/li>\n?)+/g, (match) => {
-      return '</p><ul>' + match + '</ul><p>';
+      return `</p><ul>${  match  }</ul><p>`;
     });
 
     // Paragraph breaks
@@ -829,9 +829,9 @@ const ImageUpload = {
   },
 
   formatSize(bytes) {
-    if (bytes < 1024) return bytes + ' B';
-    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
-    return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+    if (bytes < 1024) return `${bytes  } B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)  } KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)  } MB`;
   }
 };
 
@@ -902,9 +902,9 @@ const ImageModule = {
           const imageEntry = {
             url: imgUrl,
             prompt: style ? `${prompt} (${style})` : prompt,
-            size: size,
+            size,
             timestamp: Date.now(),
-            id: Date.now() + '-' + index
+            id: `${Date.now()  }-${  index}`
           };
           images.push(imageEntry);
         });
@@ -1109,18 +1109,18 @@ const VideoModule = {
 
     try {
       const data = await API.createVideoTask(prompt, {
-        refImage: refImage,
+        refImage,
         frames: closestFrames,
-        fps: fps
+        fps
       });
 
       const taskId = data.video_id || data.id || Date.now().toString();
       const task = {
         id: taskId,
-        prompt: prompt,
+        prompt,
         frames: closestFrames,
-        fps: fps,
-        refImage: refImage,
+        fps,
+        refImage,
         status: 'pending',
         resultUrl: null,
         createdAt: Date.now(),
@@ -1597,7 +1597,7 @@ const StoryboardModule = {
       }
 
       this.scenes = parsed.map((s, i) => ({
-        id: Date.now() + '-' + i,
+        id: `${Date.now()  }-${  i}`,
         scene: i + 1,
         title: s.title || `场景 ${i + 1}`,
         description: s.description || s.visualPrompt || '',
@@ -1772,7 +1772,7 @@ const StoryboardModule = {
 
   addEmptyScene() {
     this.scenes.push({
-      id: Date.now() + '-' + this.scenes.length,
+      id: `${Date.now()  }-${  this.scenes.length}`,
       scene: this.scenes.length + 1,
       title: `场景 ${this.scenes.length + 1}`,
       description: '',
@@ -1857,8 +1857,8 @@ const StoryboardModule = {
 
         const data = await API.createVideoTask(prompt, {
           refImage: scene.refImage || '',
-          frames: frames,
-          fps: fps
+          frames,
+          fps
         });
 
         const videoId = data.video_id || data.id;
@@ -2760,11 +2760,11 @@ const PromptLibrary = {
     const tags = tagsStr ? tagsStr.split(/[,，]/).map(s => s.trim()).filter(Boolean) : [];
 
     const template = {
-      id: 'user-' + Date.now(),
+      id: `user-${  Date.now()}`,
       title: name,
-      prompt: prompt,
-      tags: tags,
-      category: category,
+      prompt,
+      tags,
+      category,
       _isUser: true,
       createdAt: Date.now()
     };

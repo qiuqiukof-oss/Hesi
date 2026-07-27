@@ -17,8 +17,8 @@ const voice = {
   finalText: '',
 };
 
-let $voiceBtn = document.getElementById('voice-input-btn');
-let $voiceStatus = document.getElementById('voice-status');
+const $voiceBtn = document.getElementById('voice-input-btn');
+const $voiceStatus = document.getElementById('voice-status');
 const $voiceInterim = document.getElementById('voice-interim') || (() => {
   const el = document.createElement('div');
   el.id = 'voice-interim';

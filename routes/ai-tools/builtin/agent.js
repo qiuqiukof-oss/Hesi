@@ -104,10 +104,10 @@ function executeAgent(agentId, task, context, timeout = 120000, broadcastFn) {
       releaseOnce();
       abortFn(); // 视为中断，onData 不再写入
       const capped = output.length > MAX_AGENT_RETURN_CHARS
-        ? output.slice(0, MAX_AGENT_RETURN_CHARS) + `\n\n[agent_delegate] 输出过长，已截断至前 ${MAX_AGENT_RETURN_CHARS} 字符（完整输出共 ${output.length} 字符）]`
+        ? `${output.slice(0, MAX_AGENT_RETURN_CHARS)  }\n\n[agent_delegate] 输出过长，已截断至前 ${MAX_AGENT_RETURN_CHARS} 字符（完整输出共 ${output.length} 字符）]`
         : output;
       const msg = capped
-        ? capped + '\n\n[agent_delegate] Agent 执行超时，以上为已捕获的输出'
+        ? `${capped  }\n\n[agent_delegate] Agent 执行超时，以上为已捕获的输出`
         : '[agent_delegate] Agent 执行超时，未捕获到输出';
       // 发送超时事件
       if (broadcastFn) {
@@ -164,7 +164,7 @@ function executeAgent(agentId, task, context, timeout = 120000, broadcastFn) {
         const output = outputChunks.join('').trim();
         // 截断返回给 LLM 的内容，避免超长 Agent 输出撑爆上下文窗口
         const capped = output.length > MAX_AGENT_RETURN_CHARS
-          ? output.slice(0, MAX_AGENT_RETURN_CHARS) + `\n\n[agent_delegate] 输出过长，已截断至前 ${MAX_AGENT_RETURN_CHARS} 字符（完整输出共 ${output.length} 字符）]`
+          ? `${output.slice(0, MAX_AGENT_RETURN_CHARS)  }\n\n[agent_delegate] 输出过长，已截断至前 ${MAX_AGENT_RETURN_CHARS} 字符（完整输出共 ${output.length} 字符）]`
           : output;
         const summary = exitCode === 0
           ? (capped || '(Agent 执行成功，无输出)')

@@ -141,7 +141,7 @@ class AgentSessionRenderer {
             if (!cb.answered) { cb.answered = true; cb.answeredAt = Date.now(); }
           }
           if (session.headerEl) {
-            let badge = session.headerEl.querySelector('.agent-callback-badge');
+            const badge = session.headerEl.querySelector('.agent-callback-badge');
             if (badge) {
               badge.className = 'agent-callback-badge answered';
               badge.textContent = '✅ 已回复';

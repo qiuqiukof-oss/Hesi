@@ -227,7 +227,7 @@ function computeRSI(ohlc, period) {
   period = period || 14;
   const closes = ohlc.map(o => o.close);
   const result = [];
-  let gains = [], losses = [];
+  const gains = [], losses = [];
 
   for (let i = 1; i < closes.length; i++) {
     const diff = closes[i] - closes[i - 1];

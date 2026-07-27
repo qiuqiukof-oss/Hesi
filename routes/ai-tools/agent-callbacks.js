@@ -82,7 +82,7 @@ class AgentCallbackManager {
         // 每 session 待处理回呼上限检查：只统计未回答的
         let sessionPendingCount = 0;
         for (const [k, cb] of this._callbacks) {
-          if (k.startsWith(session.sessionId + ':') && !cb.answered) sessionPendingCount++;
+          if (k.startsWith(`${session.sessionId  }:`) && !cb.answered) sessionPendingCount++;
         }
         if (sessionPendingCount >= MAX_CALLBACKS_PER_SESSION) {
           // 超出上限，跳过该回呼（仍从缓冲区移除以免重复解析）

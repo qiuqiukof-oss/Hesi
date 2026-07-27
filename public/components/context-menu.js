@@ -36,7 +36,7 @@ function showToast(msg, type) {
 
 // ── State ──
 /** @type {string} */
-var currentPinText = '';
+let currentPinText = '';
 
 // ============================================================
 // Show / hide
@@ -53,7 +53,7 @@ export function showContextMenu(x, y, selection) {
   if (!menu) return;
   currentPinText = selection || '';
 
-  var hasSel = !!selection;
+  const hasSel = !!selection;
   menu.querySelectorAll('.ctx-copy, .ctx-pin, .ctx-search-sel, .ctx-divider-sel')
     .forEach(function(el) { el.classList.toggle('hidden', !hasSel); });
   menu.querySelectorAll('.ctx-paste, .ctx-clear, .ctx-search')
@@ -63,10 +63,10 @@ export function showContextMenu(x, y, selection) {
   injectPluginMenuItems(menu, hasSel);
 
   // Clamp to viewport
-  var menuW = Math.min(200, window.innerWidth - 16);
-  var left = Math.min(x, window.innerWidth - menuW);
-  var menuH = menu.scrollHeight || 180;
-  var top = Math.min(y, window.innerHeight - menuH - 8);
+  const menuW = Math.min(200, window.innerWidth - 16);
+  const left = Math.min(x, window.innerWidth - menuW);
+  const menuH = menu.scrollHeight || 180;
+  const top = Math.min(y, window.innerHeight - menuH - 8);
 
   menu.style.left = left + 'px';
   menu.style.top = top + 'px';
@@ -79,29 +79,29 @@ export function showContextMenu(x, y, selection) {
  * @param {boolean} hasSelection
  */
 function injectPluginMenuItems(menu, hasSelection) {
-  var UIR = Q().UIRegistry;
+  const UIR = Q().UIRegistry;
   if (!UIR) return;
 
-  var items = UIR.getMenuItemsForContext(hasSelection);
+  const items = UIR.getMenuItemsForContext(hasSelection);
   if (items.length === 0) return;
 
   // Remove previously injected items (cleanup before rebuild)
-  var existing = menu.querySelectorAll('.ctx-plugin');
+  const existing = menu.querySelectorAll('.ctx-plugin');
   existing.forEach(function(el) { el.remove(); });
 
   // Add divider before plugin items
-  var divider = document.createElement('div');
+  const divider = document.createElement('div');
   divider.className = 'ctx-divider ctx-plugin';
   menu.appendChild(divider);
 
-  for (var i = 0; i < items.length; i++) {
-    var item = items[i];
-    var el = document.createElement('div');
+  for (let i = 0; i < items.length; i++) {
+    const item = items[i];
+    const el = document.createElement('div');
     el.className = 'ctx-item ctx-plugin';
     el.textContent = item.label;      el.addEventListener('click', function(it) {
         return function() {
           hideContextMenu();
-          var term = termAccessor();
+          const term = termAccessor();
           try { it.action(currentPinText, term); } catch (e) {
             console.warn('[ContextMenu] Plugin action error:', e);
           }
@@ -112,7 +112,7 @@ function injectPluginMenuItems(menu, hasSelection) {
 }
 
 export function hideContextMenu() {
-  var menu = document.getElementById('terminal-context-menu');
+  const menu = document.getElementById('terminal-context-menu');
   if (menu) menu.classList.add('hidden');
 }
 
@@ -122,9 +122,9 @@ export function hideContextMenu() {
 
 export function copySelection() {
   hideContextMenu();
-  var term = termAccessor();
+  const term = termAccessor();
   if (!term) return;
-  var selection = term.getSelection();
+  const selection = term.getSelection();
   if (selection) {
     navigator.clipboard.writeText(selection).catch(function(err) {
       console.warn('[Clipboard] Copy failed:', /** @type {Error} */ (err).message);
@@ -135,11 +135,11 @@ export function copySelection() {
 
 export async function pinSelectedOutput() {
   if (!currentPinText) return;
-  var store = Q().PinStore;
+  const store = Q().PinStore;
   if (!store) return;
-  var activeTab = Q().Tabs ? Q().Tabs.activeTabId : null;
-  var tab = activeTab && Q().Tabs ? Q().Tabs.getTab(activeTab) : null;
-  var title = prompt('Pin title (optional):', tab && tab.name ? 'Output from ' + tab.name : '');
+  const activeTab = Q().Tabs ? Q().Tabs.activeTabId : null;
+  const tab = activeTab && Q().Tabs ? Q().Tabs.getTab(activeTab) : null;
+  const title = prompt('Pin title (optional):', tab && tab.name ? 'Output from ' + tab.name : '');
   await store.add(
     currentPinText.replace(/(?:[@-Z\-_]|[[0-?]*[ -/]*[@-~])/g, '').trim(),
     tab && tab.cliId || '',
@@ -154,19 +154,19 @@ export async function pinSelectedOutput() {
 export function searchSelection() {
   if (!currentPinText) { hideContextMenu(); return; }
   hideContextMenu();
-  var searchBar = document.getElementById('terminal-search-bar');
-  var searchInput = document.getElementById('terminal-search-input');
-  var searchResults = document.getElementById('terminal-search-results');
+  const searchBar = document.getElementById('terminal-search-bar');
+  const searchInput = document.getElementById('terminal-search-input');
+  const searchResults = document.getElementById('terminal-search-results');
   if (searchBar) searchBar.classList.remove('hidden');
   if (searchInput) {
     searchInput.value = currentPinText;
     searchInput.focus();
   }
   // Trigger search
-  var addon = Q().searchAddon;
+  const addon = Q().searchAddon;
   if (addon && searchResults) {
     addon.clearActiveSearch();
-    var found = addon.findNext(currentPinText, { incremental: false });
+    const found = addon.findNext(currentPinText, { incremental: false });
     searchResults.textContent = found ? '🔍 1+' : '✗';
   }
 }
@@ -186,13 +186,13 @@ export async function renderPinnedList() {
     return Q().PinReport.renderPinnedList();
   }
   // Fallback
-  var container = document.getElementById('pinned-list');
-  var section = document.getElementById('pinned-section');
+  const container = document.getElementById('pinned-list');
+  const section = document.getElementById('pinned-section');
   if (!container || !section) return;
-  var store = Q().PinStore;
+  const store = Q().PinStore;
   if (!store) { section.classList.add('hidden'); return; }
 
-  var pins = await store.getAll();
+  const pins = await store.getAll();
   if (pins.length === 0) {
     section.classList.add('hidden');
     return;
@@ -200,18 +200,18 @@ export async function renderPinnedList() {
 
   section.classList.remove('hidden');
   container.innerHTML = '';
-  for (var i = 0; i < pins.length; i++) {
-    var pin = pins[i];
+  for (let i = 0; i < pins.length; i++) {
+    const pin = pins[i];
     (function(pinId, pinText) {
-      var el = document.createElement('div');
+      const el = document.createElement('div');
       el.className = 'pin-item';
 
-      var text = document.createElement('span');
+      const text = document.createElement('span');
       text.className = 'pin-item-text';
       text.textContent = pinText.slice(0, 200);
       el.appendChild(text);
 
-      var removeBtn = document.createElement('button');
+      const removeBtn = document.createElement('button');
       removeBtn.className = 'pin-item-remove';
       removeBtn.textContent = '✕';
       removeBtn.addEventListener('click', async function(e) {
@@ -244,7 +244,7 @@ export function requestNotificationPermission() {
 // Auto-init — patch onto QCLI for backward compat
 // ============================================================
 Promise.resolve().then(function() {
-  var q = Q();
+  const q = Q();
   q.showContextMenu = showContextMenu;
   q.hideContextMenu = hideContextMenu;
   q.requestNotificationPermission = requestNotificationPermission;

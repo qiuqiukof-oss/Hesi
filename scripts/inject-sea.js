@@ -251,9 +251,9 @@ function inject(exePath, blobPath) {
   outBuf[fi + fuse.length - 1] = 0x31;
 
   fs.writeFileSync(exePath, outBuf);
-  console.log('[inject-sea] 注入完成：新资源节 .rsea @ VA=0x' + newVA.toString(16) +
-    ' raw=0x' + rawOffset.toString(16) + ' 大小=' + newVSize + ' 字节（含 ' +
-    countLeaves(tree) + ' 个资源，node 原 manifest 已保留）');
+  console.log(`[inject-sea] 注入完成：新资源节 .rsea @ VA=0x${  newVA.toString(16) 
+    } raw=0x${  rawOffset.toString(16)  } 大小=${  newVSize  } 字节（含 ${ 
+    countLeaves(tree)  } 个资源，node 原 manifest 已保留）`);
 }
 
 function countLeaves(node) {
@@ -282,8 +282,8 @@ function verify(exePath, blobPath) {
   // 2) RESOURCE 数据目录指向 .rsea
   const resVA = buf.readUInt32LE(pe.resDirOff);
   const resSize = buf.readUInt32LE(pe.resDirOff + 4);
-  console.log('[verify] 节数=' + pe.numSections + ' RESOURCE VA=0x' + resVA.toString(16) +
-    ' size=' + resSize + '  .rsea VA=0x' + rsea.va.toString(16) + ' vsize=' + rsea.vsize);
+  console.log(`[verify] 节数=${  pe.numSections  } RESOURCE VA=0x${  resVA.toString(16) 
+    } size=${  resSize  }  .rsea VA=0x${  rsea.va.toString(16)  } vsize=${  rsea.vsize}`);
   if (resVA !== rsea.va) { console.error('[verify] RESOURCE 数据目录未指向 .rsea'); process.exit(1); }
   if (resVA < rsea.va || resVA + resSize > rsea.va + rsea.vsize) {
     console.error('[verify] RESOURCE 范围超出 .rsea 节'); process.exit(1);
@@ -324,7 +324,7 @@ function verify(exePath, blobPath) {
   const langEntry = blobEntry.children.entries.find((e) => e.name === 0x409);
   if (!langEntry) { console.error('[verify] 未找到语言 0x409 的 NODE_SEA_BLOB'); process.exit(1); }
   const blob = langEntry.data;
-  console.log('[verify] NODE_SEA_BLOB 提取成功：长度=' + blob.length + ' 字节');
+  console.log(`[verify] NODE_SEA_BLOB 提取成功：长度=${  blob.length  } 字节`);
 
   // 4) blob 必须是合法 SEA blob：SEA blob 头部会内嵌脚本路径（如 "tray/tray.js"）
   const head = blob.slice(0, 200).toString('latin1');
@@ -337,7 +337,7 @@ function verify(exePath, blobPath) {
   if (blobPath) {
     const orig = fs.readFileSync(blobPath);
     if (orig.length !== blob.length || orig.compare(blob) !== 0) {
-      console.error('[verify] 提取的 blob 与原 blob 不一致（长度 ' + orig.length + ' vs ' + blob.length + '）');
+      console.error(`[verify] 提取的 blob 与原 blob 不一致（长度 ${  orig.length  } vs ${  blob.length  }）`);
       process.exit(1);
     }
     console.log('[verify] 提取的 blob 与原 blob 逐字节一致');

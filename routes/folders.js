@@ -32,7 +32,7 @@ function createRouter() {
     const registry = loadRegistry();
     if (!registry.folders) registry.folders = [];
 
-    const id = name.toLowerCase().replace(/[^a-z0-9-]/g, '-') + '-' + Date.now();
+    const id = `${name.toLowerCase().replace(/[^a-z0-9-]/g, '-')  }-${  Date.now()}`;
 
     const folder = {
       id,

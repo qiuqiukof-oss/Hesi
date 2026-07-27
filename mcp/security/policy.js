@@ -73,7 +73,7 @@ function matchesEntry(entry, command) {
     }
   }
   const cmdName = command.trim().split(/\s+/)[0];
-  return cmdName === entry || command === entry || command.startsWith(entry + ' ');
+  return cmdName === entry || command === entry || command.startsWith(`${entry  } `);
 }
 
 // ── AI-exec command policy (stricter, agent-facing) ──

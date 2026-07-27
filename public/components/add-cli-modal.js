@@ -83,7 +83,7 @@ Promise.resolve().then(() => {
       const file = d.fileInput.files[0];
       if (!file) return;
 
-      let name = file.name.replace(/\.[^.]+$/, '');
+      const name = file.name.replace(/\.[^.]+$/, '');
       d.addName.value = name;
       d.selectedFile.textContent = `\u2714 ${file.name}`;
       d.selectedFile.classList.remove('hidden');

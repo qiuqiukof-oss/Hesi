@@ -31,8 +31,8 @@ function buildSuggestions(data) {
       suggestions.push({
         type: 'warning',
         severity: 'high',
-        title: '预算超支预警: ' + b.title,
-        content: b.title + ' 预算已使用 ' + rate.toFixed(1) + '%，剩余 ¥' + (b.totalAmount - used).toFixed(2) + '，建议控制后续支出。'
+        title: `预算超支预警: ${  b.title}`,
+        content: `${b.title  } 预算已使用 ${  rate.toFixed(1)  }%，剩余 ¥${  (b.totalAmount - used).toFixed(2)  }，建议控制后续支出。`
       });
     }
   });
@@ -48,8 +48,8 @@ function buildSuggestions(data) {
       suggestions.push({
         type: 'optimization',
         severity: 'medium',
-        title: '资金利用率低: ' + b.title,
-        content: b.title + ' 创建 ' + days + ' 天，仅使用 ' + rate.toFixed(1) + '%，建议重审预算或调配资金到更紧急的项目。'
+        title: `资金利用率低: ${  b.title}`,
+        content: `${b.title  } 创建 ${  days  } 天，仅使用 ${  rate.toFixed(1)  }%，建议重审预算或调配资金到更紧急的项目。`
       });
     }
   });
@@ -61,7 +61,7 @@ function buildSuggestions(data) {
       type: 'forecast',
       severity: 'medium',
       title: '待核销提醒',
-      content: '有 ' + pending.length + ' 笔销账待核销，涉及金额 ¥' + pending.reduce((s, x) => s + (x.amount || 0), 0).toFixed(2) + '，请及时处理。'
+      content: `有 ${  pending.length  } 笔销账待核销，涉及金额 ¥${  pending.reduce((s, x) => s + (x.amount || 0), 0).toFixed(2)  }，请及时处理。`
     });
   }
 
@@ -74,7 +74,7 @@ function buildSuggestions(data) {
       type: 'forecast',
       severity: 'low',
       title: '待审批预算',
-      content: '有 ' + submitted.length + ' 笔预算申请待审批（¥' + submitted.reduce((s, b) => s + (b.totalAmount || 0), 0).toFixed(2) + '），请尽快处理。'
+      content: `有 ${  submitted.length  } 笔预算申请待审批（¥${  submitted.reduce((s, b) => s + (b.totalAmount || 0), 0).toFixed(2)  }），请尽快处理。`
     });
   }
   if (draft.length > 0) {
@@ -82,7 +82,7 @@ function buildSuggestions(data) {
       type: 'optimization',
       severity: 'low',
       title: '草稿预算提醒',
-      content: '有 ' + draft.length + ' 笔预算仍为草稿状态，建议尽快完善并提交审批。'
+      content: `有 ${  draft.length  } 笔预算仍为草稿状态，建议尽快完善并提交审批。`
     });
   }
   if (approved.length > 0) {
@@ -90,7 +90,7 @@ function buildSuggestions(data) {
       type: 'optimization',
       severity: 'low',
       title: '已通过预算执行',
-      content: '有 ' + approved.length + ' 笔预算已通过审批（¥' + approved.reduce((s, b) => s + (b.totalAmount || 0), 0).toFixed(2) + '），请及时执行并完成销账。'
+      content: `有 ${  approved.length  } 笔预算已通过审批（¥${  approved.reduce((s, b) => s + (b.totalAmount || 0), 0).toFixed(2)  }），请及时执行并完成销账。`
     });
   }
 
@@ -115,8 +115,8 @@ function buildSuggestions(data) {
         suggestions.push({
           type: 'warning',
           severity: 'high',
-          title: cat + ' 类别预算即将用尽',
-          content: cat + ' 类别执行率 ' + rate.toFixed(1) + '%，建议关注后续预算申请。'
+          title: `${cat  } 类别预算即将用尽`,
+          content: `${cat  } 类别执行率 ${  rate.toFixed(1)  }%，建议关注后续预算申请。`
         });
       }
     }

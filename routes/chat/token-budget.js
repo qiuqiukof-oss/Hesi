@@ -106,8 +106,8 @@ function pruneToolContext(messages) {
       // 仅一轮：对单条做尾部截断（若过长）
       const { unit } = items[0];
       if (unit.content.length > AGENT_POLL_KEEP_TAIL) {
-        unit.apply(unit.content.slice(-AGENT_POLL_KEEP_TAIL)
-          + `\n\n[agent_poll 输出已截断至尾部 ${AGENT_POLL_KEEP_TAIL} 字符]`);
+        unit.apply(`${unit.content.slice(-AGENT_POLL_KEEP_TAIL)
+           }\n\n[agent_poll 输出已截断至尾部 ${AGENT_POLL_KEEP_TAIL} 字符]`);
         changed = true;
       }
       continue;
@@ -116,8 +116,8 @@ function pruneToolContext(messages) {
     // 多轮：保留最后一条（尾部截断），其余压缩为占位说明
     const last = items[items.length - 1];
     if (last.unit.content.length > AGENT_POLL_KEEP_TAIL) {
-      last.unit.apply(last.unit.content.slice(-AGENT_POLL_KEEP_TAIL)
-        + `\n\n[agent_poll 最近一次输出，已截断至尾部 ${AGENT_POLL_KEEP_TAIL} 字符]`);
+      last.unit.apply(`${last.unit.content.slice(-AGENT_POLL_KEEP_TAIL)
+         }\n\n[agent_poll 最近一次输出，已截断至尾部 ${AGENT_POLL_KEEP_TAIL} 字符]`);
       changed = true;
     }
 
@@ -125,8 +125,8 @@ function pruneToolContext(messages) {
       const { unit, poll } = items[k];
       const tail = poll.output ? String(poll.output).slice(-500) : '';
       unit.apply(
-        `[agent_poll 历史轮次已压缩（session ${sid}，共 ${items.length} 次轮询；最新一次见末条）。`
-        + (tail ? ` 上次尾部预览：\n${tail}` : '') + `]`
+        `[agent_poll 历史轮次已压缩（session ${sid}，共 ${items.length} 次轮询；最新一次见末条）。${
+         tail ? ` 上次尾部预览：\n${tail}` : ''  }]`
       );
       changed = true;
     }

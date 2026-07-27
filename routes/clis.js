@@ -181,7 +181,7 @@ function createRouter({ discoverLimiter }) {
             }
           } catch (e) {
             status = 'missing';
-            error = 'Path is not accessible: ' + (e.code || e.message);
+            error = `Path is not accessible: ${  e.code || e.message}`;
           }
         }
 

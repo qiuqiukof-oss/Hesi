@@ -58,7 +58,7 @@ module.exports = async function proxy(req, res) {
   const tail = req.originalUrl.slice(PROXY_PREFIX.length) || '/';
   const target = resolveBase(cfg) + tail;
 
-  const headers = { Authorization: 'Bearer ' + apiKey };
+  const headers = { Authorization: `Bearer ${  apiKey}` };
   const ct = req.headers['content-type'];
   if (ct) headers['Content-Type'] = ct;
 
@@ -96,7 +96,7 @@ module.exports = async function proxy(req, res) {
     }
   } catch (e) {
     if (!res.headersSent) {
-      res.status(502).json({ error: 'Agnes 代理转发失败: ' + (e && e.message) });
+      res.status(502).json({ error: `Agnes 代理转发失败: ${  e && e.message}` });
     } else {
       try { res.end(); } catch (_) {}
     }

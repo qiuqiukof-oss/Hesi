@@ -417,7 +417,7 @@ Q.UIRegistry = instance;
  */
 Q.injectCSS = function injectCSS(href) {
   if (!document.querySelector('link[href="' + href + '"]')) {
-    var link = document.createElement('link');
+    const link = document.createElement('link');
     link.rel = 'stylesheet';
     link.href = href;
     document.head.appendChild(link);

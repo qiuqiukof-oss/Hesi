@@ -20,7 +20,7 @@ function createNetworkRouter() {
         try {
           await browserManager.ensureConnected();
         } catch (e) {
-          return res.status(400).json({ success: false, error: '未连接到浏览器：' + (e.message || '') });
+          return res.status(400).json({ success: false, error: `未连接到浏览器：${  e.message || ''}` });
         }
         const page = await browserManager.getActivePage();
         await page.evaluate(() => {
@@ -45,7 +45,7 @@ function createNetworkRouter() {
                 }
               } catch (e) { console.warn('[Browser] Failed to capture network response body:', e?.message); }
               entries.push({
-                id: 'net-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6),
+                id: `net-${  Date.now()  }-${  Math.random().toString(36).slice(2, 6)}`,
                 url, method, type: 'fetch',
                 status: response.status,
                 statusText: response.statusText,
@@ -59,7 +59,7 @@ function createNetworkRouter() {
               return response;
             } catch (err) {
               entries.push({
-                id: 'net-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6),
+                id: `net-${  Date.now()  }-${  Math.random().toString(36).slice(2, 6)}`,
                 url, method, type: 'fetch',
                 status: 0, statusText: err.message,
                 duration: Date.now() - startTime,
@@ -83,7 +83,7 @@ function createNetworkRouter() {
           XMLHttpRequest.prototype.send = function(body) {
             this.addEventListener('loadend', function() {
               entries.push({
-                id: 'net-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6),
+                id: `net-${  Date.now()  }-${  Math.random().toString(36).slice(2, 6)}`,
                 url: this._mcpUrl,
                 method: (this._mcpMethod || 'GET').toUpperCase(),
                 type: 'xhr',
@@ -103,7 +103,7 @@ function createNetworkRouter() {
           const origSendBeacon = navigator.sendBeacon;
           navigator.sendBeacon = function(url, data) {
             entries.push({
-              id: 'net-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6),
+              id: `net-${  Date.now()  }-${  Math.random().toString(36).slice(2, 6)}`,
               url: typeof url === 'string' ? url : (url ? url.toString() : ''),
               method: 'POST',
               type: 'beacon',

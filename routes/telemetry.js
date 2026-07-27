@@ -36,9 +36,9 @@ function createRouter() {
       return res.status(400).json({ error: 'kind (string) required' });
     }
     const entry = { t: new Date().toISOString(), kind, value, message, url };
-    // eslint-disable-next-line no-console
+     
     console.log('[telemetry:client]', JSON.stringify(entry));
-    if (telemetry.isEnabled()) telemetry.track('client_' + kind, { feature: kind });
+    if (telemetry.isEnabled()) telemetry.track(`client_${  kind}`, { feature: kind });
     res.json({ ok: true });
   });
 

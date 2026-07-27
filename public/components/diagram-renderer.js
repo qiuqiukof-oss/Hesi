@@ -573,8 +573,8 @@ const DiagramRenderer = {
     Q.showToast?.('\u23F3 \u6B63\u5728\u751F\u6210 PNG...', 'info');
 
     const bbox = svg.getBBox ? svg.getBBox() : null;
-    let width = parseFloat(svg.getAttribute('width') || bbox?.width || svg.clientWidth) || 800;
-    let height = parseFloat(svg.getAttribute('height') || bbox?.height || svg.clientHeight) || 600;
+    const width = parseFloat(svg.getAttribute('width') || bbox?.width || svg.clientWidth) || 800;
+    const height = parseFloat(svg.getAttribute('height') || bbox?.height || svg.clientHeight) || 600;
 
     const serializer = new XMLSerializer();
     let svgContent = serializer.serializeToString(svg);

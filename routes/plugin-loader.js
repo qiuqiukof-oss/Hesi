@@ -384,7 +384,7 @@ class PluginLoader {
         let version = null;
         let description = null;
         let pluginName = null;
-        let capabilities = [];
+        const capabilities = [];
 
         if (hasManifest) {
           try {
@@ -431,7 +431,7 @@ class PluginLoader {
    */
   getPlugin(name) {
     // Try direct lookup first (by directory name / internal key)
-    let plugin = this._plugins.get(name);
+    const plugin = this._plugins.get(name);
     if (plugin) {
       return this._formatPluginDetail(plugin);
     }
@@ -530,7 +530,7 @@ class PluginLoader {
     const manifestPath = path.join(pluginDir, 'plugin.json');
 
     if (!fs.existsSync(manifestPath)) {
-      return { success: false, error: 'Plugin directory not found: ' + dirName };
+      return { success: false, error: `Plugin directory not found: ${  dirName}` };
     }
 
     this._clearRequireCache(pluginDir);

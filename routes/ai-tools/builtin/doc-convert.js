@@ -152,7 +152,7 @@ function register(registry) {
 
       if (args.format === '' || !SUPPORTED_FORMATS.includes(format)) {
         const msg = !args.format
-          ? '❌ 请指定输出格式（format 参数）。可选: ' + SUPPORTED_FORMATS.join(', ')
+          ? `❌ 请指定输出格式（format 参数）。可选: ${  SUPPORTED_FORMATS.join(', ')}`
           : `❌ 不支持的输出格式: ${format}。可选: ${SUPPORTED_FORMATS.join(', ')}`;
         return msg;
       }
@@ -232,7 +232,7 @@ async function convertWithPandoc(inputPath, rawContent, format, title, toc, cust
       } else {
         // 无 PDF 引擎 — 先转 HTML
         const htmlPath = outputPath.replace(/\.pdf$/i, '.html');
-        const htmlCmd = cmd.replace(`"${outputPath}"`, `"${htmlPath}"`).replace(' --pdf-engine=', ' ').split(' --pdf-engine')[0] + ` -o "${htmlPath}"`;
+        const htmlCmd = `${cmd.replace(`"${outputPath}"`, `"${htmlPath}"`).replace(' --pdf-engine=', ' ').split(' --pdf-engine')[0]  } -o "${htmlPath}"`;
         try {
           await new Promise((resolve, reject) => {
             // eslint-disable-next-line no-restricted-syntax -- audited: pandoc command built internally from validated file paths (quoted), not from arbitrary agent shell input; needs shell for redirection.
@@ -399,7 +399,7 @@ function simpleMarkdownToHtml(md, title) {
   }
 
   for (let i = 0; i < lines.length; i++) {
-    let line = lines[i];
+    const line = lines[i];
 
     // ── Code block ──
     if (line.trim().startsWith('```')) {
@@ -752,9 +752,9 @@ function escapeHtml(str) {
 
 function formatFileSize(bytes) {
   if (!bytes || bytes === 0) return '0 B';
-  if (bytes < 1024) return bytes + ' B';
-  if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB';
-  return (bytes / 1048576).toFixed(1) + ' MB';
+  if (bytes < 1024) return `${bytes  } B`;
+  if (bytes < 1048576) return `${(bytes / 1024).toFixed(1)  } KB`;
+  return `${(bytes / 1048576).toFixed(1)  } MB`;
 }
 
 /**

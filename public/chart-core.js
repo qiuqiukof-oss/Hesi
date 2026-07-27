@@ -825,12 +825,12 @@ Q.ChartCore = Q.ChartCore || {};
  */
 Q.ChartCore.parseHexToRgba = function parseHexToRgba(colorStr, alpha) {
   if (!colorStr) return null;
-  var s = colorStr.trim();
+  const s = colorStr.trim();
   if (s.startsWith('#')) {
-    var hex = s.replace('#', '');
-    var r = parseInt(hex.substring(0, 2), 16);
-    var g = parseInt(hex.substring(2, 4), 16);
-    var b = parseInt(hex.substring(4, 6), 16);
+    const hex = s.replace('#', '');
+    const r = parseInt(hex.substring(0, 2), 16);
+    const g = parseInt(hex.substring(2, 4), 16);
+    const b = parseInt(hex.substring(4, 6), 16);
     if (!isNaN(r) && !isNaN(g) && !isNaN(b)) return 'rgba(' + r + ',' + g + ',' + b + ',' + alpha + ')';
   }
   return null;
@@ -848,9 +848,9 @@ Q.ChartCore.parseHexToRgba = function parseHexToRgba(colorStr, alpha) {
  */
 Q.ChartCore.drawMiniTrend = function drawMiniTrend(canvas, data, lineColor, emptyLabel, unit) {
   if (!canvas) return;
-  var ctx = canvas.getContext('2d');
-  var w = canvas.width;
-  var h = canvas.height;
+  const ctx = canvas.getContext('2d');
+  const w = canvas.width;
+  const h = canvas.height;
 
   ctx.clearRect(0, 0, w, h);
 
@@ -863,22 +863,22 @@ Q.ChartCore.drawMiniTrend = function drawMiniTrend(canvas, data, lineColor, empt
   }
 
   // Compute min/max with padding
-  var values = data.map(function(d) { return d.v; });
-  var minVal = Math.min.apply(null, values);
-  var maxVal = Math.max.apply(null, values);
-  var range = maxVal - minVal;
-  var padding = range === 0 ? (maxVal * 0.5 || 10) : range * 0.15;
+  const values = data.map(function(d) { return d.v; });
+  let minVal = Math.min.apply(null, values);
+  let maxVal = Math.max.apply(null, values);
+  const range = maxVal - minVal;
+  const padding = range === 0 ? (maxVal * 0.5 || 10) : range * 0.15;
   minVal = Math.max(0, minVal - padding);
   maxVal = maxVal + padding;
-  var valRange = maxVal - minVal;
+  const valRange = maxVal - minVal;
 
   // Time window: last 60 seconds (or span of data if less)
-  var now = Date.now();
-  var timeWindow = Math.min(60000, data[data.length - 1].t - data[0].t + 1000);
-  var tStart = now - timeWindow;
+  const now = Date.now();
+  const timeWindow = Math.min(60000, data[data.length - 1].t - data[0].t + 1000);
+  const tStart = now - timeWindow;
 
   // Filter visible points
-  var visible = data.filter(function(d) { return d.t >= tStart; });
+  const visible = data.filter(function(d) { return d.t >= tStart; });
   if (visible.length < 2) {
     ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--text-tertiary').trim() || '#71717a';
     ctx.font = '9px monospace';
@@ -887,9 +887,9 @@ Q.ChartCore.drawMiniTrend = function drawMiniTrend(canvas, data, lineColor, empt
     return;
   }
 
-  var padX = 2, padY = 2;
-  var chartW = w - padX * 2;
-  var chartH = h - padY * 2;
+  const padX = 2, padY = 2;
+  const chartW = w - padX * 2;
+  const chartH = h - padY * 2;
 
   function xPos(t) { return padX + ((t - tStart) / timeWindow) * chartW; }
   function yPos(v) { return padY + (1 - (v - minVal) / valRange) * chartH; }
@@ -903,9 +903,9 @@ Q.ChartCore.drawMiniTrend = function drawMiniTrend(canvas, data, lineColor, empt
   ctx.lineTo(xPos(visible[visible.length - 1].t), chartH + padY);
   ctx.closePath();
 
-  var rgba0 = Q.ChartCore.parseHexToRgba(lineColor, 0.2);
-  var rgba1 = Q.ChartCore.parseHexToRgba(lineColor, 0.02);
-  var grd = ctx.createLinearGradient(0, padY, 0, chartH + padY);
+  const rgba0 = Q.ChartCore.parseHexToRgba(lineColor, 0.2);
+  const rgba1 = Q.ChartCore.parseHexToRgba(lineColor, 0.02);
+  const grd = ctx.createLinearGradient(0, padY, 0, chartH + padY);
   grd.addColorStop(0, rgba0 || (lineColor + '33'));
   grd.addColorStop(1, rgba1 || (lineColor + '05'));
   ctx.fillStyle = grd;
@@ -918,15 +918,15 @@ Q.ChartCore.drawMiniTrend = function drawMiniTrend(canvas, data, lineColor, empt
   ctx.lineJoin = 'round';
   ctx.lineCap = 'round';
   for (var i = 0; i < visible.length; i++) {
-    var x = xPos(visible[i].t);
-    var y = yPos(visible[i].v);
+    const x = xPos(visible[i].t);
+    const y = yPos(visible[i].v);
     if (i === 0) ctx.moveTo(x, y);
     else ctx.lineTo(x, y);
   }
   ctx.stroke();
 
   // Latest dot
-  var last = visible[visible.length - 1];
+  const last = visible[visible.length - 1];
   ctx.beginPath();
   ctx.arc(xPos(last.t), yPos(last.v), 2.5, 0, Math.PI * 2);
   ctx.fillStyle = lineColor;
@@ -958,31 +958,31 @@ Q.ChartCore.drawMiniTrend = function drawMiniTrend(canvas, data, lineColor, empt
  */
 Q.ChartCore.drawSparkLine = function drawSparkLine(canvas, data, lineColor) {
   if (!canvas || data.length < 2) return;
-  var ctx = canvas.getContext('2d');
-  var w = canvas.width;
-  var h = canvas.height;
+  const ctx = canvas.getContext('2d');
+  const w = canvas.width;
+  const h = canvas.height;
 
   ctx.clearRect(0, 0, w, h);
 
-  var values = data.map(function(d) { return d.v; });
-  var minVal = Math.min.apply(null, values);
-  var maxVal = Math.max.apply(null, values);
-  var range = maxVal - minVal;
+  const values = data.map(function(d) { return d.v; });
+  let minVal = Math.min.apply(null, values);
+  let maxVal = Math.max.apply(null, values);
+  let range = maxVal - minVal;
   if (range === 0) { range = maxVal * 0.5 || 10; minVal = Math.max(0, minVal - range * 0.5); maxVal = maxVal + range * 0.5; }
-  var valRange = range;
+  const valRange = range;
 
-  var padX = 1, padY = 1;
-  var chartW = w - padX * 2;
-  var chartH = h - padY * 2;
+  const padX = 1, padY = 1;
+  const chartW = w - padX * 2;
+  const chartH = h - padY * 2;
 
   function yPos(v) { return padY + (1 - (v - minVal) / valRange) * chartH; }
 
-  var points = data.slice(-30);
+  const points = data.slice(-30);
   if (points.length < 2) return;
-  var stepX = chartW / (points.length - 1);
+  const stepX = chartW / (points.length - 1);
 
   // Area fill
-  var rgba = Q.ChartCore.parseHexToRgba(lineColor, 0.15);
+  const rgba = Q.ChartCore.parseHexToRgba(lineColor, 0.15);
   if (rgba) {
     ctx.beginPath();
     ctx.moveTo(padX, chartH + padY);
@@ -1000,15 +1000,15 @@ Q.ChartCore.drawSparkLine = function drawSparkLine(canvas, data, lineColor) {
   ctx.strokeStyle = lineColor;
   ctx.lineWidth = 1;
   for (var i = 0; i < points.length; i++) {
-    var x = padX + i * stepX;
-    var y = yPos(points[i].v);
+    const x = padX + i * stepX;
+    const y = yPos(points[i].v);
     if (i === 0) ctx.moveTo(x, y);
     else ctx.lineTo(x, y);
   }
   ctx.stroke();
 
   // Latest dot
-  var last = points[points.length - 1];
+  const last = points[points.length - 1];
   ctx.beginPath();
   ctx.arc(padX + (points.length - 1) * stepX, yPos(last.v), 1.5, 0, Math.PI * 2);
   ctx.fillStyle = lineColor;

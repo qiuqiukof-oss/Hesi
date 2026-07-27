@@ -79,7 +79,7 @@ class BrowserManager {
     return {
       connected: true,
       browser: this.browser.version() || 'unknown',
-      tabs: tabs,
+      tabs,
       tabCount: tabs.length,
     };
   }
