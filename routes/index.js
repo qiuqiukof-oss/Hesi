@@ -38,6 +38,7 @@ const { createRouter: createAuditAdminRouter } = require('./admin/audit');
 const { createRouter: createLicenseRouter } = require('./license');
 const { createRouter: createTelemetryRouter } = require('./telemetry');
 const { createRouter: createMetricsRouter } = require('./metrics');
+const { createRouter: createBlackboardRouter } = require('./blackboard');
 const { createRouter: createTeamsRouter } = require('./teams');
 const { createRouter: createWorkspaceRouter } = require('./workspace');
 const { createRouter: createFsRouter } = require('./fs');
@@ -205,6 +206,7 @@ function setupRoutes(app, opts = {}) {
   app.use('/api/license', createLicenseRouter());
   app.use('/api/telemetry', createTelemetryRouter());
   app.use('/api/metrics', createMetricsRouter());
+  app.use('/api/blackboard', createBlackboardRouter()); // Phase1 S8: 共享黑板只读观测
   app.use('/api/workspaces', createTeamsRouter());
 
   // ── 能力发现端点（无需 token）：让内置助手 / 终端 agent 动态知道「网页端点」这条路 ──

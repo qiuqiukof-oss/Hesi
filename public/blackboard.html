@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>共享黑板 · Hesi</title>
+<link rel="icon" href="/favicon.ico">
+<style>
+  /* ── 自包含样式：不依赖任何外部 CSS ── */
+  :root {
+    --bg: #f6f7f9; --panel: #ffffff; --border: #e3e6ea;
+    --text: #23272e; --muted: #7a828c;
+    --green: #22a45d; --red: #d9463e; --orange: #e8912d; --blue: #3b7dd8; --gray: #9aa1a9;
+    --radius: 10px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg); color: var(--text);
+    font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    font-size: 14px; padding: 20px; max-width: 1180px; margin: 0 auto;
+  }
+  header { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 18px; }
+  header h1 { font-size: 19px; font-weight: 600; }
+  header .sub { color: var(--muted); font-size: 12px; }
+  #projectId {
+    padding: 6px 10px; border: 1px solid var(--border); border-radius: 6px;
+    font-size: 13px; width: 160px; background: var(--panel); color: var(--text);
+  }
+  button {
+    padding: 6px 14px; border: 1px solid var(--border); border-radius: 6px;
+    background: var(--panel); color: var(--text); cursor: pointer; font-size: 13px;
+  }
+  button:hover { border-color: var(--blue); color: var(--blue); }
+  #statusDot { width: 8px; height: 8px; border-radius: 50%; background: var(--gray); display: inline-block; }
+  #statusDot.live { background: var(--green); }
+  #meta { color: var(--muted); font-size: 12px; margin-left: auto; }
+
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .full { grid-column: 1 / -1; }
+  @media (max-width: 860px) { .grid { grid-template-columns: 1fr; } }
+
+  section {
+    background: var(--panel); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 14px 16px;
+  }
+  section h2 { font-size: 14px; font-weight: 600; margin-bottom: 10px; color: #3a4048; }
+  section h2 .count { color: var(--muted); font-weight: 400; font-size: 12px; }
+  .empty { color: var(--muted); font-size: 13px; padding: 8px 0; }
+
+  /* 任务卡 */
+  .task-card {
+    border: 1px solid var(--border); border-radius: 8px; padding: 9px 12px;
+    margin-bottom: 8px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  }
+  .task-card .tid { font-weight: 600; font-family: Consolas, monospace; }
+  .task-card .assignee { color: var(--muted); font-size: 12px; }
+  .task-card .err { flex-basis: 100%; color: var(--red); font-size: 12px; word-break: break-all; }
+  .badge {
+    padding: 2px 9px; border-radius: 999px; font-size: 12px; color: #fff; margin-left: auto;
+  }
+  .st-pending      { background: var(--gray); }
+  .st-in_progress  { background: var(--blue); }
+  .st-retrying     { background: var(--orange); }
+  .st-done         { background: var(--green); }
+  .st-failed       { background: var(--red); }
+
+  /* 文件网格 */
+  .file-grid { display: flex; flex-wrap: wrap; gap: 8px; }
+  .file-chip {
+    display: flex; align-items: center; gap: 7px;
+    border: 1px solid var(--border); border-radius: 6px; padding: 5px 10px;
+    font-family: Consolas, monospace; font-size: 12.5px;
+  }
+  .file-chip .dot { width: 9px; height: 9px; border-radius: 50%; flex: none; }
+  .file-chip .hash { color: var(--muted); font-size: 11px; }
+  .fd-pending { background: var(--gray); } .fd-in_progress { background: var(--blue); }
+  .fd-done { background: var(--green); } .fd-failed { background: var(--red); }
+
+  /* 角色 */
+  .role-row { display: flex; gap: 8px; align-items: center; padding: 4px 0; font-size: 13px; }
+  .role-row .agent { font-family: Consolas, monospace; font-weight: 600; }
+  .role-row .arrow { color: var(--muted); }
+  .role-tag { background: #eef3fb; color: var(--blue); border-radius: 5px; padding: 1px 8px; font-size: 12px; }
+
+  /* DAG */
+  #dag { min-height: 60px; overflow-x: auto; }
+  #dag svg { max-width: 100%; }
+  #dagHint { color: var(--muted); font-size: 12px; }
+
+  /* 日志 */
+  #logs { max-height: 320px; overflow-y: auto; font-size: 12.5px; }
+  .log-row { display: flex; gap: 10px; padding: 4px 0; border-bottom: 1px dashed #eef0f2; }
+  .log-row .ts { color: var(--muted); font-family: Consolas, monospace; flex: none; }
+  .log-row .actor { color: var(--blue); flex: none; }
+</style>
+</head>
+<body>
+  <header>
+    <h1>🗂️ 共享黑板</h1>
+    <span class="sub">多 Agent 协作观测面板（只读）</span>
+    <input id="projectId" value="default" placeholder="projectId" spellcheck="false">
+    <button id="loadBtn">加载</button>
+    <span id="statusDot" title="轮询状态"></span>
+    <span id="meta"></span>
+  </header>
+
+  <div class="grid">
+    <section>
+      <h2>任务看板 <span class="count" id="taskCount"></span></h2>
+      <div id="tasks"><div class="empty">暂无数据</div></div>
+    </section>
+    <section>
+      <h2>文件状态 <span class="count" id="fileCount"></span></h2>
+      <div id="files" class="file-grid"><div class="empty">暂无数据</div></div>
+      <h2 style="margin-top:16px">角色分配</h2>
+      <div id="roles"><div class="empty">暂无数据</div></div>
+    </section>
+    <section class="full">
+      <h2>依赖 DAG</h2>
+      <div id="dag"><span id="dagHint">等待数据…</span></div>
+    </section>
+    <section class="full">
+      <h2>活动日志 <span class="count" id="logCount"></span></h2>
+      <div id="logs"><div class="empty">暂无数据</div></div>
+    </section>
+  </div>
+
+  <!-- Mermaid：多 CDN 镜像回退（与 mermaid-templates.html 同款方案，离线时 DAG 降级为文本） -->
+  <script>
+  (function () {
+    'use strict';
+    var URLS = [
+      'https://cdn.jsdelivr.net/npm/mermaid@11.4.0/dist/mermaid.min.js',
+      'https://fastly.jsdelivr.net/npm/mermaid@11.4.0/dist/mermaid.min.js',
+      'https://gcore.jsdelivr.net/npm/mermaid@11.4.0/dist/mermaid.min.js',
+      'https://testingcf.jsdelivr.net/npm/mermaid@11.4.0/dist/mermaid.min.js',
+      'https://cdn.staticfile.org/mermaid/11.4.0/mermaid.min.js',
+      'https://cdn.staticfile.net/mermaid/11.4.0/mermaid.min.js',
+      'https://cdn.bootcdn.net/ajax/libs/mermaid/11.4.0/mermaid.min.js'
+    ];
+    function tryLoad(urls) {
+      if (!urls.length) { window.BB_MERMAID_FAILED = true; return; }
+      var s = document.createElement('script');
+      s.src = urls[0];
+      s.onload = function () {
+        try { window.mermaid.initialize({ startOnLoad: false, theme: 'default', securityLevel: 'strict' }); } catch (e) { /* ignore */ }
+      };
+      s.onerror = function () { s.remove(); tryLoad(urls.slice(1)); };
+      document.head.appendChild(s);
+    }
+    tryLoad(URLS);
+  })();
+  </script>
+
+  <script>
+  (function () {
+    'use strict';
+    var POLL_MS = 2500;
+    var lastVersion = -1;
+    var timer = null;
+    var dagSeq = 0;
+    var lastDagSource = '';
+
+    var $ = function (id) { return document.getElementById(id); };
+    function esc(s) {
+      return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+        return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+      });
+    }
+    function fmtTs(ts) {
+      if (!ts) return '--:--:--';
+      var d = new Date(ts);
+      function p(n) { return (n < 10 ? '0' : '') + n; }
+      return p(d.getHours()) + ':' + p(d.getMinutes()) + ':' + p(d.getSeconds());
+    }
+    function statusClass(st) {
+      return ['pending', 'in_progress', 'retrying', 'done', 'failed'].indexOf(st) >= 0 ? st : 'pending';
+    }
+
+    function render(state) {
+      // 任务看板
+      var tasks = Array.isArray(state.tasks) ? state.tasks : [];
+      $('taskCount').textContent = tasks.length ? '(' + tasks.length + ')' : '';
+      $('tasks').innerHTML = tasks.length ? tasks.map(function (t) {
+        var st = statusClass(t.status);
+        return '<div class="task-card">' +
+          '<span class="tid">' + esc(t.id) + '</span>' +
+          (t.assignee ? '<span class="assignee">@' + esc(t.assignee) + '</span>' : '') +
+          (t.type ? '<span class="assignee">[' + esc(t.type) + ']</span>' : '') +
+          '<span class="badge st-' + st + '">' + esc(t.status || 'pending') + '</span>' +
+          (t.lastError ? '<span class="err">⚠ ' + esc(t.lastError) + '</span>' : '') +
+          '</div>';
+      }).join('') : '<div class="empty">暂无任务</div>';
+
+      // 文件状态
+      var files = state.files && typeof state.files === 'object' ? state.files : {};
+      var fkeys = Object.keys(files);
+      $('fileCount').textContent = fkeys.length ? '(' + fkeys.length + ')' : '';
+      $('files').innerHTML = fkeys.length ? fkeys.map(function (p) {
+        var f = files[p] || {};
+        var st = statusClass(f.status);
+        return '<span class="file-chip"><span class="dot fd-' + st + '"></span>' + esc(p) +
+          (f.hash ? '<span class="hash">#' + esc(f.hash) + '</span>' : '') + '</span>';
+      }).join('') : '<div class="empty">暂无文件</div>';
+
+      // 角色分配
+      var roles = state.roles && typeof state.roles === 'object' ? state.roles : {};
+      var rkeys = Object.keys(roles);
+      $('roles').innerHTML = rkeys.length ? rkeys.map(function (a) {
+        return '<div class="role-row"><span class="agent">' + esc(a) + '</span>' +
+          '<span class="arrow">→</span><span class="role-tag">' + esc(roles[a]) + '</span></div>';
+      }).join('') : '<div class="empty">暂无角色</div>';
+
+      // 日志（新的在上）
+      var logs = Array.isArray(state.logs) ? state.logs.slice(-200).reverse() : [];
+      $('logCount').textContent = logs.length ? '(' + logs.length + ')' : '';
+      $('logs').innerHTML = logs.length ? logs.map(function (l) {
+        return '<div class="log-row"><span class="ts">' + fmtTs(l.ts) + '</span>' +
+          '<span class="actor">' + esc(l.actor || '-') + '</span>' +
+          '<span>' + esc(l.msg) + '</span></div>';
+      }).join('') : '<div class="empty">暂无日志</div>';
+
+      // 元信息
+      $('meta').textContent = 'version ' + (state.version || 0) +
+        (state.status ? ' · ' + state.status : '') + ' · ' + fmtTs(Date.now()) + ' 更新';
+
+      renderDag(tasks);
+    }
+
+    function renderDag(tasks) {
+      var withDeps = tasks.filter(function (t) { return Array.isArray(t.dependsOn) && t.dependsOn.length; });
+      if (!tasks.length) { $('dag').innerHTML = '<span id="dagHint">暂无任务</span>'; return; }
+
+      // 组装 mermaid 源（节点按状态着色）
+      var lines = ['graph LR'];
+      var colorMap = { done: '#22a45d', failed: '#d9463e', in_progress: '#3b7dd8', retrying: '#e8912d', pending: '#9aa1a9' };
+      tasks.forEach(function (t) {
+        var safe = String(t.id).replace(/[^a-zA-Z0-9_]/g, '_');
+        lines.push('  ' + safe + '["' + String(t.id).replace(/"/g, '') + (t.assignee ? '<br/>@' + String(t.assignee).replace(/"/g, '') : '') + '"]');
+        var c = colorMap[statusClass(t.status)] || colorMap.pending;
+        lines.push('  style ' + safe + ' fill:' + c + ',color:#fff,stroke:none');
+      });
+      withDeps.forEach(function (t) {
+        var safe = String(t.id).replace(/[^a-zA-Z0-9_]/g, '_');
+        t.dependsOn.forEach(function (d) {
+          lines.push('  ' + String(d).replace(/[^a-zA-Z0-9_]/g, '_') + ' --> ' + safe);
+        });
+      });
+      var source = lines.join('\n');
+      if (source === lastDagSource) return; // 未变不重渲染
+      lastDagSource = source;
+
+      if (!window.mermaid) {
+        // 降级：文本形式展示依赖
+        var txt = withDeps.length ? withDeps.map(function (t) {
+          return esc(t.dependsOn.join(', ')) + ' → ' + esc(t.id);
+        }).join('<br>') : '（任务间无依赖，全部并行）';
+        $('dag').innerHTML = '<span id="dagHint">' + txt +
+          (window.BB_MERMAID_FAILED ? '<br>（mermaid CDN 加载失败，图形渲染降级为文本）' : '') + '</span>';
+        return;
+      }
+      var id = 'bbdag' + (++dagSeq);
+      window.mermaid.render(id, source).then(function (r) {
+        $('dag').innerHTML = r.svg;
+      }).catch(function () {
+        $('dag').innerHTML = '<span id="dagHint">DAG 渲染失败</span>';
+      });
+    }
+
+    function tick(force) {
+      var pid = ($('projectId').value || 'default').trim();
+      var url = '/api/blackboard/' + encodeURIComponent(pid) +
+        (!force && lastVersion >= 0 ? '?since=' + lastVersion : '');
+      fetch(url).then(function (r) { return r.json(); }).then(function (data) {
+        $('statusDot').className = 'live';
+        if (!data.ok) return;
+        if (data.unchanged) return;
+        if (!data.exists || !data.state) {
+          $('meta').textContent = '黑板 "' + pid + '" 暂不存在（跑一次 workflow 或 blackboard_write 即会创建）';
+          lastVersion = -1;
+          return;
+        }
+        lastVersion = data.state.version || 0;
+        render(data.state);
+      }).catch(function () {
+        $('statusDot').className = '';
+      });
+    }
+
+    function restart() {
+      lastVersion = -1;
+      lastDagSource = '';
+      if (timer) clearInterval(timer);
+      tick(true);
+      timer = setInterval(function () { tick(false); }, POLL_MS);
+    }
+
+    $('loadBtn').addEventListener('click', restart);
+    $('projectId').addEventListener('keydown', function (e) { if (e.key === 'Enter') restart(); });
+
+    // 页面隐藏时暂停轮询（省资源），恢复时立即刷新
+    document.addEventListener('visibilitychange', function () {
+      if (document.hidden) { if (timer) { clearInterval(timer); timer = null; } }
+      else restart();
+    });
+
+    // URL 参数支持 ?projectId=xxx
+    var qp = new URLSearchParams(location.search).get('projectId');
+    if (qp) $('projectId').value = qp;
+    restart();
+  })();
+  </script>
+</body>
+</html>
