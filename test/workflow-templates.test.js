@@ -8,7 +8,7 @@ const path = require('path');
 const TPL_DIR = path.join(__dirname, '..', 'routes', 'ai-tools', 'workflow-templates');
 const VALID_ROLES = ['coder', 'debugger', 'reviewer', 'tester', 'deployer'];
 const VALID_ONFAILURE = ['stop', 'continue', 'skip-dependents'];
-const EXPECTED = ['bugfix.json', 'build-deploy.json', 'code-review.json', 'test-suite.json'];
+const EXPECTED = ['bugfix.json', 'build-deploy.json', 'code-review.json', 'roundtable.json', 'test-suite.json'];
 
 test('模板目录包含预期的 4 个模板文件', () => {
   const files = fs.readdirSync(TPL_DIR).filter((f) => f.endsWith('.json')).sort();

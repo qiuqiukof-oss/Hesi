@@ -64,9 +64,43 @@ function mount() {
       <button id="csa-trash" class="csa-trash" title="回收站（可恢复已删除会话）">🗑<span id="csa-trash-count" class="csa-trash-count" hidden>0</span></button>
     </div>
     <div id="csa-list" class="csa-list"></div>
+    <div class="csa-resize" id="csa-resize" title="拖拽调整宽度"></div>
   `;
   drawer.insertBefore(aside, main);
   drawer.classList.add('chat-drawer-with-sessions');
+
+  // ── Resizable width for the session aside (the "新对话" column) ──
+  const WKEY = 'qcli-session-aside-width';
+  const applyWidth = (w) => { aside.style.flexBasis = w + 'px'; };
+  try {
+    const saved = parseInt(localStorage.getItem(WKEY), 10);
+    if (Number.isFinite(saved)) applyWidth(Math.min(Math.max(saved, 180), 460));
+  } catch { /* ignore */ }
+  const resizeHandle = aside.querySelector('#csa-resize');
+  if (resizeHandle) {
+    let startX = 0, startW = 0, dragging = false;
+    resizeHandle.addEventListener('mousedown', (e) => {
+      dragging = true;
+      startX = e.clientX;
+      startW = aside.getBoundingClientRect().width;
+      resizeHandle.classList.add('resizing');
+      document.body.classList.add('csar-resizing');
+      e.preventDefault();
+    });
+    window.addEventListener('mousemove', (e) => {
+      if (!dragging) return;
+      const w = Math.min(Math.max(startW + (e.clientX - startX), 180), 460);
+      applyWidth(w);
+    });
+    window.addEventListener('mouseup', () => {
+      if (!dragging) return;
+      dragging = false;
+      resizeHandle.classList.remove('resizing');
+      document.body.classList.remove('csar-resizing');
+      const cur = parseInt(aside.style.flexBasis, 10);
+      if (Number.isFinite(cur)) { try { localStorage.setItem(WKEY, String(cur)); } catch { /* ignore */ } }
+    });
+  }
 
   const listEl = aside.querySelector('#csa-list');
   const searchEl = aside.querySelector('#csa-search');

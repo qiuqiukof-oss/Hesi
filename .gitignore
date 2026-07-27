@@ -29,6 +29,9 @@ server-test.log
 # ===== Local MCP config (contains machine-specific absolute paths) =====
 .mcp.json
 
+# ===== Roundtable agent customization (UI prefs, travels with offline package) =====
+agent-overrides.json
+
 # ===== Scratch / dev artifacts (not part of the shipped product) =====
 cmd.exe.lnk
 .tmp-memtest/

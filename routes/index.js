@@ -40,6 +40,7 @@ const { createRouter: createTelemetryRouter } = require('./telemetry');
 const { createRouter: createMetricsRouter } = require('./metrics');
 const { createRouter: createBlackboardRouter } = require('./blackboard');
 const { createRouter: createTeamsRouter } = require('./teams');
+const { createRouter: createRoundtableRouter } = require('./roundtable');
 const { createRouter: createWorkspaceRouter } = require('./workspace');
 const { createRouter: createFsRouter } = require('./fs');
 // Optional access-token protection for sensitive HTTP routes.
@@ -207,6 +208,7 @@ function setupRoutes(app, opts = {}) {
   app.use('/api/telemetry', createTelemetryRouter());
   app.use('/api/metrics', createMetricsRouter());
   app.use('/api/blackboard', createBlackboardRouter()); // Phase1 S8: 共享黑板只读观测
+  app.use('/api/roundtable', createRoundtableRouter()); // Phase2 S1-S5: 围炉圆桌状态/覆盖层/纪要
   app.use('/api/workspaces', createTeamsRouter());
 
   // ── 能力发现端点（无需 token）：让内置助手 / 终端 agent 动态知道「网页端点」这条路 ──

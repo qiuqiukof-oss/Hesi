@@ -11,7 +11,7 @@
   }
   *{box-sizing:border-box}
   body{font-family:"PingFang SC","Microsoft YaHei",sans-serif;background:var(--bg);color:var(--text);margin:0;padding:18px;display:flex;justify-content:center}
-  .wrap{max-width:760px;width:100%}
+  .wrap{max-width:800px;width:100%}
   header{display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap}
   header h1{font-size:18px;margin:0;font-weight:600}
   header .tip{font-size:12px;color:var(--sub)}
@@ -48,7 +48,8 @@
   .seatchair{font-size:11px;color:var(--sub);margin-top:5px}
   .empty .rt-av{border-style:dashed;border-color:#b9c0c8;background:#f3f4f6}
   .empty .rtname{color:#9aa1a9}
-  .bub{position:absolute;background:#ffffff;color:#1a1a2e;border:1px solid #e2e8f0;border-left:4px solid var(--accent);border-radius:14px;padding:12px 14px;font-size:12px;min-width:140px;max-width:300px;max-height:200px;line-height:1.6;z-index:5;overflow:auto;word-break:break-word;white-space:pre-wrap;box-shadow:0 12px 40px rgba(0,0,0,.35),0 0 0 1px rgba(0,0,0,.04)}
+  .bub{position:absolute;background:#ffffff;color:#1a1a2e;border:1px solid #e2e8f0;border-left:4px solid var(--accent);border-radius:14px;padding:12px 14px;font-size:12px;min-width:316px;max-width:476px;max-height:112px;line-height:1.6;z-index:5;overflow:auto;word-break:break-word;white-space:pre-wrap;box-shadow:0 12px 40px rgba(0,0,0,.35),0 0 0 1px rgba(0,0,0,.04)}
+  .bub-side{min-width:180px;max-width:200px;max-height:112px}
   .bub-hd{display:flex;align-items:center;gap:6px;margin-bottom:7px;padding-bottom:6px;border-bottom:1px solid rgba(0,0,0,.08)}
   .bub-av{width:18px;height:18px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;overflow:hidden;background:#f3f4f6}
   .bub-name{font-size:11px;font-weight:700;color:#1a1a2e}
@@ -110,6 +111,19 @@
       <div class="field" style="flex:1;min-width:220px">
         <label>议题 / 想讨论什么</label>
         <textarea id="topic" placeholder="例如：登录页要做哪些改动？给个多方视角的方案"></textarea>
+      </div>
+      <div class="field" style="width:140px">
+        <label>讨论轮数</label>
+        <select id="rounds" title="每轮 = AI 助手与每个 CLI Agent 各发言一次（1–12）">
+          <option value="1">1 轮</option>
+          <option value="2">2 轮</option>
+          <option value="3">3 轮</option>
+          <option value="4">4 轮</option>
+          <option value="6" selected>6 轮</option>
+          <option value="8">8 轮</option>
+          <option value="10">10 轮</option>
+          <option value="12">12 轮</option>
+        </select>
       </div>
       <div class="field">
         <label>&nbsp;</label>

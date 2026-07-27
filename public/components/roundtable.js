@@ -58,6 +58,16 @@ function getFavorites() {
   } catch { return []; }
 }
 
+// 讨论轮数：读取下拉值，钳制到后端允许范围 [1,12]，并持久化记忆。
+function getRounds() {
+  const sel = document.getElementById('rounds');
+  let v = parseInt(sel && sel.value, 10);
+  if (!Number.isFinite(v)) v = 6;
+  v = Math.min(Math.max(v, 1), 12);
+  try { getStore().set('qcli-roundtable-rounds', String(v)); } catch { /* ignore */ }
+  return v;
+}
+
 const Roundtable = {
   root: null,
   rt: null,
@@ -131,6 +141,13 @@ const Roundtable = {
   bindStaticUI() {
     const $ = (id) => document.getElementById(id);
     this.elTopic = $('topic');
+    this.elRounds = $('rounds');
+    try {
+      const saved = getStore().get('qcli-roundtable-rounds', '');
+      if (saved && this.elRounds.querySelector(`option[value="${saved}"]`)) {
+        this.elRounds.value = saved;
+      }
+    } catch { /* ignore */ }
     this.elCliList = $('clilist');
     this.elStart = $('startBtn');
     this.elExport = $('exportBtn');
@@ -314,7 +331,7 @@ const Roundtable = {
       <div class="rtname">${agent.name || ''}</div>
       <div class="rtrole">${agent.roleLabel || ''}</div>
       ${empty ? '<div class="seatchair">空座</div>' : '<div class="rtst" style="background:#9aa1a9">待命</div>'}
-      <div class="bub" style="display:none"></div>
+      <div class="${host ? 'bub' : 'bub bub-side'}" style="display:none"></div>
       ${host ? '' : '<div class="likes" style="display:none">👍 <span>0</span></div>'}`;
     if (!host && !empty) {
       const likeEl = seat.querySelector('.likes');
@@ -424,7 +441,7 @@ const Roundtable = {
       messages: [{ role: 'user', content: topic }],
       discuss: true,
       partners: this.selected,
-      maxTurns: 6,
+      maxTurns: this.getRounds(),
       apiKey: ai.apiKey,
       provider: ai.provider,
       model: ai.model,

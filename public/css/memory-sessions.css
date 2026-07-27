@@ -16,6 +16,7 @@
 
 /* ── Session aside ── */
 .chat-session-aside {
+  position: relative;
   flex: 0 0 240px;
   display: flex;
   flex-direction: column;
@@ -24,6 +25,19 @@
   background: var(--bg-elevated, #16181d);
   overflow: hidden;
 }
+/* Draggable right-edge handle to resize the session aside width. */
+.csa-resize {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 6px;
+  cursor: col-resize;
+  z-index: 20;
+}
+.csa-resize:hover,
+.csa-resize.resizing { background: var(--accent, #3b82f6); }
+body.csar-resizing { user-select: none; cursor: col-resize; }
 .csa-header {
   display: flex;
   gap: 6px;

@@ -48,7 +48,7 @@ export const SKINS = {
     tileAnim: false,
     css: `
 .rt.skin-hearth{
-  width:min(620px,100%);
+  width:min(736px,100%);
   height:560px;
   margin:6px auto;
   border-radius:18px;
@@ -74,7 +74,7 @@ export const SKINS = {
     tileAnim: true,
     css: `
 .rt.skin-mahjong{
-  width:min(620px,100%);
+  width:min(736px,100%);
   height:560px;
   margin:6px auto;
   border-radius:18px;
