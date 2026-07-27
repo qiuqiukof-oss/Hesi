@@ -12,7 +12,7 @@
 </p>
 
 <p align="center">
-  <a href="https://3000-facbfa92d8b045f8ab3518837746fb77.e2b.ap-beijing.sandbox.cloudstudio.club/">▶ 在线体验圆桌 Demo（无需安装）</a> ·
+  <a href="https://qiuqiukof-oss.github.io/Hesi/">▶ 在线体验圆桌 Demo（无需安装）</a> ·
   <a href="#-30-秒快速体验">🚀 30 秒上手</a> ·
   <a href="./README_en.md">English</a>
 </p>
@@ -39,7 +39,7 @@
 
 | 你想… | 怎么做 |
 |------|--------|
-| 🖥️ **先看效果**（无需安装） | [▶ 在线体验圆桌 Demo](https://3000-facbfa92d8b045f8ab3518837746fb77.e2b.ap-beijing.sandbox.cloudstudio.club/) |
+| 🖥️ **先看效果**（无需安装） | [▶ 在线体验圆桌 Demo](https://qiuqiukof-oss.github.io/Hesi/) |
 | 💻 **零安装试用**（推荐新手） | 下载 [v0.4.1 桌面托盘版](https://github.com/qiuqiukof-oss/Hesi/releases/tag/v0.4.1)，解压后双击 `tray.bat`（Windows）/ `./tray.sh`（macOS/Linux），浏览器自动打开 `http://127.0.0.1:4264` |
 | 🛠️ **从源码运行**（开发者） | `git clone` → `npm install` → `npm run build` → `npm start`，打开 `http://127.0.0.1:4264` |
 | 🤖 **让 AI Agent 围桌讨论** | 在「设置」里填入 `OPENAI_API_KEY` 或 `ANTHROPIC_API_KEY`，回到聊天框点「AI 讨论」，选 2–4 个 CLI Agent，输入议题 |
