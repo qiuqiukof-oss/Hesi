@@ -15,7 +15,7 @@
 // ============================================================
 
 const express = require('express');
-const { trimHistory, safeApiError, buildApiUrl } = require('./utils');
+const { trimHistory, safeApiError, buildApiUrl, estimateTokenCount } = require('./utils');
 const { QCLI_TOOLS, executeToolCall } = require('./tools');
 const { pruneToolContext } = require('./token-budget');
 const { streamOpenAIWithTools } = require('./stream-openai');
@@ -535,6 +535,14 @@ When the user asks you to perform a "system self-check" / "全面自检" / "diag
       // 后端与 uploads 同机，本地读文件转 base64 喂模型（模型无需联网抓 localhost）。
       try { await injectAttachments(contextMessages, provider); } catch (attErr) {
         console.warn('[chat] injectAttachments failed:', attErr && attErr.message);
+      }
+      // P1 S4：写回真实上下文 token 量（含 system + 记忆 + 技能 + 历史 + 附件文本），
+      // 供压缩阈值判断——根治 tokenEstimate 只算历史导致压缩永不触发的「幽灵截断」。
+      if (MemoryStore.enabled && sessionId) {
+        try {
+          const fullTokens = estimateTokenCount(contextMessages);
+          await MemoryStore.setContextEstimate(sessionId, fullTokens);
+        } catch { /* best-effort：写回失败不阻断聊天 */ }
       }
       const tools = disableTools ? undefined : QCLI_TOOLS;
       if (provider === 'anthropic') {
