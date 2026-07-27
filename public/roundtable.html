@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>围炉圆桌 · 多 Agent 协作可视化</title>
+<style>
+  :root{
+    --bg:#f6f7f9; --card:#fff; --line:#e3e6ea; --text:#23272e; --sub:#7a828c;
+    --accent:#3b7dd8; --accent-d:#2f63b0;
+  }
+  *{box-sizing:border-box}
+  body{font-family:"PingFang SC","Microsoft YaHei",sans-serif;background:var(--bg);color:var(--text);margin:0;padding:18px;display:flex;justify-content:center}
+  .wrap{max-width:760px;width:100%}
+  header{display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap}
+  header h1{font-size:18px;margin:0;font-weight:600}
+  header .tip{font-size:12px;color:var(--sub)}
+  .panel{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px 16px;margin-bottom:12px}
+  .controls{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end}
+  .field{display:flex;flex-direction:column;gap:4px}
+  .field label{font-size:12px;color:var(--sub)}
+  input[type=text],textarea,select{padding:7px 10px;border:1px solid var(--line);border-radius:8px;font-size:13px;font-family:inherit;background:#fff;color:var(--text)}
+  textarea{width:100%;min-height:54px;resize:vertical}
+  button{padding:8px 14px;border:1px solid var(--line);border-radius:8px;background:#fff;color:var(--text);cursor:pointer;font-size:13px}
+  button:hover{border-color:var(--accent);color:var(--accent)}
+  button.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+  button.primary:hover{background:var(--accent-d);color:#fff}
+  button:disabled{opacity:.5;cursor:not-allowed}
+  .clilist{display:flex;gap:8px;flex-wrap:wrap}
+  .clichip{display:inline-flex;align-items:center;gap:6px;font-size:12px;padding:4px 10px;border:1px solid var(--line);border-radius:999px;cursor:pointer;user-select:none}
+  .clichip input{margin:0}
+  .clichip.on{border-color:var(--accent);background:#eaf2fc;color:var(--accent-d)}
+  .rt{position:relative;height:460px;background:#eef0f2;border-radius:14px;margin-top:6px}
+  .rtseat{position:absolute;text-align:center;width:120px;transition:opacity .2s}
+  .rt-av{width:60px;height:60px;margin:0 auto;border-radius:50%;background:#fff;border:2px solid #c9ced4;display:flex;align-items:center;justify-content:center;overflow:hidden;transition:box-shadow .2s}
+  .rt-av.rt-st-thinking{box-shadow:0 0 0 3px rgba(186,117,23,.35);animation:pulse 1.6s infinite}
+  .rt-av.rt-st-speaking{box-shadow:0 0 0 3px rgba(59,125,216,.4)}
+  .rt-av.rt-st-working{box-shadow:0 0 0 3px rgba(83,75,183,.35)}
+  .rt-av.rt-st-done{box-shadow:0 0 0 3px rgba(46,158,91,.35)}
+  .rt-av.rt-st-error{box-shadow:0 0 0 3px rgba(210,59,59,.4)}
+  .rt-av.rt-st-idle{opacity:.9}
+  .rtname{font-size:12.5px;font-weight:600;margin-top:5px;line-height:1.2}
+  .rtrole{font-size:11px;color:var(--sub);line-height:1.2}
+  .rtst{display:inline-block;margin-top:3px;font-size:11px;padding:1px 8px;border-radius:999px;color:#fff}
+  .seatchair{font-size:11px;color:var(--sub);margin-top:5px}
+  .empty .rt-av{border-style:dashed;border-color:#b9c0c8;background:#f3f4f6}
+  .empty .rtname{color:#9aa1a9}
+  .bub{position:absolute;background:#fff;border:1px solid var(--line);border-radius:10px;padding:6px 9px;font-size:11px;max-width:140px;color:var(--text);line-height:1.4;z-index:5}
+  .center{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:160px;height:160px;border-radius:50%;background:#fff;border:1px solid var(--line);display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:8px}
+  .center .t{font-size:12px;color:var(--sub)}
+  .center .n{font-size:14px;font-weight:600;margin:2px 0}
+  .center .r{font-size:11px;color:#9aa1a9}
+  .center .m{font-size:11px;color:var(--sub);margin-top:4px}
+  .hide-empty .empty{opacity:0;pointer-events:none}
+  .likes{position:absolute;bottom:-2px;left:50%;transform:translateX(-50%);font-size:11px;color:var(--sub)}
+  .bar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:10px}
+  .memo{border:1px solid var(--line);border-radius:12px;padding:12px 14px;background:#fbfcfd;display:none}
+  .memo.show{display:block}
+  .memo h3{margin:0 0 8px;font-size:13px}
+  .ml{font-size:12px;line-height:1.7;border-left:3px solid #c9ced4;padding-left:10px;margin:4px 0;white-space:pre-wrap}
+  .ml.speaking{border-left-color:var(--accent)}
+  .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#23272e;color:#fff;padding:8px 16px;border-radius:8px;font-size:13px;opacity:0;transition:opacity .2s;z-index:99;pointer-events:none}
+  .toast.show{opacity:.95}
+  .modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.35);align-items:center;justify-content:center;z-index:80}
+  .modal.show{display:flex}
+  .mpanel{background:#fff;border-radius:12px;padding:18px 20px;width:340px;max-height:86vh;overflow:auto;box-shadow:0 10px 30px rgba(0,0,0,.2)}
+  .mpanel h3{margin:0 0 12px;font-size:14px}
+  .mseat{border:1px solid var(--line);border-radius:10px;padding:10px;margin-bottom:10px}
+  .mseat .mt{font-size:12px;font-weight:600;margin-bottom:6px}
+  .mfield{display:flex;gap:6px;align-items:center;margin-bottom:6px;font-size:12px;color:var(--sub)}
+  .mfield input[type=text]{flex:1}
+  .mfield input[type=color]{width:34px;height:28px;border:1px solid var(--line);border-radius:6px;padding:0}
+  .mclose{text-align:right;margin-top:6px}
+  .skin-switch{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+  .skin-switch button{border:0;border-radius:0;padding:6px 12px;background:#fff}
+  .skin-switch button.active{background:var(--accent);color:#fff}
+  .skin-switch button:hover:not(.active){border-color:transparent;color:var(--accent)}
+  body.embed header, body.embed .memo{display:none}
+  body.embed .wrap{padding:0;max-width:none}
+  body.embed .panel{margin-bottom:0}
+  @media (prefers-reduced-motion:no-preference){.rt-av{animation:bob 2.4s ease-in-out infinite}@keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-3px)}}}
+  @keyframes pulse{0%,100%{box-shadow:0 0 0 3px rgba(186,117,23,.25)}50%{box-shadow:0 0 0 5px rgba(186,117,23,.12)}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>🍵 围炉圆桌</h1>
+    <span class="tip">多 Agent 可视化协作 · 你在上首主持</span>
+  </header>
+
+  <div class="panel">
+    <div class="controls">
+      <div class="field" style="flex:1;min-width:220px">
+        <label>议题 / 想讨论什么</label>
+        <textarea id="topic" placeholder="例如：登录页要做哪些改动？给个多方视角的方案"></textarea>
+      </div>
+      <div class="field">
+        <label>&nbsp;</label>
+        <button class="primary" id="startBtn">开始圆桌讨论</button>
+      </div>
+    </div>
+    <div class="field" style="margin-top:10px">
+      <label>参与 Agent（映射到席位；未选则留空座）</label>
+      <div class="clilist" id="clilist"><span class="tip">加载中…</span></div>
+    </div>
+    <div class="bar">
+      <button id="customBtn">⚙ 自定义</button>
+      <label class="tip" style="display:inline-flex;gap:5px;align-items:center;cursor:pointer">
+        <input type="checkbox" id="hideEmpty" checked> 显示空座
+      </label>
+      <span class="skin-switch" title="切换圆桌皮肤">
+        <button data-skin="hearth" class="active">🔥 围炉</button>
+        <button data-skin="mahjong">🀄 麻将</button>
+      </span>
+      <span class="tip" id="protocolTip"></span>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="rt" id="rt">
+      <div class="center">
+        <div class="t">共享桌布</div>
+        <div class="n" id="bbTasks">—</div>
+        <div class="r" id="bbRound">第 0 回合</div>
+        <div class="m" id="bbFiles">无活跃黑板</div>
+      </div>
+      <!-- seats injected by roundtable.js -->
+    </div>
+    <div class="bar">
+      <button id="exportBtn" disabled>导出纪要 .md</button>
+      <button id="saveBtn" disabled>保存到对话</button>
+      <span class="tip" id="sessionTip"></span>
+    </div>
+  </div>
+
+  <div class="memo" id="memo">
+    <h3>📋 圆桌纪要（实时）</h3>
+    <div id="memoBody"></div>
+  </div>
+</div>
+
+<!-- 自定义模态 -->
+<div class="modal" id="modal">
+  <div class="mpanel">
+    <h3>⚙ 自定义席位</h3>
+    <div id="modalBody"></div>
+    <div class="mclose"><button id="modalSave">保存</button> <button id="modalCancel">取消</button></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="/lazy-bundle.js" defer></script>
+</body>
+</html>
