@@ -1518,6 +1518,7 @@ class ChatPanel extends HTMLElement {
       document.addEventListener('keydown', (e) => {
         if (e.key === 'Escape' && !panel.classList.contains('hidden')) this.toggleBlackboardPanel(false);
       });
+      this.bindDrawerResize('blackboard-embed', 'qcli-blackboard-width');
     }
     const show = force !== undefined ? force : panel.classList.contains('hidden');
     panel.classList.toggle('hidden', !show);
@@ -1545,6 +1546,7 @@ class ChatPanel extends HTMLElement {
       document.addEventListener('keydown', (e) => {
         if (e.key === 'Escape' && !panel.classList.contains('hidden')) this.toggleMahjongPanel(false);
       });
+      this.bindDrawerResize('mahjong-embed', 'qcli-mahjong-width');
     }
     const show = force !== undefined ? force : panel.classList.contains('hidden');
     panel.classList.toggle('hidden', !show);
@@ -1555,6 +1557,40 @@ class ChatPanel extends HTMLElement {
       frame.setAttribute('src', 'about:blank'); // 卸载页面，停止 iframe 内轮询
     }
     if (this.mahjongBtn) this.mahjongBtn.classList.toggle('active', show);
+  }
+
+  // ── Drawer resize: 右侧抽屉可拖拽改变宽度，localStorage 记忆 ──
+  bindDrawerResize(panelId, storageKey) {
+    const panel = document.getElementById(panelId);
+    if (!panel) return;
+    const handle = panel.querySelector('.drawer-resize-handle');
+    if (!handle) return;
+    // restore saved width
+    try {
+      const saved = localStorage.getItem(storageKey);
+      if (saved) panel.style.width = saved + 'px';
+    } catch { /* ignore */ }
+    handle.addEventListener('mousedown', (e) => {
+      e.preventDefault();
+      handle.classList.add('resizing');
+      const startX = e.clientX;
+      const startW = panel.getBoundingClientRect().width;
+      const minW = 360;
+      const maxW = Math.min(window.innerWidth * 0.85, 900);
+      const onMove = (ev) => {
+        const dx = startX - ev.clientX; // 抽屉在右侧，向左拖增大宽度
+        let w = Math.max(minW, Math.min(maxW, startW + dx));
+        panel.style.width = w + 'px';
+      };
+      const onUp = () => {
+        handle.classList.remove('resizing');
+        document.removeEventListener('mousemove', onMove);
+        document.removeEventListener('mouseup', onUp);
+        try { localStorage.setItem(storageKey, String(Math.round(panel.getBoundingClientRect().width))); } catch { /* ignore */ }
+      };
+      document.addEventListener('mousemove', onMove);
+      document.addEventListener('mouseup', onUp);
+    });
   }
 
   // ── Public: Export chat ──

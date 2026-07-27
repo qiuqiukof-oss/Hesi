@@ -13,6 +13,7 @@ chat-panel {
   right: 0;
   bottom: 0;
   width: 400px;
+  min-width: 360px;
   max-width: 85vw;
   display: flex;
   flex-direction: column;
@@ -72,6 +73,7 @@ chat-panel {
   right: 0;
   bottom: 0;
   width: 400px;
+  min-width: 360px;
   max-width: 85vw;
   display: flex;
   flex-direction: column;
@@ -117,6 +119,23 @@ chat-panel {
   width: 100%;
   border: 0;
   background: transparent;
+}
+
+/* ── 右侧抽屉拖拽调整宽度（黑板 / 圆桌同款）── */
+.drawer-resize-handle {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 6px;
+  cursor: ew-resize;
+  z-index: 50;
+  background: transparent;
+  transition: background 0.15s ease;
+}
+.drawer-resize-handle:hover,
+.drawer-resize-handle.resizing {
+  background: var(--accent, #3b7dd8);
 }
 
 #chat-drawer {
