@@ -49,6 +49,15 @@ function getAI() {
   };
 }
 
+function getFavorites() {
+  try {
+    const raw = localStorage.getItem('qcli-favorites');
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch { return []; }
+}
+
 const Roundtable = {
   root: null,
   rt: null,
@@ -212,21 +221,34 @@ const Roundtable = {
   },
 
   renderCliList() {
-    if (!this.availableClis.length) {
+    const favs = new Set(getFavorites());
+    if (!this.availableClis.length && !favs.size) {
       this.elCliList.innerHTML = '<span class="tip">未检测到可用 CLI Agent（opencode/codex 等）。可先在「工具箱」安装，圆桌仍可可视化展示。</span>';
       return;
     }
+    // 收藏的 CLI 置顶，未注册但收藏的灰显展示
+    const present = new Map(this.availableClis.map((c) => [c.id, c]));
+    const missingFavs = Array.from(favs).filter((id) => !present.has(id));
+    const sorted = [...this.availableClis].sort((a, b) => (favs.has(b.id) ? 1 : 0) - (favs.has(a.id) ? 1 : 0));
+
     this.elCliList.innerHTML = '';
-    for (const c of this.availableClis) {
+    const mkChip = (c, { disabled = false, starred = false } = {}) => {
       const chip = document.createElement('label');
-      chip.className = 'clichip';
-      chip.innerHTML = `<input type="checkbox" value="${c.id}"> ${c.displayName || c.name}`;
-      chip.querySelector('input').addEventListener('change', (ev) => {
-        chip.classList.toggle('on', ev.target.checked);
-        this.selected = Array.from(this.elCliList.querySelectorAll('input:checked')).map((i) => i.value);
-        this.renderSeats();
-      });
-      this.elCliList.appendChild(chip);
+      chip.className = 'clichip' + (disabled ? ' disabled' : '') + (starred ? ' starred' : '');
+      const star = starred ? '⭐ ' : '';
+      chip.innerHTML = `<input type="checkbox" value="${c.id}" ${disabled ? 'disabled' : ''}> ${star}${c.displayName || c.name}`;
+      if (!disabled) {
+        chip.querySelector('input').addEventListener('change', (ev) => {
+          chip.classList.toggle('on', ev.target.checked);
+          this.selected = Array.from(this.elCliList.querySelectorAll('input:checked')).map((i) => i.value);
+          this.renderSeats();
+        });
+      }
+      return chip;
+    };
+    for (const c of sorted) this.elCliList.appendChild(mkChip(c, { starred: favs.has(c.id) }));
+    for (const id of missingFavs) {
+      this.elCliList.appendChild(mkChip({ id, name: id, displayName: id }, { disabled: true, starred: true }));
     }
   },
 
