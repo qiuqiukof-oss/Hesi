@@ -21,13 +21,13 @@ import { SKINS, applySkin, getSkin } from './roundtable-skins.js';
 /** @type {any} */
 const Q = window.QCLI = window.QCLI || {};
 
-// 座位几何：主持人上首，4 Agent 围坐。
+// 座位几何：主持人上首，4 Agent 分居四角，给中心桌布与气泡留足空间。
 const SEAT_POS = {
-  host:  { style: 'left:50%;top:6px;transform:translateX(-50%)' },
-  fox:   { style: 'left:16px;top:140px' },
-  panda: { style: 'right:16px;top:140px' },
-  owl:   { style: 'left:16px;top:312px' },
-  bunny: { style: 'right:16px;top:312px' },
+  host:  { style: 'left:50%;top:10px;transform:translateX(-50%)' },
+  fox:   { style: 'left:28px;top:170px' },
+  panda: { style: 'right:28px;top:170px' },
+  owl:   { style: 'left:28px;top:360px' },
+  bunny: { style: 'right:28px;top:360px' },
 };
 // 讨论参与者（AI 助手 + 各 CLI）按顺序映射到这 4 个席位。
 const AGENT_SEAT_ORDER = ['fox', 'panda', 'owl', 'bunny'];

@@ -30,8 +30,8 @@ test('getSkin 缺省/未知回落 hearth', () => {
   assert.equal(getSkin(undefined).id, 'hearth');
 });
 
-test('hearth 气泡图标为 💬；mahjong 按席位返回麻将牌', () => {
-  assert.equal(SKINS.hearth.messageIcon('fox'), '💬');
+test('hearth 气泡图标为 🔥；mahjong 按席位返回麻将牌', () => {
+  assert.equal(SKINS.hearth.messageIcon('fox'), '🔥');
   assert.equal(SKINS.mahjong.messageIcon('fox'), '🀄');
   assert.equal(SKINS.mahjong.messageIcon('panda'), '🀅');
   assert.equal(SKINS.mahjong.messageIcon('owl'), '🀆');
@@ -40,7 +40,7 @@ test('hearth 气泡图标为 💬；mahjong 按席位返回麻将牌', () => {
 });
 
 test('activeGlow 返回 rgba 阴影', () => {
-  assert.match(SKINS.hearth.activeGlow('#BA7517'), /^0 0 0 4px rgba\(/);
+  assert.match(SKINS.hearth.activeGlow('#BA7517'), /^0 0 18px rgba\(/);
   assert.match(SKINS.mahjong.activeGlow('#3B6D11'), /^0 0 18px rgba\(/);
 });
 
