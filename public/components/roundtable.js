@@ -146,8 +146,35 @@ const Roundtable = {
     this.elHideEmpty.addEventListener('change', () => {
       this.rt.classList.toggle('hide-empty', !this.elHideEmpty.checked);
     });
-    // 会话提示
-    this.elSession.textContent = `纪要保存到会话：${this.sessionId.slice(0, 8)}…（聊天用 ?sessionId=${this.sessionId} 可打开）`;
+    // 会话提示卡片
+    this.renderSessionCard({ saved: false });
+  },
+
+  renderSessionCard({ saved = false } = {}) {
+    if (!this.elSession) return;
+    const short = this.sessionId.slice(0, 8);
+    const icon = saved ? '✅' : '📋';
+    const title = saved ? '已保存到会话' : '纪要将保存到会话';
+    this.elSession.innerHTML = `
+      <div class="session-card">
+        <span class="sc-icon">${icon}</span>
+        <div class="sc-body">
+          <span class="sc-title">${title}</span>
+          <span class="sc-id">${short}… · 聊天用 ?sessionId=${this.sessionId}</span>
+        </div>
+        <span class="sc-actions">
+          <button class="sc-copy" data-sid="${this.esc(this.sessionId)}" title="复制 sessionId">复制</button>
+          <a class="sc-open" href="/index.html?sessionId=${encodeURIComponent(this.sessionId)}" target="_blank" rel="noopener noreferrer" title="新标签页打开该会话">打开</a>
+        </span>
+      </div>`;
+    const copyBtn = this.elSession.querySelector('.sc-copy');
+    if (copyBtn) {
+      copyBtn.addEventListener('click', () => {
+        const sid = copyBtn.getAttribute('data-sid');
+        navigator.clipboard.writeText(sid).then(() => this.toast('sessionId 已复制'))
+          .catch(() => this.toast('复制失败，可手动选中文本'));
+      });
+    }
   },
 
   async fetchState() {
@@ -507,8 +534,12 @@ const Roundtable = {
         body: JSON.stringify({ sessionId: this.sessionId, summary }),
       });
       const j = await r.json().catch(() => ({}));
-      if (j.ok) this.toast('已保存到对话（会话 ' + this.sessionId.slice(0, 8) + '…）');
-      else this.toast('保存失败：' + (j.error || j.reason || r.status));
+      if (j.ok) {
+        this.renderSessionCard({ saved: true });
+        this.toast('已保存到对话（会话 ' + this.sessionId.slice(0, 8) + '…）');
+      } else {
+        this.toast('保存失败：' + (j.error || j.reason || r.status));
+      }
     } catch (e) {
       this.toast('保存出错：' + e.message);
     }

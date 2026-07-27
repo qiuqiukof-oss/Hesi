@@ -54,6 +54,14 @@
   .hide-empty .empty{opacity:0;pointer-events:none}
   .likes{position:absolute;bottom:-2px;left:50%;transform:translateX(-50%);font-size:11px;color:var(--sub)}
   .bar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:10px}
+  .session-card{display:inline-flex;align-items:center;gap:10px;padding:8px 12px;border-radius:10px;background:linear-gradient(110deg,#0ea5e9,#22d3ee,#6366f1);color:#fff;font-size:12px;box-shadow:0 2px 12px rgba(99,102,241,.35)}
+  .session-card .sc-icon{font-size:16px}
+  .session-card .sc-body{display:flex;flex-direction:column;gap:1px}
+  .session-card .sc-title{font-weight:700;letter-spacing:.3px}
+  .session-card .sc-id{font-size:11px;opacity:.92}
+  .session-card .sc-actions{display:flex;gap:6px;margin-left:4px}
+  .session-card button,.session-card a{background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.35);color:#fff;border-radius:6px;padding:3px 8px;font-size:11px;cursor:pointer;text-decoration:none;line-height:1.4}
+  .session-card button:hover,.session-card a:hover{background:rgba(255,255,255,.3)}
   .memo{border:1px solid var(--line);border-radius:12px;padding:12px 14px;background:#fbfcfd;display:none}
   .memo.show{display:block}
   .memo h3{margin:0 0 8px;font-size:13px}
