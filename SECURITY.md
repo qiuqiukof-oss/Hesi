@@ -23,7 +23,7 @@ We aim to acknowledge reports within 72 hours.
 - 安全公告：GitHub Security Advisories（仓库 → Security → Advisories）。
 - 目前**未设现金奖励计划**（暂无 bounty 预算）；对负责任披露者将在公告中致谢。若未来
   启动 bounty，会在此处与 `security.txt` 同步更新。
-- 合规材料见 `COMPLIANCE.md`；安全部署与最小暴露配置见 `SECURE_DEPLOY.md`。
+- 合规材料见 `docs/governance/COMPLIANCE.md`；安全部署与最小暴露配置见 `docs/governance/SECURE_DEPLOY.md`。
 
 ## Operational Notes
 - Hesi can launch local CLI tools — including AI agents such as opencode / Claude / Codex — inside a

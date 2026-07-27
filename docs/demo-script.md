@@ -28,7 +28,7 @@
 
 - 故意输入危险命令（如 `dd if=... of=/dev/...` 或 `rm -rf /`），展示被 `blocklist` 拦截。
 - 打开审计：说明所有 PTY 命令、登录、上传、配置变更落盘 `data/audit.jsonl`。
-- 要点：统一审计总线、默认回环、最小暴露面（呼应 `COMPLIANCE.md`）。
+- 要点：统一审计总线、默认回环、最小暴露面（呼应 `governance/COMPLIANCE.md`）。
 
 ## 分镜 5 · 离线便携包（2:45–3:00）
 
