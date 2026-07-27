@@ -535,8 +535,9 @@ class ChatPanel extends HTMLElement {
     }
     if (this.blackboardBtn) {
       this.blackboardBtn.addEventListener('click', () => this.toggleBlackboardPanel());
-      const closeBtn = document.getElementById('bb-embed-close');
-      if (closeBtn) closeBtn.addEventListener('click', () => this.toggleBlackboardPanel(false));
+      // ⚠️ ✕ 收起按钮不能在此绑定：#blackboard-embed 在 body 末尾，
+      // bundle.js 同步加载（无 defer）执行到这里时该节点尚未解析，getElementById 为 null。
+      // 改为 toggleBlackboardPanel() 内首次展开时懒绑定。
     }
     // ── Drag resize via resize handle ──
     if (this.resizeHandle) {
@@ -1503,6 +1504,15 @@ class ChatPanel extends HTMLElement {
     const panel = document.getElementById('blackboard-embed');
     const frame = /** @type {HTMLIFrameElement|null} */ (document.getElementById('bb-embed-frame'));
     if (!panel || !frame) return;
+    // 懒绑定 ✕ / Esc（容器在 body 末尾，bundle 同步执行时未解析，须点击时才绑）
+    if (!this._bbCloseBound) {
+      this._bbCloseBound = true;
+      const closeBtn = document.getElementById('bb-embed-close');
+      if (closeBtn) closeBtn.addEventListener('click', () => this.toggleBlackboardPanel(false));
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && !panel.classList.contains('hidden')) this.toggleBlackboardPanel(false);
+      });
+    }
     const show = force !== undefined ? force : panel.classList.contains('hidden');
     panel.classList.toggle('hidden', !show);
     if (show) {
