@@ -599,6 +599,49 @@ When the user asks you to perform a "system self-check" / "全面自检" / "diag
   });
 
   // ──────────────────────────────────────────────
+  // GET /api/chat/context-usage — P0.6 单会话上下文窗口占用率（只读）
+  //   ?sessionId=xxx [&model=yyy]
+  // 复用 v0.3.1 P1 已落地的数据：session.contextEstimate（index 每轮回写）
+  // + ContextWindowManager 三层窗口策略。零新存储、零写入。
+  // ──────────────────────────────────────────────
+  router.get('/chat/context-usage', (req, res) => {
+    try {
+      const sessionId = String(req.query.sessionId || '').trim();
+      if (!sessionId) return res.status(400).json({ error: 'sessionId is required' });
+
+      const info = MemoryStore.getContextInfo(sessionId);
+      if (!info) return res.status(404).json({ error: 'session not found' });
+
+      // model 优先级：前端显式传参（当前选中模型） > session 记录 > 空（走 fallback 窗口）
+      const model = String(req.query.model || info.model || '').trim();
+      const windowTokens = cwManager.effectiveContext(model);
+      const contextEstimate = info.contextEstimate;
+      const pct = windowTokens > 0
+        ? Math.round((contextEstimate / windowTokens) * 1000) / 10
+        : 0;
+
+      // 窗口来源（与 ContextWindowManager 三层策略对应，仅用于 tooltip 展示）
+      const { DEFAULT_FALLBACK_CONTEXT } = require('../../lib/context-window');
+      let source = 'fallback';
+      const envCtx = Number(process.env.HESI_EFFECTIVE_CONTEXT);
+      if (Number.isFinite(envCtx) && envCtx > 0) source = 'effective-context';
+      else if (windowTokens !== DEFAULT_FALLBACK_CONTEXT) source = 'model-map';
+
+      return res.json({
+        model: model || null,
+        contextEstimate,
+        windowTokens,
+        pct,
+        compactThreshold: cwManager.compactThreshold(model),
+        maxOutputTokens: cwManager.maxOutputTokens(model),
+        source,
+      });
+    } catch (err) {
+      return res.status(500).json({ error: err.message });
+    }
+  });
+
+  // ──────────────────────────────────────────────
   // POST /api/chat/tools — Non-streaming tool execution
   // Used by MCP's ai_chat tool (avoids SSE parsing issues)
   // ──────────────────────────────────────────────
