@@ -22,6 +22,7 @@ import AgentSessionRenderer from './agent-session-renderer.js';
 import { renderMarkdown } from './message-render.js';
 import { buildBenefitBar } from './benefit-bar.js';
 import { computeSavings } from './savings-icon.js';
+import { computeContextUsage } from './context-usage.js';
 
 /** @typedef {import('../types').QCLI} QCLI */
 /** @typedef {{role:string, content:string}} ChatMessage */
@@ -111,6 +112,7 @@ class ChatPanel extends HTMLElement {
     this.terminalToggleBtn = document.getElementById('chat-terminal-toggle');
     this.exportBtn = document.getElementById('chat-export-btn');
     this.savingsBtn = document.getElementById('chat-savings-btn');
+    this.contextBtn = document.getElementById('chat-context-btn'); // P0.6 占用率圆环
     this.resizeHandle = document.getElementById('chat-resize-handle');
     this.attachBtn = document.getElementById('chat-attach-btn');
     this.fileInput = document.getElementById('chat-file-input');
@@ -1736,7 +1738,10 @@ class ChatPanel extends HTMLElement {
       }
     }
     this._sessionSavings = { saved, used, compact };
-    if (sessionId) this.updateSavingsIcon(sessionId);
+    if (sessionId) {
+      this.updateSavingsIcon(sessionId);
+      this.updateContextUsage(sessionId); // P0.6：切会话/刷新时同步占用率
+    }
   }
 
   /** 构建本轮收益对象（与后端日志/收益条同口径） */
@@ -1766,6 +1771,8 @@ class ChatPanel extends HTMLElement {
     this._sessionSavings.saved += metric.estSaved;
     this._sessionSavings.used += metric.actualUsed;
     this.updateSavingsIcon(sessionId);
+    // P0.6 主路径：一轮完整回复后拉取最新占用率（stream 结束后 contextEstimate 已写回）
+    this.updateContextUsage(sessionId);
     // best-effort 持久化到服务端 session.turnMetrics
     if (window.QCLI?.MemorySession?.recordTurnMetrics) {
       window.QCLI.MemorySession.recordTurnMetrics(sessionId, metric).catch(() => {});
@@ -1788,6 +1795,40 @@ class ChatPanel extends HTMLElement {
     }
     btn.title = v.title;
     btn.classList.toggle('active', v.active);
+  }
+
+  /**
+   * P0.6：刷新头部上下文占用率圆环（第二个圆环，色阶=健康度）。
+   * 数据来自只读端点 /api/chat/context-usage；失败静默——占用显示是增强，
+   * 绝不打扰主聊天流程。不常驻轮询：仅在一轮完成 / 切会话时调用。
+   */
+  async updateContextUsage(sessionId) {
+    const btn = this.contextBtn;
+    if (!btn || !sessionId) return;
+    try {
+      let model = '';
+      try { model = safeStorage.get('qcli-ai-model', '') || ''; } catch { /* ignore */ }
+      const qs = `sessionId=${encodeURIComponent(sessionId)}${model ? `&model=${encodeURIComponent(model)}` : ''}`;
+      const r = await fetch(`/api/chat/context-usage?${qs}`);
+      if (!r.ok) return;
+      const data = await r.json();
+      // 纯计算部分在 ./context-usage.js；此处只负责写 DOM（与 savings 同款分工）。
+      const v = computeContextUsage(data);
+      const pctEl = btn.querySelector('.savings-pct');
+      if (pctEl) {
+        pctEl.textContent = v.active ? `${Math.round(v.pct)}%` : '--';
+        pctEl.style.color = v.active ? v.color : '';
+      }
+      const fill = btn.querySelector('.savings-fill');
+      if (fill) {
+        fill.style.strokeDasharray = v.strokeDasharray;
+        fill.style.strokeDashoffset = v.strokeDashoffset;
+        fill.style.stroke = v.color;
+        fill.style.opacity = v.active ? '1' : '0.25';
+      }
+      btn.title = v.title;
+      btn.classList.toggle('active', v.active);
+    } catch { /* 静默降级 */ }
   }
 
   showThinking() {
