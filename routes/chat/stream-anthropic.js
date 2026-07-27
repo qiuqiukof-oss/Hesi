@@ -23,6 +23,8 @@ const {
   CONTINUE_ROUNDS,
   fetchLlmWithRetry,
 } = require('./utils');
+const { ContextWindowManager } = require('../../lib/context-window');
+const cwManager = new ContextWindowManager();
 const { executeToolCall, toolRateLimiter } = require('./tools');
 const { pruneToolContext } = require('./token-budget');
 const { killDelegatePTY, abortDelegate } = require('../ai-tools/builtin/agent');
@@ -292,7 +294,7 @@ async function streamAnthropicCore(baseUrl, apiKey, model, systemText, messages,
     system: [{ type: 'text', text: systemText }],
     messages,
     stream: true,
-    max_tokens: 32768,
+    max_tokens: cwManager.maxOutputTokens(modelName),
   };
   const url = buildApiUrl(baseUrl, 'https://api.anthropic.com/v1', '/messages');
   const response = await fetchLlmWithRetry(url, {
@@ -398,7 +400,7 @@ async function streamAnthropicWithTools(res, messages, apiKey, model, baseUrl, t
       model: modelName,
       messages: conversation,
       system: systemBlocks && systemBlocks.length ? systemBlocks : undefined,
-      max_tokens: 32768,
+      max_tokens: cwManager.maxOutputTokens(modelName),
       stream: true,
     };
     if (anthropicTools) {

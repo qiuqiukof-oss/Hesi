@@ -25,6 +25,8 @@ const {
   CONTINUE_ROUNDS,
   fetchLlmWithRetry,
 } = require('./utils');
+const { ContextWindowManager } = require('../../lib/context-window');
+const cwManager = new ContextWindowManager();
 const { QCLI_TOOLS, executeToolCall, toolRateLimiter } = require('./tools');
 const { pruneToolContext } = require('./token-budget');
 const { killDelegatePTY, abortDelegate } = require('../ai-tools/builtin/agent');
@@ -135,7 +137,7 @@ async function streamOpenAIWithTools(res, messages, apiKey, model, baseUrl, tool
       messages,
       stream: true,
       stream_options: { include_usage: true },
-      max_tokens: 32768,
+      max_tokens: cwManager.maxOutputTokens(modelName),
     };
     if (tools) {
       body.tools = tools;
@@ -599,7 +601,7 @@ async function streamOpenAICore(baseUrl, apiKey, model, messages, cbs = {}) {
     messages,
     stream: true,
     stream_options: { include_usage: true },
-    max_tokens: 32768,
+    max_tokens: cwManager.maxOutputTokens(modelName),
   };
   const response = await fetchLlmWithRetry(url, {
     'Content-Type': 'application/json',

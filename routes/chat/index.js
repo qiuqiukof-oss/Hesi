@@ -27,6 +27,8 @@ const { recordCompact } = require('./metrics'); // P1.5: 上下文压缩计数�
 // facade only — internal modules stay encapsulated.
 const MemoryStore = require('../../lib/memory');
 const memoryConfig = require('../../lib/memory/config');
+const { ContextWindowManager } = require('../../lib/context-window');
+const cwManager = new ContextWindowManager();
 
 // ============================================================
 // Non-streaming chat with tool support (for MCP ai_chat)
@@ -92,7 +94,7 @@ async function nonStreamingOpenAI(messages, apiKey, model, baseUrl, broadcastFn,
         messages: currentMessages,
         tools: QCLI_TOOLS,
         tool_choice: 'auto',
-        max_tokens: 32768,
+        max_tokens: cwManager.maxOutputTokens(modelName),
       }),
       signal: AbortSignal.timeout(AI_API_FETCH_TIMEOUT),
     });
@@ -183,7 +185,7 @@ async function nonStreamingAnthropic(messages, apiKey, model, baseUrl, broadcast
         model: modelName,
         messages: conversation,
         system: systemMsg?.content || undefined,
-        max_tokens: 32768,
+        max_tokens: cwManager.maxOutputTokens(modelName),
         tools: anthropicTools,
       }),
       signal: AbortSignal.timeout(AI_API_FETCH_TIMEOUT),
