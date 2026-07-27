@@ -61,6 +61,7 @@ class ChatPanel extends HTMLElement {
     this.resizeHandle = null;
     this.terminalToggleBtn = null;
     this.exportBtn = null;
+    this.blackboardBtn = null;
     this.mermaidPreviewEl = null;
     this._mermaidPreviewTimer = null;
 
@@ -111,6 +112,7 @@ class ChatPanel extends HTMLElement {
     this.clearBtn = document.getElementById('chat-clear-btn');
     this.terminalToggleBtn = document.getElementById('chat-terminal-toggle');
     this.exportBtn = document.getElementById('chat-export-btn');
+    this.blackboardBtn = document.getElementById('chat-blackboard-btn');
     this.savingsBtn = document.getElementById('chat-savings-btn');
     this.contextBtn = document.getElementById('chat-context-btn'); // P0.6 占用率圆环
     this.resizeHandle = document.getElementById('chat-resize-handle');
@@ -530,6 +532,11 @@ class ChatPanel extends HTMLElement {
     }
     if (this.exportBtn) {
       this.exportBtn.addEventListener('click', () => this.exportChat());
+    }
+    if (this.blackboardBtn) {
+      this.blackboardBtn.addEventListener('click', () => this.toggleBlackboardPanel());
+      const closeBtn = document.getElementById('bb-embed-close');
+      if (closeBtn) closeBtn.addEventListener('click', () => this.toggleBlackboardPanel(false));
     }
     // ── Drag resize via resize handle ──
     if (this.resizeHandle) {
@@ -1487,6 +1494,24 @@ class ChatPanel extends HTMLElement {
     if (Q.MemorySession && Q.MemorySession.enabled) {
       Q.MemorySession.create().catch(() => {});
     }
+  }
+
+  // ── Public: 黑板嵌入面板开合（iframe 零逻辑重复；收起清空 src 停轮询）──
+
+  /** @param {boolean} [force] true=强制展开 / false=强制收起 / 省略=切换 */
+  toggleBlackboardPanel(force) {
+    const panel = document.getElementById('blackboard-embed');
+    const frame = /** @type {HTMLIFrameElement|null} */ (document.getElementById('bb-embed-frame'));
+    if (!panel || !frame) return;
+    const show = force !== undefined ? force : panel.classList.contains('hidden');
+    panel.classList.toggle('hidden', !show);
+    if (show) {
+      // 每次展开重新加载（拿到最新状态；关闭期间零轮询）
+      frame.setAttribute('src', '/blackboard.html?embed=1');
+    } else {
+      frame.setAttribute('src', 'about:blank'); // 卸载页面，停止 iframe 内轮询
+    }
+    if (this.blackboardBtn) this.blackboardBtn.classList.toggle('active', show);
   }
 
   // ── Public: Export chat ──

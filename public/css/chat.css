@@ -5,6 +5,55 @@ chat-panel {
   display: block;
 }
 
+/* ── 黑板嵌入面板（chat 抽屉上方向上展开，iframe 零逻辑重复）── */
+#blackboard-embed {
+  flex-shrink: 0;
+  height: 45vh;
+  min-height: 220px;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-elevated);
+  border-top: 1px solid var(--border-default);
+  z-index: 6;
+}
+
+#blackboard-embed.hidden {
+  display: none;
+}
+
+#blackboard-embed .bb-embed-bar {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 10px;
+  border-bottom: 1px solid var(--border-default);
+  font-size: 12.5px;
+}
+
+#blackboard-embed .bb-embed-title {
+  font-weight: 600;
+  margin-right: auto;
+}
+
+#blackboard-embed .bb-embed-open {
+  text-decoration: none;
+  color: inherit;
+  opacity: 0.75;
+  padding: 2px 6px;
+}
+
+#blackboard-embed .bb-embed-open:hover {
+  opacity: 1;
+}
+
+#blackboard-embed iframe {
+  flex: 1;
+  width: 100%;
+  border: 0;
+  background: transparent;
+}
+
 #chat-drawer {
   flex-shrink: 0;
   height: 280px;

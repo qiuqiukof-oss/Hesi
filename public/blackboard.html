@@ -92,6 +92,11 @@
   .log-row { display: flex; gap: 10px; padding: 4px 0; border-bottom: 1px dashed #eef0f2; }
   .log-row .ts { color: var(--muted); font-family: Consolas, monospace; flex: none; }
   .log-row .actor { color: var(--blue); flex: none; }
+
+  /* ── embed 模式（?embed=1，被 chat 面板 iframe 嵌入时）：隐藏大标题、收紧留白 ── */
+  body.embed { padding: 8px 10px; }
+  body.embed header h1, body.embed header .sub { display: none; }
+  body.embed header { margin-bottom: 8px; }
 </style>
 </head>
 <body>
@@ -304,9 +309,11 @@
       else restart();
     });
 
-    // URL 参数支持 ?projectId=xxx
-    var qp = new URLSearchParams(location.search).get('projectId');
+    // URL 参数支持 ?projectId=xxx / ?embed=1（iframe 嵌入模式：紧凑布局）
+    var params = new URLSearchParams(location.search);
+    var qp = params.get('projectId');
     if (qp) $('projectId').value = qp;
+    if (params.get('embed') === '1') document.body.classList.add('embed');
     restart();
   })();
   </script>

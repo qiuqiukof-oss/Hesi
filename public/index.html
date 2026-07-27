@@ -195,6 +195,14 @@
 
       <!-- ====== Chat Drawer ====== -->
       <chat-panel>
+      <div id="blackboard-embed" class="hidden">
+        <div class="bb-embed-bar">
+          <span class="bb-embed-title">🗂️ 多 Agent 黑板</span>
+          <a class="bb-embed-open" href="/blackboard.html" target="_blank" rel="noopener noreferrer" title="新标签页打开完整版">⛶</a>
+          <button id="bb-embed-close" class="chat-action-btn" title="收起面板">✕</button>
+        </div>
+        <iframe id="bb-embed-frame" title="多 Agent 黑板"></iframe>
+      </div>
       <div id="chat-drawer" class="hidden">
         <div id="chat-resize-handle" data-i18n-title="chat.resize"></div>
         <div class="chat-header">
@@ -204,6 +212,7 @@
           <div class="chat-header-actions">
             <button id="chat-terminal-toggle" class="chat-action-btn terminal-toggle active" title="终端上下文：已启用">📟</button>
             <button id="chat-export-btn" class="chat-action-btn" title="导出聊天记录">📥</button>
+            <button id="chat-blackboard-btn" class="chat-action-btn" title="多 Agent 黑板面板">🗂️</button>
             <button id="chat-memory-btn" class="chat-action-btn" title="记忆（用户画像 / 已记住的事实）">🧠</button>
             <button id="chat-savings-btn" class="chat-action-btn savings" title="本会话暂无节省记录">
               <span class="savings-ring" aria-hidden="true">
