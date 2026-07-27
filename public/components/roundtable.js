@@ -303,7 +303,11 @@ const Roundtable = {
     if (bubble !== undefined) {
       s._bub = (s._bub || '') + bubble;
       s.bubEl.style.display = 'block';
-      s.bubEl.textContent = s._bub.slice(-120);
+      const color = (s.agent && s.agent.themeColor) || '#c9ced4';
+      const av = renderAvatarInner(s.agent);
+      const nm = this.esc(name || s.agent.name || '');
+      s.bubEl.style.borderColor = color;
+      s.bubEl.innerHTML = `<div class="bub-hd"><span class="bub-av" style="border:1.5px solid ${color}">${av}</span><span class="bub-name">${nm}</span></div><div class="bub-body">${this.esc(s._bub.slice(-200))}</div>`;
       this.positionBubble(seatId);
     }
   },
@@ -311,10 +315,22 @@ const Roundtable = {
   positionBubble(seatId) {
     const s = this.seats[seatId];
     if (!s) return;
-    const pos = SEAT_POS[seatId].style;
-    if (pos.includes('left:50%')) { s.bubEl.style.left = '50%'; s.bubEl.style.top = '70px'; s.bubEl.style.transform = 'translateX(-50%)'; }
-    else if (pos.includes('right:16px')) { s.bubEl.style.right = '150px'; s.bubEl.style.top = '150px'; }
-    else { s.bubEl.style.left = '150px'; s.bubEl.style.top = '150px'; }
+    if (seatId === 'host') {
+      s.bubEl.style.left = '50%';
+      s.bubEl.style.top = '80px';
+      s.bubEl.style.right = 'auto';
+      s.bubEl.style.transform = 'translateX(-50%)';
+    } else if (seatId === 'fox' || seatId === 'owl') {
+      s.bubEl.style.left = '92px';
+      s.bubEl.style.top = '-8px';
+      s.bubEl.style.right = 'auto';
+      s.bubEl.style.transform = 'none';
+    } else {
+      s.bubEl.style.right = '92px';
+      s.bubEl.style.top = '-8px';
+      s.bubEl.style.left = 'auto';
+      s.bubEl.style.transform = 'none';
+    }
   },
 
   async startDiscussion() {
@@ -413,7 +429,7 @@ const Roundtable = {
         if (seatId) {
           const s = this.seats[seatId];
           if (s) {
-            s._bub = ''; s.bubEl.style.display = 'none'; s.bubEl.textContent = '';
+            s._bub = ''; s.bubEl.style.display = 'none'; s.bubEl.innerHTML = '';
             if (this.skinObj.tileAnim) {
               s.el.classList.add('tile-out');
               setTimeout(() => s.el.classList.remove('tile-out'), 520);
