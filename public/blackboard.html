@@ -43,9 +43,15 @@
     background: var(--panel); border: 1px solid var(--border);
     border-radius: var(--radius); padding: 14px 16px;
   }
-  section h2 { font-size: 14px; font-weight: 600; margin-bottom: 10px; color: #3a4048; }
+  section h2 { font-size: 14px; font-weight: 600; margin-bottom: 4px; color: #3a4048; }
   section h2 .count { color: var(--muted); font-weight: 400; font-size: 12px; }
-  .empty { color: var(--muted); font-size: 13px; padding: 8px 0; }
+  .hint { color: var(--muted); font-size: 12px; margin-bottom: 10px; line-height: 1.5; }
+  .empty { color: var(--muted); font-size: 13px; padding: 8px 0; line-height: 1.6; }
+
+  /* 图例 */
+  .legend { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; font-size: 12px; color: var(--muted); margin-bottom: 14px; }
+  .legend .li { display: flex; align-items: center; gap: 5px; }
+  .legend .sw { width: 10px; height: 10px; border-radius: 3px; flex: none; }
 
   /* 任务卡 */
   .task-card {
@@ -109,24 +115,38 @@
     <span id="meta"></span>
   </header>
 
+  <div class="legend">
+    <span>状态图例：</span>
+    <span class="li"><span class="sw" style="background:var(--gray)"></span>等待中</span>
+    <span class="li"><span class="sw" style="background:var(--blue)"></span>执行中</span>
+    <span class="li"><span class="sw" style="background:var(--orange)"></span>重试中</span>
+    <span class="li"><span class="sw" style="background:var(--green)"></span>已完成</span>
+    <span class="li"><span class="sw" style="background:var(--red)"></span>失败</span>
+  </div>
+
   <div class="grid">
     <section>
-      <h2>任务看板 <span class="count" id="taskCount"></span></h2>
-      <div id="tasks"><div class="empty">暂无数据</div></div>
+      <h2>📋 任务看板 <span class="count" id="taskCount"></span></h2>
+      <div class="hint">工作流里的每个子任务：谁在做（@后面是执行的 Agent）、进行到哪一步。</div>
+      <div id="tasks"><div class="empty">暂无任务。<br>在聊天里让 AI 启动一个多 Agent 工作流（workflow）后，这里会实时显示每个子任务的进度。</div></div>
     </section>
     <section>
-      <h2>文件状态 <span class="count" id="fileCount"></span></h2>
-      <div id="files" class="file-grid"><div class="empty">暂无数据</div></div>
-      <h2 style="margin-top:16px">角色分配</h2>
-      <div id="roles"><div class="empty">暂无数据</div></div>
+      <h2>📁 文件状态 <span class="count" id="fileCount"></span></h2>
+      <div class="hint">各任务正在改动的文件：圆点颜色 = 状态，#号后是产出内容指纹（内容变了指纹就变）。</div>
+      <div id="files" class="file-grid"><div class="empty">暂无文件记录（任务声明了 files 字段才会显示）。</div></div>
+      <h2 style="margin-top:16px">👤 角色分配</h2>
+      <div class="hint">每个 Agent 当前扮演的角色；任务失败重试时会自动「转岗」（如 编码→调试）。</div>
+      <div id="roles"><div class="empty">暂无角色（任务声明了 role 字段才会显示）。</div></div>
     </section>
     <section class="full">
-      <h2>依赖 DAG</h2>
+      <h2>🔗 任务依赖图</h2>
+      <div class="hint">箭头表示先后关系：A → B 即「B 要等 A 完成才能开始」；没有箭头相连的任务是并行执行的。节点颜色 = 当前状态（见顶部图例）。</div>
       <div id="dag"><span id="dagHint">等待数据…</span></div>
     </section>
     <section class="full">
-      <h2>活动日志 <span class="count" id="logCount"></span></h2>
-      <div id="logs"><div class="empty">暂无数据</div></div>
+      <h2>📜 活动日志 <span class="count" id="logCount"></span></h2>
+      <div class="hint">按时间倒序（最新在最上面）记录每个动作：谁、什么时候、干了什么。</div>
+      <div id="logs"><div class="empty">暂无日志。</div></div>
     </section>
   </div>
 
@@ -181,6 +201,8 @@
     function statusClass(st) {
       return ['pending', 'in_progress', 'retrying', 'done', 'failed'].indexOf(st) >= 0 ? st : 'pending';
     }
+    var ST_LABEL = { pending: '等待中', in_progress: '执行中', retrying: '重试中', done: '已完成', failed: '失败' };
+    function stLabel(st) { return ST_LABEL[statusClass(st)] || '等待中'; }
 
     function render(state) {
       // 任务看板
@@ -190,12 +212,12 @@
         var st = statusClass(t.status);
         return '<div class="task-card">' +
           '<span class="tid">' + esc(t.id) + '</span>' +
-          (t.assignee ? '<span class="assignee">@' + esc(t.assignee) + '</span>' : '') +
+          (t.assignee ? '<span class="assignee" title="执行此任务的 Agent">@' + esc(t.assignee) + '</span>' : '') +
           (t.type ? '<span class="assignee">[' + esc(t.type) + ']</span>' : '') +
-          '<span class="badge st-' + st + '">' + esc(t.status || 'pending') + '</span>' +
-          (t.lastError ? '<span class="err">⚠ ' + esc(t.lastError) + '</span>' : '') +
+          '<span class="badge st-' + st + '">' + stLabel(t.status) + '</span>' +
+          (t.lastError ? '<span class="err">⚠ 最近错误：' + esc(t.lastError) + '</span>' : '') +
           '</div>';
-      }).join('') : '<div class="empty">暂无任务</div>';
+      }).join('') : '<div class="empty">暂无任务。<br>在聊天里让 AI 启动一个多 Agent 工作流（workflow）后，这里会实时显示每个子任务的进度。</div>';
 
       // 文件状态
       var files = state.files && typeof state.files === 'object' ? state.files : {};
@@ -204,9 +226,9 @@
       $('files').innerHTML = fkeys.length ? fkeys.map(function (p) {
         var f = files[p] || {};
         var st = statusClass(f.status);
-        return '<span class="file-chip"><span class="dot fd-' + st + '"></span>' + esc(p) +
-          (f.hash ? '<span class="hash">#' + esc(f.hash) + '</span>' : '') + '</span>';
-      }).join('') : '<div class="empty">暂无文件</div>';
+        return '<span class="file-chip" title="' + esc(p) + ' — ' + stLabel(f.status) + '"><span class="dot fd-' + st + '"></span>' + esc(p) +
+          (f.hash ? '<span class="hash" title="产出内容指纹">#' + esc(f.hash) + '</span>' : '') + '</span>';
+      }).join('') : '<div class="empty">暂无文件记录（任务声明了 files 字段才会显示）。</div>';
 
       // 角色分配
       var roles = state.roles && typeof state.roles === 'object' ? state.roles : {};
@@ -214,7 +236,7 @@
       $('roles').innerHTML = rkeys.length ? rkeys.map(function (a) {
         return '<div class="role-row"><span class="agent">' + esc(a) + '</span>' +
           '<span class="arrow">→</span><span class="role-tag">' + esc(roles[a]) + '</span></div>';
-      }).join('') : '<div class="empty">暂无角色</div>';
+      }).join('') : '<div class="empty">暂无角色（任务声明了 role 字段才会显示）。</div>';
 
       // 日志（新的在上）
       var logs = Array.isArray(state.logs) ? state.logs.slice(-200).reverse() : [];

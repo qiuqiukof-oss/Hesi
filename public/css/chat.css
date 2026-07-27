@@ -5,16 +5,27 @@ chat-panel {
   display: block;
 }
 
-/* ── 黑板嵌入面板（chat 抽屉上方向上展开，iframe 零逻辑重复）── */
+/* ── 黑板面板：右侧伸缩抽屉（记忆抽屉同款 fixed 定位，脱离终端区 flex 布局，
+      不会被 xterm/overflow:hidden 挤压裁切；iframe 零逻辑重复）── */
 #blackboard-embed {
-  flex-shrink: 0;
-  height: 45vh;
-  min-height: 220px;
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 560px;
+  max-width: 92vw;
   display: flex;
   flex-direction: column;
   background: var(--bg-elevated);
-  border-top: 1px solid var(--border-default);
-  z-index: 6;
+  border-left: 1px solid var(--border-default);
+  box-shadow: -8px 0 28px rgba(0, 0, 0, 0.3);
+  z-index: 40;
+  animation: bb-slide-in 0.22s var(--ease-out, ease-out);
+}
+
+@keyframes bb-slide-in {
+  from { transform: translateX(30px); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
 }
 
 #blackboard-embed.hidden {
@@ -26,9 +37,9 @@ chat-panel {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 4px 10px;
+  padding: 8px 12px;
   border-bottom: 1px solid var(--border-default);
-  font-size: 12.5px;
+  font-size: 13px;
 }
 
 #blackboard-embed .bb-embed-title {

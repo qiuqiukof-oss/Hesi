@@ -195,14 +195,6 @@
 
       <!-- ====== Chat Drawer ====== -->
       <chat-panel>
-      <div id="blackboard-embed" class="hidden">
-        <div class="bb-embed-bar">
-          <span class="bb-embed-title">🗂️ 多 Agent 黑板</span>
-          <a class="bb-embed-open" href="/blackboard.html" target="_blank" rel="noopener noreferrer" title="新标签页打开完整版">⛶</a>
-          <button id="bb-embed-close" class="chat-action-btn" title="收起面板">✕</button>
-        </div>
-        <iframe id="bb-embed-frame" title="多 Agent 黑板"></iframe>
-      </div>
       <div id="chat-drawer" class="hidden">
         <div id="chat-resize-handle" data-i18n-title="chat.resize"></div>
         <div class="chat-header">
@@ -847,6 +839,15 @@
     <div class="ctx-item ctx-search" id="ctx-search">🔍 Search… (<kbd>Ctrl+Shift+F</kbd>)</div>
   </div>
 
+  <!-- ====== 多 Agent 黑板：右侧伸缩抽屉（记忆抽屉同款 fixed 定位，不受终端区 flex 布局挤压）====== -->
+  <div id="blackboard-embed" class="hidden">
+    <div class="bb-embed-bar">
+      <span class="bb-embed-title">🗂️ 多 Agent 黑板</span>
+      <a class="bb-embed-open" href="/blackboard.html" target="_blank" rel="noopener noreferrer" title="新标签页打开完整版">⛶</a>
+      <button id="bb-embed-close" class="chat-action-btn" title="收起面板">✕</button>
+    </div>
+    <iframe id="bb-embed-frame" title="多 Agent 黑板"></iframe>
+  </div>
 
 </body>
 </html>
