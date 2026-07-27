@@ -1565,31 +1565,45 @@ class ChatPanel extends HTMLElement {
     if (!panel) return;
     const handle = panel.querySelector('.drawer-resize-handle');
     if (!handle) return;
+    if (handle.dataset.resizable === '1') return;
+    handle.dataset.resizable = '1';
+    const DEFAULT_W = 400;
     // restore saved width
     try {
       const saved = localStorage.getItem(storageKey);
       if (saved) panel.style.width = saved + 'px';
     } catch { /* ignore */ }
+    const setWidth = (w) => { panel.style.width = Math.max(360, Math.min(Math.min(window.innerWidth * 0.85, 900), w)) + 'px'; };
+    handle.addEventListener('dblclick', () => {
+      setWidth(DEFAULT_W);
+      try { localStorage.removeItem(storageKey); } catch { /* ignore */ }
+    });
     handle.addEventListener('mousedown', (e) => {
+      if (e.button !== 0) return;
       e.preventDefault();
+      e.stopPropagation();
       handle.classList.add('resizing');
+      document.body.classList.add('drawer-resizing');
       const startX = e.clientX;
       const startW = panel.getBoundingClientRect().width;
       const minW = 360;
       const maxW = Math.min(window.innerWidth * 0.85, 900);
       const onMove = (ev) => {
-        const dx = startX - ev.clientX; // 抽屉在右侧，向左拖增大宽度
+        const dx = startX - ev.clientX; // 抽屉在右侧，向左拖增大、向右拖减小
         let w = Math.max(minW, Math.min(maxW, startW + dx));
         panel.style.width = w + 'px';
       };
       const onUp = () => {
         handle.classList.remove('resizing');
+        document.body.classList.remove('drawer-resizing');
         document.removeEventListener('mousemove', onMove);
         document.removeEventListener('mouseup', onUp);
+        window.removeEventListener('mouseup', onUp);
         try { localStorage.setItem(storageKey, String(Math.round(panel.getBoundingClientRect().width))); } catch { /* ignore */ }
       };
       document.addEventListener('mousemove', onMove);
       document.addEventListener('mouseup', onUp);
+      window.addEventListener('mouseup', onUp, { once: true });
     });
   }
 
