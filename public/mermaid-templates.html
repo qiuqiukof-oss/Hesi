@@ -131,7 +131,12 @@
         };
       }
 
-      // Ensure MermaidRenderer mock exists so plugin's renderAll() doesn't fail
+      // Ensure MermaidRenderer exists so plugin's renderAll() works on this page.
+      // We keep a lightweight standalone renderer that matches the DOM contract of
+      // the main DiagramRenderer: it replaces the .mermaid source node with a
+      // .mermaid-container/.diagram-container sibling, injects the SVG, and marks
+      // the container as rendered. This lets mermaid.css hide the loading spinner
+      // and size the preview correctly.
       if (!window.QCLI.MermaidRenderer) {
         window.QCLI.MermaidRenderer = {
           _initialized: false,
@@ -154,20 +159,30 @@
             if (!this._initialized) return;
             var els = document.querySelectorAll('.mermaid:not([data-rendered])');
             els.forEach(function(el) {
-              if (!el.textContent.trim()) return;
+              var source = el.textContent.trim();
+              if (!source) return;
               el.setAttribute('data-rendered', 'processing');
+
+              var wrapper = document.createElement('div');
+              wrapper.className = 'mermaid-container diagram-container';
+              wrapper.setAttribute('data-source', source);
+              wrapper.setAttribute('data-type', 'mermaid');
+
               try {
                 var id = 'mermaid-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6);
-                window.mermaid.render(id, el.textContent.trim()).then(function(result) {
-                  el.innerHTML = result.svg;
-                  el.setAttribute('data-rendered', 'done');
+                window.mermaid.render(id, source).then(function(result) {
+                  wrapper.innerHTML = result.svg;
+                  wrapper.setAttribute('data-rendered', 'done');
+                  if (el.parentNode) el.parentNode.replaceChild(wrapper, el);
                 }).catch(function(err) {
-                  el.innerHTML = '<div style="color:#ef4444;font-size:11px;">⚠️ ' + err.message + '</div>';
-                  el.setAttribute('data-rendered', 'error');
+                  wrapper.innerHTML = '<div style="color:#ef4444;font-size:11px;">⚠️ ' + err.message + '</div>';
+                  wrapper.setAttribute('data-rendered', 'error');
+                  if (el.parentNode) el.parentNode.replaceChild(wrapper, el);
                 });
               } catch (e) {
-                el.innerHTML = '<div style="color:#ef4444;font-size:11px;">⚠️ ' + e.message + '</div>';
-                el.setAttribute('data-rendered', 'error');
+                wrapper.innerHTML = '<div style="color:#ef4444;font-size:11px;">⚠️ ' + e.message + '</div>';
+                wrapper.setAttribute('data-rendered', 'error');
+                if (el.parentNode) el.parentNode.replaceChild(wrapper, el);
               }
             });
           },
