@@ -519,6 +519,23 @@ When the user asks you to perform a "system self-check" / "全面自检" / "diag
       ...contextMessages,
     ];
 
+    // v0.5.3: 严格 Jinja 模板兼容——把前导连续 system 合并为一条。
+    // 某些模型（qwen/llama 通过 vLLM/SGLang 部署）的 chat template 强制要求
+    // system 仅在消息数组的第一位且只能有一条，多 system 直接 400。
+    // 标准 OpenAI/Anthropic 端点对此宽容，合并后行为不变。
+    {
+      const firstNonSystem = contextMessages.findIndex(m => m.role !== 'system');
+      if (firstNonSystem > 1) {
+        const merged = contextMessages.slice(0, firstNonSystem)
+          .map(m => (m && m.content != null ? String(m.content) : ''))
+          .join('\n\n---\n\n');
+        contextMessages = [
+          { role: 'system', content: merged },
+          ...contextMessages.slice(firstNonSystem),
+        ];
+      }
+    }
+
     // ── B 方案：检测「全面自检 / 系统自检」意图 ──
     // 命中则把工具轮上限收紧到 6 轮（默认 50），把 LLM 调用数从 20+ 砍到 ~7，
     // 配合 A 方案的上下文封顶，几乎不可能再撞 apihub 免费档 429 限流。
