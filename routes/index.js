@@ -44,6 +44,7 @@ const { createRouter: createTeamsRouter } = require('./teams');
 const { createRouter: createRoundtableRouter } = require('./roundtable');
 const { createRouter: createWorkspaceRouter } = require('./workspace');
 const { createRouter: createFsRouter } = require('./fs');
+const { createRouter: createPlanRouter } = require('./ai-tools/plan-routes');
 // Optional access-token protection for sensitive HTTP routes.
 // No-op unless QCLI_ACCESS_TOKEN is set (loopback clients exempt by default).
 const { requireToken } = require('../lib/access-auth');
@@ -212,6 +213,9 @@ function setupRoutes(app, opts = {}) {
   app.use('/api/blackboard', createBlackboardRouter()); // Phase1 S8: 共享黑板只读观测
   app.use('/api/roundtable', createRoundtableRouter()); // Phase2 S1-S5: 围炉圆桌状态/覆盖层/纪要
   app.use('/api/workspaces', createTeamsRouter());
+
+  // ── Phase 0 全自动闭环：Plan 执行入口（gate→快照→执行→验收→反思） ──
+  app.use('/api/plan', createPlanRouter());
 
   // ── 能力发现端点（无需 token）：让内置助手 / 终端 agent 动态知道「网页端点」这条路 ──
   const { listWebPaths, getCapabilityBriefing } = require('../ws/web-executor');

@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>全自动 Plan 执行器 — Hesi</title>
+  <link rel="stylesheet" href="/css/theme.css" />
+  <link rel="stylesheet" href="/css/modal.css" />
+  <link rel="stylesheet" href="/css/plan-view.css" />
+</head>
+<body class="plan-page">
+  <header class="plan-header">
+    <h1>📋 全自动 Plan 执行器 <small>Phase 0 · 验证优先</small></h1>
+    <p class="plan-sub">
+      目标必须可机器验证（acceptance 用 command/script/http，禁用 manual）。执行前 git 分支快照、scope/forbidden 拦截、
+      失败回滚、结束跑验收、反思闭环。
+    </p>
+    <div class="plan-actions">
+      <button id="load-sample" class="btn">载入示例</button>
+      <button id="format-json" class="btn">格式化</button>
+      <button id="execute" class="btn btn-primary">▶ 执行 plan</button>
+      <a href="/" class="btn btn-ghost">返回</a>
+    </div>
+  </header>
+
+  <main class="plan-main">
+    <section class="plan-left">
+      <label class="plan-label" for="plan-input">Plan JSON</label>
+      <textarea id="plan-input" class="plan-textarea" spellcheck="false"
+        placeholder='{ "objective": "...", "acceptance": [...], "steps": [...] }'></textarea>
+
+      <details class="plan-advanced">
+        <summary>高级（圆桌推导 checkpoint 验收所需）</summary>
+        <div class="adv-grid">
+          <label>API Key<input id="api-key" type="password" placeholder="可选" /></label>
+          <label>Provider<input id="provider" placeholder="openai" /></label>
+          <label>BaseURL<input id="base-url" placeholder="https://..." /></label>
+          <label>Model<input id="model" placeholder="gpt-4o" /></label>
+          <label>Partners<input id="partners" placeholder="逗号分隔的 agent 名" /></label>
+        </div>
+      </details>
+    </section>
+
+    <section class="plan-right">
+      <div id="status-banner" class="status-banner hidden"></div>
+      <div id="reflection" class="reflection hidden"></div>
+      <div id="steps" class="steps"></div>
+      <div id="empty-hint" class="empty-hint">执行后这里显示逐步结果与反思。</div>
+    </section>
+  </main>
+
+  <script src="/plan-view.js"></script>
+</body>
+</html>
