@@ -500,6 +500,8 @@ async function speakStreaming(text, opts = {}) {
 
   // 朗读前剔除 emoji / 图标符号（始终不读表情图，无需开关）
   text = stripEmoji(text);
+  // 缩短标点/换行停顿：客户端侧统一替换为逗号级停顿（同时服务端 synthesizeToBuffer 也有相同逻辑，双重保险）
+  text = text.replace(/[。？！]/g, '，').replace(/\n+/g, '，');
   if (!text || !text.trim()) return false;
 
   const wantEdge = _state.engine === 'edge' || (_state.engine === 'auto' && _edgeAvailable !== false);
