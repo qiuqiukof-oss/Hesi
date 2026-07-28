@@ -1664,7 +1664,7 @@ class ChatPanel extends HTMLElement {
     }
   }
 
-  /** 流式 token 到达时增量分句，完整句立即朗读（"边生成边读"）。 */
+  /** 流式 token 到达时增量分句，批量朗读（"边生成边读"，减少句间网络间隙）。 */
   _ttsStreamOnToken(token) {
     if (!window.QCLI?.VoiceOutput) return;
     if (this._ttsBuffer == null) this._ttsBuffer = '';
@@ -1672,14 +1672,20 @@ class ChatPanel extends HTMLElement {
     const s = this._ttsBuffer;
     // 找到最后一个句末标点
     let lastB = -1;
+    let sentCount = 0;
     for (let i = s.length - 1; i >= 0; i--) {
       const c = s[i];
-      if (c === '。' || c === '！' || c === '？' || c === '!' || c === '?' || c === '\n') { lastB = i; break; }
+      if (c === '。' || c === '！' || c === '？' || c === '!' || c === '?' || c === '\n') {
+        if (lastB === -1) lastB = i;
+        sentCount++;
+      }
     }
     if (lastB === -1) return;
     const after = s.slice(lastB + 1).trim();
     if (after.length === 0) return; // 等下一句开始再 flush，避免过早截断末句
+    // 批量策略：积累 ≥2 句或 ≥80 字符才 flush，减少 TTS 请求次数和网络间隙停顿
     const complete = s.slice(0, lastB + 1);
+    if (sentCount < 2 && complete.length < 80) return;
     this._ttsBuffer = after;
     this._ttsStreamed = true;
     window.QCLI.VoiceOutput.speakSentence(complete);
