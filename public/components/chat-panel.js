@@ -1680,16 +1680,13 @@ class ChatPanel extends HTMLElement {
         sentCount++;
       }
     }
-    if (lastB === -1) {
-      // 安全兜底：缓冲区 >200 字符仍无句末标点时强制 flush，防止内存无限增长
-      if (s.length > 200) { this._ttsBuffer = ''; window.QCLI.VoiceOutput.speakSentence(s); }
-      return;
-    }
+    if (lastB === -1) return; // 无句末标点，继续积累
     const after = s.slice(lastB + 1).trim();
     if (after.length === 0) return; // 等下一句开始再 flush，避免过早截断末句
-    // 批量策略：积累 ≥2 句或 ≥80 字符才 flush（减少网络间隙），但超 200 字也强刷
+    // 批量策略：≥2 句 或 ≥80 字符才 flush（减少网络间隙）；
+    // 超 300 字符时即使单句也强制在边界处 flush（安全兜底，防 OOM 且不切断半句话）
     const complete = s.slice(0, lastB + 1);
-    if (sentCount < 2 && complete.length < 80 && complete.length < 200) return;
+    if (sentCount < 2 && complete.length < 80 && complete.length < 300) return;
     this._ttsBuffer = after;
     this._ttsStreamed = true;
     window.QCLI.VoiceOutput.speakSentence(complete);
