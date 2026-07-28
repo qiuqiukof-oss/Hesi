@@ -153,6 +153,37 @@ function splitForSpeech(text, maxLen = 150) {
 }
 
 /**
+ * 是否正在朗读（含排队中）。
+ * 关键：Web Speech 的 onstart 是异步回调，若仅用 _state.speaking 判断，
+ * 流式分句快速连续调用 speak() 时会发生竞态——上一句尚未 onstart 即被
+ * synth.cancel() 掐断。故必须同步引用 synth.speaking 实时状态。
+ */
+function isTtsBusy() {
+  if (_state.queue.length > 0) return true;
+  if (_state.speaking) return true;
+  const synth = window.speechSynthesis;
+  return !!(synth && synth.speaking);
+}
+
+/**
+ * 剔除 emoji / 图标符号，保留中文/英文标点与空格（供朗读前净化）。
+ * 覆盖：Emoji 与象形文字 (U+1F000–1FAFF)、区域指示符(旗帜)、杂项符号/骰子/棋、
+ * 装饰箭头、技术符号、变体选择符等。刻意保留：CJK 标点(、。！？)、全角标点、
+ * 破折号/省略号/引号/项目符号（U+2000–206F、U+3000–303F、U+FF00–FFEF）——
+ * 这些念出来无害且不破坏分句。
+ * @param {string} text
+ * @returns {string}
+ */
+function stripEmoji(text) {
+  if (!text) return '';
+  // 仅删除明确的 emoji/图标码点区块；其余（含所有标点）原样保留。
+  return text.replace(
+    /[\u{1F000}-\u{1FAFF}\u{1F1E6}-\u{1F1FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\u{2B00}-\u{2BFF}\u{2300}-\u{23FF}\u{FE00}-\u{FE0F}]/gu,
+    ''
+  );
+}
+
+/**
  * 朗读文本。
  * @param {string} text - 要朗读的文本
  * @param {object} [opts]
@@ -164,6 +195,10 @@ function splitForSpeech(text, maxLen = 150) {
  */
 function speak(text, opts = {}) {
   if (!_state.enabled) return false;
+  if (!text || !text.trim()) return false;
+
+  // 朗读前剔除 emoji / 图标符号（始终不读表情图，无需开关）
+  text = stripEmoji(text);
   if (!text || !text.trim()) return false;
 
   // 简化文本：去除控制字符和过长的空白
@@ -178,27 +213,26 @@ function speak(text, opts = {}) {
   const segments = splitForSpeech(cleanText, 150);
   if (segments.length > 1) {
     const segLang = opts.lang || detectTextLang(segments[0]);
-    // 已在朗读 + enqueue：整批入队
-    if (_state.speaking && opts.enqueue) {
-      segments.forEach(seg => _state.queue.push({ text: seg, lang: segLang }));
-      return true;
+    if (isTtsBusy()) {
+      // 已在朗读/排队：enqueue 才入队（否则丢弃避免打断当前朗读）
+      if (opts.enqueue) segments.forEach(seg => _state.queue.push({ text: seg, lang: segLang }));
+      return !!opts.enqueue;
     }
-    // 已在朗读 + 不 enqueue：拒绝（保持原行为）
-    if (_state.speaking && !opts.enqueue) return false;
     // 空闲：第一段立即朗读，剩余入队
     const [first, ...rest] = segments;
     rest.forEach(seg => _state.queue.push({ text: seg, lang: segLang }));
     return _doSpeak(first, { ...opts, lang: segLang });
   }
 
-  // 短文本（原逻辑）
-  // 如果正在朗读且不排队，拒绝
-  if (_state.speaking && !opts.enqueue) return false;
-
-  // 如果正在朗读且排队，加入队列
-  if (_state.speaking && opts.enqueue) {
-    _state.queue.push({ text: cleanText, lang: opts.lang || detectTextLang(cleanText) });
-    return true;
+  // 短文本
+  if (isTtsBusy()) {
+    if (opts.enqueue) {
+      // 排队等待当前朗读结束后续播
+      _state.queue.push({ text: cleanText, lang: opts.lang || detectTextLang(cleanText) });
+      return true;
+    }
+    // 不排队且正在朗读 → 拒绝（保持原行为，不打断）
+    return false;
   }
 
   return _doSpeak(cleanText, opts);
@@ -208,7 +242,8 @@ function _doSpeak(text, opts) {
   const synth = window.speechSynthesis;
   if (!synth) return false;
 
-  // 取消当前朗读
+  // 取消当前朗读（正常情况下此刻已非忙碌，cancel 为空操作；
+  // 仅防御性，避免任何残留 utterance 串音）
   synth.cancel();
   _state.speaking = false;
 
@@ -256,6 +291,10 @@ function _doSpeak(text, opts) {
 
   try {
     synth.speak(utterance);
+    // 同步置位：避免流式分句快速连续调用时，上一句 onstart 尚未触发，
+    // 下一句误判为「空闲」而 synth.cancel() 掐断上一句（导致只剩最后一句被朗读）。
+    _state.speaking = true;
+    _state.currentUtterance = utterance;
     return true;
   } catch (e) {
     console.warn('[VoiceOutput] speak() failed:', e.message);
@@ -456,6 +495,10 @@ let _edgeQueue = Promise.resolve();
 
 async function speakStreaming(text, opts = {}) {
   if (!_state.enabled) return false;
+  if (!text || !text.trim()) return false;
+
+  // 朗读前剔除 emoji / 图标符号（始终不读表情图，无需开关）
+  text = stripEmoji(text);
   if (!text || !text.trim()) return false;
 
   const wantEdge = _state.engine === 'edge' || (_state.engine === 'auto' && _edgeAvailable !== false);

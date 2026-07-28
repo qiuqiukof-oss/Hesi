@@ -29,6 +29,7 @@ const { ContextWindowManager } = require('../../lib/context-window');
 const cwManager = new ContextWindowManager();
 const { QCLI_TOOLS, executeToolCall, toolRateLimiter } = require('./tools');
 const { pruneToolContext } = require('./token-budget');
+const { describeTools } = require('./tool-labels');
 const { killDelegatePTY, abortDelegate } = require('../ai-tools/builtin/agent');
 
 /**
@@ -84,6 +85,13 @@ async function streamOpenAIWithTools(res, messages, apiKey, model, baseUrl, tool
   const MAX_TOTAL_DURATION = MAX_TOTAL_DURATION_MS; // 放宽到 15 分钟，允许长任务 Agent（如 agent_delegate 最多 300s）完整跑完
   const _toolChainStart = Date.now();
   let lastToolSignature = '';
+  // 工具循环失控防护（P0.5）：现有去重仅覆盖「完全相同签名」与「8 轮窗口内近似签名」，
+  // 无法拦住本地模型「同一工具换点参数反复调」的探索性循环——这类会一路烧到 50 轮
+  // 硬上限才停（用户反馈的"工具调用超出限制/幽灵中断"，且前几轮短上下文时易发、几轮后收敛）。
+  // 这里按「工具名集合」连续重复判定，提前优雅停止；阈值可经 env 关闭/调大。
+  let lastToolNameSet = '';
+  let consecutiveSameSet = 0;
+  const TOOL_LOOP_GUARD = Number(process.env.HESI_LLM_TOOL_LOOP_GUARD) || 15;
   // 近期工具签名窗口：捕获「参数略有变化但调用模式重复」的循环（原仅查连续完全相同）
   const recentSigs = [];
 
@@ -286,12 +294,26 @@ async function streamOpenAIWithTools(res, messages, apiKey, model, baseUrl, tool
 
     // Send status + tool_call_start event to client
     const toolNames = [...new Set(toolCalls.map(t => t.name))];
-    res.write(`data: ${JSON.stringify({ type: 'status', message: `正在查询 ${toolNames.join(', ')}...` })}\n\n`);
+    // 工具循环失控防护：同一组工具名连续重复调用 → 提前停止，避免烧到 50 轮硬上限
+    const nameSet = toolNames.slice().sort().join('|');
+    if (nameSet && nameSet === lastToolNameSet) {
+      consecutiveSameSet++;
+    } else {
+      consecutiveSameSet = 0;
+      lastToolNameSet = nameSet;
+    }
+    if (TOOL_LOOP_GUARD > 0 && consecutiveSameSet >= TOOL_LOOP_GUARD) {
+      res.write(`data: ${JSON.stringify({ type: 'status', message: `检测到同一工具连续调用 ${consecutiveSameSet} 轮（疑似循环），已停止以免失控` })}\n\n`);
+      res.write('data: [DONE]\n\n');
+      res.end();
+      return;
+    }
+    res.write(`data: ${JSON.stringify({ type: 'status', message: `使用${describeTools(toolNames)}…` })}\n\n`);
     res.write(`data: ${JSON.stringify({ type: 'tool_call_start', names: toolNames })}\n\n`);
 
     // 标记工具执行中，心跳会据此向前端展示“运行中…（已 Xs）”以减少“卡住”错觉
     toolRunning = true;
-    toolRunningName = toolNames.join(', ');
+    toolRunningName = describeTools(toolNames);
     toolRunStart = Date.now();
 
     // Execute each tool — isolated so one failure doesn't break the chain

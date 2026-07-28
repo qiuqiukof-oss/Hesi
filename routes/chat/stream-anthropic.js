@@ -27,6 +27,7 @@ const { ContextWindowManager } = require('../../lib/context-window');
 const cwManager = new ContextWindowManager();
 const { executeToolCall, toolRateLimiter } = require('./tools');
 const { pruneToolContext } = require('./token-budget');
+const { describeTools } = require('./tool-labels');
 const { killDelegatePTY, abortDelegate } = require('../ai-tools/builtin/agent');
 
 /**
@@ -358,6 +359,10 @@ async function streamAnthropicWithTools(res, messages, apiKey, model, baseUrl, t
   const MAX_TOTAL_DURATION = MAX_TOTAL_DURATION_MS; // 放宽到 15 分钟，允许长任务 Agent 完整跑完
   const _toolChainStart = Date.now();
   let lastToolSignature = '';
+  // 工具循环失控防护（P0.5）：同 stream-openai.js —— 按工具名集合连续重复提前停止
+  let lastToolNameSet = '';
+  let consecutiveSameSet = 0;
+  const TOOL_LOOP_GUARD = Number(process.env.HESI_LLM_TOOL_LOOP_GUARD) || 15;
   // 近期工具签名窗口：捕获「参数略有变化但调用模式重复」的循环
   const recentSigs = [];
 
@@ -561,12 +566,26 @@ async function streamAnthropicWithTools(res, messages, apiKey, model, baseUrl, t
     currentMessages.push(assistantMsg);
 
     const toolNames = [...new Set(toolCalls.map(t => t.name))];
-    res.write(`data: ${JSON.stringify({ type: 'status', message: `正在查询 ${toolNames.join(', ')}...` })}\n\n`);
+    // 工具循环失控防护：同一组工具名连续重复调用 → 提前停止，避免烧到硬上限
+    const nameSet = toolNames.slice().sort().join('|');
+    if (nameSet && nameSet === lastToolNameSet) {
+      consecutiveSameSet++;
+    } else {
+      consecutiveSameSet = 0;
+      lastToolNameSet = nameSet;
+    }
+    if (TOOL_LOOP_GUARD > 0 && consecutiveSameSet >= TOOL_LOOP_GUARD) {
+      res.write(`data: ${JSON.stringify({ type: 'status', message: `检测到同一工具连续调用 ${consecutiveSameSet} 轮（疑似循环），已停止以免失控` })}\n\n`);
+      res.write('data: [DONE]\n\n');
+      res.end();
+      return;
+    }
+    res.write(`data: ${JSON.stringify({ type: 'status', message: `使用${describeTools(toolNames)}…` })}\n\n`);
     res.write(`data: ${JSON.stringify({ type: 'tool_call_start', names: toolNames })}\n\n`);
 
     // 标记工具执行中，心跳展示“运行中…（已 Xs）”
     toolRunning = true;
-    toolRunningName = toolNames.join(', ');
+    toolRunningName = describeTools(toolNames);
     toolRunStart = Date.now();
 
     // Execute each tool — isolated so one failure doesn't break the chain

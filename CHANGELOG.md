@@ -6,6 +6,22 @@ use `vMAJOR.MINOR.PATCH-<tag>`.
 
 ---
 
+## [v0.5.1] — 2026-07-28
+
+### 语音输出 / 工具调用稳定性修复（实测问题修复）
+- **TTS 只读最后一句（致命）**：Web Speech `onstart` 异步回调里才置 `_state.speaking`，导致流式多句几乎同时判定「空闲」→ `synth.cancel()` 把前句全部掐断，只剩末句出声。改为 **`synth.speak()` 同步置忙** + 新增 `isTtsBusy()` 队列守卫，逐句串行合成。
+- **Emoji 字面读音（体验）**：TTS 文本统一经 `stripEmoji()` 过滤（覆盖 `\u{1F000}–\u{1FAFF}` 等 7 段 emoji 区间），**无条件关闭** emoji 朗读（按用户要求不做开关），保留箭头 `→`、项目符号 `•`、中英文标点。
+- **工具名现身（体验）**：AI 调用工具时的状态文案由裸工具名改为中文「使用「读取工具」「编辑工具」…」，新增 `routes/chat/tool-labels.js` 映射 31 个内置工具 + MCP/未知回退「工具」。`stream-openai.js`/`stream-anthropic.js` 均已接入。
+- **幽灵中断（致命）**：本地模型（如 gamma4/qwen3）常「同工具不同参数」循环，旧守卫只去重精确签名 / 8 轮窗口，最终撞 50 轮硬上限静默中断。新增 `TOOL_LOOP_GUARD`（默认 15，env `HESI_LLM_TOOL_LOOP_GUARD`，0=关）连续重复守卫，超阈优雅停止并提示「疑似循环，已停止」。
+
+### 验证
+- `npm test` **全绿（300 用例）**
+- `npm run lint` **0 error**
+- `npm run build:main` ✅ **969.1kb**；`npm run build:lazy` ✅ **263.1kb**
+- 提交范围：voice-output.js / stream-openai.js / stream-anthropic.js / tool-labels.js（新）+ bundle.js（重建）
+
+---
+
 ## [v0.5.0] — 2026-07-28
 
 ### 验证优先模式（Verify-First，Phase 0）
