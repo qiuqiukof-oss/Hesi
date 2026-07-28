@@ -1,8 +1,11 @@
 {
-  "name": "hesi",
+  "name": "@qiuqiukof/hesi",
   "version": "0.4.3",
   "description": "Hesi（合思）— Run any CLI in your browser",
   "main": "server.js",
+  "bin": {
+    "hesi": "bin/hesi.js"
+  },
   "license": "MIT",
   "author": "Hesi Contributors",
   "repository": {
@@ -16,12 +19,14 @@
   "engines": {
     "node": ">=18.0.0"
   },
+  "publishConfig": {
+    "access": "public"
+  },
   "files": [
     "*.js",
-    "cli-registry.json",
-    ".env.example",
-    "AGENTS.md",
-    "CLAUDE.md",
+    "bin/",
+    "lib/",
+    "vendor/",
     "mcp/",
     "routes/",
     "ws/",
@@ -29,6 +34,12 @@
     "cli-presets/",
     "workflows/",
     "plugins/",
+    "agents-src/",
+    "packaging/",
+    "scripts/",
+    ".env.example",
+    "AGENTS.md",
+    "CLAUDE.md",
     "package.json",
     "README.md",
     "LICENSE"
@@ -62,13 +73,13 @@
     "express": "^4.22.2",
     "helmet": "^8.3.0",
     "multer": "^2.2.0",
-    "node-pty": "^1.1.0",
     "strip-ansi": "^7.2.0",
     "uuid": "^14.0.1",
     "ws": "^8.18.0"
   },
   "optionalDependencies": {
-    "playwright": "^1.52.0"
+    "playwright": "^1.52.0",
+    "node-pty": "^1.1.0"
   },
   "scripts": {
     "start": "npm run check:server && node server.js",
@@ -86,10 +97,11 @@
     "mcp:dev": "npm run check:server && node --watch mcp-server.js",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
-    "postinstall": "husky || echo 'husky not initialized'",
+    "postinstall": "node -e \"if(process.env.NODE_ENV!=='production')require('child_process').execSync('husky',{stdio:'inherit'})\"",
     "lint-staged": "lint-staged",
     "test": "node --test --test-timeout=30000",
     "test:coverage": "node --test --experimental-test-coverage --test-timeout=30000",
+    "prepublishOnly": "npm run build && npm test",
     "plans": "node plans/run-all.js",
     "format": "prettier --write \"**/*.js\" \"**/*.css\" \"**/*.json\" \"**/*.html\"",
     "format:check": "prettier --check \"**/*.js\" \"**/*.css\" \"**/*.json\" \"**/*.html\""
