@@ -210,6 +210,112 @@ async function runSummary({ p, key, url, m }, question, transcript, onToken, onU
  */
 const MAX_DISCUSS_AGENTS = 4; // 同时参与讨论的 CLI Agent 上限（控成本/防失控）
 
+// 纯圆桌函数（无 SSE 依赖）：供 runDiscussion（SSE 包装）与 plan 的 resolveCheckpoint 复用。
+// 通过 onEvent(type, payload) 发射事件，shouldAbort() 用于中断检测。
+async function runRoundtable({ message, partner, partners, maxTurns = 6, apiKey, provider, baseUrl, model, takenOver = {}, onEvent, shouldAbort }) {
+  const cfg = resolveConfig({ apiKey, provider, baseUrl, model });
+  if (!cfg.key) {
+    onEvent?.('error', { message: '未配置 API Key（OPENAI/ANTHROPIC），无法运行 AI 讨论。' });
+    return { summary: '', transcript: '', stats: null, cleanFinish: false };
+  }
+
+  let agents = (Array.isArray(partners) && partners.length) ? partners.slice() : (partner ? [partner] : []);
+  if (agents.length === 0) {
+    onEvent?.('error', { message: '讨论模式需要至少选择一个 CLI Agent（partners）。' });
+    return { summary: '', transcript: '', stats: null, cleanFinish: false };
+  }
+  if (agents.length > MAX_DISCUSS_AGENTS) agents = agents.slice(0, MAX_DISCUSS_AGENTS);
+  // 接管席位去重集合：人工文本仅在第 1 轮注入一次，后续轮次该席位保持接管态（不再重复注入）。
+  const injectedTakenOver = new Set();
+  const hasTakenOver = takenOver && typeof takenOver === 'object' && Object.keys(takenOver).length > 0;
+
+  let labelOf = (id) => id;
+  try {
+    const reg = loadRegistry();
+    const map = new Map();
+    for (const c of (reg.clis || [])) { map.set(c.id, c.displayName || c.name); map.set(c.name, c.displayName || c.name); }
+    labelOf = (id) => map.get(id) || id;
+  } catch { /* ignore */ }
+
+  const aborted = () => !!(shouldAbort && shouldAbort());
+  const question = message;
+  const transcriptLines = [];
+  let cleanFinish = true;
+
+  // ── token 统计（让圆桌 vs 单模型的成本可被实测）──
+  let aiInputTokens = 0;
+  let aiOutputTokens = 0;
+  let cliOutputChars = 0;
+  const recordAi = (u) => { aiInputTokens += (u.input_tokens || 0); aiOutputTokens += (u.output_tokens || 0); };
+
+  try {
+    const agentLabels = agents.map(a => labelOf(a)).join(' / ');
+    onEvent?.('status', { message: `🤝 圆桌讨论开始：AI 助手 ↔ ${agentLabels}（最多 ${maxTurns} 轮，已开启 token 统计）` });
+
+    for (let round = 1; round <= maxTurns; round++) {
+      if (aborted()) { cleanFinish = false; break; }
+      onEvent?.('status', { message: `讨论进行中… 第 ${round}/${maxTurns} 轮` });
+
+      // ① AI 助手发言（看到全部 Agent 上一轮观点）
+      onEvent?.('discuss_start', { speaker: 'ai', label: 'AI 助手', round });
+      const aiText = await runAiTurn(cfg, question, transcriptLines.join('\n'), (tk) => onEvent?.('token', { content: tk }), recordAi, () => aborted());
+      onEvent?.('discuss_end', { speaker: 'ai' });
+      if (aiText) transcriptLines.push(`【第${round}轮 · AI 助手】\n${aiText}`);
+      if (aborted()) { cleanFinish = false; break; }
+
+      // ② 每个 CLI Agent 依次发言（圆桌：每位都看到 AI 与前面 Agent 的观点）
+      for (const p of agents) {
+        if (aborted()) { cleanFinish = false; break; }
+        const humanText = hasTakenOver ? (takenOver[p] || '') : '';
+        if (humanText) {
+          if (!injectedTakenOver.has(p)) {
+            injectedTakenOver.add(p);
+            onEvent?.('discuss_start', { speaker: 'cli', label: labelOf(p), round });
+            const cliText = await runHumanTurn(humanText, (tk) => onEvent?.('token', { content: tk }));
+            onEvent?.('discuss_end', { speaker: 'cli' });
+            if (cliText) { transcriptLines.push(`【第${round}轮 · ${labelOf(p)}（人工接管）】\n${cliText}`); cliOutputChars += cliText.length; }
+          }
+          continue;
+        }
+        onEvent?.('discuss_start', { speaker: 'cli', label: labelOf(p), round });
+        const cliText = await runCliTurn({ partner: p }, question, transcriptLines.join('\n'), round,
+          (tk) => onEvent?.('token', { content: tk }), () => aborted());
+        onEvent?.('discuss_end', { speaker: 'cli' });
+        if (cliText) { transcriptLines.push(`【第${round}轮 · ${labelOf(p)}】\n${cliText}`); cliOutputChars += cliText.length; }
+      }
+      if (aborted()) { cleanFinish = false; break; }
+
+      // 早停：AI 表示收敛
+      if (/\[CONVERGE\]/i.test(aiText) && round >= 2) break;
+    }
+
+    if (!aborted()) {
+      // ③ 汇总（带兜底）
+      onEvent?.('status', { message: '📋 生成讨论结论…' });
+      onEvent?.('discuss_start', { speaker: 'summary', label: '📋 结论汇总', round: maxTurns + 1 });
+      let summaryText = '';
+      try {
+        summaryText = await runSummary(cfg, question, transcriptLines.join('\n'), (tk) => onEvent?.('token', { content: tk }), recordAi, () => aborted());
+      } catch (sumErr) {
+        console.error('[discuss] 汇总生成失败:', sumErr.message);
+        summaryText = generateFallbackSummary(question, transcriptLines.join('\n'));
+        onEvent?.('token', { content: summaryText });
+      }
+      onEvent?.('discuss_end', { speaker: 'summary' });
+
+      const cliEstTokens = Math.ceil(cliOutputChars / 4);
+      onEvent?.('discuss_stats', {
+        stats: { aiInputTokens, aiOutputTokens, cliOutputChars, cliEstTokens, agents: agents.length, rounds: maxTurns },
+      });
+      return { summary: summaryText, transcript: transcriptLines.join('\n'), stats: { aiInputTokens, aiOutputTokens, cliOutputChars, cliEstTokens, agents: agents.length, rounds: maxTurns }, cleanFinish: true };
+    }
+  } catch (err) {
+    cleanFinish = false;
+    onEvent?.('error', { message: err.message || '讨论执行出错' });
+  }
+  return { summary: '', transcript: transcriptLines.join('\n'), stats: { aiInputTokens, aiOutputTokens, cliOutputChars, agents: agents.length, rounds: maxTurns }, cleanFinish };
+}
+
 async function runDiscussion(res, { message, partner, partners, maxTurns = 6, apiKey, provider, baseUrl, model, takenOver = {} }) {
   const cfg = resolveConfig({ apiKey, provider, baseUrl, model });
   if (!cfg.key) {
@@ -219,7 +325,6 @@ async function runDiscussion(res, { message, partner, partners, maxTurns = 6, ap
     return;
   }
 
-  // 解析参与讨论的 CLI Agent 列表（多选兼容单选）
   let agents = (Array.isArray(partners) && partners.length) ? partners.slice() : (partner ? [partner] : []);
   if (agents.length === 0) {
     sse(res, { type: 'error', message: '讨论模式需要至少选择一个 CLI Agent（partners）。' });
@@ -228,119 +333,29 @@ async function runDiscussion(res, { message, partner, partners, maxTurns = 6, ap
     return;
   }
   if (agents.length > MAX_DISCUSS_AGENTS) agents = agents.slice(0, MAX_DISCUSS_AGENTS);
-  // 接管席位去重集合：人工文本仅在第 1 轮注入一次，后续轮次该席位保持接管态（不再重复注入）。
-  const injectedTakenOver = new Set();
-  const hasTakenOver = takenOver && typeof takenOver === 'object' && Object.keys(takenOver).length > 0;
 
-  // CLI Agent 显示名映射（让气泡标签更友好；找不到回退到 id）
-  let labelOf = (id) => id;
-  try {
-    const reg = loadRegistry();
-    const map = new Map();
-    for (const c of (reg.clis || [])) { map.set(c.id, c.displayName || c.name); map.set(c.name, c.displayName || c.name); }
-    labelOf = (id) => map.get(id) || id;
-  } catch { /* ignore */ }
-
-  // SSE 头
   res.setHeader('Content-Type', 'text/event-stream');
   res.setHeader('Cache-Control', 'no-cache');
   res.setHeader('Connection', 'keep-alive');
   res.setHeader('X-Accel-Buffering', 'no');
   res.setTimeout(0);
 
-  // 中断检测：监听 res close（writableEnded 守卫），同主线。
   let _aborted = false;
   const onClose = () => { if (!res.writableEnded) _aborted = true; };
   res.on('close', onClose);
 
-  const question = message;
-  const transcriptLines = [];
-  let cleanFinish = true;
-
-  // ── token 统计（让圆桌 vs 单模型的成本可被实测）──
-  let aiInputTokens = 0;   // AI 助手 + 汇总，来自 API usage（精确）
-  let aiOutputTokens = 0;
-  let cliOutputChars = 0;  // 各 CLI Agent 输出字符数（其内部消耗不在本服务账上）
-  const recordAi = (u) => { aiInputTokens += (u.input_tokens || 0); aiOutputTokens += (u.output_tokens || 0); };
+  const onEvent = (type, payload) => sse(res, { type, ...payload });
 
   try {
-    const agentLabels = agents.map(a => labelOf(a)).join(' / ');
-    sse(res, { type: 'status', message: `🤝 圆桌讨论开始：AI 助手 ↔ ${agentLabels}（最多 ${maxTurns} 轮，已开启 token 统计）` });
-
-    for (let round = 1; round <= maxTurns; round++) {
-      if (_aborted) { cleanFinish = false; break; }
-      sse(res, { type: 'status', message: `讨论进行中… 第 ${round}/${maxTurns} 轮` });
-
-      // ① AI 助手发言（看到全部 Agent 上一轮观点）
-      sse(res, { type: 'discuss_start', speaker: 'ai', label: 'AI 助手', round });
-      const aiText = await runAiTurn(cfg, question, transcriptLines.join('\n'), (tk) => sse(res, { type: 'token', content: tk }), recordAi, () => _aborted);
-      sse(res, { type: 'discuss_end', speaker: 'ai' });
-      if (aiText) transcriptLines.push(`【第${round}轮 · AI 助手】\n${aiText}`);
-      if (_aborted) { cleanFinish = false; break; }
-
-      // ② 每个 CLI Agent 依次发言（圆桌：每位都看到 AI 与前面 Agent 的观点）
-      for (const p of agents) {
-        if (_aborted) { cleanFinish = false; break; }
-        // 落座接管：该席位本轮由人工提交文本代替自动生成（仅首次注入，后续轮保持接管态）
-        const humanText = hasTakenOver ? (takenOver[p] || '') : '';
-        if (humanText) {
-          if (!injectedTakenOver.has(p)) {
-            injectedTakenOver.add(p);
-            sse(res, { type: 'discuss_start', speaker: 'cli', label: labelOf(p), round });
-            const cliText = await runHumanTurn(humanText, (tk) => sse(res, { type: 'token', content: tk }));
-            sse(res, { type: 'discuss_end', speaker: 'cli' });
-            if (cliText) { transcriptLines.push(`【第${round}轮 · ${labelOf(p)}（人工接管）】\n${cliText}`); cliOutputChars += cliText.length; }
-          }
-          continue; // 接管席位不跑 runCliTurn；交给其他 Agent / 下一轮推进
-        }
-        sse(res, { type: 'discuss_start', speaker: 'cli', label: labelOf(p), round });
-        const cliText = await runCliTurn({ partner: p }, question, transcriptLines.join('\n'), round,
-          (tk) => sse(res, { type: 'token', content: tk }), () => _aborted);
-        sse(res, { type: 'discuss_end', speaker: 'cli' });
-        if (cliText) { transcriptLines.push(`【第${round}轮 · ${labelOf(p)}】\n${cliText}`); cliOutputChars += cliText.length; }
-      }
-      if (_aborted) { cleanFinish = false; break; }
-
-      // 早停：AI 表示收敛
-      if (/\[CONVERGE\]/i.test(aiText) && round >= 2) break;
-    }
-
-    if (!_aborted) {
-      // ③ 汇总（带兜底：LLM 调用失败时输出结构化 fallback 而非空白）
-      sse(res, { type: 'status', message: '📋 生成讨论结论…' });
-      sse(res, { type: 'discuss_start', speaker: 'summary', label: '📋 结论汇总', round: maxTurns + 1 });
-      let summaryText = '';
-      try {
-        summaryText = await runSummary(cfg, question, transcriptLines.join('\n'), (tk) => sse(res, { type: 'token', content: tk }), recordAi, () => _aborted);
-      } catch (sumErr) {
-        // 汇总失败：输出基于讨论记录的简单 fallback，不让用户看到空白
-        console.error('[discuss] 汇总生成失败:', sumErr.message);
-        const fallback = generateFallbackSummary(question, transcriptLines.join('\n'));
-        summaryText = fallback;
-        sse(res, { type: 'token', content: fallback });
-      }
-      sse(res, { type: 'discuss_end', speaker: 'summary' });
-
-      // ④ token 消耗报告（圆桌成本可见）
-      const cliEstTokens = Math.ceil(cliOutputChars / 4);
-      sse(res, {
-        type: 'discuss_stats',
-        stats: {
-          aiInputTokens, aiOutputTokens,
-          cliOutputChars, cliEstTokens,
-          agents: agents.length, rounds: maxTurns,
-        },
-      });
-    }
+    const { cleanFinish } = await runRoundtable({ message, partner, partners, maxTurns, apiKey, provider, baseUrl, model, takenOver, onEvent, shouldAbort: () => _aborted });
+    sse(res, { type: 'status', message: cleanFinish ? '✅ 讨论完成' : '⏹ 讨论已停止' });
   } catch (err) {
-    cleanFinish = false;
     sse(res, { type: 'error', message: err.message || '讨论执行出错' });
   } finally {
     res.removeListener('close', onClose);
-    sse(res, { type: 'status', message: cleanFinish ? '✅ 讨论完成' : '⏹ 讨论已停止' });
     sse(res, { type: '[DONE]' });
     res.end();
   }
 }
 
-module.exports = { runDiscussion };
+module.exports = { runDiscussion, runRoundtable };
