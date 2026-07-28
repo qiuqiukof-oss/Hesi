@@ -1675,17 +1675,21 @@ class ChatPanel extends HTMLElement {
     let sentCount = 0;
     for (let i = s.length - 1; i >= 0; i--) {
       const c = s[i];
-      if (c === '。' || c === '！' || c === '？' || c === '!' || c === '?' || c === '\n') {
+      if (c === '。' || c === '！' || c === '？' || c === '!' || c === '?') {
         if (lastB === -1) lastB = i;
         sentCount++;
       }
     }
-    if (lastB === -1) return;
+    if (lastB === -1) {
+      // 安全兜底：缓冲区 >200 字符仍无句末标点时强制 flush，防止内存无限增长
+      if (s.length > 200) { this._ttsBuffer = ''; window.QCLI.VoiceOutput.speakSentence(s); }
+      return;
+    }
     const after = s.slice(lastB + 1).trim();
     if (after.length === 0) return; // 等下一句开始再 flush，避免过早截断末句
-    // 批量策略：积累 ≥2 句或 ≥80 字符才 flush，减少 TTS 请求次数和网络间隙停顿
+    // 批量策略：积累 ≥2 句或 ≥80 字符才 flush（减少网络间隙），但超 200 字也强刷
     const complete = s.slice(0, lastB + 1);
-    if (sentCount < 2 && complete.length < 80) return;
+    if (sentCount < 2 && complete.length < 80 && complete.length < 200) return;
     this._ttsBuffer = after;
     this._ttsStreamed = true;
     window.QCLI.VoiceOutput.speakSentence(complete);
