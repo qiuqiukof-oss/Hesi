@@ -339,6 +339,53 @@ Linux  ：在终端运行 ./tray.sh
 └── node/                  # 便携 Node.js 运行时（离线包用）
 ```
 
+## 🔭 架构愿景：全自动多 Agent 执行闭环（Architecture Vision）
+
+> ⚠️ **设计方向 · Phase 0 待实施** — 以下内容目前处于架构设计与讨论阶段，**尚未在已发布版本中落地**。
+> 它记录 Hesi 独特的「多 Agent 协作中枢 + 本地执行 + 结构化治理」思路与落地路径，不是现成功能清单。
+
+我们的差异点不在"比单 Agent 编码工具更能写代码"，而在**协作与治理**：让多个 AI 围桌辩论推演出可审计的方案，再在本地安全地逐步执行、反思、重规划。
+
+```mermaid
+flowchart TD
+    S[Scheduler 调度器<br/>读结果触发下一步 / 重规划]
+    P[规划 Planner<br/>圆桌多 Agent 推演 → plan.md]
+    E[执行 Executor<br/>plan → workflow DAG 逐步执行]
+    R[反思 Re-Planner<br/>读结果 → 改图 / 回滚]
+    T[信任边界 Trust Boundary<br/>快照点 · 权限分级 · 预算熔断]
+
+    P -->|产出结构化 plan| E
+    E -->|采集执行结果| R
+    R -->|重规划 / 回滚| P
+    S -.驱动.-> P
+    S -.驱动.-> E
+    S -.驱动.-> R
+    P --> T
+    E --> T
+    R --> T
+```
+
+### 为什么独特（Why Hesi is different）
+
+- 🤝 **圆桌多视角审视** — 多 Agent 辩论互相质疑，比单 Agent 长程 ReAct 更不易钻牛角尖（对标 Codex / Claude Code 的单 Agent 编码循环）。
+- 📝 **结构化可审计 Plan** — 方案收敛为带 frontmatter 的 `plan.md`，人能直接 `cat` 看懂、可 diff、可回溯，而非埋在对话历史里。
+- 💾 **git 快照可恢复** — 每个不可逆操作前自动提交快照，出事可精准回滚；本地优先、数据不出本机。
+- 🛡️ **显式错误分类 + 预算熔断** — 瞬态错误重试、契约错误挂起、连续重复触发 `TOOL_LOOP_GUARD` 熔断，比"跑到 token 耗尽撞墙"更可控、可审计。
+
+### 落地路径（Roadmap）— 复用而非重建
+
+Hesi 已有 60–70% 底座，无需从零造：
+
+| 愿景角色 | Hesi 现有底座 | 仍需新建 |
+|---------|--------------|---------|
+| Planner（多轮推演） | `routes/chat/discuss.js` 圆桌讨论 | 收敛为结构化 `plan.md` |
+| Executor（跑命令/改文件） | `routes/ai-tools/workflow-manager.js` DAG 引擎（`dependsOn`/重试/失败策略） | plan→DAG 转换器 |
+| 经济终止 / 循环熔断 | `TOOL_LOOP_GUARD`（连续重复守卫，默认 15） | 提为全局预算守卫 |
+| Plan 协议 | 你 `.workbuddy/<topic>-plan.md` 约定 | frontmatter 标准化 |
+| 调度器 Scheduler | 无（唯一需新建的常驻件） | 轻量轮询脚本 |
+
+> 详见项目内设计文档：`.workbuddy/全自动-架构思考.md`（含无 HITL 三盲区、12 维度考量、过度设计预警）。
+
 ---
 
 ## 技术栈
