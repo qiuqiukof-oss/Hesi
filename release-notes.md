@@ -1,30 +1,34 @@
-## Hesi v0.5.1
+# Hesi v0.5.2 发布说明
 
-**语音输出 / 工具调用稳定性修复**——上一轮 v0.5.0 实测发现的四个问题，全部修复。
+本版本聚焦**全自动 Plan 执行器（Phase 0 MVP）**落地，并修复了 TTS 段落停顿问题。
 
-### Bug 修复
+## ✨ 新功能：全自动 Plan 执行器（Phase 0 MVP）
 
-#### 1. TTS 只读最后一句（致命）
-- 根因：Web Speech `_state.speaking` 只在异步 `onstart` 回调里置位，流式多句几乎同时判定「空闲」→ `synth.cancel()` 把前句全部掐断，只剩末句出声。
-- 修复：**`synth.speak()` 同步置忙** + 新增 `isTtsBusy()` 队列守卫，逐句串行合成；Edge TTS 串流队列不受影响。
+把「多 agent 圆桌辩论 → 结构化可审计 Plan → 本地执行治理」串成一条闭环：
 
-#### 2. Emoji 被读出来（体验）
-- 修复：TTS 文本统一经 `stripEmoji()` 过滤（`\u{1F000}–\u{1FAFF}` 等 7 段 emoji 区间），**无条件关闭** emoji 朗读，保留箭头 `→`、项目符号 `•`、中英文标点。
+- **可验证性闸门（决策①）**：Plan 的 acceptance 必须可机器验证（command / http / script），纯 `manual` 直接拒收并提示缺哪些项。
+- **git 分支快照 + 回滚（决策④）**：执行前开 `auto-<id>` 分支，每步前 `git commit` 做锚点；某步失败自动 `git reset --hard` 回滚到本步快照，爆震半径锁在分支内，`main` 不被污染（未装 git 或 git 不在 PATH 时优雅降级、不崩溃）。
+- **scope / forbidden 拦截（决策③）**：`scope_paths` 之外的路径、`forbidden` 命令清单里的指令，步前静态拦截（`blocked`），外部副作用默认全禁。
+- **预算熔断（`PlanBudget` + `TOOL_LOOP_GUARD`）**：按 `budget.maxRounds/maxTokens/maxMinutes` + 连续重复调用熔断，防止跑飞。
+- **checkpoint 软断点（决策②）**：标记为 `checkpoint` 的步骤会转圆桌 N 轮（默认 3）推导可验证 acceptance，仍不行兜底回拒收。
+- **验收 + 反思**：跑完 acceptance 命令（command/script 走 `sh`，http 走 `fetch`）后，`reflectPlan` 判定 `done / partial / diverged`。
+- **后端**：`POST /api/plan/execute`（挂载于 `/api/plan`）。
+- **前端**：`public/plan.html` 独立页面（Plan 编辑/示例/格式化/▶执行/逐步结果/反思面板），侧栏「📋全自动」入口。
+- **文档**：`docs/plan-execution-guide.md` 完整使用说明（协议字段表、安全模型、流程图、API 参考、本地 LLM FAQ、Phase 0 局限、Phase 1 路线）。
 
-#### 3. 工具调用状态只显示裸工具名（体验）
-- 新增 `routes/chat/tool-labels.js`：映射 31 个内置工具 + MCP/未知回退「工具」。
-- 状态文案改为中文「使用「读取工具」「编辑工具」「写入工具」…」，已接入 `stream-openai.js` / `stream-anthropic.js`。
+> 测试：新增 `test/run-plan.test.mjs`(9) + `test/plan-routes.test.mjs`(3)，用 mock 的 workflowManager / roundtableFn，不依赖真实 LLM；全量测试保持绿、lint 0 error。
 
-#### 4. 早期对话「幽灵中断」（致命）
-- 根因：本地模型（gamma4 / qwen3 等）常「同工具不同参数」循环，旧守卫只去重精确签名 / 8 轮窗口，最终撞 50 轮硬上限静默中断。
-- 修复：新增 `TOOL_LOOP_GUARD`（默认 15，env `HESI_LLM_TOOL_LOOP_GUARD`，0=关）连续重复守卫，超阈优雅停止并提示「疑似循环，已停止」。
+## 🔧 修复：TTS 段落停顿
 
-### 验证
-- `npm test` **全绿（300 用例）**
-- `npm run lint` **0 error**
-- `npm run build:main` ✅ **969.1kb**；`npm run build:lazy` ✅ **263.1kb**
-- 涉及文件：voice-output.js / stream-openai.js / stream-anthropic.js / tool-labels.js（新）+ bundle.js（重建）
+- **完全消除段落后的停顿**：Edge TTS 与 Web Speech 两路都把连续换行（空行）替换为空格，段落之间不再有停顿（`lib/tts/edge-tts.js` + `public/voice-output.js`）。
 
-### 升级注意
-- 纯前端 / 路由修复，无新增依赖、无数据迁移；建议浏览器 **Ctrl+Shift+R** 硬刷新加载新 bundle。
-- 跨平台说明见仓库 README：服务端与 Web 界面全平台通用（Windows / Linux / macOS 均可 `node server.js` 运行）；仅「离线单文件 SEA 二进制」为 Windows 专用，原生依赖 `node-pty` / `playwright` 为可选，缺失时终端 / 浏览器自动化优雅降级。
+## ⚠️ 已知局限（Phase 0 故意范围外）
+
+- Plan 由**人工粘贴 JSON** 输入，无 LLM 自动出图（auto-Planner 列入 Phase 1 / 0.6.0）。
+- `reflectPlan` 仅判定状态，**无「读结果→改 DAG→重跑」的反思重规划环**（列入 Phase 1）。
+- RAG 快照未回流 `index-store`（列入 Phase 1，复用既有 BM25，零新增依赖）。
+- scope/forbidden 为**步前静态扫描**，非运行时逐工具强制拦截（列入 Phase 1，接 `mcp/security/policy.js`）。
+
+## 升级提示
+
+从 v0.5.1 直接拉取即可，无破坏性变更。想体验执行器：起服务后访问 `/plan.html`，先用示例 Plan 验一遍无害流程最稳。
