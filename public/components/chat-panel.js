@@ -1797,7 +1797,7 @@ class ChatPanel extends HTMLElement {
       const maxW = Math.min(window.innerWidth * 0.85, 900);
       const onMove = (ev) => {
         const dx = startX - ev.clientX; // 抽屉在右侧，向左拖增大、向右拖减小
-        let w = Math.max(minW, Math.min(maxW, startW + dx));
+        const w = Math.max(minW, Math.min(maxW, startW + dx));
         panel.style.width = w + 'px';
       };
       const onUp = () => {

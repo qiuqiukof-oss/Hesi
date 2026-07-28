@@ -64,7 +64,9 @@ module.exports = [
       'no-unused-vars': ['warn', {
         argsIgnorePattern: '^_',
         varsIgnorePattern: '^_',
-        caughtErrorsIgnorePattern: '^_',
+        // P0.1-a：不再检查 catch 块中未使用的错误变量（如 `catch (e)` 未引用）。
+        // 这类是低信号噪声；恢复 eslint 默认（caughtErrors: 'none'），降噪。
+        caughtErrors: 'none',
       }],
       'no-empty': ['warn', { allowEmptyCatch: true }],
       'no-unused-expressions': 'warn',
