@@ -201,10 +201,11 @@ function speak(text, opts = {}) {
   text = stripEmoji(text);
   if (!text || !text.trim()) return false;
 
-  // 简化文本：去除控制字符和过长的空白
+  // 简化文本：去除控制字符、缩短标点/换行停顿（统一替换为逗号级停顿）
   const cleanText = text
     .replace(/[\x00-\x08\x0b\x0c\x0e-\x1f]/g, '')
-    .replace(/\n{2,}/g, ' ') // 完全消除段落后的停顿（连续换行→空格，浏览器不再插入段落停顿）
+    .replace(/[。？！]/g, '，') // 句末标点→逗号：缩短 ~500ms 停顿为 ~150ms
+    .replace(/\n+/g, '，')     // 换行→逗号：同样缩短停顿
     .trim();
 
   if (!cleanText) return false;
