@@ -204,7 +204,7 @@ function speak(text, opts = {}) {
   // 简化文本：去除控制字符和过长的空白
   const cleanText = text
     .replace(/[\x00-\x08\x0b\x0c\x0e-\x1f]/g, '')
-    .replace(/\n{3,}/g, '\n\n')
+    .replace(/\n{2,}/g, ' ') // 完全消除段落后的停顿（连续换行→空格，浏览器不再插入段落停顿）
     .trim();
 
   if (!cleanText) return false;
@@ -380,8 +380,8 @@ function stripMarkdown(md) {
     .replace(/[-:]+\s*[-:|]+\s*/g, '')
     // HTML 标签
     .replace(/<[^>]+>/g, '')
-    // 多余空行
-    .replace(/\n{3,}/g, '\n\n')
+    // 完全消除段落后的停顿（连续换行→空格）
+    .replace(/\n{2,}/g, ' ')
     .trim();
 }
 
