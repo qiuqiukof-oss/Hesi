@@ -358,6 +358,9 @@ async function streamAnthropicWithTools(res, messages, apiKey, model, baseUrl, t
   let totalToolCalls = 0;
   const MAX_TOTAL_DURATION = MAX_TOTAL_DURATION_MS; // 放宽到 15 分钟，允许长任务 Agent 完整跑完
   const _toolChainStart = Date.now();
+  // v0.5.3: 降级继续机制——同 stream-openai.js
+  let _softStopWarned = false;
+  let _softStopReason = '';
   let lastToolSignature = '';
   // 工具循环失控防护（P0.5）：同 stream-openai.js —— 按工具名集合连续重复提前停止
   let lastToolNameSet = '';
@@ -383,6 +386,17 @@ async function streamAnthropicWithTools(res, messages, apiKey, model, baseUrl, t
   }, 15_000);
   const _finish = () => { try { clearInterval(heartbeat); } catch { /* ignore */ } };
 
+  // v0.5.3: 降级继续——首次触发熔断时注入警告消息而非硬停
+  const _softStop = (reason, detail) => {
+    if (_softStopWarned) return false;
+    _softStopWarned = true;
+    _softStopReason = reason;
+    const warning = `⚠️ ${reason}。${detail || '请基于已有信息直接输出最终回答，不要再调用新工具。'}`;
+    currentMessages.push({ role: 'user', content: warning });
+    res.write(`data: ${JSON.stringify({ type: 'status', message: `⚠️ ${reason}（降级继续，给模型最后一次机会输出答案）` })}\n\n`);
+    return true;
+  };
+
   // ── 客户端断开（停止生成）检测：同 stream-openai.js ──
   // ⚠️ 必须监听 res('close') 而非 req('close')：POST 请求体在 body-parser 阶段即被
   // 读完，req 的 readable 侧随即关闭，Node 会在响应刚开始流式输出时（writableEnded=false）
@@ -402,7 +416,7 @@ async function streamAnthropicWithTools(res, messages, apiKey, model, baseUrl, t
   // 内部对「中途断流」按 STREAM_MAX_RETRIES 重试（相同 messages 重发）。
   // 返回 parseAnthropicStream 的结果（truncated 标记交由外层决定重试或断点续传）。
   let rateLimited = false; // 命中 429 限流后置位，阻止后续重试/续传挥霍额度
-  async function doModelCall(conversation, systemBlocks) {
+  async function doModelCall(conversation, systemBlocks, noTools) {
     const body = {
       model: modelName,
       messages: conversation,
@@ -410,7 +424,7 @@ async function streamAnthropicWithTools(res, messages, apiKey, model, baseUrl, t
       max_tokens: cwManager.maxOutputTokens(modelName),
       stream: true,
     };
-    if (anthropicTools) {
+    if (anthropicTools && !noTools) {
       body.tools = anthropicTools;
     }
     const url = buildApiUrl(baseUrl, 'https://api.anthropic.com/v1', '/messages');
@@ -463,18 +477,24 @@ async function streamAnthropicWithTools(res, messages, apiKey, model, baseUrl, t
       break;
     }
     if (Date.now() - _toolChainStart > MAX_TOTAL_DURATION) {
-      res.write(`data: ${JSON.stringify({ type: 'status', message: '工具调用总超时（15 分钟），停止继续调用' })}\n\n`);
-      res.write('data: [DONE]\n\n');
-      res.end();
-      return;
+      if (!_softStop('工具调用总超时（15 分钟）', '请总结当前已完成的工作并输出最终回答。')) {
+        res.write(`data: ${JSON.stringify({ type: 'status', message: '工具调用总超时（15 分钟），已给过警告，强制停止' })}\n\n`);
+        res.write('data: [DONE]\n\n');
+        res.end();
+        return;
+      }
+      continue;
     }
 
     // ── 累计工具执行次数硬上限（防失控循环瞬间打满 50 轮）──
     if (totalToolCalls >= MAX_TOTAL_TOOL_CALLS) {
-      res.write(`data: ${JSON.stringify({ type: 'status', message: '已达单次请求工具调用安全上限，停止以避免失控' })}\n\n`);
-      res.write('data: [DONE]\n\n');
-      res.end();
-      return;
+      if (!_softStop('已达单次请求工具调用安全上限', '请总结当前已完成的工作并输出最终回答。')) {
+        res.write(`data: ${JSON.stringify({ type: 'status', message: '已达单次请求工具调用安全上限，强制停止' })}\n\n`);
+        res.write('data: [DONE]\n\n');
+        res.end();
+        return;
+      }
+      continue;
     }
 
     const systemMsgs = currentMessages.filter(m => m.role === 'system');
@@ -537,18 +557,28 @@ async function streamAnthropicWithTools(res, messages, apiKey, model, baseUrl, t
     // ── Cycle detection ──
     const sig = toolCalls.map(t => `${t.name}:${JSON.stringify(t.input)}`).join('|');
     if (sig === lastToolSignature && toolCallCount > 0) {
-      res.write(`data: ${JSON.stringify({ type: 'status', message: '检测到重复工具调用，停止' })}\n\n`);
-      res.write('data: [DONE]\n\n');
-      res.end();
-      return;
+      if (!_softStop('检测到与上一轮完全相同的工具调用', '请改用不同策略或直接输出最终回答。')) {
+        res.write(`data: ${JSON.stringify({ type: 'status', message: '检测到重复工具调用，已给过警告，强制停止' })}\n\n`);
+        res.write('data: [DONE]\n\n');
+        res.end();
+        return;
+      }
+      lastToolSignature = sig;
+      continue;
     }
     // 近期签名窗口：捕获「参数略有变化但调用模式重复」的循环
     const dupCount = recentSigs.filter(s => s === sig).length;
     if (dupCount >= DUP_SIG_THRESHOLD) {
-      res.write(`data: ${JSON.stringify({ type: 'status', message: `检测到重复工具调用模式（${sig.slice(0,60)}… 在 ${recentSigs.length} 轮内出现 ${dupCount + 1} 次），停止` })}\n\n`);
-      res.write('data: [DONE]\n\n');
-      res.end();
-      return;
+      if (!_softStop(`工具调用模式疑似循环（${sig.slice(0,60)}…）`, '请改用不同策略或直接输出最终回答。')) {
+        res.write(`data: ${JSON.stringify({ type: 'status', message: `检测到重复工具调用模式（${sig.slice(0,60)}…），已给过警告，强制停止` })}\n\n`);
+        res.write('data: [DONE]\n\n');
+        res.end();
+        return;
+      }
+      recentSigs.push(sig);
+      if (recentSigs.length > DUP_SIG_WINDOW) recentSigs.shift();
+      lastToolSignature = sig;
+      continue;
     }
     recentSigs.push(sig);
     if (recentSigs.length > DUP_SIG_WINDOW) recentSigs.shift();
@@ -578,10 +608,14 @@ async function streamAnthropicWithTools(res, messages, apiKey, model, baseUrl, t
       lastToolNameSet = nameSet;
     }
     if (TOOL_LOOP_GUARD > 0 && consecutiveSameSet >= TOOL_LOOP_GUARD) {
-      res.write(`data: ${JSON.stringify({ type: 'status', message: `检测到同一工具连续调用 ${consecutiveSameSet} 轮（疑似循环），已停止以免失控` })}\n\n`);
-      res.write('data: [DONE]\n\n');
-      res.end();
-      return;
+      if (!_softStop(`同一组工具连续调用 ${consecutiveSameSet} 轮（疑似循环）`, '这可能是陷入了不必要的重复。请检查你的进展，改用不同方法或直接输出最终回答。')) {
+        res.write(`data: ${JSON.stringify({ type: 'status', message: `同一工具连续调用 ${consecutiveSameSet} 轮，已给过警告，强制停止` })}\n\n`);
+        res.write('data: [DONE]\n\n');
+        res.end();
+        return;
+      }
+      consecutiveSameSet = 0;
+      continue;
     }
     res.write(`data: ${JSON.stringify({ type: 'status', message: `使用${describeTools(toolNames)}…` })}\n\n`);
     res.write(`data: ${JSON.stringify({ type: 'tool_call_start', names: toolNames })}\n\n`);
@@ -642,13 +676,35 @@ async function streamAnthropicWithTools(res, messages, apiKey, model, baseUrl, t
     currentMessages = capToolRounds(currentMessages);
   }
 
-  // 仅当真正达到轮次硬上限才提示；被中断(_aborted)时由 finally 静默补 [DONE]，
-  // 避免把「用户停止/断连」误报成「已达到最大工具调用次数」。
+  // v0.5.3: 降级继续——不再直接硬停。首次达到上限时注入警告，给 LLM 一次
+  // 无工具调用的「最终回答」机会。
   if (!_aborted) {
-    res.write(`data: ${JSON.stringify({ type: 'token', content: `\n\n[已达到最大工具调用次数(${MAX_TOOL_ROUNDS}轮)，部分结果可能不完整]` })}\n\n`);
-    emitAgentMetrics(res, broadcastFn); // M5 (v0.3.1): 轮次硬上限退场也结算一次
-    res.write('data: [DONE]\n\n');
-    res.end();
+    if (!_softStopWarned) {
+      _softStop('已达到最大工具调用轮次', '请基于已完成的工具调用结果直接输出任务总结。不要再调用任何工具。');
+      res.write(`data: ${JSON.stringify({ type: 'status', message: `⚠️ 已达 ${MAX_TOOL_ROUNDS} 轮工具调用上限，降级继续：请模型输出最终回答` })}\n\n`);
+      try {
+        const conv = buildAnthropicConversation(currentMessages);
+        const sys = currentMessages.find(m => m.role === 'system')?.content || undefined;
+        await doModelCall(conv, sys ? [sys] : [], true /* noTools */);
+        emitAgentMetrics(res, broadcastFn);
+        if (!res.writableEnded) {
+          res.write('data: [DONE]\n\n');
+          res.end();
+        }
+      } catch {
+        if (!res.writableEnded) {
+          res.write(`data: ${JSON.stringify({ type: 'token', content: `\n\n[已达到最大工具调用次数(${MAX_TOOL_ROUNDS}轮)，最终总结生成失败]` })}\n\n`);
+          emitAgentMetrics(res, broadcastFn);
+          res.write('data: [DONE]\n\n');
+          res.end();
+        }
+      }
+    } else {
+      res.write(`data: ${JSON.stringify({ type: 'token', content: `\n\n[已达到最大工具调用次数(${MAX_TOOL_ROUNDS}轮)，已给过补救机会，部分结果可能不完整]` })}\n\n`);
+      emitAgentMetrics(res, broadcastFn);
+      res.write('data: [DONE]\n\n');
+      res.end();
+    }
   }
   } finally {
     if (_aborted) {

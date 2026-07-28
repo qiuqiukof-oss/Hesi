@@ -84,6 +84,10 @@ async function streamOpenAIWithTools(res, messages, apiKey, model, baseUrl, tool
   let totalToolCalls = 0;
   const MAX_TOTAL_DURATION = MAX_TOTAL_DURATION_MS; // 放宽到 15 分钟，允许长任务 Agent（如 agent_delegate 最多 300s）完整跑完
   const _toolChainStart = Date.now();
+  // v0.5.3: 降级继续机制——安全熔断首次触发时仅注入警告并给 LLM 一次补救机会，
+  // 而非立即硬停。若警告后再次触发，则触发真正硬停。
+  let _softStopWarned = false;    // 是否已发过警告
+  let _softStopReason = '';       // 警告原因（用于提示消息）
   let lastToolSignature = '';
   // 工具循环失控防护（P0.5）：现有去重仅覆盖「完全相同签名」与「8 轮窗口内近似签名」，
   // 无法拦住本地模型「同一工具换点参数反复调」的探索性循环——这类会一路烧到 50 轮
@@ -115,6 +119,23 @@ async function streamOpenAIWithTools(res, messages, apiKey, model, baseUrl, tool
   }, 15_000);
   const _finish = () => { try { clearInterval(heartbeat); } catch { /* ignore */ } };
 
+  // v0.5.3: 降级继续——首次触发熔断时注入警告消息而非硬停，给 LLM 一次补救机会。
+  // 参考 WorkBuddy 的上下文压缩不中断模式，将 Hesi 的安全熔断器从「硬停」
+  // 改为「警告 + 降级继续」，仅在二次触发时真正停止。
+  const _softStop = (reason, detail) => {
+    if (_softStopWarned) return false; // 已警告过，调用方应硬停
+    _softStopWarned = true;
+    _softStopReason = reason;
+    currentMessages.push({
+      role: 'system',
+      content: `⚠️ ${reason}。${detail || '请基于已有信息直接输出最终回答，不要再调用新工具。'}`,
+    });
+    res.write(`data: ${JSON.stringify({ type: 'status', message: `⚠️ ${reason}（降级继续，给模型最后一次机会输出答案）` })}\n\n`);
+    // 继续循环——LLM 会在下一轮看到警告后决定是输出最终答案还是继续调用工具。
+    // 若继续调用工具并再次触发同一熔断，则硬停。
+    return true;
+  };
+
   // ── 客户端断开（停止生成）检测 ──
   // 前端点击「停止」会 abort fetch，浏览器侧 socket 关闭。后端若不感知，
   // 仍会继续跑 LLM 流 + 工具循环（含 agent PTY 子进程），既浪费资源又让
@@ -143,7 +164,7 @@ async function streamOpenAIWithTools(res, messages, apiKey, model, baseUrl, tool
   // 内部对「中途断流」按 STREAM_MAX_RETRIES 重试（相同 messages 重发）。
   // 返回 parseStreamAndCollectTools 的结果（truncated 标记交由外层决定重试或断点续传）。
   let rateLimited = false; // 命中 429 限流后置位，阻止后续重试/续传挥霍额度
-  async function doModelCall(messages) {
+  async function doModelCall(messages, noTools) {
     const body = {
       model: modelName,
       messages,
@@ -151,7 +172,7 @@ async function streamOpenAIWithTools(res, messages, apiKey, model, baseUrl, tool
       stream_options: { include_usage: true },
       max_tokens: cwManager.maxOutputTokens(modelName),
     };
-    if (tools) {
+    if (tools && !noTools) {
       body.tools = tools;
       body.tool_choice = 'auto';
     }
@@ -206,18 +227,24 @@ async function streamOpenAIWithTools(res, messages, apiKey, model, baseUrl, tool
 
     // ── Total timeout check ──
     if (Date.now() - _toolChainStart > MAX_TOTAL_DURATION) {
-      res.write(`data: ${JSON.stringify({ type: 'status', message: '工具调用总超时（15 分钟），停止继续调用' })}\n\n`);
-      res.write('data: [DONE]\n\n');
-      res.end();
-      return;
+      if (!_softStop('工具调用总超时（15 分钟）', '请总结当前已完成的工作并输出最终回答。')) {
+        res.write(`data: ${JSON.stringify({ type: 'status', message: '工具调用总超时（15 分钟），已给过警告，强制停止' })}\n\n`);
+        res.write('data: [DONE]\n\n');
+        res.end();
+        return;
+      }
+      continue;
     }
 
     // ── 累计工具执行次数硬上限（防失控循环瞬间打满 50 轮）──
     if (totalToolCalls >= MAX_TOTAL_TOOL_CALLS) {
-      res.write(`data: ${JSON.stringify({ type: 'status', message: '已达单次请求工具调用安全上限，停止以避免失控' })}\n\n`);
-      res.write('data: [DONE]\n\n');
-      res.end();
-      return;
+      if (!_softStop('已达单次请求工具调用安全上限', '请总结当前已完成的工作并输出最终回答。')) {
+        res.write(`data: ${JSON.stringify({ type: 'status', message: '已达单次请求工具调用安全上限，强制停止' })}\n\n`);
+        res.write('data: [DONE]\n\n');
+        res.end();
+        return;
+      }
+      continue;
     }
 
     // ── 本轮：fetch + 流式解析（内部对中途断流按 STREAM_MAX_RETRIES 重试）──
@@ -263,21 +290,31 @@ async function streamOpenAIWithTools(res, messages, apiKey, model, baseUrl, tool
       return;
     }
 
-    // ── Cycle detection: same tool+args as last round → break ──
+    // ── Cycle detection: same tool+args as last round → warn instead of stop ──
     const sig = toolCalls.map(t => `${t.name}:${t.arguments}`).join('|');
     if (sig === lastToolSignature && toolCallCount > 0) {
-      res.write(`data: ${JSON.stringify({ type: 'status', message: '检测到重复工具调用，停止' })}\n\n`);
-      res.write('data: [DONE]\n\n');
-      res.end();
-      return;
+      if (!_softStop('检测到与上一轮完全相同的工具调用', '请改用不同策略或直接输出最终回答。')) {
+        res.write(`data: ${JSON.stringify({ type: 'status', message: '检测到重复工具调用，已给过警告，强制停止' })}\n\n`);
+        res.write('data: [DONE]\n\n');
+        res.end();
+        return;
+      }
+      lastToolSignature = sig;
+      continue;
     }
     // 近期签名窗口：捕获「参数略有变化但调用模式重复」的循环（原仅查连续完全相同）
     const dupCount = recentSigs.filter(s => s === sig).length;
     if (dupCount >= DUP_SIG_THRESHOLD) {
-      res.write(`data: ${JSON.stringify({ type: 'status', message: `检测到重复工具调用模式（${sig.slice(0,60)}… 在 ${recentSigs.length} 轮内出现 ${dupCount + 1} 次），停止` })}\n\n`);
-      res.write('data: [DONE]\n\n');
-      res.end();
-      return;
+      if (!_softStop(`工具调用模式疑似循环（${sig.slice(0,60)}… 在 ${recentSigs.length} 轮内出现 ${dupCount + 1} 次）`, '请改用不同策略或直接输出最终回答。')) {
+        res.write(`data: ${JSON.stringify({ type: 'status', message: `检测到重复工具调用模式（${sig.slice(0,60)}…），已给过警告，强制停止` })}\n\n`);
+        res.write('data: [DONE]\n\n');
+        res.end();
+        return;
+      }
+      recentSigs.push(sig);
+      if (recentSigs.length > DUP_SIG_WINDOW) recentSigs.shift();
+      lastToolSignature = sig;
+      continue;
     }
     recentSigs.push(sig);
     if (recentSigs.length > DUP_SIG_WINDOW) recentSigs.shift();
@@ -308,10 +345,14 @@ async function streamOpenAIWithTools(res, messages, apiKey, model, baseUrl, tool
       lastToolNameSet = nameSet;
     }
     if (TOOL_LOOP_GUARD > 0 && consecutiveSameSet >= TOOL_LOOP_GUARD) {
-      res.write(`data: ${JSON.stringify({ type: 'status', message: `检测到同一工具连续调用 ${consecutiveSameSet} 轮（疑似循环），已停止以免失控` })}\n\n`);
-      res.write('data: [DONE]\n\n');
-      res.end();
-      return;
+      if (!_softStop(`同一组工具连续调用 ${consecutiveSameSet} 轮（疑似循环）`, '这可能是陷入了不必要的重复。请检查你的进展，改用不同方法或直接输出最终回答。')) {
+        res.write(`data: ${JSON.stringify({ type: 'status', message: `同一工具连续调用 ${consecutiveSameSet} 轮，已给过警告，强制停止` })}\n\n`);
+        res.write('data: [DONE]\n\n');
+        res.end();
+        return;
+      }
+      consecutiveSameSet = 0; // 重置计数器，给一次补救机会
+      continue;
     }
     res.write(`data: ${JSON.stringify({ type: 'status', message: `使用${describeTools(toolNames)}…` })}\n\n`);
     res.write(`data: ${JSON.stringify({ type: 'tool_call_start', names: toolNames })}\n\n`);
@@ -371,13 +412,42 @@ async function streamOpenAIWithTools(res, messages, apiKey, model, baseUrl, tool
   }
 
   // 走到这里只有两种可能：① 真正达到轮次硬上限(toolCallCount>=MAX_TOOL_ROUNDS)；
-  // ② 被客户端中断(_aborted break)。只有 ① 才提示「已达上限」，② 交由 finally 静默
-  // 补发 [DONE]，避免把「用户主动停止/断连」误报成「已达到最大工具调用次数」。
+  // ② 被客户端中断(_aborted break)。
+  //
+  // v0.5.3: 降级继续——不再直接硬停。首次达到上限时注入警告，给 LLM 一次
+  // 无工具调用的「最终回答」机会（参考 WorkBuddy 上下文压缩不中断模式）。
+  // 仅当已给过警告或客户端断开时才真正结束。
   if (!_aborted) {
-    res.write(`data: ${JSON.stringify({ type: 'token', content: `\n\n[已达到最大工具调用次数(${MAX_TOOL_ROUNDS}轮)，部分结果可能不完整]` })}\n\n`);
-    emitAgentMetrics(res, broadcastFn); // M5 (v0.3.1): 轮次硬上限退场也结算一次
-    res.write('data: [DONE]\n\n');
-    res.end();
+    if (!_softStopWarned) {
+      // 首次触发上限：降级继续，给一次无工具调用的最终回答机会
+      _softStop('已达到最大工具调用轮次', '请基于已完成的工具调用结果直接输出任务总结。不要再调用任何工具。');
+      res.write(`data: ${JSON.stringify({ type: 'status', message: `⚠️ 已达 ${MAX_TOOL_ROUNDS} 轮工具调用上限，降级继续：请模型输出最终回答` })}\n\n`);
+      try {
+        // 最终轮：不带工具，强制 LLM 输出纯文本总结
+        const finalResult = await doModelCall(currentMessages, true /* noTools */);
+        // 如果有文本输出，流式输出已在 doModelCall 内部完成
+        // 发送最终事件
+        emitAgentMetrics(res, broadcastFn);
+        if (!res.writableEnded) {
+          res.write('data: [DONE]\n\n');
+          res.end();
+        }
+      } catch {
+        // 最终轮失败，兜底硬停
+        if (!res.writableEnded) {
+          res.write(`data: ${JSON.stringify({ type: 'token', content: `\n\n[已达到最大工具调用次数(${MAX_TOOL_ROUNDS}轮)，最终总结生成失败]` })}\n\n`);
+          emitAgentMetrics(res, broadcastFn);
+          res.write('data: [DONE]\n\n');
+          res.end();
+        }
+      }
+    } else {
+      // 已经给过警告，真正硬停
+      res.write(`data: ${JSON.stringify({ type: 'token', content: `\n\n[已达到最大工具调用次数(${MAX_TOOL_ROUNDS}轮)，已给过补救机会，部分结果可能不完整]` })}\n\n`);
+      emitAgentMetrics(res, broadcastFn);
+      res.write('data: [DONE]\n\n');
+      res.end();
+    }
   }
   } finally {
     // 客户端中断时，确保流能正常结束（发 [DONE]），让前端 onDone 触发、UI 恢复可交互
