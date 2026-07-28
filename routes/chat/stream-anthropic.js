@@ -364,6 +364,8 @@ async function streamAnthropicWithTools(res, messages, apiKey, model, baseUrl, t
   let consecutiveSameSet = 0;
   const TOOL_LOOP_GUARD = Number(process.env.HESI_LLM_TOOL_LOOP_GUARD) || 15;
   // 近期工具签名窗口：捕获「参数略有变化但调用模式重复」的循环
+  const DUP_SIG_WINDOW = Math.max(4, Number(process.env.HESI_DUP_SIG_WINDOW) || 16);
+  const DUP_SIG_THRESHOLD = Math.max(2, Number(process.env.HESI_DUP_SIG_THRESHOLD) || 4);
   const recentSigs = [];
 
   // ── SSE 保活心跳（同 stream-openai.js）──
@@ -541,14 +543,15 @@ async function streamAnthropicWithTools(res, messages, apiKey, model, baseUrl, t
       return;
     }
     // 近期签名窗口：捕获「参数略有变化但调用模式重复」的循环
-    if (recentSigs.includes(sig)) {
-      res.write(`data: ${JSON.stringify({ type: 'status', message: '检测到重复工具调用模式，停止' })}\n\n`);
+    const dupCount = recentSigs.filter(s => s === sig).length;
+    if (dupCount >= DUP_SIG_THRESHOLD) {
+      res.write(`data: ${JSON.stringify({ type: 'status', message: `检测到重复工具调用模式（${sig.slice(0,60)}… 在 ${recentSigs.length} 轮内出现 ${dupCount + 1} 次），停止` })}\n\n`);
       res.write('data: [DONE]\n\n');
       res.end();
       return;
     }
     recentSigs.push(sig);
-    if (recentSigs.length > 8) recentSigs.shift();
+    if (recentSigs.length > DUP_SIG_WINDOW) recentSigs.shift();
     lastToolSignature = sig;
 
     toolCallCount++;
