@@ -1,6 +1,6 @@
 <p align="center">
   <strong>Hesi（合思）— 浏览器里的多 Agent 圆桌讨论平台</strong><br>
-  <em>让多个 AI Agent 围一桌，多轮辩论你的代码 / 终端 / 浏览器任务</em>
+  <em>让多个 AI Agent 围一桌，多轮辩论你的代码 / 终端 / ALL任务</em>
 </p>
 
 <p align="center">
