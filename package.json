@@ -1,6 +1,6 @@
 {
   "name": "@qiuqiukof/hesi",
-  "version": "0.4.5",
+  "version": "0.5.0",
   "description": "Hesi（合思）— Run any CLI in your browser",
   "main": "server.js",
   "bin": {
@@ -70,6 +70,7 @@
     "compression": "^1.8.1",
     "cors": "^2.8.5",
     "dotenv": "^16.6.1",
+    "edge-tts-universal": "^1.4.0",
     "express": "^4.22.2",
     "helmet": "^8.3.0",
     "multer": "^2.2.0",
@@ -78,8 +79,8 @@
     "ws": "^8.18.0"
   },
   "optionalDependencies": {
-    "playwright": "^1.52.0",
-    "node-pty": "^1.1.0"
+    "node-pty": "^1.1.0",
+    "playwright": "^1.52.0"
   },
   "scripts": {
     "start": "npm run check:server && node server.js",

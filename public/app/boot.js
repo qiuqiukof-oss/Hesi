@@ -99,14 +99,17 @@ function init() {
       const savedProvider = Q.ChatAPI?.getProvider?.() || 'openai';
       const savedKey = Q.ChatAPI?.getApiKey?.() || '';
       const savedModel = Q.ChatAPI?.getModel?.() || '';
+      const savedPlanModel = Q.ChatAPI?.getPlanModel?.() || '';
       const savedBaseUrl = Q.ChatAPI?.getBaseUrl?.() || '';
       const provEl = document.getElementById('ai-provider');
       const keyEl = document.getElementById('ai-api-key');
       const modelEl = document.getElementById('ai-model');
+      const planModelEl = document.getElementById('ai-model-plan');
       const baseUrlEl = document.getElementById('ai-base-url');
       if (provEl) provEl.value = savedProvider;
       if (keyEl) keyEl.value = savedKey;
       if (modelEl) modelEl.value = savedModel;
+      if (planModelEl) planModelEl.value = savedPlanModel;
       if (baseUrlEl) baseUrlEl.value = savedBaseUrl;
       if (aiSettingsStatus) { aiSettingsStatus.classList.add('hidden'); aiSettingsStatus.textContent = ''; }
       aiSettingsOverlay.classList.remove('hidden');
@@ -127,15 +130,18 @@ function init() {
       const provEl = document.getElementById('ai-provider');
       const keyEl = document.getElementById('ai-api-key');
       const modelEl = document.getElementById('ai-model');
+      const planModelEl = document.getElementById('ai-model-plan');
       const baseUrlEl = document.getElementById('ai-base-url');
       const provider = provEl ? provEl.value : 'openai';
       const apiKey = keyEl ? keyEl.value.trim() : '';
       const model = modelEl ? modelEl.value.trim() : '';
+      const planModel = planModelEl ? planModelEl.value.trim() : '';
       const baseUrl = baseUrlEl ? baseUrlEl.value.trim() : '';
 
       Q.ChatAPI?.setProvider?.(provider);
       Q.ChatAPI?.setApiKey?.(apiKey);
       Q.ChatAPI?.setModel?.(model);
+      Q.ChatAPI?.setPlanModel?.(planModel);
       Q.ChatAPI?.setBaseUrl?.(baseUrl);
 
       if (aiSettingsStatus) {

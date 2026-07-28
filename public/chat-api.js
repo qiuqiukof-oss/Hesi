@@ -57,6 +57,16 @@ export const ChatAPI = {
       safeStorage.set('qcli-ai-model', model);
     },
 
+    /** Get stored planning/verify-mode model (optional, stronger reasoning model) */
+    getPlanModel() {
+      return safeStorage.get('qcli-ai-model-plan', '');
+    },
+
+    /** Store planning/verify-mode model */
+    setPlanModel(model) {
+      safeStorage.set('qcli-ai-model-plan', model);
+    },
+
     /** Get stored API base URL (OpenAI-compatible) */
     getBaseUrl() {
       return safeStorage.get('qcli-ai-base-url', '');
@@ -107,10 +117,11 @@ export const ChatAPI = {
      * @param {boolean} [options.terminalContextChanged] - Whether terminal content has changed since last message
      * @param {AbortSignal} [options.signal] - Optional abort signal
      */
-    async sendMessage({ messages, onToken, onDone, onError, onStatus, onToolCall, onToolLive, onUsage, onAgentMetrics, terminalContext, terminalContextChanged, signal, discuss, partner, partners, maxTurns, onDiscuss, sessionId, category }) {
+    async sendMessage({ messages, onToken, onDone, onError, onStatus, onToolCall, onToolLive, onUsage, onAgentMetrics, terminalContext, terminalContextChanged, signal, discuss, partner, partners, maxTurns, onDiscuss, sessionId, category, verifyMode, takenOver }) {
       const apiKey = this.getApiKey();
       const provider = this.getProvider();
-      const model = this.getModel();
+      let model = this.getModel();
+      if (verifyMode) { const pm = this.getPlanModel(); if (pm) model = pm; }
       const baseUrl = this.getBaseUrl();
 
       try {
@@ -128,12 +139,15 @@ export const ChatAPI = {
           body.partner = list[0] || undefined;
           if (list.length) body.partners = list;
           body.maxTurns = maxTurns || undefined;
+          // P2.5 落座接管：把人工提交的席位文本透传给讨论内核（内核跳过该席位自动生成）
+          if (takenOver && typeof takenOver === 'object' && Object.keys(takenOver).length) body.takenOver = takenOver;
         }
         if (terminalContext) {
           body.terminalContext = terminalContext;
           body.terminalContextChanged = terminalContextChanged === true;
         }
         if (category) body.category = category;
+        if (verifyMode) body.verifyMode = verifyMode;
 
         const resp = await fetch('/api/chat', {
           method: 'POST',

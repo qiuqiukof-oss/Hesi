@@ -824,6 +824,35 @@ body.drawer-resizing {
 }
 .chat-attach-btn:active { transform: scale(0.95); }
 
+/* 核查模式（verify-first）切换按钮：复用附件按钮外观，加 active 高亮 */
+.chat-verify-btn {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-default);
+  color: var(--text-secondary);
+  font-size: 16px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: background 0.15s, transform 0.15s, border-color 0.15s, color 0.15s;
+}
+.chat-verify-btn:hover {
+  background: var(--bg-hover);
+  border-color: var(--accent);
+  color: var(--accent);
+  transform: scale(1.05);
+}
+.chat-verify-btn:active { transform: scale(0.95); }
+.chat-verify-btn.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
 /* 附件预览条 */
 .chat-attachments {
   flex: 1 1 100%;

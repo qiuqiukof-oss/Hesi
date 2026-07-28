@@ -25,8 +25,6 @@ const { createStreamCleaner } = require('../../lib/terminal-clean');
 const { streamOpenAICore } = require('./stream-openai');
 const { streamAnthropicCore } = require('./stream-anthropic');
 
-// ── 单轮 LLM 调用超时（与主线一致放宽到 3 分钟）──
-const API_FETCH_TIMEOUT_MS = 180_000;
 // CLI Agent 单次轮询总预算（防止某 agent 卡死把讨论拖垮）
 const AGENT_TURN_TIMEOUT_MS = 180_000;
 const AGENT_POLL_INTERVAL_MS = 1000;
@@ -79,12 +77,6 @@ function resolveConfig({ apiKey, provider, baseUrl, model }) {
   const url = baseUrl || (p === 'anthropic' ? 'https://api.anthropic.com' : 'https://api.openai.com/v1');
   const m = model || (p === 'anthropic' ? 'claude-sonnet-4-20250514' : 'gpt-4o-mini');
   return { p, key, url, m };
-}
-
-function buildApiUrl(base, def, path) {
-  let u = base && base.trim() ? base : def;
-  if (u.endsWith('/')) u = u.slice(0, -1);
-  return u + path;
 }
 
 // 注：OpenAI / Anthropic 流式解析现已统一复用主聊的共享核心
@@ -148,6 +140,20 @@ async function runCliTurn({ partner }, question, transcript, round, onToken, sho
   return full.trim() || '（CLI Agent 未产出内容）';
 }
 
+// 人工接管席位：把用户提交的文本作为该席位的发言，逐片流式上屏（与 CLI 发言一致的气泡体验）。
+// 不调用任何模型，直接复用 transcript 通道，使人工输入成为讨论记录的一部分。
+async function runHumanTurn(text, onToken) {
+  const safe = String(text == null ? '' : text).trim();
+  if (!safe) return '';
+  // 按小切片推送，避免一次性大块文本导致气泡闪烁；整体仍很快（短文本）。
+  const chunks = safe.match(/[\s\S]{1,30}/g) || [safe];
+  for (const c of chunks) {
+    onToken(c);
+    await new Promise((r) => setTimeout(r, 8));
+  }
+  return safe;
+}
+
 // 汇总失败时的兜底：基于讨论记录生成简单结构化摘要（不依赖 LLM）
 function generateFallbackSummary(question, transcript) {
   const lines = [
@@ -204,7 +210,7 @@ async function runSummary({ p, key, url, m }, question, transcript, onToken, onU
  */
 const MAX_DISCUSS_AGENTS = 4; // 同时参与讨论的 CLI Agent 上限（控成本/防失控）
 
-async function runDiscussion(res, { message, partner, partners, maxTurns = 6, apiKey, provider, baseUrl, model }) {
+async function runDiscussion(res, { message, partner, partners, maxTurns = 6, apiKey, provider, baseUrl, model, takenOver = {} }) {
   const cfg = resolveConfig({ apiKey, provider, baseUrl, model });
   if (!cfg.key) {
     sse(res, { type: 'error', message: '未配置 API Key（OPENAI/ANTHROPIC），无法运行 AI 讨论。' });
@@ -222,6 +228,9 @@ async function runDiscussion(res, { message, partner, partners, maxTurns = 6, ap
     return;
   }
   if (agents.length > MAX_DISCUSS_AGENTS) agents = agents.slice(0, MAX_DISCUSS_AGENTS);
+  // 接管席位去重集合：人工文本仅在第 1 轮注入一次，后续轮次该席位保持接管态（不再重复注入）。
+  const injectedTakenOver = new Set();
+  const hasTakenOver = takenOver && typeof takenOver === 'object' && Object.keys(takenOver).length > 0;
 
   // CLI Agent 显示名映射（让气泡标签更友好；找不到回退到 id）
   let labelOf = (id) => id;
@@ -272,6 +281,18 @@ async function runDiscussion(res, { message, partner, partners, maxTurns = 6, ap
       // ② 每个 CLI Agent 依次发言（圆桌：每位都看到 AI 与前面 Agent 的观点）
       for (const p of agents) {
         if (_aborted) { cleanFinish = false; break; }
+        // 落座接管：该席位本轮由人工提交文本代替自动生成（仅首次注入，后续轮保持接管态）
+        const humanText = hasTakenOver ? (takenOver[p] || '') : '';
+        if (humanText) {
+          if (!injectedTakenOver.has(p)) {
+            injectedTakenOver.add(p);
+            sse(res, { type: 'discuss_start', speaker: 'cli', label: labelOf(p), round });
+            const cliText = await runHumanTurn(humanText, (tk) => sse(res, { type: 'token', content: tk }));
+            sse(res, { type: 'discuss_end', speaker: 'cli' });
+            if (cliText) { transcriptLines.push(`【第${round}轮 · ${labelOf(p)}（人工接管）】\n${cliText}`); cliOutputChars += cliText.length; }
+          }
+          continue; // 接管席位不跑 runCliTurn；交给其他 Agent / 下一轮推进
+        }
         sse(res, { type: 'discuss_start', speaker: 'cli', label: labelOf(p), round });
         const cliText = await runCliTurn({ partner: p }, question, transcriptLines.join('\n'), round,
           (tk) => sse(res, { type: 'token', content: tk }), () => _aborted);

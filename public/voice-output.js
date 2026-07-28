@@ -32,11 +32,15 @@ const _state = {
   selectedVoice: null,
   /** @type {string} */
   language: 'auto',       // auto | zh | en
+  /** @type {string} */
+  engine: 'web',          // web | edge | auto（auto=edge 可用时优先，否则 web）
+  /** @type {string|null} */
+  edgeVoice: null,        // Edge 音色 ShortName
 };
 
 // ── Keys ──
 const STORAGE_PREFIX = 'qcli-tts-';
-const KEYS = ['enabled', 'autoRead', 'rate', 'pitch', 'volume', 'selectedVoice', 'language'];
+const KEYS = ['enabled', 'autoRead', 'rate', 'pitch', 'volume', 'selectedVoice', 'language', 'engine', 'edgeVoice'];
 
 // ── Load/Save state ──
 function loadState() {
@@ -47,6 +51,10 @@ function loadState() {
         _state[key] = val === 'true';
       } else if (key === 'rate' || key === 'pitch' || key === 'volume') {
         _state[key] = parseFloat(val);
+      } else if (key === 'edgeVoice') {
+        // 脏数据兜底：saveState 用 String() 把 null 序列化为 'null' 写入 storage，
+        // 下次读回变成字面值字符串 'null' → 显示成 "null（加载失败）"
+        _state.edgeVoice = (val === 'null' || val === '') ? null : val;
       } else {
         _state[key] = val;
       }
@@ -115,6 +123,36 @@ function detectTextLang(text) {
 // ── Core TTS ──
 
 /**
+ * 长文本切分（修 #2: Chrome Web Speech 对单 utterance >~200 字符不可靠，
+ * streaming 时单句可能很长。优先在自然边界切：标点 > 逗号/分号 > 空格 > 强制切）。
+ * @param {string} text
+ * @param {number} [maxLen=150]
+ * @returns {string[]}
+ */
+function splitForSpeech(text, maxLen = 150) {
+  if (!text || text.length <= maxLen) return [text];
+  const parts = [];
+  let buf = '';
+  for (let i = 0; i < text.length; i++) {
+    buf += text[i];
+    if (buf.length >= maxLen) {
+      // 优先在最近的自然边界切
+      const cut = buf.match(/^(.+?)([，。！？!?;；\s,])/);
+      if (cut && cut[1].length >= 20) {
+        parts.push(cut[1] + cut[2]);
+        buf = buf.slice(cut[0].length);
+      } else {
+        // 无自然边界，强制切
+        parts.push(buf);
+        buf = '';
+      }
+    }
+  }
+  if (buf) parts.push(buf);
+  return parts;
+}
+
+/**
  * 朗读文本。
  * @param {string} text - 要朗读的文本
  * @param {object} [opts]
@@ -136,6 +174,24 @@ function speak(text, opts = {}) {
 
   if (!cleanText) return false;
 
+  // 长文本切分（修 #2）— 拆成 ≤maxLen 的多段，避免 Chrome 截断
+  const segments = splitForSpeech(cleanText, 150);
+  if (segments.length > 1) {
+    const segLang = opts.lang || detectTextLang(segments[0]);
+    // 已在朗读 + enqueue：整批入队
+    if (_state.speaking && opts.enqueue) {
+      segments.forEach(seg => _state.queue.push({ text: seg, lang: segLang }));
+      return true;
+    }
+    // 已在朗读 + 不 enqueue：拒绝（保持原行为）
+    if (_state.speaking && !opts.enqueue) return false;
+    // 空闲：第一段立即朗读，剩余入队
+    const [first, ...rest] = segments;
+    rest.forEach(seg => _state.queue.push({ text: seg, lang: segLang }));
+    return _doSpeak(first, { ...opts, lang: segLang });
+  }
+
+  // 短文本（原逻辑）
   // 如果正在朗读且不排队，拒绝
   if (_state.speaking && !opts.enqueue) return false;
 
@@ -354,6 +410,109 @@ function setLanguage(val) {
   }
 }
 
+function setEngine(val) {
+  if (['web', 'edge', 'auto'].includes(val)) {
+    updateSettings({ engine: val });
+  }
+}
+
+function setEdgeVoice(val) {
+  updateSettings({ edgeVoice: val || null });
+}
+
+/**
+ * 朗读单句（供流式增量调用）。
+ * - engine=edge 且可用时走 speakStreaming（Edge TTS 高质量）；
+ * - 否则走浏览器原生 Web Speech（零依赖）。
+ * 自动检测 enabled / autoRead / 过长截断。
+ */
+function speakSentence(text) {
+  if (!_state.enabled || !_state.autoRead) return false;
+  const plain = stripMarkdown(text || '');
+  if (!plain || plain.length > 3000) {
+    if (plain && plain.length > 3000 && _state.enabled) {
+      speak('AI 回复内容较长，请在聊天面板中阅读', { enqueue: true });
+    }
+    return false;
+  }
+  if (_state.engine === 'edge' && typeof speakStreaming === 'function') {
+    return speakStreaming(plain, { enqueue: true });
+  }
+  return speak(plain, { enqueue: true });
+}
+
+// Edge 可用性探测缓存（auto 模式用）
+let _edgeAvailable = null; // null=未探测 | true | false
+
+/**
+ * 通过后端 /api/tts/synthesize 合成并播放（Edge TTS 高质量）。
+ * 失败自动回落浏览器原生 Web Speech。
+ * @param {string} text
+ * @param {object} [opts]
+ * @returns {Promise<boolean>}
+ */
+// Edge 流式播放队列：promise 链串行化，避免多句重叠
+let _edgeQueue = Promise.resolve();
+
+async function speakStreaming(text, opts = {}) {
+  if (!_state.enabled) return false;
+  if (!text || !text.trim()) return false;
+
+  const wantEdge = _state.engine === 'edge' || (_state.engine === 'auto' && _edgeAvailable !== false);
+  if (!wantEdge) {
+    _edgeAvailable = false;
+    return speak(text, opts);
+  }
+
+  // 串行化：等上一段 Edge 播放完（或失败回落）再开始下一段
+  const prev = _edgeQueue;
+  let resolveNext;
+  _edgeQueue = new Promise((r) => { resolveNext = r; });
+  await prev;
+
+  try {
+    const voice = _state.edgeVoice || 'zh-CN-XiaoxiaoNeural';
+    const rate = String(_state.rate || '1.0');
+    const res = await fetch('/api/tts/synthesize', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text, voice, rate }),
+    });
+    if (!res.ok) throw new Error('status ' + res.status);
+    const ab = await res.arrayBuffer();
+    const ok = await playAudioBuffer(ab);
+    if (!ok) throw new Error('decode failed');
+    _edgeAvailable = true;
+    return true;
+  } catch (e) {
+    console.warn('[VoiceOutput] Edge TTS failed, fallback to Web Speech:', e && e.message);
+    _edgeAvailable = false;
+    return speak(text, opts);
+  } finally {
+    resolveNext();
+  }
+}
+
+/** 用 Web Audio 解码并播放 mp3 ArrayBuffer（边下边播由逐句调用近似实现）。 */
+function playAudioBuffer(ab) {
+  return new Promise((resolve) => {
+    const Ctx = window.AudioContext || window.webkitAudioContext;
+    if (!Ctx) { resolve(false); return; }
+    const ctx = new Ctx();
+    ctx.decodeAudioData(ab.slice(0), (buf) => {
+      const src = ctx.createBufferSource();
+      src.buffer = buf;
+      src.connect(ctx.destination);
+      src.onended = () => { ctx.close(); resolve(true); };
+      src.start(0);
+    }, (err) => {
+      console.warn('[VoiceOutput] decodeAudioData failed:', err);
+      ctx.close();
+      resolve(false);
+    });
+  });
+}
+
 function setVoice(voiceURI) {
   updateSettings({ selectedVoice: voiceURI || null });
 }
@@ -371,6 +530,14 @@ function toggleSettingsPanel() {
 }
 
 function createSettingsPanel() {
+  if (!document.getElementById('tts-input-style')) {
+    const s = document.createElement('style');
+    s.id = 'tts-input-style';
+    s.textContent = '.tts-setting-section-title{padding:6px 0 2px;font-size:12px;font-weight:600;color:var(--text-secondary,#aaa);letter-spacing:.04em}' +
+      '.tts-voice-group[hidden]{display:none}';
+    document.head.appendChild(s);
+  }
+
   const panel = document.createElement('div');
   panel.id = 'tts-settings-panel';
   panel.className = 'tts-settings-panel hidden';
@@ -418,20 +585,37 @@ function createSettingsPanel() {
         </div>
       </div>
       <div class="tts-setting-divider"></div>
+      <div class="tts-setting-section-title">TTS 引擎（高质量）</div>
       <div class="tts-setting-row">
-        <span class="tts-setting-label">朗读语言</span>
-        <select id="tts-language" class="tts-select">
-          <option value="auto" ${_state.language === 'auto' ? 'selected' : ''}>自动检测</option>
-          <option value="zh" ${_state.language === 'zh' ? 'selected' : ''}>中文</option>
-          <option value="en" ${_state.language === 'en' ? 'selected' : ''}>English</option>
+        <span class="tts-setting-label">引擎</span>
+        <select id="tts-engine" class="tts-select">
+          <option value="web" ${_state.engine === 'web' ? 'selected' : ''}>浏览器原生（零依赖）</option>
+          <option value="edge" ${_state.engine === 'edge' ? 'selected' : ''}>Edge TTS（需联网）</option>
+          <option value="auto" ${_state.engine === 'auto' ? 'selected' : ''}>自动（Edge 优先）</option>
         </select>
       </div>
-      <div class="tts-setting-row">
-        <span class="tts-setting-label">发音人</span>
-        <select id="tts-voice" class="tts-select"></select>
+      <div class="tts-voice-group" data-engine="web">
+        <div class="tts-setting-row">
+          <span class="tts-setting-label">朗读语言</span>
+          <select id="tts-language" class="tts-select">
+            <option value="auto" ${_state.language === 'auto' ? 'selected' : ''}>自动检测</option>
+            <option value="zh" ${_state.language === 'zh' ? 'selected' : ''}>中文</option>
+            <option value="en" ${_state.language === 'en' ? 'selected' : ''}>English</option>
+          </select>
+        </div>
+        <div class="tts-setting-row">
+          <span class="tts-setting-label">发音人</span>
+          <select id="tts-voice" class="tts-select"></select>
+        </div>
+      </div>
+      <div class="tts-voice-group" data-engine="edge">
+        <div class="tts-setting-row">
+          <span class="tts-setting-label">Edge 发音人</span>
+          <select id="tts-edge-voice" class="tts-select"></select>
+        </div>
       </div>
       <div class="tts-setting-divider"></div>
-      <button class="tts-test-btn" id="tts-test-btn">🔊 测试语音</button>
+      <button class="tts-test-btn" id="tts-test-btn">🔊 测试语音（当前引擎）</button>
     </div>
   `;
   document.body.appendChild(panel);
@@ -450,7 +634,10 @@ function createSettingsPanel() {
 }
 
 function renderSettingsPanel(panel) {
-  // 填充语音列表
+  // 引擎切换 → 互斥显示对应 voice 组（#3 修复）
+  applyEngineVisibility();
+
+  // 填充 Web Speech 语音列表
   const voiceSelect = panel.querySelector('#tts-voice');
   if (voiceSelect) {
     const voices = getVoices();
@@ -465,6 +652,43 @@ function renderSettingsPanel(panel) {
       const autoVoice = autoSelectVoice(voices);
       if (autoVoice) voiceSelect.value = autoVoice.voiceURI;
     }
+  }
+  // Edge 发音人：只要 Edge 组可见（edge 或 auto），就拉取列表
+  const edgeSelect = panel.querySelector('#tts-edge-voice');
+  const edgeGroup = panel.querySelector('.tts-voice-group[data-engine="edge"]');
+  if (edgeSelect && edgeGroup && !edgeGroup.hidden) {
+    loadEdgeVoices(edgeSelect);
+  }
+}
+
+/** 拉取 Edge 音色并填充到 select（失败时保留已保存的 edgeVoice，不强行覆写） */
+async function loadEdgeVoices(selectEl) {
+  try {
+    const res = await fetch('/api/tts/voices');
+    if (!res.ok) throw new Error('status ' + res.status);
+    const data = await res.json();
+    const voices = (data.voices || []).filter(v => v.locale && v.locale.startsWith('zh'));
+    const list = voices.length ? voices : (data.voices || []);
+    selectEl.innerHTML = list.map(v =>
+      `<option value="${v.name}" ${v.name === _state.edgeVoice ? 'selected' : ''}>${v.name} (${v.locale})</option>`
+    ).join('');
+    if (!_state.edgeVoice && selectEl.options.length > 0) {
+      // 首次使用：选第一项并写入 state
+      selectEl.value = selectEl.options[0].value;
+      setEdgeVoice(selectEl.options[0].value);
+    } else if (_state.edgeVoice && !list.some(v => v.name === _state.edgeVoice)) {
+      // 保存的 voice 不在新列表里：state 保留，警告一次
+      console.warn('[VoiceOutput] saved Edge voice not in list:', _state.edgeVoice);
+    }
+  } catch (e) {
+    console.warn('[VoiceOutput] load Edge voices failed:', e && e.message);
+    // 失败：保留 state.edgeVoice，只显示提示项
+    // 兜底：脏数据 'null'/'' → 默认音色
+    const saved = (_state.edgeVoice && _state.edgeVoice !== 'null')
+      ? _state.edgeVoice
+      : 'zh-CN-XiaoxiaoNeural';
+    selectEl.innerHTML = `<option value="${saved}">${saved}（加载失败，稍后重试）</option>`;
+    selectEl.value = saved;
   }
 }
 
@@ -494,6 +718,15 @@ function wireSettingsEvents() {
       }
       case 'tts-language': setLanguage(el.value); break;
       case 'tts-voice': setVoice(el.value); break;
+      case 'tts-engine': {
+        setEngine(el.value);
+        // 引擎切换：立刻刷新互斥显示 + 加载新组 voice 列表（#5 修复）
+        const panel = document.getElementById('tts-settings-panel');
+        if (panel) renderSettingsPanel(panel);
+        break;
+      }
+      case 'tts-edge-voice': setEdgeVoice(el.value); break;
+      // vc-autosend / vc-lang 已迁出到 voice-input.js 独立面板
     }
   });
 
@@ -509,13 +742,35 @@ function wireSettingsEvents() {
 
   document.addEventListener('click', (e) => {
     if (e.target.id === 'tts-test-btn') {
-      const lang = document.getElementById('tts-language')?.value || 'auto';
-      const testText = lang === 'zh' || (lang === 'auto' && detectTextLang('你好，欢迎使用语音输出功能'))
-        ? '你好，欢迎使用语音输出功能。这是一条测试语音。'
-        : 'Hello, welcome to the voice output feature. This is a test message.';
-      // 同步当前设置再测试
-      _doSpeak(testText, { lang: lang === 'auto' ? detectTextLang(testText) : lang });
+      const testText = '你好，欢迎使用语音输出功能。这是一条测试语音。';
+      testCurrentEngine(testText);
     }
+  });
+}
+
+/** 用当前引擎播放测试文本（绕过 autoRead 检查） */
+function testCurrentEngine(text) {
+  if (!_state.enabled) return false;
+  const plain = stripMarkdown(text || '');
+  if (!plain) return false;
+  const engine = _state.engine || 'web';
+  if (engine === 'edge') {
+    return speakStreaming(plain);
+  }
+  if (engine === 'auto') {
+    return speakStreaming(plain); // speakStreaming 内部 auto→edge 优先、失败回落 web
+  }
+  return speak(plain);
+}
+
+/** 根据当前引擎切换 Web Speech / Edge TTS 列表的可见性（#3 修复：互斥显示） */
+function applyEngineVisibility() {
+  const engine = _state.engine || 'web';
+  const showWeb = engine === 'web' || engine === 'auto';
+  const showEdge = engine === 'edge' || engine === 'auto';
+  document.querySelectorAll('.tts-voice-group').forEach((g) => {
+    const which = g.dataset.engine;
+    g.hidden = which === 'web' ? !showWeb : !showEdge;
   });
 }
 
@@ -526,6 +781,8 @@ const VoiceOutput = {
   get speaking() { return _state.speaking; },
   speak,
   speakAIResponse,
+  speakSentence,
+  speakStreaming,
   stop,
   togglePause,
   getVoices,
@@ -534,6 +791,8 @@ const VoiceOutput = {
   updateSettings,
   setEnabled,
   setAutoRead,
+  setEngine,
+  setEdgeVoice,
   toggleSettingsPanel,
   stripMarkdown,
 };

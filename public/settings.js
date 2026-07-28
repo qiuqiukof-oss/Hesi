@@ -27,6 +27,7 @@ const SETTINGS_KEYS = {
   css: 'qcli-custom-css',
   aiProvider: 'qcli-ai-provider',
   aiModel: 'qcli-ai-model',
+  aiModelPlan: 'qcli-ai-model-plan',
   aiBaseUrl: 'qcli-ai-base-url',
   defaultCLI: 'qcli-default-cli',
 };

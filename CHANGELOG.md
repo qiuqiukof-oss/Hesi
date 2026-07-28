@@ -6,6 +6,48 @@ use `vMAJOR.MINOR.PATCH-<tag>`.
 
 ---
 
+## [v0.5.0] — 2026-07-28
+
+### 验证优先模式（Verify-First，Phase 0）
+- 聊天面板新增 🔍 核查开关，开启后本次对话向系统提示词追加「核查模式已开启」段，强制 AI 先调用 read_file / grep / web_fetch / exec_terminal 取证再下结论，要求引用具体文件路径:行号。
+- 状态走 `verifyMode` 字段贯穿到后端 `routes/chat/index.js`，前端开关与请求体一致；关闭时零注入、零行为变化。
+
+### 语音方案 v1（输入泛化 + 输出 TTS）
+- **输入泛化**：麦克风可路由到**聊天输入框**或**终端**双目标；识别成文字后弹**确认条**（可编辑、重录、取消、切换目标），默认 `autoSend` 关 → 确认再发送；识别语言默认 `zh-CN` 保证高识别率。
+- **输出 TTS**（重点优化 AI 文字快速读出）：
+  - AI 回复**边生成边读**（`_ttsStreamOnToken` 按句末标点 `。！？!?\n` 增量合成）。
+  - 引擎可切 **Web Speech / Edge TTS / auto**；Edge TTS 走 `edge-tts-universal`（纯 Node，零原生依赖）。
+  - **Edge 流式串行队列**（promise 链）避免多句音频重叠；**`splitForSpeech` 长文本切分**降低 Web Speech 单 utterance 失败概率。
+  - 后端新增 `lib/tts/edge-tts.js` + `routes/tts.js`（`POST /api/tts/synthesize` / `GET /api/tts/voices`）；挂载到 `/api/tts`（与前端一致）。
+- **独立设置面板**：标题栏新增 🎛️ 入口；含「自动发送」「识别语言」「默认发送目标」三项；默认目标支持 `auto|chat|terminal`，持久化、可 pin。
+- **降级链**：Edge TTS → Web Speech → 纯文本；单段失败不影响后续。
+
+### 圆桌交互增强（P2.5 落座接管）🟢
+- 圆桌讨论中，用户可**接管**任意 Agent 席位：点击席位「接管」→ 填写「以该 Agent 身份发言」文本 → 讨论开始时该席位的发言由人工提交文本代替自动生成（仅首次注入，后续轮保持接管态）。
+- 内核 `routes/chat/discuss.js` 跳过被接管席位的 `runCliTurn`，改为注入人工文本并写入讨论转录；点「归还」恢复自动协作，不影响其他席位。
+- 前端 `roundtable-view.js` 席位新增接管/归还控件与状态管理，`chat-api.js` / `routes/chat/index.js` 透传 `takenOver`（cliId→文本）。纯前端状态 + 内核跳过逻辑，零新依赖。
+
+### 记忆时间轴（P2.1）🟢
+- 新增后端只读端点 `GET /api/memory/sessions/:id/timeline`：聚合 session 消息时间戳 + 压缩检查点 + 收益记录（turnMetrics），按时间排序返回。
+- 记忆抽屉（🧠）新增「🕒 时间轴」Tab，纵向时间轴区分**消息（🙋用户 / 🤖助手）/ 压缩检查点（🧊）/ 收益累计（💡）**节点，点击展开当轮预览。
+- 纯函数组件 `public/components/memory-timeline.js`（`computeTimeline` + `renderMemoryTimeline`，零 DOM 副作用、可单测），入 main bundle。
+
+### Bug 修复（语音 + verify 累计）
+- **致命**：Edge TTS 路由 mount 路径修复（`/api` → `/api/tts`），与前端请求对齐；`toEdgeRate` 无效输入 fallback 从 `'+0.00%'` 改为 `'+0%'` + clamp 到 `[-90%, +100%]` 区间（避免 UI 最大 3× 时 502 回落）。
+- **中度**：语音确认条发送后清空（避免 continuous 模式重复发送）；`onerror no-speech` 加 `voice.active` 守卫（避免主动停止后被重启）；TTS 设置面板引擎/音色/测试按钮互斥与刷新逻辑。
+- **体验**：CSS 变量替换暗色硬编码 fallback（亮色主题可读）；CSS 死样式清理（43 行）；i18n 字段补全（`voice.inputSettings` / `voice.defaultTargetLabel` / `voice.effectiveTarget`）。
+
+### 验证
+- `npm test` **全绿**（300 用例）；`npm run lint` **0 error**（历史遗留警告未引入新增）。
+- `npm run build:main` ✅ **968.8kb**；`npm run build:lazy` ✅ **263.1kb**。
+- **Edge TTS 端到端冒烟**：`/api/tts/synthesize` 返回 `200 audio/mpeg`（rate=undefined/1.0/3×→clamped/0.5× 全测），`/api/tts/voices` 返回 322 音色（14 中文）。
+
+### 升级提示
+- 用户升级后首次启用 Edge TTS 会**首次联网**获取微软音色列表；离线环境自动降级 Web Speech Synthesis。
+- 「默认发送目标」设置沿用 `qcli-voice-input-defaultTarget` localStorage key；老用户读不到值时回落到 `auto`（按焦点/终端自动判断）。
+
+---
+
 ## [v0.4.2] — 2026-07-28
 
 ### 聊天体验增强

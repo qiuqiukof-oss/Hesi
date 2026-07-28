@@ -37,6 +37,7 @@ import './chat-ui.js';       // ChatUI  → chat panel rendering
 import './memory/session-store.js';  // MemorySession → Q.MemorySession singleton
 import './memory/session-list.js';  // Session list → left column in chat drawer
 import './memory/memory-panel.js';  // Memory drawer → 🧠 profile/facts UI
+import './components/memory-timeline.js'; // P2.1 记忆时间轴 → Q.MemoryTimeline
 
 // ── Web Components (Phase 2 extraction) ──
 import './components/theme-switcher.js';    // Theme switching

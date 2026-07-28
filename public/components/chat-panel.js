@@ -99,6 +99,8 @@ class ChatPanel extends HTMLElement {
     this.attachBtn = null;
     this.fileInput = null;
     this.attachPreviewEl = null;
+    this.verifyBtn = null;
+    this._verifyMode = false;     // 核查模式（verify-first）：开启后 AI 先取证再作答
   }
 
   // ── Lifecycle ──
@@ -121,6 +123,13 @@ class ChatPanel extends HTMLElement {
     this.attachBtn = document.getElementById('chat-attach-btn');
     this.fileInput = document.getElementById('chat-file-input');
     this.attachPreviewEl = document.getElementById('chat-attachments');
+    this.verifyBtn = document.getElementById('chat-verify-btn');
+    // 核查模式（verify-first）：从 localStorage 恢复开关状态并同步按钮高亮
+    this._verifyMode = localStorage.getItem('qcli-verify-mode') === '1';
+    if (this.verifyBtn) {
+      this.verifyBtn.classList.toggle('active', this._verifyMode);
+      this.verifyBtn.addEventListener('click', () => this._toggleVerifyMode());
+    }
 
     // ── 会话级 token 节省记账（M5 后续增强 → 持久化到 session.turnMetrics，单一数据源）──
     this._roundUsed = 0;    // 本轮实际消耗 tokens（来自 onUsage 累加）
@@ -183,7 +192,7 @@ class ChatPanel extends HTMLElement {
       const Q = window.QCLI || {};
       Q.ChatUI = Q.ChatUI || {};
       if (!Q.ChatUI._patched) {
-        Q.ChatUI.sendChatMessage = () => this.sendMessage();
+        Q.ChatUI.sendChatMessage = (text) => { if (typeof text === 'string' && this.input) this.input.value = text; this.sendMessage(); };
         Q.ChatUI.toggleChat = () => this.toggle();
         Q.ChatUI.clearChatHistory = () => this.clearHistory();
         Q.ChatUI.appendMessageToDOM = (msg, animate) => this.appendToDOM(msg, animate);
@@ -1177,6 +1186,13 @@ class ChatPanel extends HTMLElement {
     return card;
   }
 
+  // ── 核查模式（verify-first）开关 ──
+  _toggleVerifyMode() {
+    this._verifyMode = !this._verifyMode;
+    localStorage.setItem('qcli-verify-mode', this._verifyMode ? '1' : '0');
+    if (this.verifyBtn) this.verifyBtn.classList.toggle('active', this._verifyMode);
+  }
+
   sendMessage() {
     const Q = qcli();
     let text = this.input?.value.trim();
@@ -1329,9 +1345,14 @@ class ChatPanel extends HTMLElement {
         this._roundSaved = 0;
         this._roundMetrics = { cacheRead: 0, cacheWrite: 0, toolReuse: 0, exp: 0, skills: 0 };
 
+        // 流式朗读缓冲（B-core：增量分句边生成边读）
+        this._ttsBuffer = '';
+        this._ttsStreamed = false;
+
         api.sendMessage({
           messages: msgs,
           category: getActiveCategory() || undefined,
+          verifyMode: this._verifyMode,
           sessionId: sessionId || undefined,
           terminalContext: terminalContext || undefined,
           terminalContextChanged: contextChanged,
@@ -1381,6 +1402,7 @@ class ChatPanel extends HTMLElement {
               return;
             }
             fullResponse += token;
+            this._ttsStreamOnToken(token);
             const indicator = document.getElementById('thinking-indicator');
             if (indicator) {
               const bubble = indicator.querySelector('.msg-bubble');
@@ -1581,9 +1603,15 @@ class ChatPanel extends HTMLElement {
               this._recordTurnMetrics(sessionId);
             }
 
-            // ── 语音输出：AI 回复后自动朗读 ──
-            if (window.QCLI?.VoiceOutput?.speakAIResponse) {
-              window.QCLI.VoiceOutput.speakAIResponse(fullResponse);
+            // ── 语音输出：流式增量朗读（B-core），余量在 onDone flush ──
+            if (window.QCLI?.VoiceOutput) {
+              const VO = window.QCLI.VoiceOutput;
+              if (this._ttsBuffer && this._ttsBuffer.trim()) {
+                VO.speakSentence(this._ttsBuffer.trim());
+                this._ttsBuffer = '';
+              } else if (!this._ttsStreamed) {
+                VO.speakAIResponse(fullResponse);
+              }
             }
 
             if (this.input) this.input.focus();
@@ -1634,6 +1662,27 @@ class ChatPanel extends HTMLElement {
     } else {
       this._mockResponse();
     }
+  }
+
+  /** 流式 token 到达时增量分句，完整句立即朗读（"边生成边读"）。 */
+  _ttsStreamOnToken(token) {
+    if (!window.QCLI?.VoiceOutput) return;
+    if (this._ttsBuffer == null) this._ttsBuffer = '';
+    this._ttsBuffer += token;
+    const s = this._ttsBuffer;
+    // 找到最后一个句末标点
+    let lastB = -1;
+    for (let i = s.length - 1; i >= 0; i--) {
+      const c = s[i];
+      if (c === '。' || c === '！' || c === '？' || c === '!' || c === '?' || c === '\n') { lastB = i; break; }
+    }
+    if (lastB === -1) return;
+    const after = s.slice(lastB + 1).trim();
+    if (after.length === 0) return; // 等下一句开始再 flush，避免过早截断末句
+    const complete = s.slice(0, lastB + 1);
+    this._ttsBuffer = after;
+    this._ttsStreamed = true;
+    window.QCLI.VoiceOutput.speakSentence(complete);
   }
 
   _mockResponse() {

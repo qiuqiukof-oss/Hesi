@@ -269,7 +269,7 @@ function createRouter(opts = {}) {
   // Response: SSE stream of tokens
   // ──────────────────────────────────────────────
   router.post('/chat', async (req, res) => {
-    const { messages, model, apiKey: clientKey, provider: clientProvider, baseUrl: clientBaseUrl, disableTools, terminalContext, terminalContextChanged, discuss, partner, partners, maxTurns, sessionId, category } = req.body;
+    const { messages, model, apiKey: clientKey, provider: clientProvider, baseUrl: clientBaseUrl, disableTools, terminalContext, terminalContextChanged, discuss, partner, partners, maxTurns, sessionId, category, verifyMode, takenOver } = req.body;
     // Phase 2：把 sessionId 挂到请求上，供流式路径里的 executeToolCall 透传到 /tools/write-file 做副作用快照。
     req._hesiSessionId = sessionId || '';
     // 分类 Chips（两级小功能）：当前对话模式 → 注入 [当前模式] 系统提示段 + Skill 检索加权
@@ -296,6 +296,7 @@ function createRouter(opts = {}) {
           partner: partnerList[0],   // 兼容旧字段
           partners: partnerList,
           maxTurns: Math.min(Math.max(parseInt(maxTurns, 10) || 6, 1), 12),
+          takenOver: (takenOver && typeof takenOver === 'object') ? takenOver : undefined,
           apiKey: clientKey,
           provider: clientProvider,
           baseUrl: clientBaseUrl,
@@ -442,6 +443,22 @@ When the user asks you to perform a "system self-check" / "全面自检" / "diag
 2. **少 bug（先查关联再动手）**：改动前先仔细检查关联项——调用方/被调用方、跨文件引用、前端 bundle 归属（main vs lazy）、路由/中间件挂载点、相关单测——确认影响面后再改。改动保持小步、单 commit 可回退；改完跑相关测试/lint 再交付。
 3. 结构性改动前先出方案（范围/步骤/风险/回滚/验收），确认后再执行——与「先方案后动手」一脉相承。`;
 
+    // ── 验证优先 / 工具优先（球总提议，2026-07-28 注入）：让 AI 先核实工程现状再判断 ──
+    // 置于静态前缀（category/记忆块之前），利于 OpenAI 前缀缓存命中；Anthropic 侧
+    // 经 stream-anthropic.js:473 的 system 块收集，首块即本段，已验证不会被吞。
+    SELF_AWARE_PROMPT += `
+
+## 验证优先 (Verify Before You Judge)
+- 当用户引用某个文件、方案、代码路径、配置或外部 API/库时，**先读、先搜索、再下结论**，不要凭文件名或印象推理。
+- 方案的「设定前提」（架构 / 依赖 / API / 文件路径 / 版本）若与项目实际不符，**用具体证据指出**（文件路径:行号、grep 结果、文档版本），不要空说"可能不对"。
+- 优先考虑合理性而非顺从；判断要真实，不是表演。
+- 不确定就明说"我需要查 X"并真的去查（\`read_file\` / \`grep\` / \`web_fetch\` / \`exec_terminal\`），不要装懂。
+
+## 工具优先 (Tools First)
+- 任何依赖代码现状的可行性 / 兼容性 / 影响面判断，必须先调用 ≥1 个工具取证（\`read_file\`、\`grep\`、\`web_fetch\`）再回答。
+- 引用外部 API/库时，先 \`web_fetch\` 官方文档确认存在与现行用法。
+- 基于工具**返回的证据**作答，不得抛开证据凭记忆下结论。`;
+
     // ── 分类 Chips（两级小功能）：当前对话模式 → [当前模式] 系统提示段 ──
     // 未选（category 空或非法）时零注入，行为完全不变。
     // category 支持 "main"（单级）与 "main::sub"（两级）两种格式。
@@ -453,6 +470,14 @@ When the user asks you to perform a "system self-check" / "全面自检" / "diag
         const modeText = subLabel ? `${mainLabel} > ${subLabel}` : mainLabel;
         SELF_AWARE_PROMPT += `\n\n## 当前对话模式\n用户将本会话标记为「${modeText}」模式。回答时优先贴合该领域（相关术语、工具链、内置 Skill 与文档），但你仍是通用 AI 助手，不局限于此模式。`;
       }
+    }
+
+    // ── 核查模式（verify-first）：开启时强制本次先取证再作答 ──
+    if (verifyMode) {
+      SELF_AWARE_PROMPT += `\n\n## 核查模式已开启 (Verify Mode ON)
+- 本次回答前，必须至少调用一次 read_file / grep / web_fetch / exec_terminal 取证，再下结论。
+- 当用户引用任何文件 / 方案 / 代码 / 外部 API 时，先核对真实内容，指出与现状的矛盾（给出文件路径:行号等证据）。
+- 不要仅凭印象或文件名回答；基于工具返回的证据作答。`;
     }
 
     // ── M4 (v0.3.1): Skill 按需注入（铺结构版，词法 BM25）──

@@ -72,6 +72,8 @@ const RoundTableView = {
   overrides: {},
   seats: {},          // seatId -> { el, avEl, nameEl, roleEl, stEl, bubEl, likeEl, likes, empty }
   selected: [],       // 选中的 CLI id 列表
+  seatMode: {},        // seatId -> 'auto' | 'takeover'（落座接管状态）
+  seatHumanText: {},   // seatId -> 人工接管时提交的发言文本
   participantSeats: {}, // speaker label -> seatId（讨论期间）
   activeSeat: null,
   transcript: [],     // [{label, text}]
@@ -309,6 +311,8 @@ const RoundTableView = {
     AGENT_SEAT_ORDER.forEach((seatId, idx) => {
       const agent = this.roster[idx];
       const isOccupied = idx < occupied.length;
+      // 空座/未占席位不存在接管态：重置，避免残留脏状态
+      if (!isOccupied) this.seatMode[seatId] = 'auto';
       this.buildSeat(seatId, agent, { empty: !isOccupied });
     });
     this.applyHideEmpty();
@@ -328,7 +332,8 @@ const RoundTableView = {
       <div class="rtrole">${agent.roleLabel || ''}</div>
       ${empty ? '<div class="seatchair">空座</div>' : '<div class="rtst" style="background:#9aa1a9">待命</div>'}
       <div class="${host ? 'bub' : 'bub bub-side'}" style="display:none"></div>
-      ${host ? '' : '<div class="likes" style="display:none">👍 <span>0</span></div>'}`;
+      ${host ? '' : '<div class="likes" style="display:none">👍 <span>0</span></div>'}
+      ${host || empty ? '' : '<div class="seat-ctl" data-seat="' + seatId + '"></div>'}`;
     if (!host && !empty) {
       const likeEl = seat.querySelector('.likes');
       likeEl.style.display = 'block';
@@ -351,6 +356,55 @@ const RoundTableView = {
       empty,
       agent,
     };
+    // 非主持人且已占席位：渲染「接管 / 归还」控件
+    if (!host && !empty) this.renderSeatControls(seatId);
+  },
+
+  // 渲染单个席位的落座接管控件（auto → 接管按钮；takeover → 输入框 + 发送/归还）
+  renderSeatControls(seatId) {
+    const s = this.seats[seatId];
+    if (!s || s.empty) return;
+    const ctl = s.el.querySelector('.seat-ctl');
+    if (!ctl) return;
+    const mode = this.seatMode[seatId] || 'auto';
+    if (mode === 'auto') {
+      ctl.innerHTML = '<button class="seat-take" data-seat="' + this.esc(seatId) + '">接管</button>';
+      const btn = ctl.querySelector('.seat-take');
+      if (btn) btn.addEventListener('click', () => this.takeoverSeat(seatId));
+    } else {
+      const saved = this.esc(this.seatHumanText[seatId] || '');
+      ctl.innerHTML = ''
+        + '<textarea class="seat-take-text" data-seat="' + this.esc(seatId) + '" placeholder="以该 Agent 身份发言…">' + saved + '</textarea>'
+        + '<div class="seat-take-actions">'
+        + '<button class="seat-take-send" data-seat="' + this.esc(seatId) + '">以此身份发言</button>'
+        + '<button class="seat-yield" data-seat="' + this.esc(seatId) + '">归还</button>'
+        + '</div>';
+      const ta = ctl.querySelector('.seat-take-text');
+      if (ta) ta.addEventListener('input', () => { this.seatHumanText[seatId] = ta.value; });
+      const send = ctl.querySelector('.seat-take-send');
+      if (send) send.addEventListener('click', () => {
+        const v = ta ? ta.value.trim() : '';
+        if (!v) { this.toast('请先输入该 Agent 的发言'); return; }
+        this.seatHumanText[seatId] = v;
+        this.toast('已记录，讨论开始后将以「' + this.esc(s.agent.name || seatId) + '」身份发言');
+      });
+      const yieldBtn = ctl.querySelector('.seat-yield');
+      if (yieldBtn) yieldBtn.addEventListener('click', () => this.yieldSeat(seatId));
+    }
+  },
+
+  takeoverSeat(seatId) {
+    if (this.running) { this.toast('讨论进行中不可接管，请先停止'); return; }
+    const s = this.seats[seatId];
+    if (!s || s.empty) return;
+    this.seatMode[seatId] = 'takeover';
+    this.renderSeats();
+  },
+
+  yieldSeat(seatId) {
+    this.seatMode[seatId] = 'auto';
+    this.seatHumanText[seatId] = '';
+    this.renderSeats();
   },
 
   applyHideEmpty() {
@@ -434,12 +488,27 @@ const RoundTableView = {
       }
     });
 
+    // 落座接管：被接管且有文本的席位，从 partners 中照常参与，
+    // 但向内核透传 takenOver（cliId -> 人工文本），内核跳过其自动生成。
+    const takenOver = {};
+    AGENT_SEAT_ORDER.forEach((seatId, idx) => {
+      if (idx >= this.selected.length) return;
+      if ((this.seatMode[seatId] || 'auto') === 'takeover') {
+        const txt = (this.seatHumanText[seatId] || '').trim();
+        if (txt) takenOver[this.selected[idx]] = txt;
+      }
+    });
+    if (Object.keys(takenOver).length) {
+      this.log('🤝 已接管 ' + Object.keys(takenOver).length + ' 个席位（人工发言将代替自动生成）');
+    }
+
     const api = Q.ChatAPI;
     if (!api || !api.sendMessage) { this.toast('讨论引擎不可用'); this.finishDiscussion(); return; }
     api.sendMessage({
       messages: [{ role: 'user', content: topic }],
       discuss: true,
       partners: this.selected,
+      takenOver,
       maxTurns: getRounds(),
       sessionId: this.sessionId,
       onToken: (content) => {

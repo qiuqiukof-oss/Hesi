@@ -87,3 +87,12 @@
 #mahjong-embed .tile-out{animation:tileOut .5s ease}
 @keyframes tileOut{0%{transform:scale(1)}50%{transform:scale(.92)}100%{transform:scale(1)}}
 @keyframes pulse{0%,100%{box-shadow:0 0 0 3px rgba(186,117,23,.25)}50%{box-shadow:0 0 0 5px rgba(186,117,23,.12)}}
+/* ── P2.5 落座接管控件 ── */
+#mahjong-embed .seat-ctl{position:absolute;top:calc(100% + 6px);left:50%;transform:translateX(-50%);width:200px;z-index:9;display:flex;flex-direction:column;gap:5px}
+#mahjong-embed .seat-take{padding:5px 10px;font-size:12px;border-radius:7px}
+#mahjong-embed .seat-take-text{width:100%;min-height:54px;font-size:12px;line-height:1.4;resize:vertical}
+#mahjong-embed .seat-take-actions{display:flex;gap:6px}
+#mahjong-embed .seat-take-actions button{padding:5px 8px;font-size:12px;flex:1}
+#mahjong-embed .seat-take-send{background:var(--accent);border-color:var(--accent);color:#fff}
+#mahjong-embed .seat-take-send:hover{background:var(--accent-d);color:#fff}
+#mahjong-embed .seat-yield{background:#fff}

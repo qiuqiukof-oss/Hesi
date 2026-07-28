@@ -122,6 +122,49 @@ router.get('/:id/checkpoints', (req, res) => {
   }
 });
 
+// ── P2.1 记忆时间轴：只读聚合 session 时间戳 + 压缩检查点 + 收益记录 ──
+// 节点 = 消息（轮次/角色）+ 压缩检查点；按 ts 排序；turnMetrics 作为末尾收益聚合节点。
+router.get('/:id/timeline', (req, res) => {
+  try {
+    const s = MemoryStore.get(req.params.id);
+    if (!s) return res.status(404).json({ error: 'session not found' });
+    const checkpoints = MemoryStore.listCheckpoints(req.params.id) || [];
+    const messages = Array.isArray(s.messages) ? s.messages : [];
+    const turnMetrics = Array.isArray(s.turnMetrics) ? s.turnMetrics : [];
+    const events = [];
+    for (const m of messages) {
+      events.push({
+        kind: 'message',
+        role: m.role || 'unknown',
+        ts: m.ts || 0,
+        id: m.id || null,
+        preview: typeof m.content === 'string' ? m.content.slice(0, 240) : '',
+        tokens: m.tokens || 0,
+      });
+    }
+    for (const c of checkpoints) {
+      events.push({ kind: 'checkpoint', ts: c.ts || 0, seq: c.seq, label: c.label || '' });
+    }
+    events.sort((a, b) => (a.ts || 0) - (b.ts || 0));
+    const turns = turnMetrics.map((t, i) => ({
+      index: i,
+      estSaved: t.estSaved || 0,
+      actualUsed: t.actualUsed || 0,
+    }));
+    res.json({
+      sessionId: s.id,
+      title: s.title || '',
+      createdAt: s.createdAt || 0,
+      updatedAt: s.updatedAt || 0,
+      model: s.model || '',
+      events,
+      turns,
+    });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // Phase 2：回滚前的文件副作用预览（供前端二次确认弹窗列出将还原/删除的文件）
 router.get('/:id/rollback-preview', (req, res) => {
   try {

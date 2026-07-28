@@ -347,3 +347,31 @@ body.csar-resizing { user-select: none; cursor: col-resize; }
   max-height: 220px;
   overflow-y: auto;
 }
+
+/* ── P2.1 记忆时间轴 ── */
+.memory-tabs { display: flex; gap: 6px; padding: 10px 14px 0; }
+.memory-tab {
+  border: 1px solid var(--border-default, #2a2d34);
+  background: transparent;
+  color: var(--text-secondary, #8b929c);
+  border-radius: 8px 8px 0 0;
+  padding: 6px 12px;
+  font-size: 13px;
+  cursor: pointer;
+}
+.memory-tab.active { background: var(--bg-surface, #121214); color: var(--text-primary, #e6e8ea); border-bottom-color: transparent; }
+.tl-summary { display: flex; gap: 12px; flex-wrap: wrap; font-size: 12px; color: var(--text-secondary, #8b929c); margin-bottom: 10px; }
+.tl-track { position: relative; padding-left: 22px; }
+.tl-track::before { content: ''; position: absolute; left: 8px; top: 4px; bottom: 4px; width: 2px; background: var(--border-default, #2a2d34); }
+.tl-node { position: relative; margin-bottom: 10px; }
+.tl-dot { position: absolute; left: -22px; top: 2px; width: 18px; height: 18px; display: flex; align-items: center; justify-content: center; font-size: 12px; background: var(--bg-surface, #121214); border-radius: 50%; border: 1px solid var(--border-default, #2a2d34); z-index: 1; }
+.tl-card { background: var(--bg-surface, #121214); border: 1px solid var(--border-default, #2a2d34); border-left: 3px solid var(--accent, #3b82f6); border-radius: 8px; padding: 8px 10px; cursor: default; }
+.tl-node.user .tl-card { border-left-color: #22c55e; }
+.tl-node.assistant .tl-card { border-left-color: #3b82f6; }
+.tl-node.checkpoint .tl-card { border-left-color: #38bdf8; }
+.tl-node.savings .tl-card { border-left-color: #f59e0b; }
+.tl-time { font-size: 11px; color: var(--text-secondary, #8b929c); margin-bottom: 2px; }
+.tl-title { font-size: 13px; font-weight: 600; color: var(--text-primary, #e6e8ea); }
+.tl-preview { font-size: 12px; color: var(--text-secondary, #8b929c); margin-top: 4px; line-height: 1.5; white-space: pre-wrap; word-break: break-word; }
+.tl-card.collapsed .tl-preview { max-height: 2.8em; overflow: hidden; }
+.tl-empty, .tl-loading { color: var(--text-secondary, #8b929c); font-size: 13px; padding: 8px 0; }

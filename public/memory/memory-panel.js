@@ -44,6 +44,25 @@ function mount() {
   document.body.appendChild(overlay);
 
   const body = overlay.querySelector('#memory-drawer-body');
+  // P2.1 时间轴 Tab：与「事实」并列切换
+  const tabBar = document.createElement('div');
+  tabBar.className = 'memory-tabs';
+  tabBar.innerHTML = '<button class="memory-tab active" data-tab="facts">📋 事实</button>'
+    + '<button class="memory-tab" data-tab="timeline">🕒 时间轴</button>';
+  overlay.querySelector('.memory-drawer-inner').insertBefore(tabBar, body);
+  tabBar.querySelectorAll('.memory-tab').forEach((tb) => {
+    tb.addEventListener('click', () => {
+      tabBar.querySelectorAll('.memory-tab').forEach((x) => x.classList.remove('active'));
+      tb.classList.add('active');
+      if (tb.dataset.tab === 'timeline') {
+        const sid = Q.MemorySession && Q.MemorySession.currentId;
+        if (Q.MemoryTimeline) Q.MemoryTimeline.renderMemoryTimeline(body, sid);
+        else body.innerHTML = '<div class="memory-empty">时间轴模块未加载，请刷新页面。</div>';
+      } else {
+        renderFacts();
+      }
+    });
+  });
   const close = () => overlay.classList.add('hidden');
   overlay.querySelectorAll('[data-close]').forEach((el) => el.addEventListener('click', close));
   document.addEventListener('keydown', (e) => {
