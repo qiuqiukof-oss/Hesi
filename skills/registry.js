@@ -139,8 +139,9 @@ class SkillRegistry {
       .map((d, i) => ({ s: this.get(d.ref), rank: i }))
       .filter((x) => x.s);
     // 分类 Chips：命中当前对话模式的 Skill 优先置顶（稳定排序，不动 BM25 相对序）
+    // 兼容 "main::sub" 格式——仅取主分类部分匹配（skill.category 为单级 id）。
     if (opts && opts.category) {
-      const cat = opts.category;
+      const cat = String(opts.category).split('::')[0];
       scored = scored
         .map((x) => ({ s: x.s, rank: (x.s.category || '') === cat ? x.rank - 1000 : x.rank }))
         .sort((a, b) => a.rank - b.rank)

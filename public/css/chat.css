@@ -1743,9 +1743,46 @@ body.drawer-resizing {
   color: #fff;
   font-weight: 600;
 }
+/* 两级分类：主分类行（带 icon 的 pill 占满剩余空间，子行整行换行） */
+.category-chips .cat-main-row { flex: 1 1 auto; }
+.category-chips .cat-main-pill .cat-icon {
+  margin-right: 2px;
+  font-size: 13px;
+  line-height: 1;
+}
+/* 两级分类：子分类行（随主分类动态切换，淡入淡出） */
+.category-chips .cat-sub-row {
+  flex-basis: 100%;
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  align-items: center;
+  padding-left: 4px;
+  margin-top: 2px;
+  padding-top: 6px;
+  border-top: 1px dashed var(--border, #e5e7eb);
+  opacity: 1;
+  transition: opacity .18s ease;
+}
+.category-chips .cat-sub-row.is-hidden { display: none; }
+.category-chips .cat-sub-row.fade-out { opacity: 0; }
+.category-chips .cat-sub-label {
+  font-size: 11px;
+  color: var(--text-muted, #6b7280);
+  font-weight: 600;
+  white-space: nowrap;
+}
+.category-chips .cat-sub-chip {
+  padding: 2px 10px;
+  font-size: 11px;
+  line-height: 1.6;
+}
 [data-theme="dark"] .category-chips {
   background: var(--bg-elevated, #1f2937);
   border-bottom-color: var(--border, #374151);
+}
+[data-theme="dark"] .category-chips .cat-sub-row {
+  border-top-color: var(--border, #374151);
 }
 
 /* ============================================================

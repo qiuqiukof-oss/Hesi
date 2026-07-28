@@ -272,8 +272,9 @@ function createRouter(opts = {}) {
     const { messages, model, apiKey: clientKey, provider: clientProvider, baseUrl: clientBaseUrl, disableTools, terminalContext, terminalContextChanged, discuss, partner, partners, maxTurns, sessionId, category } = req.body;
     // Phase 2：把 sessionId 挂到请求上，供流式路径里的 executeToolCall 透传到 /tools/write-file 做副作用快照。
     req._hesiSessionId = sessionId || '';
-    // 分类 Chips（小功能）：当前对话模式 → 注入 [当前模式] 系统提示段 + Skill 检索加权
-    const CHAT_CATEGORIES = { daily: '日常开发', web: '网站开发', agent: 'Agent 应用', skill: 'Skill 开发', cicd: 'CI/CD', docs: '文档' };
+    // 分类 Chips（两级小功能）：当前对话模式 → 注入 [当前模式] 系统提示段 + Skill 检索加权
+    // 主分类 id 与前端 MAIN_CATEGORIES 保持一致（dev/web/agent/ops）。
+    const CHAT_CATEGORIES = { dev: '日常开发', web: '网站开发', agent: 'Agent 应用', ops: '工程效能' };
 
     if (!messages || !Array.isArray(messages) || messages.length === 0) {
       return res.status(400).json({ error: 'messages array is required' });
@@ -441,10 +442,17 @@ When the user asks you to perform a "system self-check" / "全面自检" / "diag
 2. **少 bug（先查关联再动手）**：改动前先仔细检查关联项——调用方/被调用方、跨文件引用、前端 bundle 归属（main vs lazy）、路由/中间件挂载点、相关单测——确认影响面后再改。改动保持小步、单 commit 可回退；改完跑相关测试/lint 再交付。
 3. 结构性改动前先出方案（范围/步骤/风险/回滚/验收），确认后再执行——与「先方案后动手」一脉相承。`;
 
-    // ── 分类 Chips（小功能）：当前对话模式 → [当前模式] 系统提示段 ──
+    // ── 分类 Chips（两级小功能）：当前对话模式 → [当前模式] 系统提示段 ──
     // 未选（category 空或非法）时零注入，行为完全不变。
-    if (category && CHAT_CATEGORIES[category]) {
-      SELF_AWARE_PROMPT += `\n\n## 当前对话模式\n用户将本会话标记为「${CHAT_CATEGORIES[category]}」模式。回答时优先贴合该领域（相关术语、工具链、内置 Skill 与文档），但你仍是通用 AI 助手，不局限于此模式。`;
+    // category 支持 "main"（单级）与 "main::sub"（两级）两种格式。
+    if (category) {
+      const catMain = String(category).split('::')[0];
+      if (CHAT_CATEGORIES[catMain]) {
+        const mainLabel = CHAT_CATEGORIES[catMain];
+        const subLabel = String(category).includes('::') ? String(category).split('::')[1] : '';
+        const modeText = subLabel ? `${mainLabel} > ${subLabel}` : mainLabel;
+        SELF_AWARE_PROMPT += `\n\n## 当前对话模式\n用户将本会话标记为「${modeText}」模式。回答时优先贴合该领域（相关术语、工具链、内置 Skill 与文档），但你仍是通用 AI 助手，不局限于此模式。`;
+      }
     }
 
     // ── M4 (v0.3.1): Skill 按需注入（铺结构版，词法 BM25）──
@@ -457,7 +465,7 @@ When the user asks you to perform a "system self-check" / "全面自检" / "diag
         const skillRegistry = require('../../skills/registry');
         const lastUserMsg = [...messages].reverse().find(m => m.role === 'user');
         const skillQuery = (lastUserMsg?.content || '').toString().slice(0, 500);
-        const hits = skillQuery ? await skillRegistry.search(skillQuery, 2, (category && CHAT_CATEGORIES[category]) ? { category } : undefined) : [];
+        const hits = skillQuery ? await skillRegistry.search(skillQuery, 2, (category && CHAT_CATEGORIES[String(category).split('::')[0]]) ? { category } : undefined) : [];
         if (hits.length) {
           const lines = hits.map((s) =>
             `### ${s.name || s.id}${s.category ? `（${s.category}）` : ''}\n${s.description || ''}\n${String(s.body || '').slice(0, 300)}`);

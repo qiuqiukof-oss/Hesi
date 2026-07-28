@@ -986,15 +986,12 @@ class ChatPanel extends HTMLElement {
     }
   }
 
-  // ── 分类 Chips（对话模式选择条，小功能）──
+  // ── 分类 Chips（对话模式选择条，两级小功能）──
+  // 组件内部封装全部状态/持久化；发消息时由 getActiveCategory() 实时读取当前选择，
+  // 故此处仅负责挂载，不再缓存 this.category（避免同标签页切换后发送值滞后）。
   _initCategoryChips() {
     const el = document.getElementById('category-chips');
     if (el) mountCategoryChips(el);
-    this.category = getActiveCategory();
-    // 跨标签同步（在另一个标签页修改分类时，本页后续发送采用新值）
-    window.addEventListener('storage', (e) => {
-      if (e.key === 'qcli-active-category') this.category = getActiveCategory();
-    });
   }
 
   // ── Textarea auto-resize ──
@@ -1334,7 +1331,7 @@ class ChatPanel extends HTMLElement {
 
         api.sendMessage({
           messages: msgs,
-          category: this.category || undefined,
+          category: getActiveCategory() || undefined,
           sessionId: sessionId || undefined,
           terminalContext: terminalContext || undefined,
           terminalContextChanged: contextChanged,
