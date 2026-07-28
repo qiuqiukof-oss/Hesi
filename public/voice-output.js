@@ -510,22 +510,27 @@ async function speakStreaming(text, opts = {}) {
     return speak(text, opts);
   }
 
-  // 串行化：等上一段 Edge 播放完（或失败回落）再开始下一段
+  const voice = _state.edgeVoice || 'zh-CN-XiaoxiaoNeural';
+  const rate = String(_state.rate || '1.0');
+
+  // 预取：不等上一段播完就发起请求，让网络+合成与当前播放并行
+  const fetchPromise = fetch('/api/tts/synthesize', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ text, voice, rate }),
+  }).then(async (res) => {
+    if (!res.ok) throw new Error('status ' + res.status);
+    return res.arrayBuffer();
+  });
+
+  // 串行化：等上一段播完，但此时本段音频很可能已预取完成
   const prev = _edgeQueue;
   let resolveNext;
   _edgeQueue = new Promise((r) => { resolveNext = r; });
   await prev;
 
   try {
-    const voice = _state.edgeVoice || 'zh-CN-XiaoxiaoNeural';
-    const rate = String(_state.rate || '1.0');
-    const res = await fetch('/api/tts/synthesize', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text, voice, rate }),
-    });
-    if (!res.ok) throw new Error('status ' + res.status);
-    const ab = await res.arrayBuffer();
+    const ab = await fetchPromise; // 大概率已就绪，无需等待
     const ok = await playAudioBuffer(ab);
     if (!ok) throw new Error('decode failed');
     _edgeAvailable = true;
