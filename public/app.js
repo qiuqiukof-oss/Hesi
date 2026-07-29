@@ -20,11 +20,13 @@
 // ESM imports — each module registers its own QCLI.* exports
 import './i18n.js';
 import './state.js';
+import './app/error-boundary.js';
 import './app/shared.js';
 import './app/terminal.js';
 import './app/ws-router.js';
 import './app/sidebar.js';
 import { init } from './app/boot.js';
+import { installErrorBoundary } from './app/error-boundary.js';
 
 // ━━ Q namespace (single source of truth) ━━
 /** @type {QCLI} */
@@ -65,8 +67,40 @@ import { pendingInit } from './app/shared.js';
 Q._pendingInit = pendingInit;
 
 // ━━ Boot ━━
+// 全局错误边界：单点异常→顶部降级横幅，不白屏
+installErrorBoundary();
+
+const __bootStart = (typeof performance !== 'undefined') ? performance.now() : Date.now();
+
+/** 启动入口（包错误边界，异常走横幅而非整页崩） */
+function boot() {
+  try {
+    init();
+  } catch (err) {
+    console.error('[Hesi] init 失败：', err);
+    // 横幅由 error-boundary 统一处理；此处确保不阻断后续
+  }
+  // 首屏耗时埋点（P0.1a）
+  const fp = Math.round(((typeof performance !== 'undefined') ? performance.now() : Date.now()) - __bootStart);
+  console.info('[Hesi] first-paint=' + fp + 'ms');
+  // 更准的 FCP（浏览器支持则补一条）
+  if (typeof PerformanceObserver !== 'undefined') {
+    try {
+      const po = new PerformanceObserver((list) => {
+        for (const entry of list.getEntries()) {
+          if (entry.name === 'first-contentful-paint') {
+            console.info('[Hesi] FCP=' + Math.round(entry.startTime) + 'ms');
+          }
+        }
+      });
+      po.observe({ type: 'paint', buffered: true });
+    } catch { /* 不支持则忽略 */ }
+  }
+}
+
+// ━━ Boot ━━
 if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', init);
+  document.addEventListener('DOMContentLoaded', boot);
 } else {
-  init();
+  boot();
 }

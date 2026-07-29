@@ -378,6 +378,36 @@ body.drawer-resizing {
   50% { box-shadow: 0 0 6px rgba(34, 197, 94, 0.7); }
 }
 
+/* ── P0.1b 全局错误边界降级横幅（主题安全）── */
+.hesi-error-banner {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  font: 13px/1.4 var(--font-ui, system-ui, sans-serif);
+  color: var(--text-primary, #111827);
+  background: var(--bg-surface, #fff);
+  border-bottom: 1px solid var(--border-default, #e5e7eb);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+}
+.hesi-error-banner.hidden { display: none; }
+.hesi-error-banner .heb-icon { color: var(--accent, #c0392b); font-size: 15px; }
+.hesi-error-banner .heb-text { font-weight: 600; }
+.hesi-error-banner .heb-detail {
+  flex: 1; min-width: 0;
+  color: var(--text-secondary, #6b7280);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.hesi-error-banner .heb-close {
+  border: none; background: transparent; cursor: pointer;
+  font-size: 18px; line-height: 1; color: var(--text-secondary, #6b7280);
+  padding: 0 4px;
+}
+.hesi-error-banner .heb-close:hover { color: var(--text-primary, #111827); }
+
 /* ── Messages Area ── */
 #chat-messages {
   flex: 1;

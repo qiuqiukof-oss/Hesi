@@ -18,10 +18,10 @@
 // 命名空间：localStorage['hesi_onboarding_v2']（v2 版本号，旧 v1 用户重新看）
 // 对外暴露：window.QCLI.Onboarding.startTour() / startDeepTour()
 // ============================================================
+import { getSeen, setSeen } from './onboarding-state.js';
+
 (function () {
   'use strict';
-
-  const KEY = 'hesi_onboarding_v2';
 
   /**
    * 左栏「新手指南」按钮 → 弹出菜单：🚀 快速引导 / 🔍 深度游
@@ -163,11 +163,11 @@
   ];
 
   function markDone() {
-    try { localStorage.setItem(KEY, '1'); } catch (e) { /* ignore */ }
+    setSeen(true);
   }
 
   function hasSeen() {
-    try { return localStorage.getItem(KEY) === '1'; } catch (e) { return false; }
+    return getSeen();
   }
 
   /**
