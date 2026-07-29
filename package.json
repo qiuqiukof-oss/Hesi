@@ -1,6 +1,6 @@
 {
   "name": "@qiuqiukof/hesi",
-  "version": "0.5.1",
+  "version": "0.5.5",
   "description": "Hesi（合思）— Run any CLI in your browser",
   "main": "server.js",
   "bin": {
