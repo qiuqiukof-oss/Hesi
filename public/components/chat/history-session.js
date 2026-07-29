@@ -54,6 +54,9 @@ export const historySessionMixin = {
       role: (m && m.role) || 'assistant',
       content: (m && m.content != null) ? String(m.content) : '',
       ...(m && Array.isArray(m.attachments) ? { attachments: m.attachments } : {}),
+      // 回滚改良：透传服务端打在该消息上的 seq（该消息所基于的检查点），
+      // 使消息气泡可渲染「重新编辑 / 重新生成」按钮；无 seq 则不显示。
+      ...(m && Number.isInteger(m.seq) ? { seq: m.seq } : {}),
     }));
     // Always re-render, even for an empty session — otherwise the stale DOM
     // from the previously-viewed session lingers in the panel.

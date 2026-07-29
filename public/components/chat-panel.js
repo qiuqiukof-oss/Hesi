@@ -144,25 +144,7 @@ class ChatPanel extends HTMLElement {
     this._roundSaved = 0;   // 本轮估算节省 tokens（来自 agent_metrics）
     this._roundMetrics = { cacheRead: 0, cacheWrite: 0, toolReuse: 0, exp: 0, skills: 0 }; // 本轮 agent_metrics 字段累计
     this._sessionSavings = { saved: 0, used: 0 }; // 当前会话累计（从 turnMetrics 种子化 + 本轮累加）
-
-    // M2b (v0.3.1): 回滚到上一轮检查点按钮
-    if (this.clearBtn && this.clearBtn.parentElement) {
-      const rb = document.createElement('button');
-      rb.id = 'chat-rollback-btn';
-      rb.className = this.clearBtn.className;
-      rb.title = '回滚到上一轮（撤销本轮）';
-      rb.textContent = '⏪';
-      rb.addEventListener('click', () => this.rollbackSession());
-      this.clearBtn.parentElement.insertBefore(rb, this.clearBtn.nextSibling);
-      // 🕘 多轮回滚：历史轮次面板
-      const hb = document.createElement('button');
-      hb.id = 'chat-history-btn';
-      hb.className = this.clearBtn.className;
-      hb.title = '历史轮次回滚（选择任意一轮恢复）';
-      hb.textContent = '🕘';
-      hb.addEventListener('click', () => this.openHistoryPanel());
-      this.clearBtn.parentElement.insertBefore(hb, this.clearBtn.nextSibling);
-    }
+    this._pendingRollbackSeq = null; // 回滚改良（P2）：挂起的回滚检查点 seq
 
     if (!this.el) {
       console.warn('[ChatPanel] #chat-drawer not found');
@@ -568,12 +550,21 @@ class ChatPanel extends HTMLElement {
     if (this.verifyBtn) this.verifyBtn.classList.toggle('active', this._verifyMode);
   }
 
-  sendMessage() {
+  async sendMessage() {
     const Q = qcli();
     let text = this.input?.value.trim();
     const hasAttachments = this.pendingAttachments.length > 0;
     if ((!text && !hasAttachments) || this.sending) return;
     if (!text) text = ''; // 允许纯附件发送（不带文字）
+
+    // 回滚改良（P2）：确认发送后才回滚到目标轮之前。
+    // 必须在置 sending=true 之前 await，否则 rollbackSession 的 sending 守卫会拦截。
+    const pendingSeq = this._pendingRollbackSeq;
+    this._pendingRollbackSeq = null;
+    this._clearEditBanner();
+    if (pendingSeq != null) {
+      await this.rollbackSession(pendingSeq); // 恢复该轮之前状态（内部 _applySession 重载 messages）
+    }
 
     this.sending = true;
     this._abortController = new AbortController();
@@ -1037,6 +1028,72 @@ class ChatPanel extends HTMLElement {
     } else {
       this._mockResponse();
     }
+  }
+
+  // ── 回滚改良（P2）：消息内「重新编辑 / 重新生成」──
+  // 取该 AI 消息之前最近的 user 消息文本（即产生它的那一轮提问）。
+  _userTextBefore(msg) {
+    const idx = this.messages.indexOf(msg);
+    const start = idx >= 0 ? idx : this.messages.length;
+    for (let i = start - 1; i >= 0; i--) {
+      const m = this.messages[i];
+      if (m && m.role === 'user') {
+        const c = m.content;
+        return typeof c === 'string' ? c : (c && typeof c === 'object' ? (c.text || '') : '');
+      }
+    }
+    return null;
+  }
+
+  // ✎ 重新编辑：预填输入框 + 挂起回滚，发送后才回滚（不发送不回滚）。
+  _startEditMode(msg) {
+    if (this.sending || msg.seq == null) return;
+    const userText = this._userTextBefore(msg);
+    if (userText == null) return;
+    this._pendingRollbackSeq = msg.seq;
+    if (this.input) { this.input.value = userText; this.input.focus(); }
+    this._showEditBanner(msg.seq);
+  }
+
+  // ↺ 重新生成：回滚到该轮之前并用原提问重发（一步到位）。
+  _regenerate(msg) {
+    if (this.sending || msg.seq == null) return;
+    const userText = this._userTextBefore(msg);
+    if (userText == null) return;
+    this._pendingRollbackSeq = msg.seq;
+    if (this.input) this.input.value = userText;
+    this.sendMessage(); // 内部先 rollback 再发原提问
+  }
+
+  _showEditBanner(seq) {
+    this._clearEditBanner();
+    const banner = document.createElement('div');
+    banner.className = 'chat-edit-banner';
+    banner.dataset.role = 'edit-banner';
+    const label = document.createElement('span');
+    label.className = 'chat-edit-banner-label';
+    label.textContent = `✎ 正在重新编辑第 #${seq} 轮 · 发送后回滚到该轮之前`;
+    const cancel = document.createElement('button');
+    cancel.type = 'button';
+    cancel.className = 'chat-edit-banner-cancel';
+    cancel.textContent = '取消';
+    cancel.addEventListener('click', () => this._cancelEditMode());
+    banner.appendChild(label);
+    banner.appendChild(cancel);
+    const inputArea = this.el?.querySelector('.chat-input-area');
+    if (inputArea && inputArea.parentElement) inputArea.parentElement.insertBefore(banner, inputArea);
+    else (this.el || document.getElementById('chat-drawer'))?.appendChild(banner);
+  }
+
+  _clearEditBanner() {
+    const stray = this.el?.querySelector('[data-role="edit-banner"]');
+    if (stray) stray.remove();
+  }
+
+  _cancelEditMode() {
+    this._pendingRollbackSeq = null;
+    this._clearEditBanner();
+    if (this.input) this.input.value = '';
   }
 
   /** 流式 token 到达时增量分句，批量朗读（"边生成边读"，减少句间网络间隙）。 */

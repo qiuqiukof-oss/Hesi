@@ -134,6 +134,39 @@ export const messageDomMixin = {
     }
     content.appendChild(bubble);
 
+    // 回滚改良（P2）：assistant 消息且服务端打了 seq 时，在气泡下方渲染操作区。
+    // 纯 textContent 建节点（防 XSS）；无 seq（讨论/工具/旧消息）则不显示。
+    if (msg.role === 'assistant' && Number.isInteger(msg.seq)) {
+      const actions = document.createElement('div');
+      actions.className = 'msg-actions';
+
+      const editBtn = document.createElement('button');
+      editBtn.type = 'button';
+      editBtn.className = 'msg-action-btn msg-edit-btn';
+      editBtn.textContent = '✎ 重新编辑';
+      editBtn.title = '回滚到该轮之前并预填提问；发送后才执行回滚（发送前不回滚）';
+      editBtn.addEventListener('click', () => this._startEditMode(msg));
+      actions.appendChild(editBtn);
+
+      const regenBtn = document.createElement('button');
+      regenBtn.type = 'button';
+      regenBtn.className = 'msg-action-btn msg-regen-btn';
+      regenBtn.textContent = '↺ 重新生成';
+      regenBtn.title = '回滚到该轮之前并用原提问重新生成';
+      regenBtn.addEventListener('click', () => this._regenerate(msg));
+      actions.appendChild(regenBtn);
+
+      const histBtn = document.createElement('button');
+      histBtn.type = 'button';
+      histBtn.className = 'msg-action-btn msg-hist-btn';
+      histBtn.textContent = '🕘 历史轮次';
+      histBtn.title = '打开历史轮次面板（高级：回滚到任意一轮）';
+      histBtn.addEventListener('click', () => this.openHistoryPanel());
+      actions.appendChild(histBtn);
+
+      content.appendChild(actions);
+    }
+
     div.appendChild(content);
     this.msgsEl.appendChild(div);
   },
