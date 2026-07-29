@@ -29,7 +29,8 @@ function emptyPlan() {
     title: '',
     objective: '',
     acceptance: [], // [{ id?, kind, command?, expect?, description? }]
-    steps: [], // [{ id, goal, action, type?, verify?, on_fail?, checkpoint?, dependsOn? }]
+    steps: [], // [{ id, goal, action, type?, verify?, on_fail?, checkpoint?, dependsOn?, requireApproval? }]
+    approvalPolicy: 'marked', // 'marked' = 仅 requireApproval 步需审批；'all' = 每步都需审批（P2.6 审批闸）
     allow_external: false,
     forbidden: [], // 命令/关键词黑名单
     scope_paths: [], // 允许路径前缀（空 = 仓库根）
@@ -84,6 +85,9 @@ function validatePlan(plan) {
       }
       if (!s.goal) errors.push(`steps[${i}].goal 必填`);
       if (!s.action) errors.push(`steps[${i}].action 必填`);
+      if (s.requireApproval !== undefined && typeof s.requireApproval !== 'boolean') {
+        errors.push(`steps[${i}].requireApproval 必须是布尔`);
+      }
       if (s.verify) {
         if (!VERIFY_KINDS.includes(s.verify.kind)) {
           errors.push(`steps[${i}].verify.kind 无效`);
@@ -97,6 +101,9 @@ function validatePlan(plan) {
         }
       }
     });
+    if (plan.approvalPolicy !== undefined && !['all', 'marked'].includes(plan.approvalPolicy)) {
+      errors.push('approvalPolicy 仅支持 all | marked');
+    }
   }
   return { ok: errors.length === 0, errors };
 }

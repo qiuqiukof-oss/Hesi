@@ -220,7 +220,7 @@ function setupRoutes(app, opts = {}) {
   app.use('/api/workspaces', createTeamsRouter());
 
   // ── Phase 0 全自动闭环：Plan 执行入口（gate→快照→执行→验收→反思） ──
-  app.use('/api/plan', createPlanRouter());
+  app.use('/api/plan', createPlanRouter({ broadcastFn }));
 
   // ── 能力发现端点（无需 token）：让内置助手 / 终端 agent 动态知道「网页端点」这条路 ──
   const { listWebPaths, getCapabilityBriefing } = require('../ws/web-executor');

@@ -15,9 +15,14 @@
 // ============================================================
 
 const express = require('express');
+const crypto = require('crypto');
 const { runPlan, parseVerifyFromSummary } = require('./run-plan');
 const { workflowManager } = require('./workflow-manager');
 const { runRoundtable } = require('../chat/discuss');
+
+// 审批闸：execId -> { resolve, timer }
+const pendingApprovals = new Map();
+const APPROVAL_TIMEOUT_MS = 30 * 60 * 1000; // 30min 无操作 → 视为驳回
 
 /**
  * 用 discuss.runRoundtable 包装出 resolveCheckpoint 需要的 roundtableFn。
@@ -47,13 +52,18 @@ function buildRoundtableFn(runtime) {
 }
 
 /**
- * @param {{ cwd?: string, workflowManager?: object }} [opts]
+ * @param {{ cwd?: string, workflowManager?: object, broadcastFn?: (data:object)=>void, approvalTimeoutMs?: number }} [opts]
  * @returns {express.Router}
  */
 function createRouter(opts = {}) {
   const router = express.Router();
   const cwd = opts.cwd || process.cwd();
   const wf = opts.workflowManager || workflowManager;
+  const broadcast = (data) => { try { if (opts.broadcastFn) opts.broadcastFn(data); } catch { /* ignore */ } };
+  // 审批超时（默认 30min）；测试可注入极小值以覆盖超时路径
+  const approvalTimeoutMs = Number.isFinite(opts.approvalTimeoutMs) && opts.approvalTimeoutMs > 0
+    ? opts.approvalTimeoutMs
+    : APPROVAL_TIMEOUT_MS;
 
   router.post('/execute', async (req, res) => {
     const body = req.body || {};
@@ -69,18 +79,57 @@ function createRouter(opts = {}) {
       partner: body.partner,
       partners: body.partners,
     };
+    const execId = crypto.randomUUID();
+    // 审批闸：等待人工决议（超时兜底→驳回）
+    const requestApproval = (reqInfo) => new Promise((resolve) => {
+      const timer = setTimeout(() => {
+        pendingApprovals.delete(execId);
+        broadcast({ type: 'plan:approval-resolved', execId, approved: false, timedOut: true });
+        resolve(false);
+      }, approvalTimeoutMs);
+      pendingApprovals.set(execId, { resolve, timer });
+      broadcast({ type: 'plan:await-approval', execId, step: reqInfo });
+    });
     try {
       const result = await runPlan(plan, {
         cwd,
         workflowManager: wf,
         roundtableFn: buildRoundtableFn(runtime),
+        execId,
+        requestApproval,
         // 个性化「权限设置」下钻（来自前端 localStorage）
         permissions: (body.permissions && typeof body.permissions === 'object') ? body.permissions : null,
       });
-      return res.json({ ok: result.ok, ...result });
+      const p = pendingApprovals.get(execId);
+      if (p) { clearTimeout(p.timer); pendingApprovals.delete(execId); }
+      return res.json({ ok: result.ok, execId, ...result });
     } catch (e) {
+      const p = pendingApprovals.get(execId);
+      if (p) { clearTimeout(p.timer); pendingApprovals.delete(execId); }
       return res.status(500).json({ ok: false, error: e.message });
     }
+  });
+
+  // 审批闸：人工通过
+  router.post('/:execId/approve', (req, res) => {
+    const p = pendingApprovals.get(req.params.execId);
+    if (!p) return res.status(404).json({ ok: false, error: '无待审批项（已结束或超时）' });
+    clearTimeout(p.timer);
+    pendingApprovals.delete(req.params.execId);
+    broadcast({ type: 'plan:approval-resolved', execId: req.params.execId, approved: true });
+    p.resolve(true);
+    res.json({ ok: true });
+  });
+
+  // 审批闸：人工驳回
+  router.post('/:execId/reject', (req, res) => {
+    const p = pendingApprovals.get(req.params.execId);
+    if (!p) return res.status(404).json({ ok: false, error: '无待审批项（已结束或超时）' });
+    clearTimeout(p.timer);
+    pendingApprovals.delete(req.params.execId);
+    broadcast({ type: 'plan:approval-resolved', execId: req.params.execId, approved: false });
+    p.resolve(false);
+    res.json({ ok: true });
   });
 
   return router;

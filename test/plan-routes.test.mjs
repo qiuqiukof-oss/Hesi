@@ -116,3 +116,118 @@ test('POST /api/plan/execute manual acceptance → rejected + missing', async ()
     fs.rmSync(dir, { recursive: true, force: true });
   }
 });
+
+// ── P2.6 审批闸路由层 ──
+
+function waitFor(pred, timeoutMs = 5000) {
+  return new Promise((resolve, reject) => {
+    const t0 = Date.now();
+    (function poll() {
+      if (pred()) return resolve(true);
+      if (Date.now() - t0 > timeoutMs) return reject(new Error('waitFor 超时'));
+      setTimeout(poll, 20);
+    })();
+  });
+}
+
+test('审批闸：广播 plan:await-approval 且 approve 端点放行 → done', async () => {
+  const dir = tmpRepo();
+  const events = [];
+  const router = createRouter({ cwd: dir, workflowManager: makeWf('completed'), broadcastFn: (d) => events.push(d) });
+  const { srv, port } = await startServer(router);
+  try {
+    const plan = { ...goodPlan, steps: [
+      { id: 's1', goal: 'g1', action: 'echo 1' },
+      { id: 's2', goal: '需审批', action: 'echo 2', requireApproval: true },
+    ] };
+    const execP = fetch(`http://127.0.0.1:${port}/api/plan/execute`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ plan }),
+    });
+    await waitFor(() => events.some((e) => e.type === 'plan:await-approval'));
+    const aw = events.find((e) => e.type === 'plan:await-approval');
+    assert.ok(aw);
+    assert.equal(aw.step.id, 's2');
+    const execId = aw.execId;
+    const ap = await fetch(`http://127.0.0.1:${port}/api/plan/${execId}/approve`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}',
+    });
+    assert.equal(ap.status, 200);
+    const data = await (await execP).json();
+    assert.equal(data.status, 'done');
+    assert.ok(data.steps.every((s) => s.status === 'done'));
+    assert.ok(events.some((e) => e.type === 'plan:approval-resolved' && e.approved === true));
+  } finally {
+    srv.close();
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('审批闸：reject 端点 → 计划 diverged（第二步被驳回，第三步不执行）', async () => {
+  const dir = tmpRepo();
+  const events = [];
+  const router = createRouter({ cwd: dir, workflowManager: makeWf('completed'), broadcastFn: (d) => events.push(d) });
+  const { srv, port } = await startServer(router);
+  try {
+    const plan = { ...goodPlan, steps: [
+      { id: 's1', goal: 'g1', action: 'echo 1' },
+      { id: 's2', goal: '需审批', action: 'echo 2', requireApproval: true },
+      { id: 's3', goal: 'g3', action: 'echo 3' },
+    ] };
+    const execP = fetch(`http://127.0.0.1:${port}/api/plan/execute`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ plan }),
+    });
+    await waitFor(() => events.some((e) => e.type === 'plan:await-approval'));
+    const execId = events.find((e) => e.type === 'plan:await-approval').execId;
+    const rj = await fetch(`http://127.0.0.1:${port}/api/plan/${execId}/reject`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}',
+    });
+    assert.equal(rj.status, 200);
+    const data = await (await execP).json();
+    assert.equal(data.status, 'diverged');
+    assert.equal(data.steps.length, 2);
+    assert.equal(data.steps[1].status, 'rejected');
+  } finally {
+    srv.close();
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('审批闸：approve 不存在的 execId → 404', async () => {
+  const dir = tmpRepo();
+  const { srv, port } = await startServer(createRouter({ cwd: dir, workflowManager: makeWf() }));
+  try {
+    const res = await fetch(`http://127.0.0.1:${port}/api/plan/nonexistent/approve`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}',
+    });
+    assert.equal(res.status, 404);
+  } finally {
+    srv.close();
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('审批闸：超时未操作 → 视为驳回（plan:approval-resolved timedOut），计划 diverged', async () => {
+  const dir = tmpRepo();
+  const events = [];
+  // 注入极小超时（80ms）以覆盖超时路径，无需等待真实 30min
+  const router = createRouter({ cwd: dir, workflowManager: makeWf('completed'), broadcastFn: (d) => events.push(d), approvalTimeoutMs: 80 });
+  const { srv, port } = await startServer(router);
+  try {
+    const plan = { ...goodPlan, steps: [
+      { id: 's1', goal: 'g1', action: 'echo 1' },
+      { id: 's2', goal: '需审批', action: 'echo 2', requireApproval: true },
+      { id: 's3', goal: 'g3', action: 'echo 3' },
+    ] };
+    const data = await (await fetch(`http://127.0.0.1:${port}/api/plan/execute`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ plan }),
+    })).json();
+    assert.equal(data.status, 'diverged');          // 超时驳回 = 人为中止（diverged）
+    assert.equal(data.steps.length, 2);             // 第三步未执行
+    assert.equal(data.steps[1].status, 'rejected'); // 第二步被超时驳回
+    // 广播应带 timedOut 标记
+    await waitFor(() => events.some((e) => e.type === 'plan:approval-resolved' && e.timedOut === true));
+  } finally {
+    srv.close();
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});

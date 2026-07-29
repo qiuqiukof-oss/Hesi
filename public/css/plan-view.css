@@ -115,3 +115,24 @@
   border-radius: 6px; font-size: 11px; max-height: 160px; overflow: auto; white-space: pre-wrap;
 }
 .hidden { display: none !important; }
+
+/* ── P2.6 审批闸卡片（主题安全）── */
+.approval-gate { position: fixed; inset: 0; z-index: 1000; display: flex; align-items: center; justify-content: center; }
+.approval-gate .ag-backdrop { position: absolute; inset: 0; background: rgba(0,0,0,.45); }
+.approval-gate .ag-card {
+  position: relative; width: min(520px, 92vw);
+  background: var(--bg-surface, #16191f); color: var(--text-primary, #e6e6e6);
+  border: 1px solid var(--border-default, #2a2f3a); border-radius: 12px;
+  padding: 20px 22px; box-shadow: 0 12px 40px rgba(0,0,0,.4);
+  font-family: var(--font-ui, system-ui, sans-serif);
+}
+.approval-gate .ag-title { font-size: 15px; font-weight: 700; color: var(--accent, #f0b400); margin-bottom: 12px; }
+.approval-gate .ag-step {
+  font-size: 13px; line-height: 1.5; word-break: break-all;
+  background: var(--bg, #0f1115); border: 1px solid var(--border, #2a2f3a);
+  border-radius: 8px; padding: 10px 12px; margin-bottom: 8px;
+}
+.approval-gate .ag-risk { font-size: 12px; color: #f0a0a0; margin-bottom: 14px; }
+.approval-gate .ag-actions { display: flex; gap: 10px; }
+.approval-gate .ag-actions .btn { flex: 1; padding: 9px 12px; font-size: 13px; }
+.approval-gate .ag-status { margin-top: 10px; font-size: 12px; color: var(--text-secondary, #9aa0aa); min-height: 16px; }

@@ -79,6 +79,85 @@
     $('reflection').classList.add('hidden');
     $('steps').innerHTML = '';
     $('empty-hint').classList.remove('hidden');
+    hideGate();
+  }
+
+  // ── P2.6 审批闸：WS 监听 + 闸门卡片 ──
+  let planWs = null;
+  let currentExecId = null;
+
+  function wsUrl() {
+    const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+    return proto + '//' + location.host;
+  }
+
+  function connectPlanWS() {
+    try {
+      planWs = new WebSocket(wsUrl());
+      planWs.onmessage = (e) => {
+        let msg;
+        try { msg = JSON.parse(e.data); } catch { return; }
+        if (msg.type === 'plan:await-approval') {
+          currentExecId = msg.execId;
+          showGate(msg.step);
+        } else if (msg.type === 'plan:approval-resolved' && msg.execId === currentExecId) {
+          updateGateStatus(msg.approved ? '已通过，继续执行…' : (msg.timedOut ? '超时（视为驳回），已中止' : '已驳回，已中止'));
+        }
+      };
+      planWs.onclose = () => { planWs = null; };
+    } catch { /* WS 不可用则无闸门卡片，仍可走完整自动执行 */ }
+  }
+
+  function showGate(step) {
+    let gate = $('approval-gate');
+    if (!gate) {
+      gate = document.createElement('div');
+      gate.id = 'approval-gate';
+      gate.className = 'approval-gate hidden';
+      gate.innerHTML =
+        '<div class="ag-backdrop"></div>' +
+        '<div class="ag-card">' +
+          '<div class="ag-title">审批闸 · 步骤需人工确认</div>' +
+          '<div class="ag-step"></div>' +
+          '<div class="ag-risk"></div>' +
+          '<div class="ag-actions">' +
+            '<button id="ag-approve" class="btn btn-primary" type="button">通过并执行</button>' +
+            '<button id="ag-reject" class="btn" type="button">驳回并中止</button>' +
+          '</div>' +
+          '<div class="ag-status"></div>' +
+        '</div>';
+      document.body.appendChild(gate);
+      gate.querySelector('#ag-approve').addEventListener('click', () => resolveGate('approve'));
+      gate.querySelector('#ag-reject').addEventListener('click', () => resolveGate('reject'));
+    }
+    gate.querySelector('.ag-step').textContent = (step.goal || step.id || '') + (step.action ? '  →  ' + step.action : '');
+    gate.querySelector('.ag-risk').textContent = step.risk ? ('风险：' + step.risk) : '';
+    gate.querySelector('.ag-status').textContent = '';
+    gate.classList.remove('hidden');
+  }
+
+  function updateGateStatus(text) {
+    const gate = $('approval-gate');
+    if (gate) gate.querySelector('.ag-status').textContent = text;
+  }
+
+  function hideGate() {
+    const gate = $('approval-gate');
+    if (gate) gate.classList.add('hidden');
+  }
+
+  async function resolveGate(kind) {
+    if (!currentExecId) return;
+    updateGateStatus(kind === 'approve' ? '提交中…' : '驳回中…');
+    try {
+      const res = await fetch('/api/plan/' + encodeURIComponent(currentExecId) + '/' + kind, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) updateGateStatus('操作失败：' + (data.error || res.status));
+    } catch (e) {
+      updateGateStatus('网络异常：' + e.message);
+    }
   }
 
   async function execute() {
@@ -128,6 +207,7 @@
       setStatus(msg, kind);
       renderReflection(data.reflection);
       renderSteps(data.steps);
+      hideGate();
     } catch (e) {
       setStatus('网络/执行异常：' + e.message, 'error');
     } finally {
@@ -136,6 +216,7 @@
   }
 
   function init() {
+    connectPlanWS();
     $('load-sample').addEventListener('click', () => {
       $('plan-input').value = JSON.stringify(SAMPLE, null, 2);
     });

@@ -83,7 +83,7 @@ function checkInterception(plan, step) {
     return { reason: `命中 forbidden 黑名单: ${candidate.slice(0, 100)}` };
   }
   const scopes = Array.isArray(plan.scope_paths) ? plan.scope_paths : [];
-  if (scopes.length) {
+      if (scopes.length) {
     for (const tok of _pathTokens(candidate)) {
       if (!inScope(plan, tok)) {
         return { reason: `路径越界（不在 scope_paths 内）: ${tok}` };
@@ -91,6 +91,18 @@ function checkInterception(plan, step) {
     }
   }
   return null;
+}
+
+/**
+ * P2.6 审批闸：判断某步是否需要人工审批。
+ * @param {object} plan
+ * @param {object} step
+ * @returns {boolean}
+ */
+function stepRequiresApproval(plan, step) {
+  if (step && step.requireApproval === true) return true;
+  if (plan && plan.approvalPolicy === 'all') return true;
+  return false;
 }
 
 // ── 单步工作流执行 + 轮询 ──
@@ -187,7 +199,7 @@ function reflectPlan(plan, stepResults, budget, acceptance) {
   const done = stepResults.filter((s) => s.status === 'done').length;
   const blocked = stepResults.filter((s) => s.status === 'blocked');
   const fatal = stepResults.filter((s) =>
-    ['loop', 'budget', 'timeout'].includes(s.status)
+    ['loop', 'budget', 'timeout', 'rejected'].includes(s.status)
   );
   const diverged =
     blocked.some((b) => b.needsAcceptance) || fatal.length > 0;
@@ -238,6 +250,8 @@ function reflectPlan(plan, stepResults, budget, acceptance) {
  * @param {boolean} [opts.runAcceptance]      结束后跑验收（默认 true；dryRun 时强制 false）
  * @param {Function} [opts.onStep]            async (ev) => {} 逐步事件（UI 流式）
  * @param {Function} [opts.shouldAbort]       () => boolean 人工中止
+ * @param {string} [opts.execId]              执行实例 ID（审批闸关联用）
+ * @param {Function} [opts.requestApproval]   async (req)=>boolean 审批闸：暂停等待人工决议（true=通过 / false=驳回）
  * @param {object} [opts.permissions]         个性化「权限设置」下钻：
  *        { mode?: 'ask'|'auto'|'strict', autoReview?: boolean, fullAuto?: boolean }
  *        - autoReview=false → 跳过 gatePlan 可验证性闸门（危险，默认开启）
@@ -349,6 +363,34 @@ async function runPlan(plan, opts = {}) {
       if (cp.derivedVerify) effectiveStep = { ...step, verify: cp.derivedVerify };
     }
 
+    // 决策③（P2.6 审批闸）：需人工审批的步 → 暂停等待决议
+    if (stepRequiresApproval(plan, step)) {
+      ev.status = 'await-approval';
+      ev.requiresApproval = true;
+      await onStep(ev); // 通知前端出闸门卡片
+      let approved = true;
+      if (typeof opts.requestApproval === 'function') {
+        approved = await opts.requestApproval({
+          execId: opts.execId,
+          index: i,
+          id: task.id,
+          goal: task.label,
+          action: step.action,
+          risk: step.risk || null,
+        });
+      }
+      if (!approved) {
+        ev.status = 'rejected';
+        ev.reason = '人工驳回（审批闸）';
+        ev.requiresApproval = false;
+        results.push(ev);
+        await onStep(ev);
+        break;
+      }
+      ev.status = 'start'; // 审批通过，继续
+      ev.requiresApproval = false;
+    }
+
     // 真正执行（单步 workflow）
     let exec;
     if (dryRun || !wf) {
@@ -411,4 +453,5 @@ module.exports = {
   checkInterception,
   runAcceptance,
   reflectPlan,
+  stepRequiresApproval,
 };

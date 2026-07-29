@@ -16,6 +16,7 @@ import {
   checkInterception,
   runAcceptance,
   reflectPlan,
+  stepRequiresApproval,
 } from '../routes/ai-tools/run-plan.js';
 
 // ── 测试辅助 ──
@@ -170,4 +171,92 @@ test('runPlan dryRun：不真正执行 workflow，步标记为 skipped', async (
   const res = await runPlan(plan, { dryRun: true, roundtableFn: mockRoundtable });
   assert.equal(res.status, 'partial'); // skipped 不算 done
   assert.ok(res.steps.every((s) => s.status === 'skipped'));
+});
+
+// ── P2.6 审批闸 ──
+
+test('stepRequiresApproval：标记步 / approvalPolicy=all / 普通步', () => {
+  assert.equal(stepRequiresApproval({ approvalPolicy: 'marked' }, { requireApproval: true }), true);
+  assert.equal(stepRequiresApproval({ approvalPolicy: 'all' }, { action: 'x' }), true);
+  assert.equal(stepRequiresApproval({ approvalPolicy: 'marked' }, { action: 'x' }), false);
+  assert.equal(stepRequiresApproval({}, { requireApproval: false }), false);
+});
+
+test('runPlan 审批闸：requireApproval 步人工通过 → 继续执行到 done', async () => {
+  const dir = tmpRepo();
+  const events = [];
+  const plan = basePlan({
+    steps: [
+      { id: 's1', goal: '普通步', action: 'echo s1' },
+      { id: 's2', goal: '需审批', action: 'echo s2', requireApproval: true },
+    ],
+  });
+  const res = await runPlan(plan, {
+    cwd: dir,
+    workflowManager: makeWf('completed'),
+    roundtableFn: mockRoundtable,
+    onStep: (e) => events.push({ ...e }),
+    requestApproval: async () => true,
+  });
+  assert.equal(res.status, 'done');
+  assert.equal(res.steps.length, 2);
+  assert.equal(res.steps[1].status, 'done');
+  const awaitEv = events.find((e) => e.status === 'await-approval');
+  assert.ok(awaitEv, '应发出 await-approval 事件');
+  assert.equal(awaitEv.requiresApproval, true);
+  assert.equal(awaitEv.id, 's2');
+  fs.rmSync(dir, { recursive: true, force: true });
+});
+
+test('runPlan 审批闸：requireApproval 步人工驳回 → 该步 rejected 且计划中止', async () => {
+  const dir = tmpRepo();
+  const plan = basePlan({
+    steps: [
+      { id: 's1', goal: '普通步', action: 'echo s1' },
+      { id: 's2', goal: '需审批', action: 'echo s2', requireApproval: true },
+      { id: 's3', goal: '后续步', action: 'echo s3' },
+    ],
+  });
+  const res = await runPlan(plan, {
+    cwd: dir,
+    workflowManager: makeWf('completed'),
+    roundtableFn: mockRoundtable,
+    requestApproval: async () => false,
+  });
+  assert.equal(res.status, 'diverged');          // 人工驳回 = 人为中止（diverged）
+  assert.equal(res.steps[0].status, 'done');     // 第一步正常完成
+  assert.equal(res.steps[1].status, 'rejected'); // 第二步被驳回
+  assert.equal(res.steps.length, 2);             // 第三步未执行（中止）
+  assert.match(res.steps[1].reason, /驳回/);
+  fs.rmSync(dir, { recursive: true, force: true });
+});
+
+test('runPlan 审批闸：approvalPolicy=all 时每步都触发审批', async () => {
+  const dir = tmpRepo();
+  const calls = [];
+  const plan = basePlan({
+    approvalPolicy: 'all',
+    steps: [
+      { id: 's1', goal: '步1', action: 'echo 1' },
+      { id: 's2', goal: '步2', action: 'echo 2' },
+    ],
+  });
+  const res = await runPlan(plan, {
+    cwd: dir,
+    workflowManager: makeWf('completed'),
+    roundtableFn: mockRoundtable,
+    requestApproval: async (req) => { calls.push(req.id); return true; },
+  });
+  assert.equal(res.status, 'done');
+  assert.deepEqual(calls, ['s1', 's2']);
+  fs.rmSync(dir, { recursive: true, force: true });
+});
+
+test('runPlan 审批闸：未提供 requestApproval → 默认通过（不阻断自动执行）', async () => {
+  const dir = tmpRepo();
+  const plan = basePlan({ steps: [{ id: 's1', goal: '需审批', action: 'echo s1', requireApproval: true }] });
+  const res = await runPlan(plan, { cwd: dir, workflowManager: makeWf('completed'), roundtableFn: mockRoundtable });
+  assert.equal(res.status, 'done');
+  assert.equal(res.steps[0].status, 'done');
+  fs.rmSync(dir, { recursive: true, force: true });
 });
