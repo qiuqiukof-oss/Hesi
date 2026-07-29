@@ -95,6 +95,49 @@ function portableNode() {
 }
 
 let serverProc = null;
+const PID_FILE = path.join(ROOT, 'data', 'hesi-server.pid');
+
+function writeServerPid(pid) {
+  try {
+    fs.mkdirSync(path.join(ROOT, 'data'), { recursive: true });
+    fs.writeFileSync(PID_FILE, String(pid));
+  } catch (e) { /* ignore */ }
+}
+function clearServerPid() {
+  try { fs.unlinkSync(PID_FILE); } catch (e) { /* ignore */ }
+}
+// 同步杀进程（跨平台）：Windows 用 taskkill /T 杀整棵树，非 Windows 用进程组 SIGKILL
+function killPidSync(pid) {
+  if (!pid) return;
+  try {
+    if (IS_WIN) execSync('taskkill /F /T /PID ' + pid, { stdio: 'ignore' });
+    else process.kill(-pid, 'SIGKILL');
+  } catch (e) { /* 进程已不存在则忽略 */ }
+}
+// 端口级兜底：无论 server 是子进程还是孤儿，退出时确保 4264 端口被释放
+function killPortSync() {
+  try {
+    if (IS_WIN) {
+      const out = execSync('netstat -ano | findstr :' + PORT, { stdio: ['ignore', 'pipe', 'ignore'] }).toString();
+      const portRe = new RegExp(':' + PORT + '\\b');
+      const pids = new Set();
+      out.split(/\r?\n/).forEach((line) => {
+        if (!portRe.test(line)) return;
+        // 仅处理“监听”状态：对端为 0.0.0.0:0 / [::]:0，或状态含 LISTENING/侦听
+        if (!/(0\.0\.0\.0:0|\[::\]:0)/.test(line) && !/LISTENING|侦听/i.test(line)) return;
+        const cols = line.trim().split(/\s+/);
+        const pid = cols[cols.length - 1];
+        if (/^\d+$/.test(pid)) pids.add(pid);
+      });
+      pids.forEach((pid) => { try { execSync('taskkill /F /PID ' + pid, { stdio: 'ignore' }); } catch (e) {} });
+    } else {
+      const out = execSync('lsof -ti tcp:' + PORT + ' 2>/dev/null || true', { stdio: ['ignore', 'pipe', 'ignore'] }).toString();
+      out.split(/\s+/).forEach((pid) => {
+        if (/^\d+$/.test(pid)) { try { process.kill(Number(pid), 'SIGKILL'); } catch (e) {} }
+      });
+    }
+  } catch (e) { /* ignore */ }
+}
 
 function startServer() {
   if (serverProc) return;
@@ -136,19 +179,21 @@ function startServer() {
     }
   });
   dbg('[tray] server started (pid ' + serverProc.pid + ') on port ' + PORT + ' node=' + node);
+  if (serverProc.pid) writeServerPid(serverProc.pid);
 }
 
 function stopServer() {
-  if (!serverProc) return;
-  const pid = serverProc.pid;
+  // 1) 按已知子进程 pid 同步杀
+  const pid = serverProc ? serverProc.pid : null;
+  if (pid) killPidSync(pid);
+  // 2) PID 文件兜底（serverProc 已被置空但进程仍在的情况）
+  let fpid = null;
+  try { fpid = parseInt(fs.readFileSync(PID_FILE, 'utf8').toString().trim(), 10); } catch (e) { /* ignore */ }
+  if (fpid && fpid !== pid) killPidSync(fpid);
+  // 3) 端口级兜底：无论进程是否孤儿，确保服务端口被释放
+  killPortSync();
   serverProc = null;
-  try {
-    if (IS_WIN) {
-      spawn('taskkill', ['/F', '/T', '/PID', String(pid)], { stdio: 'ignore' });
-    } else {
-      process.kill(-pid, 'SIGTERM');
-    }
-  } catch (e) { /* ignore */ }
+  clearServerPid();
 }
 
 function openBrowser() {
@@ -209,7 +254,15 @@ function launchBrowserCDP() {
     dbg('[tray] 未找到 Chrome/Edge，回退默认浏览器');
     return openBrowser();
   }
+  // 已在运行时不再重复拉起（避免多点触发产生多个实例）
+  if (cdpProc) {
+    dbg('[tray] CDP 浏览器已在运行，忽略重复请求');
+    return;
+  }
   const profileDir = path.join(ROOT, 'data', 'cdp-profile');
+  // 清掉上次的会话恢复状态：持久化 profile 被强制关闭后，Chrome 下次启动会
+  // 自动恢复上一页，再叠加启动 url 就会出现“两个页面”。每次全新空白 profile 只开单页。
+  try { fs.rmSync(profileDir, { recursive: true, force: true }); } catch (e) { /* 占用中则忽略，下次重试 */ }
   fs.mkdirSync(profileDir, { recursive: true });
   const args = [
     '--remote-debugging-port=9222',
@@ -217,6 +270,7 @@ function launchBrowserCDP() {
     '--no-first-run',
     '--no-default-browser-check',
     '--disable-backgrounding-occluded-windows',
+    '--new-window',
     url,
   ];
   try {
@@ -235,12 +289,12 @@ function launchBrowserCDP() {
 }
 
 function stopBrowser() {
-  if (!cdpProc) return;
-  const pid = cdpProc.pid;
+  const pid = cdpProc ? cdpProc.pid : null;
   cdpProc = null;
+  if (!pid) return;
   try {
-    if (IS_WIN) spawn('taskkill', ['/F', '/T', '/PID', String(pid)], { stdio: 'ignore' });
-    else process.kill(-pid, 'SIGTERM');
+    if (IS_WIN) execSync('taskkill /F /T /PID ' + pid, { stdio: 'ignore' });
+    else process.kill(-pid, 'SIGKILL');
   } catch (e) { /* ignore */ }
 }
 
