@@ -524,16 +524,8 @@ function launchCLI(cliId) {
     return;
   }
 
-  const existingTab = Q.Tabs?.tabs?.find(t => t.cliId === cliId);
-  if (existingTab && Q.Tabs?.switch) {
-    Q.Tabs.switch(existingTab.tabId);
-    state.activeCliId = cliId;
-    dom.activeLabel.textContent = existingTab.name || cliId;
-    dom.welcomeOverlay.classList.add('hidden');
-    updateCLIState(cliId, null);
-    return;
-  }
-
+  // 注：不再复用同名已开终端——每次点击都开一个新终端（同名可多开）。
+  // 终端列表（Tabs）按 tabId 唯一管理，多个同名终端互不干扰。
   const dims = fitAddonRef.current ? fitAddonRef.current.proposeDimensions() : null;
   const cols = dims ? dims.cols : 80;
   const rows = dims ? dims.rows : 24;
