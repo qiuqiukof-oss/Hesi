@@ -85,7 +85,13 @@ async function streamOpenAIWithTools(res, messages, apiKey, model, baseUrl, tool
   // 而非立即硬停。若警告后再次触发，则触发真正硬停。
   // 状态机已抽至 routes/chat/circuit-breaker.js（与 stream-anthropic.js 共用），
   // OpenAI 路径警告消息 role 用 'system'（system 合并后行为不变）。
-  const breaker = new CircuitBreaker({ warnRole: 'system', maxTotalDurationMs: MAX_TOTAL_DURATION_MS });
+  // relaxed 档：本地 LLM（baseUrl 为 localhost / 127.0.0.1，或 model==='local-model'）
+  // 工具调用弱、易重复，放宽循环守卫阈值避免正常探索被误杀而“回复中断”。
+  // 可用 env HESI_LLM_RELAXED=1 强制开启；云模型（OpenAI/Anthropic 官方）保持严格。
+  const isLocal = /^(https?:\/\/)?(127\.0\.0\.1|localhost|0\.0\.0\.0)(:|$)/.test(baseUrl || '')
+    || model === 'local-model'
+    || !!process.env.HESI_LLM_RELAXED;
+  const breaker = new CircuitBreaker({ warnRole: 'system', maxTotalDurationMs: MAX_TOTAL_DURATION_MS, relaxed: isLocal });
 
   // ── SSE 保活心跳：长工具/Agent 执行期间 SSE 可能数分钟无数据，
   //    必须周期性写入，否则 socket 空闲超时会杀掉连接（前端“调用工具被断开”）。──

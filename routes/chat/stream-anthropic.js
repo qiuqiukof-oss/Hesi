@@ -356,7 +356,13 @@ async function streamAnthropicWithTools(res, messages, apiKey, model, baseUrl, t
   const MAX_TOOL_ROUNDS = Number(process.env.HESI_LLM_MAX_TOOL_ROUNDS) || maxRounds || 50;
   // 状态机已抽至 routes/chat/circuit-breaker.js（与 stream-openai.js 共用），
   // Anthropic 路径警告消息 role 用 'user'（其 system 仅一条，警告走 user 更稳）。
-  const breaker = new CircuitBreaker({ warnRole: 'user', maxTotalDurationMs: MAX_TOTAL_DURATION_MS });
+  // relaxed 档：本地 LLM（baseUrl 为 localhost / 127.0.0.1，或 model==='local-model'）
+  // 工具调用弱、易重复，放宽循环守卫阈值避免正常探索被误杀而“回复中断”。
+  // 可用 env HESI_LLM_RELAXED=1 强制开启；云模型保持严格。
+  const isLocal = /^(https?:\/\/)?(127\.0\.0\.1|localhost|0\.0\.0\.0)(:|$)/.test(baseUrl || '')
+    || model === 'local-model'
+    || !!process.env.HESI_LLM_RELAXED;
+  const breaker = new CircuitBreaker({ warnRole: 'user', maxTotalDurationMs: MAX_TOTAL_DURATION_MS, relaxed: isLocal });
 
   // ── SSE 保活心跳（同 stream-openai.js）──
   let toolRunning = false;

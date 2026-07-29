@@ -24,12 +24,19 @@ class CircuitBreaker {
   constructor(opts = {}) {
     this.warnRole = opts.warnRole || 'system';
     this.maxTotalDurationMs = opts.maxTotalDurationMs || 900000; // 默认 15 分钟
-    this.maxTotalToolCalls = opts.maxTotalToolCalls || 120;
+    this.maxTotalToolCalls = opts.maxTotalToolCalls || (opts.relaxed ? 400 : 120);
 
-    // 循环/重复检测阈值（env 可调控，两文件公式完全一致）
-    this.toolLoopGuard = Math.max(1, Number(process.env.HESI_LLM_TOOL_LOOP_GUARD) || 15);
-    this.dupWindow = Math.max(4, Number(process.env.HESI_DUP_SIG_WINDOW) || 16);
-    this.dupThreshold = Math.max(2, Number(process.env.HESI_DUP_SIG_THRESHOLD) || 4);
+    // 循环/重复检测阈值（env 可调控，优先于内置默认值）。
+    // relaxed=true（本地 LLM）：阈值放大 3 倍，避免“第 2~3 次重复即硬停”把正常探索
+    // 误判为死循环而掐断回复（用户反馈的“回复中断、原因不明”主因）。
+    const _relax = (base) => (opts.relaxed ? base * 3 : base);
+    this.toolLoopGuard = Math.max(1, Number(process.env.HESI_LLM_TOOL_LOOP_GUARD) || _relax(15));
+    this.dupWindow = Math.max(4, Number(process.env.HESI_DUP_SIG_WINDOW) || _relax(16));
+    this.dupThreshold = Math.max(2, Number(process.env.HESI_DUP_SIG_THRESHOLD) || _relax(4));
+    // cycle（连续完全相同签名）容忍次数：strict=0（第 2 次即进入降级流程）/
+    // relaxed=4（前 4 次重复忽略，第 5 次才警告）。靠 relaxed 或代码改，env 不设。
+    this.cycleTolerance = opts.relaxed ? 4 : 0;
+    this.cycleRepeats = 0;
 
     // ── 运行时状态（原分散在两 stream 文件的局部变量）──
     this.softStopWarned = false;   // 是否已发过降级警告
@@ -71,7 +78,11 @@ class CircuitBreaker {
    */
   guard(res, currentMessages, reason, detail, forcedStatus) {
     if (this.softStopWarned) {
-      res.write(`data: ${JSON.stringify({ type: 'status', message: forcedStatus })}\n\n`);
+      // 强制停止：在原因前加醒目前缀，确保前端状态栏清晰显示“为何中断”（根治“原因不明”）。
+      const msg = forcedStatus && forcedStatus.startsWith('⚠️')
+        ? forcedStatus
+        : `⚠️ 回复已被安全熔断：${forcedStatus || reason}`;
+      res.write(`data: ${JSON.stringify({ type: 'status', message: msg })}\n\n`);
       res.write('data: [DONE]\n\n');
       res.end();
       return 'stop';
@@ -89,15 +100,24 @@ class CircuitBreaker {
    */
   cycle(res, currentMessages, sig, toolCallCount) {
     if (sig === this.lastToolSignature && toolCallCount > 0) {
+      this.cycleRepeats++;
+      // relaxed 档容忍前 cycleTolerance 次重复（strict=0 → 立即进入降级流程）；
+      // 超过后才触发降级继续/硬停，避免本地 LLM 正常重试被误杀。
+      if (this.cycleRepeats <= this.cycleTolerance) {
+        return 'proceed';
+      }
       const r = this.guard(
         res, currentMessages,
         '检测到与上一轮完全相同的工具调用', '请改用不同策略或直接输出最终回答。',
-        '检测到重复工具调用，已给过警告，强制停止'
+        '工具调用陷入完全相同的循环，已强制停止'
       );
       if (r === 'stop') return 'stop';
       this.lastToolSignature = sig;
+      this.cycleRepeats = 0; // 给一次补救机会
       return 'continue';
     }
+    this.cycleRepeats = 0;
+    this.lastToolSignature = sig;
     return 'proceed';
   }
 
