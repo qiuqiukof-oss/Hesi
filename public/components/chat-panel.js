@@ -30,6 +30,7 @@ import { attachmentsMixin } from './chat/attachments.js';
 import { historySessionMixin } from './chat/history-session.js';
 import { sidePanelsMixin } from './chat/side-panels.js';
 import { metricsSavingsMixin } from './chat/metrics-savings.js';
+import { messageDomMixin } from './chat/message-dom.js';
 
 /** @typedef {import('../types').QCLI} QCLI */
 /** @typedef {{role:string, content:string}} ChatMessage */
@@ -1181,145 +1182,9 @@ class ChatPanel extends HTMLElement {
   // ── 侧边面板（黑板/圆桌/抽屉缩放/导出）：已抽离到 ./chat/side-panels.js（mixin）──
 
   // ── Public: Rendering ──
+  // ── 渲染/DOM：已抽离到 ./chat/message-dom.js（mixin）──
 
-  renderAll() {
-    if (!this.msgsEl) return;
-    this.msgsEl.innerHTML = '';
-    for (const msg of this.messages) {
-      this.appendToDOM(msg, false);
-    }
-    this.scrollToBottom();
-  }
-
-  // ── AI 讨论模式：把每一轮发言渲染成独立、带标签的气泡 ──
-  _handleDiscussEvent(evt) {
-    if (!this.msgsEl) return;
-    if (evt.type === 'start') {
-      // 新发言方开始：移除思考指示器，开一个带标签的新气泡
-      this.removeThinking();
-      const Q = qcli();
-      const div = document.createElement('div');
-      div.className = 'chat-message discuss-message discuss-' + (evt.speaker || 'ai');
-      const avatar = document.createElement('div');
-      avatar.className = 'msg-avatar discuss-avatar ' + (evt.speaker === 'cli' ? 'cli-avatar' : evt.speaker === 'summary' ? 'summary-avatar' : 'ai-avatar');
-      avatar.textContent = evt.speaker === 'cli' ? '🟩' : evt.speaker === 'summary' ? '📋' : '🟦';
-      div.appendChild(avatar);
-      const content = document.createElement('div');
-      content.className = 'msg-content';
-      const sender = document.createElement('div');
-      sender.className = 'msg-sender discuss-sender';
-      const roundTxt = evt.round ? ` · 第 ${evt.round} 轮` : '';
-      sender.textContent = (evt.label || 'AI 助手') + roundTxt;
-      content.appendChild(sender);
-      const bubble = document.createElement('div');
-      bubble.className = 'msg-bubble discuss-bubble';
-      content.appendChild(bubble);
-      div.appendChild(content);
-      this.msgsEl.appendChild(div);
-      this._discussActive = true;
-      this._activeDiscussBubble = bubble;
-      this._discussText = '';
-      this._discussPendingMsg = { role: evt.speaker === 'cli' ? 'tool' : 'assistant', content: '', _speaker: evt.speaker, _label: evt.label };
-      this.scrollToBottom();
-    } else if (evt.type === 'end') {
-      // 发言结束：把气泡最终内容落盘到消息历史
-      if (this._activeDiscussBubble) {
-        this._activeDiscussBubble.innerHTML = renderMarkdown(this._discussText || '（无内容）');
-        requestAnimationFrame(() => { if (window.QCLI?.MermaidRenderer) window.QCLI.MermaidRenderer.renderAll(); });
-      }
-      if (this._discussPendingMsg) {
-        this._discussPendingMsg.content = this._discussText || '（无内容）';
-        this.messages.push(this._discussPendingMsg);
-      }
-      this._discussActive = false;
-      this._activeDiscussBubble = null;
-      this._discussText = '';
-      this._discussPendingMsg = null;
-      this._saveHistory();
-      this.scrollToBottom();
-    } else if (evt.type === 'stats') {
-      // 讨论结束后的 token 消耗报告（圆桌 vs 单模型 成本可见）
-      const s = evt.stats || {};
-      const agents = s.agents || 0;
-      const rounds = s.rounds || 0;
-      const cliEst = s.cliEstTokens || 0;
-      const cliChars = s.cliOutputChars || 0;
-      const div = document.createElement('div');
-      div.className = 'chat-message discuss-message discuss-stats';
-      const bubble = document.createElement('div');
-      bubble.className = 'msg-bubble discuss-stats-bubble';
-      bubble.innerHTML = `<div class="discuss-stats-title">💱 本次讨论 token 消耗</div>`
-        + `<div class="discuss-stats-row">AI 助手 / 汇总（API 精确）：输入 <b>${s.aiInputTokens || 0}</b> · 输出 <b>${s.aiOutputTokens || 0}</b></div>`
-        + `<div class="discuss-stats-row">CLI Agent（${agents} 个 · ${rounds} 轮）：估算输出 ≈ <b>${cliEst}</b> token（${cliChars} 字符，其内部消耗未计入）</div>`
-        + `<div class="discuss-stats-hint">提示：多 Agent 圆桌会随「Agent 数 × 轮数」近似超线性放大 token，质量提升并非免费。</div>`;
-      div.appendChild(bubble);
-      this.msgsEl.appendChild(div);
-      this._saveHistory();
-      this.scrollToBottom();
-    }
-  }
-
-  appendToDOM(msg, animate = true) {
-    if (!this.msgsEl) return;
-    const Q = qcli();
-    const div = document.createElement('div');
-    div.className = 'chat-message' + (msg.role === 'user' ? ' user-message' : '');
-    if (!animate) div.style.animation = 'none';
-
-    const avatar = document.createElement('div');
-    avatar.className = 'msg-avatar' + (msg.role === 'assistant' ? ' ai-avatar' : '');
-    avatar.textContent = msg.role === 'user' ? '\ud83d\udc64' : '\ud83e\udd16';
-    div.appendChild(avatar);
-
-    const content = document.createElement('div');
-    content.className = 'msg-content';
-
-    const sender = document.createElement('div');
-    sender.className = 'msg-sender';
-    sender.textContent = msg.role === 'user' ? (Q.__?.('chat.sender.you') || 'You') : (Q.__?.('chat.sender.ai') || 'AI');
-    content.appendChild(sender);
-
-    const bubble = document.createElement('div');
-    bubble.className = 'msg-bubble ' + (msg.role === 'user' ? 'user-bubble' : 'ai-bubble');
-    if (msg.role === 'assistant') {
-      bubble.innerHTML = renderMarkdown(msg.content);
-      // 渲染 Mermaid 流程图
-      requestAnimationFrame(() => {
-        if (window.QCLI?.MermaidRenderer) {
-          window.QCLI.MermaidRenderer.renderAll();
-        }
-      });
-    } else {
-      if (Array.isArray(msg.attachments) && msg.attachments.length) {
-        const attWrap = document.createElement('div');
-        attWrap.className = 'msg-attachments';
-        for (const a of msg.attachments) attWrap.appendChild(this._renderAttachmentItem(a));
-        bubble.appendChild(attWrap);
-      }
-      if (msg.content) {
-        const txt = document.createElement('div');
-        txt.textContent = msg.content;
-        bubble.appendChild(txt);
-      }
-    }
-    content.appendChild(bubble);
-
-    div.appendChild(content);
-    this.msgsEl.appendChild(div);
-  }
-
-  scrollToBottom() {
-    requestAnimationFrame(() => {
-      if (this.msgsEl) this.msgsEl.scrollTop = this.msgsEl.scrollHeight;
-    });
-  }
-
-  /**
-   * M5 (v0.3.1): 渲染「本轮回合收益」条（用量可见化）。
-   * 挂在 #chat-messages 底部（非气泡内、非实时动画），每轮只保留一条；
-   * 事件未收到（无节省项）时前端静默不渲染，降级安全。
-   * @param {{cacheReadTokens?:number, cacheCreationTokens?:number, toolCacheHits?:number, experienceHits?:number, skillsInjected?:number}} m
-   */
+  // ── 指标/节省展示：已抽离到 ./chat/metrics-savings.js（mixin）──
   // ── 指标/节省展示：已抽离到 ./chat/metrics-savings.js（mixin）──
 
   showThinking() {
@@ -1528,7 +1393,7 @@ class ChatPanel extends HTMLElement {
 }
 
 // ── 原型 mixin 装配（从 chat/ 子模块挂回 ChatPanel.prototype）──
-Object.assign(ChatPanel.prototype, mermaidPreviewMixin, discussControlsMixin, attachmentsMixin, historySessionMixin, sidePanelsMixin, metricsSavingsMixin);
+Object.assign(ChatPanel.prototype, mermaidPreviewMixin, discussControlsMixin, attachmentsMixin, historySessionMixin, sidePanelsMixin, metricsSavingsMixin, messageDomMixin);
 
 customElements.define('chat-panel', ChatPanel);
 
