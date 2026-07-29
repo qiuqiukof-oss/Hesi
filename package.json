@@ -104,6 +104,7 @@
     "test:coverage": "node scripts/test.mjs --experimental-test-coverage",
     "prepublishOnly": "npm run build && npm test",
     "plans": "node plans/run-all.js",
+    "plans:audit": "node plans/audit-acceptance.js",
     "format": "prettier --write \"**/*.js\" \"**/*.css\" \"**/*.json\" \"**/*.html\"",
     "format:check": "prettier --check \"**/*.js\" \"**/*.css\" \"**/*.json\" \"**/*.html\""
   },
