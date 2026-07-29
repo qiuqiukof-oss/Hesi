@@ -2058,41 +2058,5 @@ body.drawer-resizing {
 .chat-edit-banner-cancel:hover { background: var(--bg-hover, rgba(128,128,128,0.10)); }
 [data-theme="dark"] .chat-edit-banner-cancel { color: var(--text-tertiary, #9ca3af); }
 
-/* ============================================================
-   Personalization Modal（个性化入口）
-   ============================================================ */
-.personalization-modal { max-width: 560px; max-height: 86vh; overflow-y: auto; }
-.pers-section { margin: 14px 0; display: flex; flex-direction: column; gap: 6px; }
-.pers-label { font-weight: 600; font-size: 14px; color: var(--text-primary, #111827); }
-.pers-section small { color: var(--text-tertiary, #6b7280); font-size: 12px; line-height: 1.5; }
-.pers-section textarea#pers-custom {
-  width: 100%; resize: vertical; padding: 8px 10px;
-  border: 1px solid var(--border-default, #e5e7eb); border-radius: var(--radius-sm, 6px);
-  background: var(--bg-input, #fff); color: var(--text-primary, #111827);
-  font-family: inherit; font-size: 13px; line-height: 1.5;
-}
-.pers-row { flex-direction: row; align-items: center; gap: 10px; }
-.pers-row .pers-label { margin: 0; }
-.pers-row-note { flex-basis: 100%; margin-top: 2px; }
-.pers-perms { display: flex; flex-direction: column; gap: 8px; margin-top: 4px; }
-.pers-perm { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text-secondary, #374151); }
-.pers-perm-row { gap: 10px; }
-.pers-perm select.sm { width: auto; min-width: 180px; }
-.pers-actions-row { flex-direction: row; gap: 8px; flex-wrap: wrap; }
-.secondary-btn.danger { color: #b91c1c; border-color: #fca5a5; }
-.secondary-btn.danger:hover { background: rgba(185,28,28,0.08); }
+/* Personalization & toggle styles unified into modal.css (theme-safe, shared across .modal popups). */
 
-/* Toggle switch（记忆 / 自动审核 / 全自动）*/
-.switch { position: relative; display: inline-block; width: 40px; height: 22px; flex: 0 0 auto; }
-.switch input { opacity: 0; width: 0; height: 0; }
-.slider {
-  position: absolute; cursor: pointer; inset: 0;
-  background: var(--border-strong, #cbd5e1); border-radius: 22px; transition: .2s;
-}
-.slider::before {
-  content: ""; position: absolute; height: 16px; width: 16px; left: 3px; top: 3px;
-  background: #fff; border-radius: 50%; transition: .2s;
-}
-.switch input:checked + .slider { background: var(--accent, #2563eb); }
-.switch input:checked + .slider::before { transform: translateX(18px); }
-[data-theme="dark"] .slider { background: #475569; }

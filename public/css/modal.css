@@ -62,7 +62,7 @@
 .modal label small {
   display: block;
   font-size: 11px;
-  color: var(--text-tertiary);
+  color: var(--text-secondary);
   margin-top: 2px;
 }
 
@@ -392,6 +392,7 @@
 
 
 
+/* ============================================================
    Settings Panel
    ============================================================ */
 .settings-modal {
@@ -703,5 +704,159 @@
   background: var(--bg-overlay);
 }
 
-
 /* ============================================================
+   Shared form controls, toggle switch & Personalization modal
+   (theme-safe, consistent across all .modal popups)
+   ============================================================ */
+
+/* Native controls follow the active theme (select arrow, dropdown, scrollbar) */
+[data-theme="dark"] .modal { color-scheme: dark; }
+[data-theme="light"] .modal { color-scheme: light; }
+
+/* Selects & textareas were previously unstyled → theme them like .modal input */
+.modal select,
+.modal textarea,
+.modal-select {
+  display: block;
+  width: 100%;
+  margin-top: var(--radius-md);
+  padding: var(--space-2) var(--space-3);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  font-size: 13px;
+  font-family: var(--font-ui);
+  line-height: 1.5;
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+.modal select:focus,
+.modal textarea:focus,
+.modal-select:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-glow);
+}
+.modal select { cursor: pointer; }
+.modal select option {
+  background: var(--bg-surface);
+  color: var(--text-primary);
+}
+.modal textarea {
+  resize: vertical;
+  min-height: 90px;
+}
+.modal-select.sm {
+  width: auto;
+  min-width: 180px;
+}
+
+/* ── Toggle switch (checkbox + slider), theme-aware ── */
+.switch {
+  position: relative;
+  display: inline-block;
+  width: 38px;
+  height: 22px;
+  flex: 0 0 auto;
+}
+.switch input {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+  cursor: pointer;
+}
+.slider {
+  position: absolute;
+  cursor: pointer;
+  inset: 0;
+  background: var(--bg-active);
+  border-radius: 22px;
+  transition: background 0.2s;
+}
+.slider::before {
+  content: "";
+  position: absolute;
+  left: 3px;
+  top: 3px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--text-tertiary);
+  transition: transform 0.2s, background 0.2s;
+}
+.switch input:checked + .slider {
+  background: var(--accent);
+}
+.switch input:checked + .slider::before {
+  transform: translateX(16px);
+  background: #fff;
+}
+
+/* ── Personalization modal layout (sits on the shared .modal base) ── */
+.personalization-modal {
+  max-width: 560px;
+  max-height: 86vh;
+  overflow-y: auto;
+}
+.pers-section {
+  margin: 14px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.pers-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 0;
+}
+.pers-section small {
+  color: var(--text-secondary);
+  font-size: 12px;
+  line-height: 1.5;
+}
+.pers-row {
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
+}
+.pers-row .pers-label { margin: 0; }
+.pers-row-note {
+  flex: 1;
+  min-width: 0;
+}
+.pers-perms {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 4px;
+}
+.pers-perm {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.pers-perm > span:first-child {
+  min-width: 72px;
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+.pers-perm-row { gap: 10px; }
+.pers-perm-row > span {
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+.pers-actions-row {
+  flex-direction: row;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 4px;
+}
+.secondary-btn.danger {
+  color: var(--danger);
+  border-color: var(--danger);
+}
+.secondary-btn.danger:hover {
+  background: color-mix(in srgb, var(--danger) 12%, transparent);
+}
