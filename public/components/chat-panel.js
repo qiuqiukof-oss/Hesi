@@ -31,6 +31,7 @@ import { historySessionMixin } from './chat/history-session.js';
 import { sidePanelsMixin } from './chat/side-panels.js';
 import { metricsSavingsMixin } from './chat/metrics-savings.js';
 import { messageDomMixin } from './chat/message-dom.js';
+import { terminalContextMixin } from './chat/terminal-context.js';
 
 /** @typedef {import('../types').QCLI} QCLI */
 /** @typedef {{role:string, content:string}} ChatMessage */
@@ -440,28 +441,7 @@ class ChatPanel extends HTMLElement {
 
   // ── Terminal Context Toggle ──
 
-  _toggleTerminalContext() {
-    this._terminalContextEnabled = !this._terminalContextEnabled;
-    safeStorage.set('qcli-terminal-context', this._terminalContextEnabled ? '1' : '0');
-    this._updateTerminalToggleUI();
-    const Q = qcli();
-    const msg = this._terminalContextEnabled
-      ? (Q.__?.('chat.terminalOn') || '终端上下文已启用')
-      : (Q.__?.('chat.terminalOff') || '终端上下文已禁用');
-    if (Q.showToast) Q.showToast(msg, 'info');
-  }
-
-  _updateTerminalToggleUI() {
-    if (!this.terminalToggleBtn) return;
-    const Q = qcli();
-    if (this._terminalContextEnabled) {
-      this.terminalToggleBtn.classList.add('active');
-      this.terminalToggleBtn.title = Q.__?.('chat.terminalOn') || '终端上下文：已启用';
-    } else {
-      this.terminalToggleBtn.classList.remove('active');
-      this.terminalToggleBtn.title = Q.__?.('chat.terminalOff') || '终端上下文：已禁用';
-    }
-  }
+  // ── 终端上下文开关/UI：已抽离到 ./chat/terminal-context.js（mixin）──
 
   _restoreState() {
     this._applyHeight(this._getSavedHeight());
@@ -492,23 +472,7 @@ class ChatPanel extends HTMLElement {
     this._refitTerminal();
   }
 
-  _refitTerminal() {
-    const Q = qcli();
-    requestAnimationFrame(() => {
-      // tabs.js sets Q.Tabs.fitAddon to the real FitAddon instance (or null)
-      const fa = Q.Tabs?.fitAddon || Q.fitAddon;
-      if (fa && typeof fa.fit === 'function') {
-        try { fa.fit(); } catch (e) { console.debug('[ChatPanel] fitAddon.fit:', e?.message); }
-        const state = Q.state;
-        if (state && state.launched) {
-          const dims = fa.proposeDimensions();
-          if (dims && Q.wsSend) {
-            Q.wsSend({ type: 'resize', cols: dims.cols, rows: dims.rows, tabId: Q.Tabs?.activeTabId });
-          }
-        }
-      }
-    });
-  }
+  // ── 终端 fit/resize：已抽离到 ./chat/terminal-context.js（mixin）──
 
   // ── 历史/会话/回滚/历史面板：已抽离到 ./chat/history-session.js（mixin）──
 
@@ -1393,7 +1357,7 @@ class ChatPanel extends HTMLElement {
 }
 
 // ── 原型 mixin 装配（从 chat/ 子模块挂回 ChatPanel.prototype）──
-Object.assign(ChatPanel.prototype, mermaidPreviewMixin, discussControlsMixin, attachmentsMixin, historySessionMixin, sidePanelsMixin, metricsSavingsMixin, messageDomMixin);
+Object.assign(ChatPanel.prototype, mermaidPreviewMixin, discussControlsMixin, attachmentsMixin, historySessionMixin, sidePanelsMixin, metricsSavingsMixin, messageDomMixin, terminalContextMixin);
 
 customElements.define('chat-panel', ChatPanel);
 
