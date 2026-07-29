@@ -1,7 +1,8 @@
 // @ts-check
-// 回滚改良（P2）：每条 AI（assistant）消息在 append 时按「当前轮检查点 seq」打戳，
-// 使其可在消息气泡下「重新编辑 / 重新生成」（前端 rollbackTo(seq) 恢复到该轮之前状态）。
-// 覆盖：①assistant 消息按轮次打 seq、user 消息无 seq；②重复 append 同条消息保留已存 seq（幂等）；
+// 回滚改良（P2）：每轮 user + assistant 消息在 append 时按「当前轮检查点 seq」打戳，
+// 使「该轮的用户提问」消息气泡下可渲染「重新编辑 / 重新生成」（按钮锚点在用户消息，
+// 前端 rollbackTo(seq) 恢复到该轮之前状态）。
+// 覆盖：①user/assistant 消息按轮次同 seq；②重复 append 同条消息保留已存 seq（幂等）；
 // ③rollbackTo(seq) 恢复到该轮之前状态（消息数正确）。隔离到临时目录 HESI_MEMORY_DIR。
 'use strict';
 
@@ -23,7 +24,7 @@ async function turn(id, seq, userMsg, assistantMsg) {
   await MemoryStore.append(id, [userMsg, assistantMsg]);
 }
 
-test('rollback redesign: assistant messages stamped with turn seq; user messages unstamped', async () => {
+test('rollback redesign: user+assistant of each turn stamped with the same turn seq', async () => {
   const id = 's_seq_' + Date.now().toString(36);
   MemoryStore.ensure(id, { title: 'seq' });
 
@@ -34,15 +35,16 @@ test('rollback redesign: assistant messages stamped with turn seq; user messages
   const s = MemoryStore.get(id);
   assert.strictEqual(s.messages.length, 6, '应有 6 条消息（3 轮 × 2）');
 
-  const a1 = s.messages.find((m) => m.id === 'a1');
-  const a2 = s.messages.find((m) => m.id === 'a2');
-  const a3 = s.messages.find((m) => m.id === 'a3');
+  // 每轮 user + assistant 同 seq（按钮锚点在用户消息）
+  const u1 = s.messages.find((m) => m.id === 'u1'); const a1 = s.messages.find((m) => m.id === 'a1');
+  const u2 = s.messages.find((m) => m.id === 'u2'); const a2 = s.messages.find((m) => m.id === 'a2');
+  const u3 = s.messages.find((m) => m.id === 'u3'); const a3 = s.messages.find((m) => m.id === 'a3');
+  assert.strictEqual(u1.seq, 1, '第1轮 user 应打 seq=1（与 assistant 同）');
   assert.strictEqual(a1.seq, 1, '第1轮 assistant 应打 seq=1');
+  assert.strictEqual(u2.seq, 2, '第2轮 user 应打 seq=2');
   assert.strictEqual(a2.seq, 2, '第2轮 assistant 应打 seq=2');
+  assert.strictEqual(u3.seq, 3, '第3轮 user 应打 seq=3');
   assert.strictEqual(a3.seq, 3, '第3轮 assistant 应打 seq=3');
-
-  const u1 = s.messages.find((m) => m.id === 'u1');
-  assert.strictEqual(u1.seq, undefined, 'user 消息不应带 seq（不显示回滚按钮）');
 });
 
 test('rollback redesign: re-appending same assistant message preserves stored seq (idempotent)', async () => {

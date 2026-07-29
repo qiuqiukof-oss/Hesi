@@ -974,7 +974,7 @@ class ChatPanel extends HTMLElement {
                   for (const m of s.messages) if (m && m.id != null) seqById.set(m.id, m.seq);
                   let changed = false;
                   for (const m of this.messages) {
-                    if (m.role === 'assistant' && Number.isInteger(seqById.get(m.id)) && m.seq !== seqById.get(m.id)) {
+                    if (Number.isInteger(seqById.get(m.id)) && m.seq !== seqById.get(m.id)) {
                       m.seq = seqById.get(m.id);
                       changed = true;
                     }
@@ -1065,10 +1065,21 @@ class ChatPanel extends HTMLElement {
     return null;
   }
 
+  // 取与 msg 同一轮的用户提问文本：msg 为用户消息时直接取其 content；
+  // msg 为 AI 消息时回退用 _userTextBefore 向前查找。
+  _userTextFor(msg) {
+    if (!msg) return null;
+    if (msg.role === 'user') {
+      const c = msg.content;
+      return typeof c === 'string' ? c : (c && typeof c === 'object' ? (c.text || '') : '');
+    }
+    return this._userTextBefore(msg);
+  }
+
   // ✎ 重新编辑：预填输入框 + 挂起回滚，发送后才回滚（不发送不回滚）。
   _startEditMode(msg) {
     if (this.sending || msg.seq == null) return;
-    const userText = this._userTextBefore(msg);
+    const userText = this._userTextFor(msg);
     if (userText == null) return;
     this._pendingRollbackSeq = msg.seq;
     if (this.input) { this.input.value = userText; this.input.focus(); }
@@ -1078,7 +1089,7 @@ class ChatPanel extends HTMLElement {
   // ↺ 重新生成：回滚到该轮之前并用原提问重发（一步到位）。
   _regenerate(msg) {
     if (this.sending || msg.seq == null) return;
-    const userText = this._userTextBefore(msg);
+    const userText = this._userTextFor(msg);
     if (userText == null) return;
     this._pendingRollbackSeq = msg.seq;
     if (this.input) this.input.value = userText;

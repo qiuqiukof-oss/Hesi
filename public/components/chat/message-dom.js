@@ -134,9 +134,10 @@ export const messageDomMixin = {
     }
     content.appendChild(bubble);
 
-    // 回滚改良（P2）：assistant 消息且服务端打了 seq 时，在气泡下方渲染操作区。
+    // 回滚改良（P2）：「该轮的用户提问」消息且服务端打了 seq 时，在气泡下方渲染操作区。
+    // 语义 = 重做「我」的这一轮（rollback 该轮 + 重发我的提问），所以按钮锚点在用户消息。
     // 纯 textContent 建节点（防 XSS）；无 seq（讨论/工具/旧消息）则不显示。
-    if (msg.role === 'assistant' && Number.isInteger(msg.seq)) {
+    if (msg.role === 'user' && Number.isInteger(msg.seq)) {
       const actions = document.createElement('div');
       actions.className = 'msg-actions';
 
