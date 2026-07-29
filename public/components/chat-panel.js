@@ -24,6 +24,7 @@ import { buildBenefitBar } from './benefit-bar.js';
 import { computeSavings } from './savings-icon.js';
 import { computeContextUsage } from './context-usage.js';
 import { mountCategoryChips, getActiveCategory } from './category-chips.js';
+import { mermaidPreviewMixin } from './chat/mermaid-preview.js';
 
 /** @typedef {import('../types').QCLI} QCLI */
 /** @typedef {{role:string, content:string}} ChatMessage */
@@ -209,93 +210,7 @@ class ChatPanel extends HTMLElement {
     });
   }
 
-  // ── Mermaid 实时预览 ──
-
-  /** 初始化预览面板 DOM */
-  _initMermaidPreview() {
-    if (this.mermaidPreviewEl) return;
-    this.mermaidPreviewEl = document.createElement('div');
-    this.mermaidPreviewEl.className = 'mermaid-preview-panel hidden';
-    this.mermaidPreviewEl.innerHTML = `
-      <div class="mermaid-preview-header">
-        <span class="mermaid-preview-title">📐 Mermaid 预览</span>
-        <button class="mermaid-preview-close" title="关闭预览">✕</button>
-      </div>
-      <div class="mermaid-preview-body"></div>
-    `;
-    // 插入到聊天消息区和输入区之间
-    if (this.msgsEl && this.msgsEl.parentElement) {
-      this.msgsEl.parentElement.insertBefore(this.mermaidPreviewEl, this.input?.closest('.chat-input-area') || this.msgsEl.nextSibling);
-    } else if (this.el) {
-      this.el.appendChild(this.mermaidPreviewEl);
-    }
-
-    // 关闭按钮
-    const closeBtn = this.mermaidPreviewEl.querySelector('.mermaid-preview-close');
-    if (closeBtn) {
-      closeBtn.addEventListener('click', () => this._clearMermaidPreview());
-    }
-  }
-
-  /** 从文本中提取 mermaid 代码 */
-  _extractMermaidCode(text) {
-    const regex = /```mermaid\n?([\s\S]*?)```/i;
-    const match = text.match(regex);
-    return match ? match[1].trim() : null;
-  }
-
-  /** 防抖检测 Mermaid 代码并渲染预览 */
-  _checkMermaidPreview() {
-    if (this._mermaidPreviewTimer) {
-      clearTimeout(this._mermaidPreviewTimer);
-    }
-    this._mermaidPreviewTimer = setTimeout(() => {
-      this._mermaidPreviewTimer = null;
-      this._doMermaidPreview();
-    }, 300);
-  }
-
-  /** 实际渲染预览 */
-  _doMermaidPreview() {
-    if (!this.input || !this.mermaidPreviewEl) return;
-    const text = this.input.value;
-    const code = this._extractMermaidCode(text);
-    const body = this.mermaidPreviewEl.querySelector('.mermaid-preview-body');
-    if (!body) return;
-
-    if (!code) {
-      this._clearMermaidPreview();
-      return;
-    }
-
-    // 显示预览面板
-    this.mermaidPreviewEl.classList.remove('hidden');
-
-    // 渲染 Mermaid
-    body.innerHTML = `<div class="mermaid-preview-content"><div class="mermaid">${this._escapeHtml(code)}</div></div>`;
-
-    // 使用现有 MermaidRenderer 渲染
-    requestAnimationFrame(() => {
-      if (window.QCLI?.MermaidRenderer) {
-        window.QCLI.MermaidRenderer.renderAll();
-      }
-    });
-  }
-
-  /** 清空并隐藏预览 */
-  _clearMermaidPreview() {
-    if (this.mermaidPreviewEl) {
-      this.mermaidPreviewEl.classList.add('hidden');
-      const body = this.mermaidPreviewEl.querySelector('.mermaid-preview-body');
-      if (body) body.innerHTML = '';
-    }
-  }
-
-  /** HTML 转义 */
-  _escapeHtml(text) {
-    const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
-    return text.replace(/[&<>"']/g, c => map[c]);
-  }
+  // ── Mermaid 实时预览：已抽离到 ./chat/mermaid-preview.js（mixin + 纯函数）──
 
   // ── AI 讨论模式工具栏（🤝 开关 + 多选 CLI Agent + 回合数）──
   _setupDiscussControls() {
@@ -2416,6 +2331,9 @@ class ChatPanel extends HTMLElement {
 
 
 }
+
+// ── 原型 mixin 装配（从 chat/ 子模块挂回 ChatPanel.prototype）──
+Object.assign(ChatPanel.prototype, mermaidPreviewMixin);
 
 customElements.define('chat-panel', ChatPanel);
 
