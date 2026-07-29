@@ -388,7 +388,7 @@ async function streamAnthropicWithTools(res, messages, apiKey, model, baseUrl, t
   const onClientClose = () => {
     if (res.writableEnded) return; // 正常收尾触发的 close，忽略
     _aborted = true;
-    try { abortDelegate(); } catch { /* ignore */ }
+    try { abortDelegate(requestId); } catch { /* ignore */ }
   };
   if (res && typeof res.on === 'function') {
     res.on('close', onClientClose);
@@ -657,7 +657,7 @@ async function streamAnthropicWithTools(res, messages, apiKey, model, baseUrl, t
           res.end();
         }
       } catch { /* ignore */ }
-      try { killDelegatePTY(); } catch { /* ignore */ }
+      try { killDelegatePTY(requestId); } catch { /* ignore */ }
     }
     if (res && typeof res.removeListener === 'function') {
       res.removeListener('close', onClientClose);

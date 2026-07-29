@@ -21,19 +21,26 @@ const MAX_AGENT_RETURN_CHARS = 20_000;   // 同步委派返回给 LLM 的最大�
 // 注：全局并发配额由 agent-concurrency.js 统一管理（同步委派 + 异步池合计最多 3 个），
 // 不再使用本模块独立的 _activeAgentCount，避免两条路径叠加成「实际 6 个」且与文档矛盾。
 
-// ── 当前 agent_delegate 持有的游离 PTY 引用 ──
+// ── 按 requestId 隔离的 agent_delegate 游离 PTY 引用 ──
 // agent_delegate 是同步阻塞路径，直接 createHeadlessPTY 而不经 agentPool，
-// 故其 PTY 未在 agentPool 的 session map 中。这里保存引用，供「停止生成」时
-// （SSE 流检测到客户端断开）强制 kill，避免产生孤儿 Agent 进程。
-let _currentDelegatePTY = null;
-/** 停止当前 agent_delegate 持有的 PTY（若存在）。返回是否执行了 kill。 */
-function killDelegatePTY() {
-  if (_currentDelegatePTY && typeof _currentDelegatePTY.kill === 'function') {
-    try { _currentDelegatePTY.kill(); } catch { /* ignore */ }
-    _currentDelegatePTY = null;
+// 故其 PTY 未在 agentPool 的 session map 中。这里按「每请求」保存引用，供
+// 「停止生成」时（SSE 流检测到客户端断开）强制 kill 对应请求的 PTY，避免产生
+// 孤儿 Agent 进程。用 Map<requestId, PTY> 而非全局单例，修复并发委派时第二个
+// 请求覆盖第一个请求的 PTY 引用、导致 stop 误杀他人进程的问题（审查报告 C2）。
+const delegatePTYs = new Map();
+/**
+ * 停止指定 requestId 的 agent_delegate 持有的 PTY（若存在）。返回是否执行了 kill。
+ * @param {string} [requestId] 未提供时视为无操作，返回 false（向后兼容）。
+ */
+function killDelegatePTY(requestId) {
+  if (requestId == null) return false;
+  const pty = delegatePTYs.get(requestId);
+  if (pty && typeof pty.kill === 'function') {
+    try { pty.kill(); } catch { /* ignore */ }
+    delegatePTYs.delete(requestId);
     return true;
   }
-  _currentDelegatePTY = null;
+  delegatePTYs.delete(requestId);
   return false;
 }
 
@@ -41,7 +48,7 @@ function killDelegatePTY() {
 // executeAgent 据此立即 kill 当前游离 PTY 并提前 resolve，从而让阻塞中的
 // 同步委派也能被「停止」真正打断，而不是一直挂到 Agent 自然退出。──
 let _agentAborted = false;
-function abortDelegate() { _agentAborted = true; killDelegatePTY(); }
+function abortDelegate(requestId) { _agentAborted = true; killDelegatePTY(requestId); }
 
 /**
  * 在 headless PTY 中执行 CLI Agent，收集输出并返回。
@@ -54,7 +61,7 @@ function abortDelegate() { _agentAborted = true; killDelegatePTY(); }
  * @param {Function} [broadcastFn] - 用于实时推送输出的事件广播
  * @returns {Promise<string>} Agent 输出
  */
-function executeAgent(agentId, task, context, timeout = 120000, broadcastFn, role) {
+function executeAgent(agentId, task, context, timeout = 120000, broadcastFn, role, requestId) {
   _agentAborted = false; // 每次委派独立，避免上一次中断标志污染本次
   let aborted = false;
   const abortFn = () => { aborted = true; };
@@ -189,13 +196,13 @@ function executeAgent(agentId, task, context, timeout = 120000, broadcastFn, rol
 
         resolve(summary);
         abortFn();
-        if (_currentDelegatePTY === pty) _currentDelegatePTY = null;
+        if (requestId != null) delegatePTYs.delete(requestId);
       },
       onError: (err) => {
         clearTimeout(timer);
         releaseOnce();
         abortFn();
-        if (_currentDelegatePTY === pty) _currentDelegatePTY = null;
+        if (requestId != null) delegatePTYs.delete(requestId);
         if (broadcastFn) {
           broadcastFn({
             type: 'mcp_metric',
@@ -208,7 +215,7 @@ function executeAgent(agentId, task, context, timeout = 120000, broadcastFn, rol
 
     // prompt 已由 createHeadlessExec 注入（headless 走 stdin / PTY 走 typed input）
     if (pty) {
-      _currentDelegatePTY = pty;
+      if (requestId != null) delegatePTYs.set(requestId, pty); // 按请求隔离，避免并发覆盖
     } else {
       abortFn(); // PTY 创建失败 = 中断
       clearTimeout(timer);
@@ -268,7 +275,7 @@ function register(registry) {
       },
       required: ['agentId', 'task'],
     },
-    execute: async (args, broadcastFn) => {
+    execute: async (args, broadcastFn, requestId) => {
       const agentId = (args.agentId || '').trim();
       const task = (args.task || '').trim();
       const context = (args.context || '').trim();
@@ -277,7 +284,7 @@ function register(registry) {
       if (!agentId) return '[agent_delegate] 错误：agentId 参数不能为空';
       if (!task) return '[agent_delegate] 错误：task 参数不能为空';
 
-      return executeAgent(agentId, task, context, timeout, broadcastFn, args.role);
+      return executeAgent(agentId, task, context, timeout, broadcastFn, args.role, requestId);
     },
   });
 

@@ -127,7 +127,8 @@ async function streamOpenAIWithTools(res, messages, apiKey, model, baseUrl, tool
     if (res.writableEnded) return; // 响应已正常结束的 close，非中断，忽略
     _aborted = true;
     // 立即中断正在执行的 agent_delegate（其 executeAgent 在 await PTY，不会自然返回）
-    try { abortDelegate(); } catch { /* ignore */ }
+    // 按 requestId 精准 kill 本请求的游离 PTY，避免误杀其他并发请求的 Agent（审查 C2）
+    try { abortDelegate(requestId); } catch { /* ignore */ }
   };
   if (res && typeof res.on === 'function') {
     res.on('close', onClientClose);
@@ -393,9 +394,9 @@ async function streamOpenAIWithTools(res, messages, apiKey, model, baseUrl, tool
         }
       } catch { /* ignore */ }
     }
-    // 清理可能仍在跑的 agent_delegate 游离 PTY，防止孤儿进程
+    // 清理可能仍在跑的 agent_delegate 游离 PTY，防止孤儿进程（按 requestId 精准清理）
     if (_aborted) {
-      try { killDelegatePTY(); } catch { /* ignore */ }
+      try { killDelegatePTY(requestId); } catch { /* ignore */ }
     }
     if (res && typeof res.removeListener === 'function') {
       res.removeListener('close', onClientClose);
