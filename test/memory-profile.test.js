@@ -1,3 +1,8 @@
+/**
+ * Copyright (c) 2026 qiuqiukof-oss
+ * Licensed under the MIT License. See LICENSE for details.
+ */
+
 // @ts-check
 // Tests for Layer A (profile/facts, M6) and the optional vector module (M7).
 'use strict';

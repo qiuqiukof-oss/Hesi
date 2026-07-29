@@ -1,3 +1,8 @@
+/**
+ * Copyright (c) 2026 qiuqiukof-oss
+ * Licensed under the MIT License. See LICENSE for details.
+ */
+
 // ============================================================
 // DuckDuckGo Search Provider
 // 无需 API Key，通过解析 HTML 获取结果。

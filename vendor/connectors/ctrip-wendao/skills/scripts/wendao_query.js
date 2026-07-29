@@ -1,3 +1,8 @@
+/**
+ * Copyright (c) 2026 qiuqiukof-oss
+ * Licensed under the MIT License. See LICENSE for details.
+ */
+
 // wendao_query.js
 // 携程问道 API 查询脚本
 // 兼容：Windows / macOS / Linux (依赖 Node.js v18+)

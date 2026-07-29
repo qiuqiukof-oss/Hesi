@@ -1,3 +1,8 @@
+/**
+ * Copyright (c) 2026 qiuqiukof-oss
+ * Licensed under the MIT License. See LICENSE for details.
+ */
+
 // @ts-check
 // Memory subsystem smoke test — exercises the full backend chain:
 //   ensure → append → list → recall → getSummaryBlock → remove

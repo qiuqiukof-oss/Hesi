@@ -1,3 +1,8 @@
+/**
+ * Copyright (c) 2026 qiuqiukof-oss
+ * Licensed under the MIT License. See LICENSE for details.
+ */
+
 // @ts-check
 // ============================================================
 // WorkBuddy 广场 — 把 WorkBuddy 的「专家 / 技能 / 连接器」广场内容

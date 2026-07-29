@@ -1,3 +1,8 @@
+/**
+ * Copyright (c) 2026 qiuqiukof-oss
+ * Licensed under the MIT License. See LICENSE for details.
+ */
+
 // Tests for lib/asset-hash.js — bundle cache-busting (Phase 2.5).
 'use strict';
 

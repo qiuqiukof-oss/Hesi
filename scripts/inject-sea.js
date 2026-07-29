@@ -1,3 +1,8 @@
+/**
+ * Copyright (c) 2026 qiuqiukof-oss
+ * Licensed under the MIT License. See LICENSE for details.
+ */
+
 'use strict';
 // ============================================================
 // inject-sea.js — 纯 Node 实现的 Node SEA（Single Executable Application）注入器

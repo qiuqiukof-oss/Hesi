@@ -1,3 +1,8 @@
+/**
+ * Copyright (c) 2026 qiuqiukof-oss
+ * Licensed under the MIT License. See LICENSE for details.
+ */
+
 // @ts-check
 // v0.3.1 B1 — embedding backend mock 测试（不依赖真实 API）
 'use strict';

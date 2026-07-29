@@ -1,3 +1,8 @@
+/*
+ * Copyright (c) 2026 qiuqiukof-oss
+ * Licensed under the MIT License. See LICENSE for details.
+ */
+
 /* 围炉圆桌视图样式 —— 全部作用域在 #mahjong-embed 抽屉内，避免与主应用通用类冲突。
    局部重定义 roundtable 设计用的浅色变量，保证外观稳定不受主题影响。 */
 #mahjong-embed{

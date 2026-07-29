@@ -1,3 +1,8 @@
+/**
+ * Copyright (c) 2026 qiuqiukof-oss
+ * Licensed under the MIT License. See LICENSE for details.
+ */
+
 // ============================================================
 // Builtin Tools: blackboard_read / blackboard_patch / blackboard_write
 // 共享黑板（多 Agent 协作结构化状态中心）的 AI 可调用接口。

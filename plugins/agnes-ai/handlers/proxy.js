@@ -1,3 +1,8 @@
+/**
+ * Copyright (c) 2026 qiuqiukof-oss
+ * Licensed under the MIT License. See LICENSE for details.
+ */
+
 // @ts-check
 // Agnes AI proxy — forwards browser requests to the Agnes cloud API through
 // Hesi, injecting the API key server-side (the key is never exposed to the browser).

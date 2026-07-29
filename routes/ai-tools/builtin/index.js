@@ -1,3 +1,8 @@
+/**
+ * Copyright (c) 2026 qiuqiukof-oss
+ * Licensed under the MIT License. See LICENSE for details.
+ */
+
 // ============================================================
 // Builtin Tools — 注册所有内置工具到 registry
 // ============================================================

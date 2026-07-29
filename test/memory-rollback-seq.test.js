@@ -1,3 +1,8 @@
+/**
+ * Copyright (c) 2026 qiuqiukof-oss
+ * Licensed under the MIT License. See LICENSE for details.
+ */
+
 // @ts-check
 // 回滚改良（P2）：每轮 user + assistant 消息在 append 时按「当前轮检查点 seq」打戳，
 // 使「该轮的用户提问」消息气泡下可渲染「重新编辑 / 重新生成」（按钮锚点在用户消息，

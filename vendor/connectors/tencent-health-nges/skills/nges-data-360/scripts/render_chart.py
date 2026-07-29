@@ -1,4 +1,7 @@
 #!/usr/bin/env python3
+
+# Copyright (c) 2026 qiuqiukof-oss
+# Licensed under the MIT License. See LICENSE for details.
 """render_chart.py — 把数据洞察结果渲染成自包含 HTML 图表（基于 ECharts）。
 
 设计目标：

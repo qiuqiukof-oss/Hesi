@@ -1,3 +1,8 @@
+/**
+ * Copyright (c) 2026 qiuqiukof-oss
+ * Licensed under the MIT License. See LICENSE for details.
+ */
+
 // ============================================================
 // <rate-limit-panel> — 限流状态实时监控面板
 //

@@ -1,3 +1,8 @@
+/**
+ * Copyright (c) 2026 qiuqiukof-oss
+ * Licensed under the MIT License. See LICENSE for details.
+ */
+
 // @ts-check
 // ============================================================
 // 围炉圆桌 · 视图渲染器（懒加载，进 lazy bundle）

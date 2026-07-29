@@ -1,4 +1,7 @@
 #!/bin/bash
+
+# Copyright (c) 2026 qiuqiukof-oss
+# Licensed under the MIT License. See LICENSE for details.
 #
 # Setup script for 微云网盘 MCP Skill 一体化配置与授权脚本
 #

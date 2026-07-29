@@ -1,4 +1,9 @@
 #!/usr/bin/env node
+
+/**
+ * Copyright (c) 2026 qiuqiukof-oss
+ * Licensed under the MIT License. See LICENSE for details.
+ */
 // @ts-check
 // ============================================================
 // plans/run-all.js — regression harness runner

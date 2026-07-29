@@ -1,3 +1,8 @@
+/**
+ * Copyright (c) 2026 qiuqiukof-oss
+ * Licensed under the MIT License. See LICENSE for details.
+ */
+
 // @ts-check
 // Unit tests for lib/terminal-clean.js — the TTY escape-sequence scrubber that
 // keeps opencode / codex / aider TUI protocol noise out of the AI context and

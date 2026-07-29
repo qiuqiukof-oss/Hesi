@@ -1,3 +1,8 @@
+/**
+ * Copyright (c) 2026 qiuqiukof-oss
+ * Licensed under the MIT License. See LICENSE for details.
+ */
+
 // @ts-check
 // v0.3.1 A1 — read_file 大文件侧载单测（纯函数，无网络/文件依赖）
 'use strict';

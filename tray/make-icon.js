@@ -1,3 +1,8 @@
+/**
+ * Copyright (c) 2026 qiuqiukof-oss
+ * Licensed under the MIT License. See LICENSE for details.
+ */
+
 'use strict';
 // Tray icons are now pre-built from the chosen "Modern SaaS rounded-square"
 // (D) candidate and committed to the repo:

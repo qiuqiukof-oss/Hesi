@@ -1,3 +1,8 @@
+/**
+ * Copyright (c) 2026 qiuqiukof-oss
+ * Licensed under the MIT License. See LICENSE for details.
+ */
+
 // @ts-check
 // HTTP-layer tests for /api/memory. Spins up a real Express app on a random
 // port and exercises the routes end-to-end. Isolated to a temp dir.

@@ -1,3 +1,8 @@
+/**
+ * Copyright (c) 2026 qiuqiukof-oss
+ * Licensed under the MIT License. See LICENSE for details.
+ */
+
 // @ts-check
 // Unit tests for the memory subsystem foundation: config, schema, storage.
 // Goal: prove atomic writes, corruption recovery, idempotent ids and the

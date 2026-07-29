@@ -1,3 +1,8 @@
+/**
+ * Copyright (c) 2026 qiuqiukof-oss
+ * Licensed under the MIT License. See LICENSE for details.
+ */
+
 // @ts-check
 // S4/S5 集成测试：workflow 步骤边界黑板同步 + 失败转岗重试 + 并行隔离
 // mock agentPool（monkey-patch 单例方法），不真启动 CLI Agent。

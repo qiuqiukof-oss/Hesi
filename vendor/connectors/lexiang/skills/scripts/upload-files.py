@@ -1,3 +1,6 @@
+# Copyright (c) 2026 qiuqiukof-oss
+# Licensed under the MIT License. See LICENSE for details.
+
 """
 乐享知识库文件上传脚本
 支持并行上传文件到乐享，使用预签名 URL

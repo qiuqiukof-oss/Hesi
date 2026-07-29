@@ -1,3 +1,8 @@
+/**
+ * Copyright (c) 2026 qiuqiukof-oss
+ * Licensed under the MIT License. See LICENSE for details.
+ */
+
 // ============================================================
 // <agent-install-ui> — 一键安装智能体 UI（U 盘智能体愿景）
 //

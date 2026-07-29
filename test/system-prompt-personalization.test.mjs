@@ -1,3 +1,8 @@
+/**
+ * Copyright (c) 2026 qiuqiukof-oss
+ * Licensed under the MIT License. See LICENSE for details.
+ */
+
 // @ts-check
 // 个性化注入助手（routes/chat/personalization.js）单元测试。
 // 覆盖：个性模板注入、角色 persona（专家注册表）注入/降级、自定义指令覆盖式、

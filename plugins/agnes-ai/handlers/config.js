@@ -1,3 +1,8 @@
+/**
+ * Copyright (c) 2026 qiuqiukof-oss
+ * Licensed under the MIT License. See LICENSE for details.
+ */
+
 // @ts-check
 // Agnes config endpoint — stores/reads the API key + base URL on the Hesi
 // backend (NOT in the browser). The proxy reads this to inject the key.

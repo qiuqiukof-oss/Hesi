@@ -1,3 +1,8 @@
+/**
+ * Copyright (c) 2026 qiuqiukof-oss
+ * Licensed under the MIT License. See LICENSE for details.
+ */
+
 // Tests for the canonical HTML-escaping helper (Phase 4 frontend governance).
 //
 // public/escape.js is the single source of truth after consolidating ~17

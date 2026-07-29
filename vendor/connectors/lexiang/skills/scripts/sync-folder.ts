@@ -1,4 +1,9 @@
 /**
+ * Copyright (c) 2026 qiuqiukof-oss
+ * Licensed under the MIT License. See LICENSE for details.
+ */
+
+/**
  * 乐享知识库文件夹同步脚本
  * 支持将本地文件夹增量同步到乐享知识库
  *

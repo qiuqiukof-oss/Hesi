@@ -1,3 +1,8 @@
+/**
+ * Copyright (c) 2026 qiuqiukof-oss
+ * Licensed under the MIT License. See LICENSE for details.
+ */
+
 // @ts-check
 // ============================================================
 // 个性化设置（Personalization Hub）—— 前端 localStorage 持久化层

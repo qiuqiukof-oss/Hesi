@@ -1,4 +1,9 @@
 #!/usr/bin/env node
+
+/**
+ * Copyright (c) 2026 qiuqiukof-oss
+ * Licensed under the MIT License. See LICENSE for details.
+ */
 'use strict';
 // OhMyOpenAgent CLI — 多 Agent 编排入口（U 盘智能体内置框架）
 // 这是一个最小可用骨架：oma init / list / run。可替换为你的真实实现，

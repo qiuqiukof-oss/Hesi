@@ -1,3 +1,8 @@
+/**
+ * Copyright (c) 2026 qiuqiukof-oss
+ * Licensed under the MIT License. See LICENSE for details.
+ */
+
 // @ts-check
 // ============================================================
 // Plan → workflow DAG 转换器（Phase 0 — 全自动闭环）

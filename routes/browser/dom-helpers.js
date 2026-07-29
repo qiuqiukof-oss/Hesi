@@ -1,3 +1,8 @@
+/**
+ * Copyright (c) 2026 qiuqiukof-oss
+ * Licensed under the MIT License. See LICENSE for details.
+ */
+
 // ============================================================
 // DOM diff helpers (used by /browser/dom-snapshot and /browser/dom-diff).
 // Extracted verbatim from the original routes/browser.js.

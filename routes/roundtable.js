@@ -1,3 +1,8 @@
+/**
+ * Copyright (c) 2026 qiuqiukof-oss
+ * Licensed under the MIT License. See LICENSE for details.
+ */
+
 // @ts-check
 // ============================================================
 // Phase 2 S3/S5 — 围炉圆桌只读状态 + 覆盖层读写 + 纪要持久化

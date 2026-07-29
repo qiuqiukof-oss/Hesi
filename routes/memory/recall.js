@@ -1,3 +1,8 @@
+/**
+ * Copyright (c) 2026 qiuqiukof-oss
+ * Licensed under the MIT License. See LICENSE for details.
+ */
+
 // @ts-check
 // POST /api/memory/recall — debug / drawer endpoint: what would be injected
 // for a given query. Returns the <memory> block (or null).

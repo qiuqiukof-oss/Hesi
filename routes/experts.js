@@ -1,3 +1,8 @@
+/**
+ * Copyright (c) 2026 qiuqiukof-oss
+ * Licensed under the MIT License. See LICENSE for details.
+ */
+
 // ============================================================
 // Experts Router — 把 WorkBuddy 专家暴露为 Hesi 原生、可选用的角色。
 // 与 skills / mcp-connectors 同源：连接器可接入调用，技能/专家已摄入为本机指令库。

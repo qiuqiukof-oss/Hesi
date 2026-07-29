@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+
+# Copyright (c) 2026 qiuqiukof-oss
+# Licensed under the MIT License. See LICENSE for details.
 # 把 tray/tray.js 编译为单文件可执行（macOS / Linux），纯 Node 注入、无需 postject
 # 用法：bash scripts/build-tray-exe.sh
 set -euo pipefail

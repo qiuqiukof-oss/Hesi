@@ -1,3 +1,8 @@
+/**
+ * Copyright (c) 2026 qiuqiukof-oss
+ * Licensed under the MIT License. See LICENSE for details.
+ */
+
 // NetForge — AI Tool execution handler
 //
 // Routes AI tool calls to the browser MCP server.

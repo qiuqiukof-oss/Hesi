@@ -1,3 +1,8 @@
+/**
+ * Copyright (c) 2026 qiuqiukof-oss
+ * Licensed under the MIT License. See LICENSE for details.
+ */
+
 // @ts-check
 // Unit tests for ring-buffer.js — the shared bounded output buffer used by the
 // MCP session manager and the WS agent log. The eviction / slice contract is

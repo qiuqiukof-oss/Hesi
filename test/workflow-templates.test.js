@@ -1,3 +1,8 @@
+/**
+ * Copyright (c) 2026 qiuqiukof-oss
+ * Licensed under the MIT License. See LICENSE for details.
+ */
+
 // workflow-templates 静态模板契约测试
 // 保证 routes/ai-tools/workflow-templates/*.json 始终是 workflow_start 可直接消费的合法结构。
 const test = require('node:test');

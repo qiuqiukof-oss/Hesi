@@ -1,3 +1,8 @@
+/**
+ * Copyright (c) 2026 qiuqiukof-oss
+ * Licensed under the MIT License. See LICENSE for details.
+ */
+
 // ============================================================
 // Skill Loader — parse WorkBuddy SKILL.md into a normalized
 // skill record. Also scans the local connector cache for

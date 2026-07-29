@@ -1,3 +1,8 @@
+/**
+ * Copyright (c) 2026 qiuqiukof-oss
+ * Licensed under the MIT License. See LICENSE for details.
+ */
+
 // 确定性测试运行器（替代 `node --test` 默认发现）。
 // - pass1：默认发现（`node --test` 无文件参数），可靠覆盖全部 .js（CommonJS）测试。
 // - pass2：显式补跑 .mjs（ESM）测试——已验证 node 默认发现会跳过 .mjs，

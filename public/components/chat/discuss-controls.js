@@ -1,3 +1,8 @@
+/**
+ * Copyright (c) 2026 qiuqiukof-oss
+ * Licensed under the MIT License. See LICENSE for details.
+ */
+
 // ============================================================
 // 圆桌 / 讨论控件装配（从 chat-panel.js 抽离，P2 拆分）
 //

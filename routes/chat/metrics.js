@@ -1,3 +1,8 @@
+/**
+ * Copyright (c) 2026 qiuqiukof-oss
+ * Licensed under the MIT License. See LICENSE for details.
+ */
+
 // @ts-check
 // M5 / P1.5 共享：把「上下文压缩」结果累加进 request-scoped metrics 对象。
 // 抽成纯函数便于单测；逻辑与 routes/chat/index.js 内联累加等价。

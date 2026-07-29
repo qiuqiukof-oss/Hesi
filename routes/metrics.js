@@ -1,3 +1,8 @@
+/**
+ * Copyright (c) 2026 qiuqiukof-oss
+ * Licensed under the MIT License. See LICENSE for details.
+ */
+
 // ============================================================
 // Metrics API (C2) — growth / adoption aggregates for the admin dashboard
 // Mounted at /api/metrics

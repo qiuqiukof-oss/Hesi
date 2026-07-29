@@ -1,3 +1,8 @@
+/**
+ * Copyright (c) 2026 qiuqiukof-oss
+ * Licensed under the MIT License. See LICENSE for details.
+ */
+
 // NetForge — Plugin lifecycle: onLoad
 // Logs that the browser engine is ready.
 // Browser MCP server starts on demand (not eagerly).

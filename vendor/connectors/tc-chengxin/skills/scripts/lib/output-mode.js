@@ -1,6 +1,11 @@
 #!/usr/bin/env node
 
 /**
+ * Copyright (c) 2026 qiuqiukof-oss
+ * Licensed under the MIT License. See LICENSE for details.
+ */
+
+/**
  * 根据 channel / surface 解析输出形态（表格 vs 卡片、Markdown 链接 vs 纯文本 URL）。
  * 规则与 SKILL.md、references/output-format.md 一致。
  */

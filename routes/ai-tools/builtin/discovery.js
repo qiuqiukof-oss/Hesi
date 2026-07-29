@@ -1,3 +1,8 @@
+/**
+ * Copyright (c) 2026 qiuqiukof-oss
+ * Licensed under the MIT License. See LICENSE for details.
+ */
+
 // ============================================================
 // Builtin Tools: analyze_workspace, list_clis, list_workflows, list_agents
 // ============================================================

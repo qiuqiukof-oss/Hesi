@@ -1,3 +1,8 @@
+/**
+ * Copyright (c) 2026 qiuqiukof-oss
+ * Licensed under the MIT License. See LICENSE for details.
+ */
+
 // @ts-check
 // P1 S1 — ContextWindowManager 单测（纯逻辑，注入 env 便于断言，不依赖真实 process.env）
 'use strict';

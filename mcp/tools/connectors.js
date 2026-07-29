@@ -1,3 +1,8 @@
+/**
+ * Copyright (c) 2026 qiuqiukof-oss
+ * Licensed under the MIT License. See LICENSE for details.
+ */
+
 // ============================================================
 // Connector Tools — dynamically surfaces tools from connected
 // WorkBuddy MCP connectors into Hesi's own MCP server.

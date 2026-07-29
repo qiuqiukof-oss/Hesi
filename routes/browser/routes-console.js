@@ -1,3 +1,8 @@
+/**
+ * Copyright (c) 2026 qiuqiukof-oss
+ * Licensed under the MIT License. See LICENSE for details.
+ */
+
 // ============================================================
 // Browser route group: /browser/console (console log capture).
 // Handler copied verbatim from the original routes/browser.js.

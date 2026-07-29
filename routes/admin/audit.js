@@ -1,3 +1,8 @@
+/**
+ * Copyright (c) 2026 qiuqiukof-oss
+ * Licensed under the MIT License. See LICENSE for details.
+ */
+
 // ============================================================
 // Admin Audit API (A2) — query + export the unified audit trail
 // Mounted at /api/admin/audit

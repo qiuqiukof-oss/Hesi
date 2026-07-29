@@ -1,3 +1,8 @@
+/**
+ * Copyright (c) 2026 qiuqiukof-oss
+ * Licensed under the MIT License. See LICENSE for details.
+ */
+
 // ============================================================
 // Skills Router — expose ingested WorkBuddy skills as a
 // native, queryable part of Hesi (no external links).

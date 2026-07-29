@@ -1,3 +1,8 @@
+/**
+ * Copyright (c) 2026 qiuqiukof-oss
+ * Licensed under the MIT License. See LICENSE for details.
+ */
+
 // @ts-check
 // v0.3.1 A2 — exec 长输出头 30% 尾 70% 截断
 'use strict';

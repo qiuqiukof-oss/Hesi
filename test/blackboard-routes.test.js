@@ -1,3 +1,8 @@
+/**
+ * Copyright (c) 2026 qiuqiukof-oss
+ * Licensed under the MIT License. See LICENSE for details.
+ */
+
 // @ts-check
 // S8 后端路由测试：GET /api/blackboard/:projectId（只读 + ?since=）
 const test = require('node:test');

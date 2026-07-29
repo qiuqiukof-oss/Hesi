@@ -1,3 +1,8 @@
+/**
+ * Copyright (c) 2026 qiuqiukof-oss
+ * Licensed under the MIT License. See LICENSE for details.
+ */
+
 // @ts-check
 // P2.1 记忆时间轴：computeTimeline 纯函数单测
 import test from 'node:test';

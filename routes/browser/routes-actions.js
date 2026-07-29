@@ -1,3 +1,8 @@
+/**
+ * Copyright (c) 2026 qiuqiukof-oss
+ * Licensed under the MIT License. See LICENSE for details.
+ */
+
 // ============================================================
 // Browser route group: page actions
 // (navigate, click, type, screenshot, tabs, switch-tab, back, refresh, text).

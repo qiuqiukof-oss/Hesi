@@ -1,3 +1,8 @@
+/**
+ * Copyright (c) 2026 qiuqiukof-oss
+ * Licensed under the MIT License. See LICENSE for details.
+ */
+
 // @ts-check
 // Unit tests for rate-limiter.js — the fixed-window limiter guarding HTTP routes.
 // The key regression pinned here is that it is a *fixed* window (a steady low

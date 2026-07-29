@@ -1,3 +1,8 @@
+/**
+ * Copyright (c) 2026 qiuqiukof-oss
+ * Licensed under the MIT License. See LICENSE for details.
+ */
+
 // ============================================================
 // DiagramRenderer — 统一图表渲染器（Mermaid / Graphviz / PlantUML）
 //

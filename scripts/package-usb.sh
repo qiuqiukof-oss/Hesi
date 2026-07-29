@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+
+# Copyright (c) 2026 qiuqiukof-oss
+# Licensed under the MIT License. See LICENSE for details.
 # ============================================================
 # Hesi USB Agent Packager (macOS / Linux)
 # Build a portable, offline-capable USB edition ONCE on a machine

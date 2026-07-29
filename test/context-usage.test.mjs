@@ -1,3 +1,8 @@
+/**
+ * Copyright (c) 2026 qiuqiukof-oss
+ * Licensed under the MIT License. See LICENSE for details.
+ */
+
 // @ts-check
 // P0.6 S2：context-usage 纯函数单测（色阶边界 / pct 计算 / 几何 / 文案）
 import test from 'node:test';

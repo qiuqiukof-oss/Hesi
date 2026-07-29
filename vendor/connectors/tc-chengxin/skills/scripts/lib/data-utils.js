@@ -1,6 +1,11 @@
 #!/usr/bin/env node
 
 /**
+ * Copyright (c) 2026 qiuqiukof-oss
+ * Licensed under the MIT License. See LICENSE for details.
+ */
+
+/**
  * 同程程心数据工具库
  *
  * 提供统一的数据解包和安全访问方法

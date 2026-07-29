@@ -1,3 +1,8 @@
+/**
+ * Copyright (c) 2026 qiuqiukof-oss
+ * Licensed under the MIT License. See LICENSE for details.
+ */
+
 'use strict';
 // ============================================================
 // Hesi 系统托盘启动器（轻量，复用 Hesi 自带便携 Node，无 Electron）

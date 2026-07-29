@@ -1,3 +1,8 @@
+/**
+ * Copyright (c) 2026 qiuqiukof-oss
+ * Licensed under the MIT License. See LICENSE for details.
+ */
+
 // Tests for headless CLI descriptors (Phase 2.2 — aider/claude/codex completion).
 //
 // The critical invariant: every headless descriptor feeds the prompt via stdin,

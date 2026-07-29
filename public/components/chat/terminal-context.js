@@ -1,3 +1,8 @@
+/**
+ * Copyright (c) 2026 qiuqiukof-oss
+ * Licensed under the MIT License. See LICENSE for details.
+ */
+
 // ============================================================
 // 终端上下文：开关 / UI / fit·resize（从 chat-panel.js 抽离，P2 拆分）
 //

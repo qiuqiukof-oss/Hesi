@@ -1,3 +1,8 @@
+/**
+ * Copyright (c) 2026 qiuqiukof-oss
+ * Licensed under the MIT License. See LICENSE for details.
+ */
+
 // @ts-check
 // archive.remove() must also drop the <id>.ckpt.json rollback checkpoint
 // shadow so it doesn't orphan inside SESSIONS_DIR after a session is deleted.

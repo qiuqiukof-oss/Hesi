@@ -1,3 +1,8 @@
+/**
+ * Copyright (c) 2026 qiuqiukof-oss
+ * Licensed under the MIT License. See LICENSE for details.
+ */
+
 // @ts-check
 // P1 S4 — 端到端：index.js 写回的 contextEstimate 应被 compaction 用于阈值判断，
 // 让「真实完整上下文超小模型窗口」时即使历史 tokenEstimate 很小也能触发压缩

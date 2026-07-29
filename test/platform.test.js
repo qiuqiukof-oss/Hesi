@@ -1,3 +1,8 @@
+/**
+ * Copyright (c) 2026 qiuqiukof-oss
+ * Licensed under the MIT License. See LICENSE for details.
+ */
+
 // ============================================================
 // Platform module tests (E4) — covers the new enterprise modules.
 // Run with: node --test test/platform.test.js

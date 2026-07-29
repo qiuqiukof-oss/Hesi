@@ -1,3 +1,8 @@
+/**
+ * Copyright (c) 2026 qiuqiukof-oss
+ * Licensed under the MIT License. See LICENSE for details.
+ */
+
 // Tests for the Digital Employee roundtable worker (Phase 2.1 key-gap fix).
 //
 // Historically assignTask() only pushed onto a queue nothing consumed. These

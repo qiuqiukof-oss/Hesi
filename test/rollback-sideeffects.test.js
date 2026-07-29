@@ -1,3 +1,8 @@
+/**
+ * Copyright (c) 2026 qiuqiukof-oss
+ * Licensed under the MIT License. See LICENSE for details.
+ */
+
 // @ts-check
 // Phase 2：文件写类副作用还原。
 // - recordSideEffect 把原文件快照挂到当前轮检查点 sideEffects（同轮只记首次，超阈值标记 skipped）

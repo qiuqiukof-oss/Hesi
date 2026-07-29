@@ -1,3 +1,8 @@
+/**
+ * Copyright (c) 2026 qiuqiukof-oss
+ * Licensed under the MIT License. See LICENSE for details.
+ */
+
 // ============================================================
 // MCP Bridge — adapts MCP tool definitions + handlers to
 // OpenAI Function Calling format, for use in routes/chat.js

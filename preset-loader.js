@@ -1,3 +1,8 @@
+/**
+ * Copyright (c) 2026 qiuqiukof-oss
+ * Licensed under the MIT License. See LICENSE for details.
+ */
+
 // ============================================================
 // Preset Loader — loads CLI presets from cli-presets/*.json,
 // resolves "extends" chains, merges tools/categories/names,

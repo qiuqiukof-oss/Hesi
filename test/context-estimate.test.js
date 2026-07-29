@@ -1,3 +1,8 @@
+/**
+ * Copyright (c) 2026 qiuqiukof-oss
+ * Licensed under the MIT License. See LICENSE for details.
+ */
+
 // @ts-check
 // P1 S2 — tokenEstimate 修正：compaction 优先用 contextEstimate（含 system+记忆+
 // 技能+历史+工具+附件），并以模型名派生动态压缩阈值；旧 session 回落 v0.3.1 行为。

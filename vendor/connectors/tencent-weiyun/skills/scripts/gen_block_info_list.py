@@ -1,4 +1,7 @@
 #!/usr/bin/env python3
+
+# Copyright (c) 2026 qiuqiukof-oss
+# Licensed under the MIT License. See LICENSE for details.
 """
 微云上传参数生成脚本 — 生成 block_sha_list、file_sha、check_sha、check_data 等上传参数。
 

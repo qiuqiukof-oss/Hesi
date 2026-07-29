@@ -1,6 +1,11 @@
 #!/usr/bin/env node
 
 /**
+ * Copyright (c) 2026 qiuqiukof-oss
+ * Licensed under the MIT License. See LICENSE for details.
+ */
+
+/**
  * NetForge Browser MCP Server
  *
  * Provides browser automation via Chrome DevTools Protocol (CDP).

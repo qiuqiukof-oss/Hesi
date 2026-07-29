@@ -1,3 +1,8 @@
+/**
+ * Copyright (c) 2026 qiuqiukof-oss
+ * Licensed under the MIT License. See LICENSE for details.
+ */
+
 // @ts-check
 // Unit tests for lib/access-auth.js — focuses on the pure, env-independent
 // helpers and the local-origin guard (Phase 3 anti drive-by defense). The

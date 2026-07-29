@@ -1,3 +1,8 @@
+/**
+ * Copyright (c) 2026 qiuqiukof-oss
+ * Licensed under the MIT License. See LICENSE for details.
+ */
+
 // P2.1 render-snapshot: lock the output of the extracted message-render module
 // so the chat-panel refactor is provably behavior-preserving. Pure string
 // transforms — no DOM needed.

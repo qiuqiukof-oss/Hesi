@@ -1,3 +1,8 @@
+/**
+ * Copyright (c) 2026 qiuqiukof-oss
+ * Licensed under the MIT License. See LICENSE for details.
+ */
+
 // Generate a manifest.json for every connector under vendor/connectors.
 // Skips directories that already have a manifest.json (don't clobber hand-written ones).
 // (D2) Connector marketplace metadata: name / category / enterprise / authType.

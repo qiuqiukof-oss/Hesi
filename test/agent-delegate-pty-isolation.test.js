@@ -1,3 +1,8 @@
+/**
+ * Copyright (c) 2026 qiuqiukof-oss
+ * Licensed under the MIT License. See LICENSE for details.
+ */
+
 'use strict';
 // 审查报告 C2 回归测试：agent_delegate 的游离 PTY 引用由全局单例改为
 // Map<requestId, PTY>，修复「并发委派时第二个请求覆盖第一个 PTY 引用、

@@ -1,3 +1,8 @@
+/**
+ * Copyright (c) 2026 qiuqiukof-oss
+ * Licensed under the MIT License. See LICENSE for details.
+ */
+
 // @ts-check
 // Phase 2 皮肤系统 — 纯逻辑单测（SKINS 结构 / 缺省回落 / 图标 / applySkin 切肤）
 import { test } from 'node:test';

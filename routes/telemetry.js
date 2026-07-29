@@ -1,3 +1,8 @@
+/**
+ * Copyright (c) 2026 qiuqiukof-oss
+ * Licensed under the MIT License. See LICENSE for details.
+ */
+
 // ============================================================
 // Telemetry API (C1) — status, opt-in toggle, local snapshot
 // Mounted at /api/telemetry

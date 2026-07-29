@@ -1,3 +1,8 @@
+/**
+ * Copyright (c) 2026 qiuqiukof-oss
+ * Licensed under the MIT License. See LICENSE for details.
+ */
+
 // ============================================================
 // 历史 / 会话 / 回滚 / 历史面板（从 chat-panel.js 抽离，P2 拆分）
 //

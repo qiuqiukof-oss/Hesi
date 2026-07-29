@@ -1,3 +1,8 @@
+/**
+ * Copyright (c) 2026 qiuqiukof-oss
+ * Licensed under the MIT License. See LICENSE for details.
+ */
+
 // ============================================================
 // MCP Connector Client — thin wrapper around the official
 // @modelcontextprotocol/sdk Client, supporting the three

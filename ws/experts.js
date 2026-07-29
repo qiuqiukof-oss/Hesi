@@ -1,3 +1,8 @@
+/**
+ * Copyright (c) 2026 qiuqiukof-oss
+ * Licensed under the MIT License. See LICENSE for details.
+ */
+
 // ============================================================
 // Experts Registry — 把 WorkBuddy 的「专家」变为 Hesi 原生、可选用的角色。
 //

@@ -1,3 +1,8 @@
+/**
+ * Copyright (c) 2026 qiuqiukof-oss
+ * Licensed under the MIT License. See LICENSE for details.
+ */
+
 // @ts-check
 // P0.6 S1：GET /api/chat/context-usage 端点测试。
 // 隔离 HESI_MEMORY_DIR 到临时目录后再 require chat router（同 memory-routes 范式）。

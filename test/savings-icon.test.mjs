@@ -1,3 +1,8 @@
+/**
+ * Copyright (c) 2026 qiuqiukof-oss
+ * Licensed under the MIT License. See LICENSE for details.
+ */
+
 // P2.1 render-snapshot: lock the pure savings-icon computation extracted from
 // chat-panel.updateSavingsIcon. Pure math/string — no DOM.
 import { test } from 'node:test';

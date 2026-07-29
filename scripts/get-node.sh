@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+
+# Copyright (c) 2026 qiuqiukof-oss
+# Licensed under the MIT License. See LICENSE for details.
 # ============================================================
 # get-node.sh — 下载便携 Node.js 到 hesi/node/（供 --no-node 打包使用）
 # 用法：在 hesi/ 目录内运行 ./get-node.sh

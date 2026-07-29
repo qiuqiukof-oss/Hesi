@@ -1,3 +1,8 @@
+/**
+ * Copyright (c) 2026 qiuqiukof-oss
+ * Licensed under the MIT License. See LICENSE for details.
+ */
+
 // @ts-check
 // 多轮回滚栈模型：checkpoint 多次 → listCheckpoints 数量递增 → rollbackTo 恢复到指定轮 →
 // seq 之后的「未来态」检查点被丢弃。隔离到临时目录 HESI_MEMORY_DIR。

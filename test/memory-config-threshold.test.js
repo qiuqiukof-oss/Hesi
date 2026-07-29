@@ -1,3 +1,8 @@
+/**
+ * Copyright (c) 2026 qiuqiukof-oss
+ * Licensed under the MIT License. See LICENSE for details.
+ */
+
 // @ts-check
 // Tests for HESI_COMPACT_THRESHOLD override on lib/memory/config.js.
 //   - unset -> default 60000

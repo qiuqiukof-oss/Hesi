@@ -1,4 +1,9 @@
 /**
+ * Copyright (c) 2026 qiuqiukof-oss
+ * Licensed under the MIT License. See LICENSE for details.
+ */
+
+/**
  * NetForge — Tool Interceptor Hooks
  *
  * Two hooks for transparent browser routing:

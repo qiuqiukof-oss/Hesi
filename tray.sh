@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+
+# Copyright (c) 2026 qiuqiukof-oss
+# Licensed under the MIT License. See LICENSE for details.
 DIR="$(cd "$(dirname "$0")" && pwd)"
 
 # === 便携 Node（主目录必须带 node/bin/node；缺失则回退系统 node）===

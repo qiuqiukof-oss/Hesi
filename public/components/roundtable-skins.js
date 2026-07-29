@@ -1,3 +1,8 @@
+/**
+ * Copyright (c) 2026 qiuqiukof-oss
+ * Licensed under the MIT License. See LICENSE for details.
+ */
+
 // @ts-check
 // ============================================================
 // Phase 2 皮肤系统 — 圆桌可视化装饰层注册表（懒加载，进 lazy bundle）

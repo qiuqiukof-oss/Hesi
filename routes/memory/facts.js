@@ -1,3 +1,8 @@
+/**
+ * Copyright (c) 2026 qiuqiukof-oss
+ * Licensed under the MIT License. See LICENSE for details.
+ */
+
 // @ts-check
 // GET/DELETE /api/memory/facts — view and forget long-term facts (Layer A).
 // Reads/writes facts.json directly; extraction itself lands in M6 (profile.js).

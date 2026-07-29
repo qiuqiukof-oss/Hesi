@@ -1,3 +1,8 @@
+/**
+ * Copyright (c) 2026 qiuqiukof-oss
+ * Licensed under the MIT License. See LICENSE for details.
+ */
+
 // Tests for orchestrator concurrent-workflow support (Phase 2.4).
 //
 // Before this change a single ws mapped to ONE runState, so a second run() on

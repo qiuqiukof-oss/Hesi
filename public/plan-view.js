@@ -1,3 +1,8 @@
+/**
+ * Copyright (c) 2026 qiuqiukof-oss
+ * Licensed under the MIT License. See LICENSE for details.
+ */
+
 // 全自动 Plan 执行器前端（Phase 0）
 // 纯原生 JS：POST /api/plan/execute，渲染逐步结果 + 反思。
 (function () {

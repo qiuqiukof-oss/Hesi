@@ -1,3 +1,8 @@
+/**
+ * Copyright (c) 2026 qiuqiukof-oss
+ * Licensed under the MIT License. See LICENSE for details.
+ */
+
 // ============================================================
 // 侧边面板：黑板 / 围炉圆桌 / 抽屉缩放 / 导出（从 chat-panel.js 抽离，P2 拆分）
 //

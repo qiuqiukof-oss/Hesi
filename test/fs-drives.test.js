@@ -1,3 +1,8 @@
+/**
+ * Copyright (c) 2026 qiuqiukof-oss
+ * Licensed under the MIT License. See LICENSE for details.
+ */
+
 // @ts-check
 // HTTP-layer tests for /api/fs/dirs drive-selection behavior (盘符缺失 bug fix).
 // Spins a real Express app on a random port. Skips when express is absent.

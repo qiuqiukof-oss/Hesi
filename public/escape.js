@@ -1,3 +1,8 @@
+/**
+ * Copyright (c) 2026 qiuqiukof-oss
+ * Licensed under the MIT License. See LICENSE for details.
+ */
+
 // ============================================================
 // escape.js — Canonical HTML-escaping helper (single source of truth)
 // ------------------------------------------------------------

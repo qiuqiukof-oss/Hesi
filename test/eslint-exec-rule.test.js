@@ -1,3 +1,8 @@
+/**
+ * Copyright (c) 2026 qiuqiukof-oss
+ * Licensed under the MIT License. See LICENSE for details.
+ */
+
 // @ts-check
 // P2.3: verify the no-restricted-syntax guard against child_process.exec(<non-literal>)
 // actually fires, and that safe forms (execFile, literal-string exec, regex .exec)

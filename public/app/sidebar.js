@@ -1,3 +1,8 @@
+/**
+ * Copyright (c) 2026 qiuqiukof-oss
+ * Licensed under the MIT License. See LICENSE for details.
+ */
+
 // @ts-check
 // ============================================================
 // CLI Sidebar — CLI 列表渲染、文件夹管理、收藏/隐藏、启动/删除/发现

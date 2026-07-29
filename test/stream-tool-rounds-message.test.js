@@ -1,3 +1,8 @@
+/**
+ * Copyright (c) 2026 qiuqiukof-oss
+ * Licensed under the MIT License. See LICENSE for details.
+ */
+
 // @ts-check
 // P0-a — 工具轮硬上限提示消息不得硬编码「50轮」，须引用动态变量 MAX_TOOL_ROUNDS。
 // 源文件守卫：防止未来再把轮次写死（本地模型用户常调小 HESI_LLM_MAX_TOOL_ROUNDS）。
