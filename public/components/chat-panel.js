@@ -961,7 +961,27 @@ class ChatPanel extends HTMLElement {
             // restores the whole conversation, not just the user side. The chat
             // route only stores user messages before streaming begins.
             if (Q.MemorySession && Q.MemorySession.enabled && sessionId) {
-              Q.MemorySession.append(sessionId, this.messages.slice(-50)).catch(() => {});
+              Q.MemorySession.append(sessionId, this.messages.slice(-50))
+                .then(() => fetch('/api/memory/sessions/' + encodeURIComponent(sessionId)))
+                .then((r) => (r && r.ok ? r.json() : null))
+                .then((s) => {
+                  if (!s || !Array.isArray(s.messages)) return;
+                  // 回滚改良：服务端已为该轮（及历史）assistant 消息打 seq，但本地
+                  // 直播流消息对象无 seq，导致气泡下方不渲染「重新编辑/重新生成」按钮。
+                  // 此处按消息 id 把服务端 seq 回灌到本地 assistant 消息，再局部重渲染
+                  // 使其出现（刷新页面也会自然带出 seq，这里补上「直播流即时可见」）。
+                  const seqById = new Map();
+                  for (const m of s.messages) if (m && m.id != null) seqById.set(m.id, m.seq);
+                  let changed = false;
+                  for (const m of this.messages) {
+                    if (m.role === 'assistant' && Number.isInteger(seqById.get(m.id)) && m.seq !== seqById.get(m.id)) {
+                      m.seq = seqById.get(m.id);
+                      changed = true;
+                    }
+                  }
+                  if (changed) this.renderAll();
+                })
+                .catch(() => {});
             }
 
             // ── 会话级节省记账（M5 后续增强）：持久化本轮收益 + 累加图标 ──
