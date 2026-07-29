@@ -513,6 +513,7 @@
       <span id="terminal-dims" class="hidden"></span>
       <span id="terminal-font-size" class="hidden"></span>
       <button id="ai-settings-btn" class="ai-settings-btn" title="AI 设置">🤖</button>
+      <button id="personalization-btn" class="ai-settings-btn" title="个性化设置">👤</button>
       <button id="chat-toggle-btn" class="chat-toggle-btn" title="AI 对话面板">💬</button>
     </div>
 
@@ -728,6 +729,107 @@
         </div>
       </form>
       <p id="ai-settings-status" class="ai-status hidden"></p>
+    </div>
+  </div>
+
+  <!-- ====== Personalization Modal（个性化入口）====== -->
+  <div id="personalization-overlay" class="modal-overlay hidden">
+    <div class="modal personalization-modal">
+      <h2>👤 个性化设置</h2>
+
+      <!-- 个性选择 -->
+      <div class="pers-section">
+        <label class="pers-label" for="pers-persona">个性选择（交流风格）</label>
+        <select id="pers-persona" class="modal-select">
+          <option value="balanced">通用均衡</option>
+          <option value="terse">极简直接</option>
+          <option value="rigorous">严谨技术</option>
+          <option value="socratic">教学引导</option>
+          <option value="creative">创意发散</option>
+          <option value="casual">中文口语</option>
+        </select>
+        <small>决定 AI 的语气与回复风格（轻量，不抢角色/指令）。</small>
+      </div>
+
+      <!-- 角色选择 -->
+      <div class="pers-section">
+        <label class="pers-label" for="pers-role">角色选择（专家提示词）</label>
+        <select id="pers-role" class="modal-select">
+          <option value="default">Hesi 默认 · 球总硬指标工程助手</option>
+        </select>
+        <small>默认项即当前内置工程助手；其余下拉连接项目内现有专家提示词。</small>
+      </div>
+
+      <!-- 自定义指令 -->
+      <div class="pers-section">
+        <label class="pers-label" for="pers-custom">自定义指令（类似 Codex）</label>
+        <textarea id="pers-custom" rows="5"
+          placeholder="留空 = 使用内置工程硬指标（反臃肿 / 少 bug / 先出方案）。可覆盖或改写这些约束。"></textarea>
+        <small>每次对话注入系统提示词（覆盖式：填了就用你的，空则回退默认硬指标）。</small>
+      </div>
+
+      <!-- 记忆 -->
+      <div class="pers-section pers-row">
+        <label class="pers-label" for="pers-memory">记忆</label>
+        <label class="switch">
+          <input type="checkbox" id="pers-memory" checked />
+          <span class="slider"></span>
+        </label>
+        <small class="pers-row-note">从聊天生成记忆并带入新聊天（关闭则本会话历史仍保留，但不抽取跨会话事实）。</small>
+      </div>
+
+      <!-- 权限设置 -->
+      <div class="pers-section">
+        <label class="pers-label">权限设置</label>
+        <div class="pers-perms">
+          <div class="pers-perm">
+            <span>默认权限</span>
+            <select id="pers-perm-mode" class="modal-select sm">
+              <option value="ask">每步询问（HITL）</option>
+              <option value="auto">自动（安全项自动，危险项问）</option>
+              <option value="strict">受限（仅 allowlist）</option>
+            </select>
+          </div>
+          <div class="pers-perm pers-perm-row">
+            <label class="switch">
+              <input type="checkbox" id="pers-perm-review" checked />
+              <span class="slider"></span>
+            </label>
+            <span>自动审核（plan 必经可验证性闸门）</span>
+          </div>
+          <div class="pers-perm pers-perm-row">
+            <label class="switch">
+              <input type="checkbox" id="pers-perm-fullauto" />
+              <span class="slider"></span>
+            </label>
+            <span>全自动（允许外部副作用，执行前强制快照）</span>
+          </div>
+        </div>
+        <small>权限下钻到「全自动 Plan 执行器」；chat Agent 的逐步行问（HITL）属 Phase 1。</small>
+      </div>
+
+      <!-- 语言偏好 -->
+      <div class="pers-section">
+        <label class="pers-label" for="pers-language">回复语言</label>
+        <select id="pers-language" class="modal-select">
+          <option value="auto">跟随上下文（auto）</option>
+          <option value="zh">简体中文</option>
+          <option value="en">English</option>
+        </select>
+      </div>
+
+      <!-- 拓展：导出/导入/重置 -->
+      <div class="pers-section pers-actions-row">
+        <button type="button" id="pers-export" class="secondary-btn">导出配置</button>
+        <button type="button" id="pers-import" class="secondary-btn">导入配置</button>
+        <button type="button" id="pers-reset" class="secondary-btn danger">重置默认</button>
+      </div>
+
+      <div class="modal-actions">
+        <button type="button" id="personalization-cancel" class="secondary-btn">取消</button>
+        <button type="button" id="personalization-save" class="primary-btn">保存</button>
+      </div>
+      <p id="personalization-status" class="ai-status hidden"></p>
     </div>
   </div>
 

@@ -155,6 +155,114 @@ function init() {
     });
   }
 
+  // ── Wire up Personalization modal（个性化入口）──
+  (function wirePersonalization() {
+    const btn = document.getElementById('personalization-btn');
+    const overlay = document.getElementById('personalization-overlay');
+    const cancel = document.getElementById('personalization-cancel');
+    const save = document.getElementById('personalization-save');
+    const status = document.getElementById('personalization-status');
+    const personaEl = document.getElementById('pers-persona');
+    const roleEl = document.getElementById('pers-role');
+    const customEl = document.getElementById('pers-custom');
+    const memoryEl = document.getElementById('pers-memory');
+    const permModeEl = document.getElementById('pers-perm-mode');
+    const permReviewEl = document.getElementById('pers-perm-review');
+    const permFullEl = document.getElementById('pers-perm-fullauto');
+    const langEl = document.getElementById('pers-language');
+    const exportBtn = document.getElementById('pers-export');
+    const importBtn = document.getElementById('pers-import');
+    const resetBtn = document.getElementById('pers-reset');
+    if (!btn || !overlay) return;
+    const P = () => Q.Personalization;
+
+    function showStatus(msg) {
+      if (!status) return;
+      status.textContent = msg;
+      status.className = 'ai-status';
+      status.classList.remove('hidden');
+      setTimeout(() => status.classList.add('hidden'), 1800);
+    }
+
+    async function openPanel() {
+      if (personaEl) personaEl.value = P()?.getPersona?.() || 'balanced';
+      if (roleEl) {
+        // 保留默认项，追加项目内专家 persona
+        const def = roleEl.querySelector('option[value="default"]');
+        roleEl.innerHTML = '';
+        if (def) roleEl.appendChild(def);
+        try {
+          const experts = await P().loadExperts();
+          (experts || []).forEach((e) => {
+            if (!e || !e.id) return;
+            const o = document.createElement('option');
+            o.value = e.id;
+            o.textContent = `${e.icon || ''} ${e.name || e.id}`.trim();
+            roleEl.appendChild(o);
+          });
+        } catch { /* ignore */ }
+        roleEl.value = P().getRole();
+      }
+      if (customEl) customEl.value = P()?.getCustomInstructions?.() || '';
+      if (memoryEl) memoryEl.checked = P()?.getMemoryEnabled?.() !== false;
+      const perms = P()?.getPermissions?.() || { mode: 'auto', autoReview: true, fullAuto: false };
+      if (permModeEl) permModeEl.value = perms.mode || 'auto';
+      if (permReviewEl) permReviewEl.checked = perms.autoReview !== false;
+      if (permFullEl) permFullEl.checked = perms.fullAuto === true;
+      if (langEl) langEl.value = P()?.getLanguage?.() || 'auto';
+      overlay.classList.remove('hidden');
+    }
+
+    btn.addEventListener('click', openPanel);
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.classList.add('hidden'); });
+    if (cancel) cancel.addEventListener('click', () => overlay.classList.add('hidden'));
+    if (save) save.addEventListener('click', () => {
+      P()?.setPersona?.(personaEl ? personaEl.value : 'balanced');
+      P()?.setRole?.(roleEl ? roleEl.value : 'default');
+      P()?.setCustomInstructions?.(customEl ? customEl.value : '');
+      P()?.setMemoryEnabled?.(memoryEl ? memoryEl.checked : true);
+      P()?.setPermissions?.({
+        mode: permModeEl ? permModeEl.value : 'auto',
+        autoReview: permReviewEl ? permReviewEl.checked : true,
+        fullAuto: permFullEl ? permFullEl.checked : false,
+      });
+      P()?.setLanguage?.(langEl ? langEl.value : 'auto');
+      showStatus('✔ 个性化已保存');
+      setTimeout(() => overlay.classList.add('hidden'), 1200);
+    });
+    if (exportBtn) exportBtn.addEventListener('click', () => {
+      const cfg = P()?.exportConfig?.() || {};
+      const blob = new Blob([JSON.stringify(cfg, null, 2)], { type: 'application/json' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'hesi-personalization.json';
+      a.click();
+      URL.revokeObjectURL(a.href);
+      showStatus('✔ 已导出配置');
+    });
+    if (importBtn) importBtn.addEventListener('click', () => {
+      const inp = document.createElement('input');
+      inp.type = 'file';
+      inp.accept = 'application/json';
+      inp.onchange = () => {
+        const f = inp.files && inp.files[0];
+        if (!f) return;
+        const r = new FileReader();
+        r.onload = () => {
+          try { P()?.importConfig?.(JSON.parse(r.result)); showStatus('✔ 已导入，点保存生效'); }
+          catch { showStatus('⚠ 配置解析失败'); }
+        };
+        r.readAsText(f);
+      };
+      inp.click();
+    });
+    if (resetBtn) resetBtn.addEventListener('click', () => {
+      P()?.reset?.();
+      showStatus('✔ 已重置为默认');
+      openPanel();
+    });
+  })();
+
   // ── Load workflows & agents ──
   Q.Workflows?.loadWorkflows?.();
   Q.Agents?.loadAgents?.();

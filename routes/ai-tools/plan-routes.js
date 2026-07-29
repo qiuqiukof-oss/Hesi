@@ -69,6 +69,8 @@ function createRouter(opts = {}) {
         cwd,
         workflowManager: wf,
         roundtableFn: buildRoundtableFn(runtime),
+        // 个性化「权限设置」下钻（来自前端 localStorage）
+        permissions: (body.permissions && typeof body.permissions === 'object') ? body.permissions : null,
       });
       return res.json({ ok: result.ok, ...result });
     } catch (e) {

@@ -8,6 +8,7 @@
 /** @typedef {import('./types').QCLI} QCLI */
 
 import { safeStorage, safeSession } from './lib/storage.js';
+import { Personalization } from './app/personalization.js';
 
 const AI_KEY = 'qcli-ai-key';
 
@@ -148,6 +149,19 @@ export const ChatAPI = {
         }
         if (category) body.category = category;
         if (verifyMode) body.verifyMode = verifyMode;
+
+        // 个性化设置（Persona / Role / Custom Instructions / Memory / Permissions / Language）
+        // 与 verifyMode 同源：前端 localStorage → 请求体 → 后端拼系统提示词。
+        const persona = Personalization.getPersona();
+        if (persona && persona !== 'balanced') body.persona = persona;
+        const role = Personalization.getRole();
+        if (role && role !== 'default') body.role = role;
+        const ci = Personalization.getCustomInstructions();
+        if (ci) body.customInstructions = ci;
+        if (!Personalization.getMemoryEnabled()) body.memoryEnabled = false;
+        body.permissions = Personalization.getPermissions();
+        const lang = Personalization.getLanguage();
+        if (lang && lang !== 'auto') body.language = lang;
 
         const resp = await fetch('/api/chat', {
           method: 'POST',

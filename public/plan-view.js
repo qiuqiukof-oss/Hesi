@@ -97,6 +97,15 @@
       const md = $('model').value.trim(); if (md) body.model = md;
       const ps = $('partners').value.trim(); if (ps) body.partners = ps.split(',').map((x) => x.trim()).filter(Boolean);
 
+      // 个性化「权限设置」下钻：从 localStorage 读取（与个性化面板同源）
+      const permsRaw = (typeof localStorage !== 'undefined') ? localStorage.getItem('qcli-permissions') : null;
+      if (permsRaw) {
+        try {
+          const p = JSON.parse(permsRaw);
+          if (p && typeof p === 'object') body.permissions = p;
+        } catch { /* ignore */ }
+      }
+
       const res = await fetch('/api/plan/execute', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

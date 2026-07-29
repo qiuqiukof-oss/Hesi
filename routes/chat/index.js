@@ -29,6 +29,8 @@ const MemoryStore = require('../../lib/memory');
 const memoryConfig = require('../../lib/memory/config');
 const { ContextWindowManager } = require('../../lib/context-window');
 const cwManager = new ContextWindowManager();
+// 个性化注入助手（Persona / Role / Custom Instructions / Language）
+const { composePersonalization } = require('./personalization');
 
 // ============================================================
 // Non-streaming chat with tool support (for MCP ai_chat)
@@ -269,7 +271,7 @@ function createRouter(opts = {}) {
   // Response: SSE stream of tokens
   // ──────────────────────────────────────────────
   router.post('/chat', async (req, res) => {
-    const { messages, model, apiKey: clientKey, provider: clientProvider, baseUrl: clientBaseUrl, disableTools, terminalContext, terminalContextChanged, discuss, partner, partners, maxTurns, sessionId, category, verifyMode, takenOver } = req.body;
+    const { messages, model, apiKey: clientKey, provider: clientProvider, baseUrl: clientBaseUrl, disableTools, terminalContext, terminalContextChanged, discuss, partner, partners, maxTurns, sessionId, category, verifyMode, takenOver, persona, role, customInstructions, language, memoryEnabled, permissions } = req.body;
     // Phase 2：把 sessionId 挂到请求上，供流式路径里的 executeToolCall 透传到 /tools/write-file 做副作用快照。
     req._hesiSessionId = sessionId || '';
     // 分类 Chips（两级小功能）：当前对话模式 → 注入 [当前模式] 系统提示段 + Skill 检索加权
@@ -347,10 +349,14 @@ function createRouter(opts = {}) {
         } catch (cErr) {
           console.warn('[memory] compact skipped (non-fatal):', cErr && cErr.message);
         }
-        const summaryBlock = MemoryStore.getSummaryBlock(sessionId);
-        if (summaryBlock) memoryBlocks.push(summaryBlock);
-        const memoryBlock = MemoryStore.recall(lastUserText, { topK: memoryConfig.TOPK_RECALL });
-        if (memoryBlock) memoryBlocks.push(memoryBlock);
+        // 跨会话记忆注入（"带入新聊天"）：受前端 memoryEnabled 开关闸控。
+        // 注意：上面的 append/checkpoint/compact 仍照常执行（会话内历史与上下文压缩不受影响）。
+        if (memoryEnabled !== false) {
+          const summaryBlock = MemoryStore.getSummaryBlock(sessionId);
+          if (summaryBlock) memoryBlocks.push(summaryBlock);
+          const memoryBlock = MemoryStore.recall(lastUserText, { topK: memoryConfig.TOPK_RECALL });
+          if (memoryBlock) memoryBlocks.push(memoryBlock);
+        }
       } catch (memErr) {
         // Memory is best-effort: a failure must never break the chat.
         console.warn('[memory] injection skipped (non-fatal):', memErr && memErr.message);
@@ -434,14 +440,10 @@ When the user asks you to perform a "system self-check" / "全面自检" / "diag
 - 若收到视频但当前模型无法直接分析，请基于用户的文字描述回答，**不要编造你未看到的内容**。
 - 若附件内容显示“已过期或不存在”，说明文件已被清理，请礼貌请用户重新发送。`;
 
-    // ── 自我演进工程准则（球总硬指标，2026-07-27 写入）──
-    SELF_AWARE_PROMPT += `
-
-## 自我演进工程准则（硬约束）
-当你读取、修改、重建自身代码（read_file / write_file / rebuild_frontend / exec_terminal）时，必须遵守：
-1. **反臃肿（模块化优先）**：尽量不产生臃肿单文件；当某文件已明显过大或混入多个不相关职责时，优先拆分为模块化，而不是在同一文件继续堆代码。Hesi 已有清晰的目录分层（lib/ routes/ public/components/ 等），新增能力优先挂到对应模块。
-2. **少 bug（先查关联再动手）**：改动前先仔细检查关联项——调用方/被调用方、跨文件引用、前端 bundle 归属（main vs lazy）、路由/中间件挂载点、相关单测——确认影响面后再改。改动保持小步、单 commit 可回退；改完跑相关测试/lint 再交付。
-3. 结构性改动前先出方案（范围/步骤/风险/回滚/验收），确认后再执行——与「先方案后动手」一脉相承。`;
+    // ── 自我演进工程准则（球总硬指标）──
+    // 注：该段原先硬编码在此；现改为「个性化」体系的一部分，由
+    // composePersonalization() 在下方统一拼装（用户自定义指令覆盖 / 回退默认）。
+    // 此处不再写死，避免与个性化入口重复。
 
     // ── 验证优先 / 工具优先（球总提议，2026-07-28 注入）：让 AI 先核实工程现状再判断 ──
     // 置于静态前缀（category/记忆块之前），利于 OpenAI 前缀缓存命中；Anthropic 侧
@@ -478,6 +480,14 @@ When the user asks you to perform a "system self-check" / "全面自检" / "diag
 - 本次回答前，必须至少调用一次 read_file / grep / web_fetch / exec_terminal 取证，再下结论。
 - 当用户引用任何文件 / 方案 / 代码 / 外部 API 时，先核对真实内容，指出与现状的矛盾（给出文件路径:行号等证据）。
 - 不要仅凭印象或文件名回答；基于工具返回的证据作答。`;
+    }
+
+    // ── 个性化注入（Persona / Role / Custom Instructions / Language）──
+    // 复用既有「前端 localStorage → 请求体 → 服务端注入」链路（与 verifyMode 同款）。
+    // 顺序：语言 → 交流风格(个性) → 角色设定(身份) → 工程准则与自定义指令(约束)。
+    {
+      const persBlock = composePersonalization({ persona, role, customInstructions, language });
+      if (persBlock) SELF_AWARE_PROMPT += `\n\n${persBlock}`;
     }
 
     // ── M4 (v0.3.1): Skill 按需注入（铺结构版，词法 BM25）──
@@ -636,8 +646,11 @@ When the user asks you to perform a "system self-check" / "全面自检" / "diag
     // response streams so the user never waits on it.
     if (MemoryStore.enabled && sessionId) {
       MemoryStore.commit(sessionId).catch(() => {});
+      // 上下文压缩始终执行（属窗口管理，非"生成记忆"）；事实抽取受 memoryEnabled 闸控。
       MemoryStore.compactIfNeeded(sessionId, { apiKey, provider: clientProvider, model }).catch(() => {});
-      MemoryStore.extractFacts(sessionId, { apiKey, provider: clientProvider, model }).catch(() => {});
+      if (memoryEnabled !== false) {
+        MemoryStore.extractFacts(sessionId, { apiKey, provider: clientProvider, model }).catch(() => {});
+      }
     }
 
     // ── M5 后续增强：服务端汇总日志（切模型/跨会话对比用，零存储耦合）──

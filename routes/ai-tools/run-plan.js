@@ -233,6 +233,11 @@ function reflectPlan(plan, stepResults, budget, acceptance) {
  * @param {boolean} [opts.runAcceptance]      结束后跑验收（默认 true；dryRun 时强制 false）
  * @param {Function} [opts.onStep]            async (ev) => {} 逐步事件（UI 流式）
  * @param {Function} [opts.shouldAbort]       () => boolean 人工中止
+ * @param {object} [opts.permissions]         个性化「权限设置」下钻：
+ *        { mode?: 'ask'|'auto'|'strict', autoReview?: boolean, fullAuto?: boolean }
+ *        - autoReview=false → 跳过 gatePlan 可验证性闸门（危险，默认开启）
+ *        - fullAuto=true     → 置 plan.allow_external=true（开启外部副作用，Phase 1 运行时拦截消费）
+ *        - mode 当前仅落库，chat Agent HITL 留 Phase 1
  * @returns {Promise<{ ok: boolean, status: string, branch: string|null, steps: object[], reflection: object }>}
  */
 async function runPlan(plan, opts = {}) {
@@ -243,8 +248,13 @@ async function runPlan(plan, opts = {}) {
   const dryRun = !!opts.dryRun;
   const runAcc = opts.runAcceptance !== false && !dryRun;
 
+  // 个性化权限下钻（来自 /api/plan/execute 的 body.permissions）
+  const perms = opts.permissions || null;
+  if (perms && perms.fullAuto) plan.allow_external = true; // 开启外部副作用（Phase 1 运行时拦截消费）
+  const skipGate = !!(perms && perms.autoReview === false);
+
   // 决策①：可验证性闸门
-  const gate = gatePlan(plan);
+  const gate = skipGate ? { ok: true } : gatePlan(plan);
   if (!gate.ok) {
     const ev = { status: 'rejected', reason: gate.reason, missing: gate.missing };
     await onStep(ev);
