@@ -538,10 +538,31 @@ async function speakStreaming(text, opts = {}) {
   } catch (e) {
     console.warn('[VoiceOutput] Edge TTS failed, fallback to Web Speech:', e && e.message);
     _edgeAvailable = false;
-    return speak(text, opts);
+    // 防御：等 Web Speech 真正播完再放行下一段，避免与下一段（即便未来 _edgeAvailable
+    // 复位重新走 Edge）叠音。finally 中的 resolveNext() 在 await 结束后才触发，队列严格串行。
+    await speakUntilDone(text, opts);
+    return true;
   } finally {
     resolveNext();
   }
+}
+
+/**
+ * 等待 Web Speech 真正播放完毕（Edge 回落路径专用）。
+ * speak() 是 fire-and-forget——同步返回布尔、靠 utterance.onend 异步排空队列，
+ * 并不返回「播放完成」的 Promise。这里包一层，确保串行队列在音频结束而非调用瞬间放行。
+ * @param {string} text
+ * @param {object} [opts]
+ * @returns {Promise<boolean>}
+ */
+function speakUntilDone(text, opts = {}) {
+  return new Promise((resolve) => {
+    let settled = false;
+    const done = () => { if (!settled) { settled = true; resolve(true); } };
+    const started = speak(text, { ...opts, onEnd: done });
+    if (!started) done();        // speak 拒绝（未排队且忙碌）→ 不阻塞队列
+    setTimeout(done, 8000);       // 兜底：onend 因故未触发时强制放行，防队列永久卡死
+  });
 }
 
 /** 用 Web Audio 解码并播放 mp3 ArrayBuffer（边下边播由逐句调用近似实现）。 */
