@@ -87,6 +87,11 @@ const RoundTableView = {
   sessionId: '',
   running: false,
   _stateLoaded: false,
+  // P2.2 模板
+  presets: [],         // 从 /api/roundtable/templates 加载
+  activePresetId: '',  // 当前选中的模板 ID
+  presetPersonas: [],  // 选中模板的角色定义（透传给 discuss 内核）
+  presetProtocol: '',  // 选中模板的协作协议（透传给 discuss 内核）
 
   init() {
     this.root = document.getElementById('rt');
@@ -154,6 +159,10 @@ const RoundTableView = {
     this.elModal = $('modal');
     this.elModalBody = $('modalBody');
     this.elToast = $('toast');
+    // P2.2 模板选择器
+    this.elTemplate = $('rt-template');
+    this.elTemplateDesc = $('rt-template-desc');
+    this.elGuideHint = $('rt-guide-hint');
 
     if (this.elStart) this.elStart.addEventListener('click', () => this.start());
     if (this.elExport) this.elExport.addEventListener('click', () => this.exportMemo());
@@ -178,6 +187,15 @@ const RoundTableView = {
     }
     // 会话提示卡片
     this.renderSessionCard({ saved: false });
+
+    // P2.2 模板选择器
+    if (this.elTemplate) {
+      this.elTemplate.addEventListener('change', () => this.selectPreset(this.elTemplate.value));
+      this.fetchPresets();
+    }
+    if (this.elGuideHint) {
+      this.elGuideHint.addEventListener('click', () => this.showTemplateGuide());
+    }
   },
 
   renderSessionCard({ saved = false } = {}) {
@@ -250,6 +268,85 @@ const RoundTableView = {
     } catch (e) {
       this.toast('加载状态失败：' + e.message);
     }
+  },
+
+  // ── P2.2 模板 ──
+  async fetchPresets() {
+    try {
+      const r = await fetch('/api/roundtable/templates');
+      const data = await r.json();
+      this.presets = (data && data.templates) || [];
+      this.renderPresetOptions();
+    } catch { /* ignore */ }
+  },
+
+  renderPresetOptions() {
+    if (!this.elTemplate) return;
+    // 保留默认选项
+    this.elTemplate.innerHTML = '<option value="">默认（无模板）</option>';
+    for (const p of this.presets) {
+      const opt = document.createElement('option');
+      opt.value = p.id;
+      opt.textContent = `${p.title}（${p.personaCount} 席）`;
+      if (p.id === this.activePresetId) opt.selected = true;
+      this.elTemplate.appendChild(opt);
+    }
+  },
+
+  selectPreset(id) {
+    this.activePresetId = id;
+    if (!id) {
+      this.presetPersonas = [];
+      this.presetProtocol = '';
+      if (this.elTemplateDesc) { this.elTemplateDesc.style.display = 'none'; this.elTemplateDesc.textContent = ''; }
+      return;
+    }
+    // 先从列表找，找不到异步取详情
+    const found = this.presets.find(p => p.id === id);
+    if (found && found.personas) {
+      // 列表项不含完整 personas，需要异步取
+    }
+    // 异步取详情
+    this.fetchPresetDetail(id);
+  },
+
+  async fetchPresetDetail(id) {
+    try {
+      const r = await fetch(`/api/roundtable/templates/${encodeURIComponent(id)}`);
+      if (!r.ok) return;
+      const data = await r.json();
+      const tpl = data && data.template;
+      if (!tpl) return;
+      this.presetPersonas = tpl.personas || [];
+      this.presetProtocol = tpl.protocol || '';
+      if (this.elTemplateDesc) {
+        this.elTemplateDesc.textContent = tpl.description || '';
+        this.elTemplateDesc.style.display = '';
+      }
+      // 把模板协议显示到协议提示区
+      if (this.elProtocol && this.presetProtocol) {
+        this.elProtocol.textContent = '协议：' + this.presetProtocol;
+      }
+    } catch { /* ignore */ }
+  },
+
+  showTemplateGuide() {
+    const tips = [
+      '🔥 围炉圆桌：前端/后端/架构/测试 四席协作',
+      '🔗 前后端结对：快速对齐接口与实现边界',
+      '📋 产品+研发评审：价值→方案→风险逐层评审',
+      '⚖️ 三方辩论：激进/保守/中立正反对撞',
+      '',
+      '选中模板后，席位角色与协作协议会自动注入讨论，',
+      '让每个 CLI Agent 按照自身视角发言。',
+      '若留空（默认），则不注入角色与协议，Agent 自由发言。'
+    ];
+    this.toast(tips.join('\n'));
+    // 长文本 toast 需延长显示时间
+    setTimeout(() => {
+      const t = document.getElementById('toast');
+      if (t) { t.style.display = 'none'; }
+    }, 6000);
   },
 
   // CLI 显示名解析：优先全量 registry（含 tool/directory 类收藏项），回落 availableClis，再回落 id
@@ -516,6 +613,8 @@ const RoundTableView = {
       takenOver,
       maxTurns: getRounds(),
       sessionId: this.sessionId,
+      personas: this.presetPersonas.length ? this.presetPersonas : undefined,
+      protocol: this.presetProtocol || undefined,
       onToken: (content) => {
         if (this.activeSeat) this.setSeat(this.activeSeat, { bubble: content });
         this.appendMemo(content);

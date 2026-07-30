@@ -22,6 +22,7 @@ const { loadRegistry } = require('../cli-discovery');
 const blackboard = require('../lib/blackboard');
 const MemoryStore = require('../lib/memory');
 const { readOverrides, writeOverrides } = require('../lib/agent-overrides');
+const { listPresets, getPreset } = require('./ai-tools/roundtable-presets');
 
 const TEMPLATE_PATH = path.join(__dirname, 'ai-tools', 'workflow-templates', 'roundtable.json');
 
@@ -101,6 +102,17 @@ function createRouter() {
     } catch (e) {
       return res.status(500).json({ error: e.message });
     }
+  });
+
+  // ── P2.2 圆桌模板：列表 + 详情 ──
+  router.get('/templates', (req, res) => {
+    res.json({ ok: true, templates: listPresets() });
+  });
+
+  router.get('/templates/:id', (req, res) => {
+    const tpl = getPreset(req.params.id);
+    if (!tpl) return res.status(404).json({ error: 'template not found: ' + req.params.id });
+    res.json({ ok: true, template: tpl });
   });
 
   // ── 纪要持久化：追加进指定会话（满足「保存到对话内容」）──

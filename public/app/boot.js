@@ -118,11 +118,38 @@ function init() {
       if (baseUrlEl) baseUrlEl.value = savedBaseUrl;
       if (aiSettingsStatus) { aiSettingsStatus.classList.add('hidden'); aiSettingsStatus.textContent = ''; }
       aiSettingsOverlay.classList.remove('hidden');
+      // LLM 新手引导气泡（仅首次显示）
+      showAiGuideIfNeeded();
     });
 
     aiSettingsOverlay.addEventListener('click', (e) => {
       if (e.target === aiSettingsOverlay) aiSettingsOverlay.classList.add('hidden');
     });
+  }
+
+  // ── LLM 新手引导气泡 ──
+  const AI_GUIDE_KEY = 'qcli-ai-guide-seen';
+  function showAiGuideIfNeeded() {
+    try {
+      if (localStorage.getItem(AI_GUIDE_KEY)) return;
+    } catch { return; }
+    const bubble = document.getElementById('ai-guide-bubble');
+    if (!bubble) return;
+    bubble.classList.remove('hidden');
+    const closeBtn = document.getElementById('ai-guide-close');
+    if (closeBtn) {
+      closeBtn.addEventListener('click', () => {
+        bubble.classList.add('hidden');
+        try { localStorage.setItem(AI_GUIDE_KEY, '1'); } catch { /* ignore */ }
+      });
+    }
+    // 6 秒后自动收起（但仍计为已看）
+    setTimeout(() => {
+      if (!bubble.classList.contains('hidden')) {
+        bubble.classList.add('hidden');
+        try { localStorage.setItem(AI_GUIDE_KEY, '1'); } catch { /* ignore */ }
+      }
+    }, 8000);
   }
 
   if (aiSettingsForm && aiSettingsCancel) {

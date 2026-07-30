@@ -695,6 +695,21 @@
   <div id="ai-settings-overlay" class="modal-overlay hidden">
     <div class="modal">
       <h2>🤖 AI 设置</h2>
+      <!-- LLM 新手引导气泡 -->
+      <div id="ai-guide-bubble" class="ai-guide-bubble hidden">
+        <div class="agb-header">
+          <span class="agb-icon">💡</span>
+          <span class="agb-title">新手引导：LLM 设置说明</span>
+          <button id="ai-guide-close" class="agb-close" title="不再显示">✕</button>
+        </div>
+        <div class="agb-body">
+          <div class="agb-item"><b>提供商</b> — 选择 OpenAI 兼容（含 Ollama/LM Studio/火山引擎等）或 Anthropic。</div>
+          <div class="agb-item"><b>Base URL</b> — 对接自定义端点。Ollama 填 <code>http://localhost:11434/v1</code>，留空用官方默认。</div>
+          <div class="agb-item"><b>API Key</b> — 仅存储浏览器本地，不离开本机。也可设环境变量 <code>OPENAI_API_KEY</code> / <code>ANTHROPIC_API_KEY</code>。</div>
+          <div class="agb-item"><b>模型</b> — 留空则自动选默认（gpt-4o-mini / claude-haiku）。填模型名可覆盖。</div>
+          <div class="agb-item"><b>规划专用模型</b> — 🔍 核查/验证模式可单独指定更高推理能力的模型（如 claude-opus）。</div>
+        </div>
+      </div>
       <form id="ai-settings-form">
         <label>
           提供商
@@ -988,7 +1003,7 @@
             <label>议题 / 想讨论什么</label>
             <textarea id="topic" placeholder="例如：登录页要做哪些改动？给个多方视角的方案"></textarea>
           </div>
-          <div class="field" style="width:120px">
+          <div class="field" style="width:140px">
             <label>讨论轮数</label>
             <select id="rounds" title="每轮 = AI 助手与每个 CLI Agent 各发言一次（1–12）">
               <option value="1">1 轮</option>
@@ -1000,6 +1015,13 @@
               <option value="10">10 轮</option>
               <option value="12">12 轮</option>
             </select>
+          </div>
+          <div class="field" style="width:170px">
+            <label>模板 <span class="rt-guide-hint" id="rt-guide-hint" title="选择预设角色与协作协议">?</span></label>
+            <select id="rt-template" title="选择圆桌模板（角色 + 协作协议）">
+              <option value="">默认（无模板）</option>
+            </select>
+            <small id="rt-template-desc" style="display:none;color:var(--text-secondary)"></small>
           </div>
           <div class="field">
             <label>&nbsp;</label>

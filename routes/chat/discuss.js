@@ -44,16 +44,35 @@ const AI_SYSTEM_PROMPT = `你正在参与一场与另一个 CLI AI 编程助手�
 3. 语言精炼、有信息量，避免空话。可直接引用对方原话要点。
 4. 若你认为讨论已可收敛，可在结尾写一行 [CONVERGE]，表示准备进入汇总。`;
 
-const CLI_TASK_PROMPT = (question, transcript, round) => `你正在与「AI 助手」协作讨论下面这个用户问题（第 ${round} 轮）：
+/**
+ * 构建 CLI Agent 本轮的任务提示。
+ * 纯函数（便于单测）：不传 persona/protocol 时与旧版 CLI_TASK_PROMPT 行为一致。
+ * @param {{question:string, transcript?:string, round:number, persona?:{name?:string,role?:string,viewpoint?:string}, protocol?:string}} opts
+ * @returns {string}
+ */
+function buildCliTask({ question, transcript, round, persona, protocol }) {
+  let header = '';
+  if (persona && (persona.name || persona.role || persona.viewpoint)) {
+    const name = persona.name || 'CLI Agent';
+    const role = persona.role ? `（角色：${persona.role}）` : '';
+    const viewpoint = persona.viewpoint ? `\n你的视角/立场：${persona.viewpoint}` : '';
+    header = `你扮演「${name}」${role}参与这场圆桌讨论。${viewpoint}\n\n`;
+  }
+  let protocolNote = '';
+  if (protocol) {
+    protocolNote = `\n【协作协议】请遵循圆桌约定的讨论协议发言：\n${protocol}\n`;
+  }
+  return `${header}你正在与「AI 助手」协作讨论下面这个用户问题（第 ${round} 轮）：
 
 【用户原问题】
 ${question}
 
 【至今的讨论记录】
 ${transcript || '（尚无，这是你的第一轮）'}
-
+${protocolNote}
 请作为「CLI Agent」一方，针对上面 AI 助手的最后一段发言，给出你的独立观点、方案、代码思路或反问。
 只输出你这一轮的内容，不要替对方总结。语言精炼、言之有物。`;
+}
 
 const SUMMARY_SYSTEM_PROMPT = `你是一场「AI 助手 ↔ CLI Agent」协作讨论的**主持/汇总者**。
 请基于下面的完整讨论记录，产出一份结构化结论：
@@ -103,8 +122,8 @@ async function runAiTurn({ p, key, url, m }, question, transcript, onToken, onUs
 }
 
 // 跑一轮 CLI Agent 发言：每次新开 session（task 含完整记录），轮询到完成
-async function runCliTurn({ partner }, question, transcript, round, onToken, shouldAbort) {
-  const task = CLI_TASK_PROMPT(question, transcript, round);
+async function runCliTurn({ partner, persona, protocol }, question, transcript, round, onToken, shouldAbort) {
+  const task = buildCliTask({ question, transcript, round, persona, protocol });
   const started = JSON.parse(await agentPool.start(partner, task, '', null));
   if (!started.ok) {
     onToken(`（无法启动 CLI Agent「${partner}」：${started.error}）`);
@@ -217,7 +236,7 @@ const MAX_DISCUSS_AGENTS = 4; // 同时参与讨论的 CLI Agent 上限（控成
 
 // 纯圆桌函数（无 SSE 依赖）：供 runDiscussion（SSE 包装）与 plan 的 resolveCheckpoint 复用。
 // 通过 onEvent(type, payload) 发射事件，shouldAbort() 用于中断检测。
-async function runRoundtable({ message, partner, partners, maxTurns = 6, apiKey, provider, baseUrl, model, takenOver = {}, onEvent, shouldAbort }) {
+async function runRoundtable({ message, partner, partners, maxTurns = 6, apiKey, provider, baseUrl, model, takenOver = {}, personas, protocol, onEvent, shouldAbort }) {
   const cfg = resolveConfig({ apiKey, provider, baseUrl, model });
   if (!cfg.key) {
     onEvent?.('error', { message: '未配置 API Key（OPENAI/ANTHROPIC），无法运行 AI 讨论。' });
@@ -283,7 +302,9 @@ async function runRoundtable({ message, partner, partners, maxTurns = 6, apiKey,
           continue;
         }
         onEvent?.('discuss_start', { speaker: 'cli', label: labelOf(p), round });
-        const cliText = await runCliTurn({ partner: p }, question, transcriptLines.join('\n'), round,
+        const cliText = await runCliTurn(
+          { partner: p, persona: Array.isArray(personas) ? personas[agents.indexOf(p)] : undefined, protocol },
+          question, transcriptLines.join('\n'), round,
           (tk) => onEvent?.('token', { content: tk }), () => aborted());
         onEvent?.('discuss_end', { speaker: 'cli' });
         if (cliText) { transcriptLines.push(`【第${round}轮 · ${labelOf(p)}】\n${cliText}`); cliOutputChars += cliText.length; }
@@ -321,7 +342,7 @@ async function runRoundtable({ message, partner, partners, maxTurns = 6, apiKey,
   return { summary: '', transcript: transcriptLines.join('\n'), stats: { aiInputTokens, aiOutputTokens, cliOutputChars, agents: agents.length, rounds: maxTurns }, cleanFinish };
 }
 
-async function runDiscussion(res, { message, partner, partners, maxTurns = 6, apiKey, provider, baseUrl, model, takenOver = {} }) {
+async function runDiscussion(res, { message, partner, partners, maxTurns = 6, apiKey, provider, baseUrl, model, takenOver = {}, personas, protocol }) {
   const cfg = resolveConfig({ apiKey, provider, baseUrl, model });
   if (!cfg.key) {
     sse(res, { type: 'error', message: '未配置 API Key（OPENAI/ANTHROPIC），无法运行 AI 讨论。' });

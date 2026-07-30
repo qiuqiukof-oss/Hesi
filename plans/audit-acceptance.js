@@ -22,8 +22,8 @@
 const fs = require('fs');
 const path = require('path');
 
-const ROOT = path.resolve(__dirname, '..');
-const WORKBUDDY = path.join(ROOT, '.workbuddy');
+const ROOT = process.env.PLAN_AUDIT_DIR || path.resolve(__dirname, '..');
+const WORKBUDDY = process.env.PLAN_AUDIT_DIR || path.join(path.resolve(__dirname, '..'), '.workbuddy');
 
 // 排除目录（不计入对账）
 const EXCLUDE_DIRS = new Set([
