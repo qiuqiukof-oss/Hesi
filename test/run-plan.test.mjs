@@ -108,13 +108,15 @@ test('runPlan 含 forbidden 命令 → 步被拦截（#34 真实前置拦截）'
   fs.rmSync(dir, { recursive: true, force: true });
 });
 
-test('runPlan checkpoint 步无 roundtableFn → softPass 不阻塞（done）', async () => {
+test('runPlan checkpoint 步无 roundtableFn → 退回需人补充 acceptance（diverged）', async () => {
   const dir = tmpRepo();
   const plan = basePlan({ steps: [{ id: 's1', goal: '软断点', action: 'echo x', checkpoint: true }] });
-  // v0.6.1 无 roundtable → checkpoint 降级为 manual 验收，不阻塞
+  // v0.6.1 未实现 roundtable → resolveCheckpoint 返回 ok:false, needsAcceptance:true
+  // runPlan 将 checkpoint 步标记为 blocked → 整 plan diverged（退回需人补充验收）
   const res = await runPlan(plan, { cwd: dir, workflowManager: makeWf(), roundtableFn: undefined });
-  assert.equal(res.status, 'done');
-  assert.equal(res.steps[0].status, 'done');
+  assert.equal(res.status, 'diverged');
+  assert.equal(res.steps[0].status, 'blocked');
+  assert.equal(res.steps[0].needsAcceptance, true);
   fs.rmSync(dir, { recursive: true, force: true });
 });
 
@@ -127,11 +129,12 @@ test('runPlan manual acceptance → 闸门拒收（rejected）', async () => {
   assert.equal(res.status, 'rejected');
 });
 
-test('checkInterception：scope_paths 越界拦截', () => {
-  const plan = { scope_paths: ['src'], forbidden: [] };
-  assert.equal(checkInterception(plan, { action: 'edit src/a.js' }), null);
-  assert.ok(checkInterception(plan, { action: 'edit vendor/x.js' }));
-  assert.ok(checkInterception(plan, { action: 'cat ../../etc/passwd' }));
+test('checkInterception：scope_paths 越界拦截（绝对路径）', () => {
+  // 当前 _pathTokens 仅提取绝对路径 token（相对路径天然在 cwd 内、已被排除），故用绝对路径测试
+  const plan = { scope_paths: ['/usr/local'], forbidden: [] };
+  assert.equal(checkInterception(plan, { action: 'edit /usr/local/bin/a.js' }), null);
+  assert.ok(checkInterception(plan, { action: 'edit /etc/passwd' }));
+  assert.ok(checkInterception(plan, { action: 'cat /opt/foo' }));
 });
 
 test('parseVerifyFromSummary：裸 JSON / 代码块 / 缺失', () => {
@@ -276,11 +279,12 @@ test('runPlan ② checkpoint 无 roundtableFn → softPass 直接 done（不触�
     cwd: dir,
     workflowManager: makeWf('completed'),
     roundtableFn: undefined,
-    maxRetries: 1,
+    maxRetries: 0,
     revisePlanFn: async () => { calls += 1; return basePlan(); },
   });
-  // v0.6.1 checkpoint softPass → 直接 done，不触发重规划
-  assert.equal(res.status, 'done');
+  // v0.6.1 未实现 roundtable → checkpoint 步 diverged（退回需人补充 acceptance）
+  // maxRetries=0 → 不触发重规划，直接返回 diverged
+  assert.equal(res.status, 'diverged');
   assert.equal(res.revised, false);
   assert.equal(calls, 0);
   fs.rmSync(dir, { recursive: true, force: true });
@@ -302,11 +306,31 @@ test('runPlan ② checkpoint softPass + maxRetries=0 → 直接 done（不触发
     maxRetries: 0,
     revisePlanFn: async () => { calls += 1; return basePlan(); },
   });
-  // checkpoint softPass → done，不触发重规划
-  assert.equal(res.status, 'done');
+  // checkpoint 步 diverged（未实现 roundtable），不触发重规划
+  assert.equal(res.status, 'diverged');
   assert.equal(res.revised, false);
   assert.equal(calls, 0);
   fs.rmSync(dir, { recursive: true, force: true });
+  fs.rmSync(dir, { recursive: true, force: true });
+});
+
+test('runPlan revisePlanFn 抛异常 → 返回 rejected（非误导性的 partial）', async () => {
+  const dir = tmpRepo();
+  const plan = basePlan({
+    scope_paths: ['/tmp/harness-scope'],
+    steps: [{ id: 's1', goal: '越界', action: 'cat /etc/passwd' }],
+  });
+  const res = await runPlan(plan, {
+    cwd: dir,
+    workflowManager: makeWf('completed'),
+    roundtableFn: undefined,
+    maxRetries: 1,
+    revisePlanFn: async () => { throw new Error('mock revise failure'); },
+  });
+  // 第一次越界被 blocked → partial → 触发 autoReplan → revise 抛异常
+  // 修复：应明确 rejected + 原因，而非误导性的 partial（让用户误以为部分成功）
+  assert.equal(res.status, 'rejected');
+  assert.ok(/修订失败/.test(res.reason || ''));
   fs.rmSync(dir, { recursive: true, force: true });
 });
 

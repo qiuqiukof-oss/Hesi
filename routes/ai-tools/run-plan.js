@@ -937,6 +937,7 @@ async function runPlan(plan, opts = {}) {
   let currentPlan = plan;
   let lastBody = null;
   const attempts = [];
+  let reviseFailed = false; // autoReplan 修订抛异常 → 终止且明确标记 rejected
   for (let attempt = 0; ; attempt++) {
     const body = await runOneAttempt(currentPlan, { cwd, wf, roundtableFn, onStep, dryRun, runAcc, skipGate, opts });
     lastBody = body;
@@ -945,14 +946,25 @@ async function runPlan(plan, opts = {}) {
     if (st === 'done' || st === 'rejected') break;
     if (attempt >= maxRetries) break;
     let revised = null;
-    try { revised = await reviseFn(currentPlan, body, plannerRuntime); } catch { revised = null; }
+    try { revised = await reviseFn(currentPlan, body, plannerRuntime); }
+    catch (e) { revised = null; reviseFailed = true; console.warn('[runPlan] autoReplan 修订失败:', e && e.message); }
     if (!revised) break;
     currentPlan = revised;
   }
 
+  // 若因 autoReplan 修订失败（而非正常收敛/达上限）终止且未完成 → 明确标记 rejected，
+  // 避免前端把「修订异常中断」误显示为 partial（部分成功）误导用户。
+  let finalStatus = lastBody.reflection.status;
+  let finalReason = undefined;
+  if (reviseFailed && finalStatus !== 'done' && finalStatus !== 'rejected') {
+    finalStatus = 'rejected';
+    finalReason = 'autoReplan 修订失败：Plan 无法自动优化，请手动调整 Plan 或重试';
+  }
   return {
-    ok: lastBody.reflection.status === 'done' || lastBody.reflection.status === 'partial',
-    status: lastBody.reflection.status,
+    // 保持原语义：done / partial 视为 ok=true；仅当 autoReplan 修订失败被明确升级为 rejected 时 ok=false
+    ok: finalStatus === 'done' || (finalStatus === 'partial' && !reviseFailed),
+    status: finalStatus,
+    reason: finalReason,
     branch: lastBody.branch,
     steps: lastBody.results,
     reflection: lastBody.reflection,

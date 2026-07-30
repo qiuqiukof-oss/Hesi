@@ -20,7 +20,9 @@
 - **heredoc 单行兼容**：`cat > file << 'EOF'content...EOF`（flash 模型常把 heredoc 内容输出在同一行）现在能正确匹配并用 Node.js `fs.writeFileSync` 原生写入，绕过 shell 依赖（PortableGit 缺 coreutils 也不怕）。
 - **路径拦截去误判**：`_pathTokens` 恢复排除相对路径、保留绝对路径；`resolveProjectRelativePath` 简化仅处理 `/` 开头项目相对路径；`inScope` 双边盘符+分隔符归一化。
 - **autoReplan 保留**：占位符检测自动启用 autoReplan（maxRetries=1）作为保护网，正常输出时 2 轮重试可恢复执行。
-- **验证**：205 测试通过 / 0 失败 / ESLint 0 error。
+- **反思环修订失败明确化（内部 AI 检查报告问题2 修复）**：`revisePlanFn` 抛异常时不再返回误导性的 `partial`，而明确升级为 `rejected` + 原因「autoReplan 修订失败…」，避免用户误判为「部分成功」。
+- **测试债清理**：`run-plan.test.mjs` 4 个遗留 fail（之前恢复严格闸门时断言未同步 + 被测试超时掩盖）已修正——checkpoint 无 roundtableFn → 整 plan `diverged`（退回需人补充 acceptance）；`_pathTokens` 排除相对路径 → 越界测试改用绝对路径。
+- **验证**：`.mjs` 套件 226 通过 / 0 失败；`.js` 套件 436 通过 / 1 失败（仅 compaction 模块独立测试债，与 Plan 执行无关）；ESLint 0 error。
 
 ## 顺延（后续 P1 切片）
 - 反思重规划环（受 PlanBudget 熔断后自动 replan）
