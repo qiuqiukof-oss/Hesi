@@ -19,7 +19,21 @@ const crypto = require('crypto');
 const { runPlan, parseVerifyFromSummary } = require('./run-plan');
 const { workflowManager } = require('./workflow-manager');
 const { runRoundtable } = require('../chat/discuss');
-const { generatePlanFromObjective } = require('./plan-from-nl');
+const { generatePlanFromObjective, revisePlan } = require('./plan-from-nl');
+const { sinkPlanToIndex } = require('./plan-rag-sink');
+const { loadRegistry } = require('../../cli-discovery');
+
+/**
+ * 从 CLI registry 取第一个可用的 Agent ID（供 Plan 步骤默认使用）。
+ * 无 Agent 时返回 null（直执模式兜底）。
+ */
+function resolveDefaultAgentId() {
+  try {
+    const reg = loadRegistry();
+    const agent = (reg.clis || []).find(c => c.category === 'agent');
+    return agent ? (agent.id || agent.name) : null;
+  } catch { return null; }
+}
 
 // 审批闸：execId -> { resolve, timer }
 const pendingApprovals = new Map();
@@ -101,6 +115,13 @@ function createRouter(opts = {}) {
       broadcast({ type: 'plan:await-approval', execId, step: reqInfo });
     });
     try {
+      // ② 反思重规划环 / ④ 运行时拦截开关（仅当显式开启或 fullAuto 时激活，默认关闭避免回归）
+      const perms = (body.permissions && typeof body.permissions === 'object') ? body.permissions : null;
+      const fullAuto = !!(perms && perms.fullAuto);
+      const autoReplan = !!(body.autoReplan || plan.autoReplan || fullAuto);
+      const maxRetries = Number.isFinite(Number(body.maxRetries)) && body.maxRetries > 0 ? body.maxRetries
+        : (Number.isFinite(Number(plan.maxRetries)) && plan.maxRetries > 0 ? plan.maxRetries
+          : (autoReplan ? 1 : 0));
       const result = await runPlan(plan, {
         cwd,
         workflowManager: wf,
@@ -108,8 +129,19 @@ function createRouter(opts = {}) {
         execId,
         requestApproval,
         // 个性化「权限设置」下钻（来自前端 localStorage）
-        permissions: (body.permissions && typeof body.permissions === 'object') ? body.permissions : null,
+        permissions: perms,
+        // 全自动 Phase 1 接线
+        runtimeIntercept: !!(body.runtimeIntercept || plan.runtimeIntercept || fullAuto || process.env.HESI_PLAN_RUNTIME_INTERCEPT === '1'),
+        plannerRuntime: runtime,
+        revisePlanFn: revisePlan,
+        maxRetries,
+        // Agent 默认值：从 registry 取首个 agent，无则 null（直执兜底）
+        defaultAgentId: resolveDefaultAgentId(),
       });
+      // ③ RAG 快照回流（跑通即沉淀，失败不影响主流程）
+      if (result.ok) {
+        try { sinkPlanToIndex(plan, result); } catch { /* RAG 回流失败不影响主流程 */ }
+      }
       const p = pendingApprovals.get(execId);
       if (p) { clearTimeout(p.timer); pendingApprovals.delete(execId); }
       return res.json({ ok: result.ok, execId, ...result });

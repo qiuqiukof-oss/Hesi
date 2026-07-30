@@ -14,6 +14,9 @@ import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { createRouter } from '../routes/ai-tools/plan-routes.js';
 
+// 避免测试执行时把 plan 快照回流进仓库真实 index.json
+process.env.HESI_PLAN_RAG_SINK = '0';
+
 function tmpRepo() {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'hesi-plan-route-'));
   const g = (a) => execFileSync('git', a, { cwd: dir, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
@@ -226,6 +229,28 @@ test('审批闸：超时未操作 → 视为驳回（plan:approval-resolved time
     assert.equal(data.steps[1].status, 'rejected'); // 第二步被超时驳回
     // 广播应带 timedOut 标记
     await waitFor(() => events.some((e) => e.type === 'plan:approval-resolved' && e.timedOut === true));
+  } finally {
+    srv.close();
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+// ── ④ 运行时逐工具强制拦截（路由层） ──
+
+test('POST /api/plan/execute runtimeIntercept：危险 action 被拦截', async () => {
+  const dir = tmpRepo();
+  const { srv, port } = await startServer(createRouter({ cwd: dir, workflowManager: makeWf('completed') }));
+  try {
+    const plan = { ...goodPlan, runtimeIntercept: true, steps: [{ id: 's1', goal: '危险', action: 'rm -rf /tmp/x' }] };
+    const res = await fetch(`http://127.0.0.1:${port}/api/plan/execute`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ plan }),
+    });
+    const data = await res.json();
+    assert.equal(res.status, 200);
+    assert.equal(data.steps[0].status, 'blocked');
+    assert.match(data.steps[0].reason, /拦截/);
   } finally {
     srv.close();
     fs.rmSync(dir, { recursive: true, force: true });

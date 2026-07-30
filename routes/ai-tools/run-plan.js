@@ -30,6 +30,7 @@ const { gatePlan, resolveCheckpoint } = require('./plan-contract');
 const { planToWorkflowTasks, inScope, isForbidden } = require('./plan-to-workflow');
 const { PlanBudget } = require('../../lib/plan-budget');
 const { openPlanBranch, snapshotStep, rollbackTo, closeBranch, isRepo } = require('../../lib/plan-git');
+const { revisePlan: defaultRevisePlan } = require('./plan-from-nl');
 
 // ── 工具 ──
 
@@ -110,6 +111,58 @@ function stepRequiresApproval(plan, step) {
 const POLL_MS = 1000;
 const STEP_TIMEOUT_MS = 10 * 60 * 1000;
 
+/**
+ * 直执模式：对「命令型」步骤（action 是可执行 shell 命令）绕过 agentPool，
+ * 直接用 child_process.execSync 执行，避免无 Agent 时整步 FAILED。
+ *
+ * 判定标准复用 isPossibleCommand()（已知命令名 / 含 shell 元字符）。
+ * Windows 下优先 sh（Git Bash），降级 cmd /c。
+ *
+ * @param {object} step  plan.steps[i]（含 action）
+ * @param {string} [cwd] 工作目录
+ * @returns {{ status: string, output: string }}
+ */
+function execStepDirectly(step, cwd) {
+  const action = String(step.action || '').trim();
+  if (!action) return { status: 'error', output: '步骤 action 为空' };
+  try {
+    const { execSync } = require('child_process');
+    // Windows: 优先 sh（Git Bash），捕获退出码；降级 cmd
+    const opts = {
+      cwd: cwd || process.cwd(),
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+      timeout: STEP_TIMEOUT_MS,
+    };
+    let out;
+    try {
+      out = execSync(`set -e; ${action}`, { ...opts, shell: '/bin/sh' });
+    } catch {
+      // /bin/sh 不可用（纯 Windows）→ 降级 cmd
+      try {
+        out = execSync(action, { ...opts, shell: true });
+      } catch (cmdErr) {
+        return {
+          status: 'error',
+          output: `命令执行失败（exit code ${cmdErr.status || '?'}）: ${String(cmdErr.stderr || '').slice(0, 500) || cmdErr.message}`,
+        };
+      }
+    }
+    return { status: 'done', output: String(out).slice(0, 5000) };
+  } catch (e) {
+    return { status: 'error', output: `直执异常: ${e.message}` };
+  }
+}
+
+/**
+ * 判断任务是否应走「直执模式」（绕过 agentPool）。
+ * 条件：task.task（即 step.action）是可执行命令 OR 步骤显式声明 type:'command'。
+ */
+function shouldExecDirectly(task, step) {
+  if (step && step.type === 'command') return true;
+  return isPossibleCommand(task && task.task);
+}
+
 async function runSingleTask(wf, task) {
   let startJson;
   try {
@@ -150,6 +203,11 @@ function runAcceptance(plan, opts = {}) {
   const cwd = opts.cwd || process.cwd();
   const results = acc.map(async (a) => {
     const base = { id: a.id || '?', kind: a.kind, command: a.command || a.expect || '' };
+    if ((a.kind === 'command' || a.kind === 'script') && typeof opts.securityCheck === 'function') {
+      if (!opts.securityCheck(a.command)) {
+        return { ...base, pass: false, error: '被运行时策略拦截（HESI_PLAN_RUNTIME_INTERCEPT）', blocked: true };
+      }
+    }
     try {
       if (a.kind === 'command' || a.kind === 'script') {
         const out = execFileSync('sh', ['-c', a.command], {
@@ -287,8 +345,45 @@ async function runPlan(plan, opts = {}) {
     };
   }
 
+  // ── ② 反思重规划环：熔断/diverged 时自动修订重跑，上限 maxRetries ──
+  const maxRetries = Number.isFinite(Number(opts.maxRetries)) && opts.maxRetries >= 0 ? opts.maxRetries : 0;
+  const plannerRuntime = opts.plannerRuntime || null;
+  const reviseFn = typeof opts.revisePlanFn === 'function' ? opts.revisePlanFn : defaultRevisePlan;
+
+  let currentPlan = plan;
+  let lastBody = null;
+  const attempts = [];
+  for (let attempt = 0; ; attempt++) {
+    const body = await runOneAttempt(currentPlan, { cwd, wf, roundtableFn, onStep, dryRun, runAcc, skipGate, opts });
+    lastBody = body;
+    attempts.push({ planId: currentPlan.id, status: body.reflection.status });
+    const st = body.reflection.status;
+    if (st === 'done' || st === 'rejected') break;
+    if (attempt >= maxRetries) break;
+    let revised = null;
+    try { revised = await reviseFn(currentPlan, body, plannerRuntime); } catch { revised = null; }
+    if (!revised) break;
+    currentPlan = revised;
+  }
+
+  return {
+    ok: lastBody.reflection.status === 'done' || lastBody.reflection.status === 'partial',
+    status: lastBody.reflection.status,
+    branch: lastBody.branch,
+    steps: lastBody.results,
+    reflection: lastBody.reflection,
+    attempts,
+    revised: attempts.length > 1,
+  };
+}
+
+// ── 单次尝试：开分支 → 逐步执行 → 验收 → 反思 ──
+async function runOneAttempt(plan, ctx) {
+  const { cwd, wf, roundtableFn, onStep, dryRun, runAcc, opts } = ctx;
   const haveGit = !!cwd && isRepo(cwd);
   let branch = null;
+  const interceptEnabled = !!(plan.runtimeIntercept || (opts && opts.runtimeIntercept) || process.env.HESI_PLAN_RUNTIME_INTERCEPT === '1');
+  const evalCmd = interceptEnabled ? makeEvalCmd() : null;
   if (haveGit) {
     try {
       branch = openPlanBranch(cwd);
@@ -298,7 +393,7 @@ async function runPlan(plan, opts = {}) {
   }
 
   const budget = new PlanBudget(opts.budget || plan.budget || {});
-  const tasks = planToWorkflowTasks(plan);
+  const tasks = planToWorkflowTasks(plan, { defaultAgentId: opts && opts.defaultAgentId });
   const results = [];
   const rounds = (plan.budget && plan.budget.maxRounds) || 3;
 
@@ -335,6 +430,19 @@ async function runPlan(plan, opts = {}) {
       await onStep(ev);
       if (!step.on_fail || step.on_fail === 'stop') break;
       continue;
+    }
+
+    // ④ 运行时逐工具强制拦截（接 mcp/security/policy.evaluateAiExec）
+    if (evalCmd) {
+      const secReason = evaluateStepSecurity(step, evalCmd);
+      if (secReason) {
+        ev.status = 'blocked';
+        ev.reason = secReason;
+        results.push(ev);
+        await onStep(ev);
+        if (!step.on_fail || step.on_fail === 'stop') break;
+        continue;
+      }
     }
 
     // 步前快照（失败可 rollback）
@@ -391,11 +499,17 @@ async function runPlan(plan, opts = {}) {
       ev.requiresApproval = false;
     }
 
-    // 真正执行（单步 workflow）
+    // 真正执行（双轨：命令型直执 / Agent 型走 workflow）
     let exec;
-    if (dryRun || !wf) {
+    if (dryRun) {
       exec = { status: 'skipped', output: '(dryRun)' };
+    } else if (shouldExecDirectly(task, step)) {
+      // 轨道 A：直执模式 — action 是 shell 命令，绕过 agentPool
+      exec = execStepDirectly(step, cwd);
+    } else if (!wf) {
+      exec = { status: 'skipped', output: '(no workflowManager)' };
     } else {
+      // 轨道 B：Agent 模式 — 自然语言指令，分派给 CLI Agent
       exec = await runSingleTask(wf, { ...task, verify: effectiveStep.verify, checkpoint: !!effectiveStep.checkpoint });
     }
     ev.status = exec.status === 'completed' ? 'done' : exec.status;
@@ -431,20 +545,48 @@ async function runPlan(plan, opts = {}) {
   let acceptance = null;
   if (runAcc) {
     try {
-      acceptance = await runAcceptance(plan, { cwd: cwd || process.cwd() });
+      const accOpts = { cwd: cwd || process.cwd() };
+      if (evalCmd) accOpts.securityCheck = (c) => evalCmd(c);
+      acceptance = await runAcceptance(plan, accOpts);
     } catch {
       acceptance = null;
     }
   }
 
   const reflection = reflectPlan(plan, results, budget, acceptance);
-  return {
-    ok: reflection.status === 'done' || reflection.status === 'partial',
-    status: reflection.status,
-    branch,
-    steps: results,
-    reflection,
-  };
+  return { branch, results, reflection };
+}
+
+// ── ④ 运行时策略评估（懒加载 policy，避免耦合与测试污染） ──
+let _policyMod = undefined;
+function makeEvalCmd() {
+  if (_policyMod === undefined) {
+    try { _policyMod = require('../../mcp/security/policy'); } catch { _policyMod = null; }
+  }
+  if (!_policyMod || typeof _policyMod.evaluateAiExec !== 'function') return () => true; // 降级放行
+  return (cmd) => { try { return _policyMod.evaluateAiExec(cmd).allowed !== false; } catch { return true; } };
+}
+
+const SHELL_METACHAR = /[;&|`$()<>#\n\r]/;
+const KNOWN_BASE = /^(rm|dd|mkfs|shutdown|reboot|halt|poweroff|chmod|chown|kill|pkill|sudo|su|reg|format|diskpart|fdisk|curl|wget|node|node\.exe|python|python3|npm|npx|sh|bash|cmd|powershell|git|docker|kubectl|ls|cat|echo|cp|mv|mkdir|touch|sed|awk|grep|find|tar|zip|unzip|gh|cargo|go|make|cmake|gcc|clang|ruby|perl|php|java|tsc|eslint|prettier)\b/i;
+
+function isPossibleCommand(s) {
+  if (!s) return false;
+  if (SHELL_METACHAR.test(s)) return true;
+  const base = s.trim().split(/\s+/)[0] || '';
+  return KNOWN_BASE.test(base);
+}
+
+function evaluateStepSecurity(step, evalCmd) {
+  const cand = [];
+  const action = step && step.action;
+  if (isPossibleCommand(action)) cand.push(action);
+  const vcmd = step && step.verify && step.verify.command;
+  if (vcmd) cand.push(vcmd);
+  for (const c of cand) {
+    if (!evalCmd(c)) return `运行时策略拦截（policy.evaluateAiExec 拒绝）: ${String(c).slice(0, 100)}`;
+  }
+  return null;
 }
 
 module.exports = {
@@ -454,4 +596,7 @@ module.exports = {
   runAcceptance,
   reflectPlan,
   stepRequiresApproval,
+  evaluateStepSecurity,
+  execStepDirectly,
+  shouldExecDirectly,
 };

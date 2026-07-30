@@ -160,6 +160,23 @@
     }
   }
 
+  // ── 从全局 LLM 设置（ChatAPI 同源 localStorage）自动读取 ──
+  function readLLM(key, fallback) {
+    try { return (typeof localStorage !== 'undefined') ? (localStorage.getItem(key) || fallback) : fallback; }
+    catch { return fallback; }
+  }
+  function fillLLMFields() {
+    if (!$('api-key')) return;
+    const ak = readLLM('qcli-ai-key', '');
+    const pv = readLLM('qcli-ai-provider', '');
+    const bu = readLLM('qcli-ai-base-url', '');
+    const md = readLLM('qcli-ai-model', '');
+    if (ak && !$('api-key').value) $('api-key').value = ak;
+    if (pv && !$('provider').value) $('provider').value = pv;
+    if (bu && !$('base-url').value) $('base-url').value = bu;
+    if (md && !$('model').value) $('model').value = md;
+  }
+
   async function execute() {
     const objective = $('objective-input').value.trim();
     const body = {};
@@ -182,11 +199,15 @@
           return;
         }
       }
-      const ak = $('api-key').value.trim();
+      // LLM 配置：优先表单值 → fallback 全局设置（与 ChatAPI 同源）
+      const ak = ($('api-key') && $('api-key').value.trim()) || readLLM('qcli-ai-key', '');
       if (ak) body.apiKey = ak;
-      const pv = $('provider').value.trim(); if (pv) body.provider = pv;
-      const bu = $('base-url').value.trim(); if (bu) body.baseUrl = bu;
-      const md = $('model').value.trim(); if (md) body.model = md;
+      const pv = ($('provider') && $('provider').value.trim()) || readLLM('qcli-ai-provider', '');
+      if (pv) body.provider = pv;
+      const bu = ($('base-url') && $('base-url').value.trim()) || readLLM('qcli-ai-base-url', '');
+      if (bu) body.baseUrl = bu;
+      const md = ($('model') && $('model').value.trim()) || readLLM('qcli-ai-model', '');
+      if (md) body.model = md;
       const ps = $('partners').value.trim(); if (ps) body.partners = ps.split(',').map((x) => x.trim()).filter(Boolean);
 
       // 个性化「权限设置」下钻：从 localStorage 读取（与个性化面板同源）
@@ -211,7 +232,22 @@
       }
       const kind = data.status === 'done' ? 'ok' : (data.status === 'diverged' || data.status === 'rejected') ? 'error' : 'warn';
       let msg = '状态：' + data.status + (data.branch ? ' · 分支 ' + data.branch : '');
-      if (data.missing && data.missing.length) msg += ' · 需补 acceptance: ' + data.missing.join(',');
+      if (data.missing && data.missing.length) {
+        msg += ' · 需补 acceptance: ' + data.missing.join(',');
+      }
+      // 友好化常见错误
+      if (data.status === 'rejected') {
+        msg += '\n💡 提示：Plan 缺少机器可验证的验收条件（acceptance）。';
+        if (objective) {
+          msg += '\n   使用自然语言目标时，AI 会自动生成 acceptance；若未生成，请尝试：';
+          msg += '\n   ① 点「载入示例」看完整格式  ② 在 JSON 中手动补充 acceptance 数组  ③ 检查 API Key 是否已配置';
+        } else {
+          msg += '\n   请在 Plan JSON 中添加 acceptance 字段，例如：';
+          msg += '\n   "acceptance": [{ "id":"a1", "kind":"command", "command":"test -f 文件名", "expect":"" }]';
+        }
+      } else if (data.status === 'diverged') {
+        msg += '\n💡 提示：执行结果偏离预期。若已开启 autoReplan，系统将自动修订并重试。';
+      }
       setStatus(msg, kind);
       renderReflection(data.reflection);
       renderSteps(data.steps);
@@ -225,6 +261,7 @@
 
   function init() {
     connectPlanWS();
+    fillLLMFields(); // 自动从全局 LLM 设置填充高级字段
     $('load-sample').addEventListener('click', () => {
       $('plan-input').value = JSON.stringify(SAMPLE, null, 2);
     });

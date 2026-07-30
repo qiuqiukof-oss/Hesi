@@ -21,9 +21,7 @@ const { createRouter: createSettingsRouter } = require('./settings');
 const { createRouter: createWSTypesRouter } = require('./ws-types');
 const { createRouter: createPresetsRouter } = require('./presets');
 const { createRouter: createProjectRouter } = require('./project');
-const { createRouter: createStockRouter } = require('./stocks');
 const { createRouter: createToolsRouter } = require('./tools');
-const { createRouter: createQuantRouter, setupPageRoutes: setupQuantPageRoutes } = require('./quant');
 const { createMemoryRouter } = require('./memory');
 const { createRouter: createFinanceRouter, setupPageRoutes: setupFinancePageRoutes } = require('./finance');
 const { createRouter: createBrowserRouter } = require('./browser');
@@ -123,12 +121,10 @@ function setupRoutes(app, opts = {}) {
   app.use('/api', createWSTypesRouter());
   app.use('/api', createPresetsRouter());
   app.use('/api', createProjectRouter());
-  app.use('/api', createStockRouter());
   app.use('/api/tts', createTtsRouter());
   app.use('/api', requireToken, createToolsRouter());
   app.use('/api', requireToken, createWorkspaceRouter());
   app.use('/api', requireToken, createFsRouter());
-  app.use('/api', createQuantRouter());
   app.use('/api/memory', createMemoryRouter());
   app.use('/api', createFinanceRouter());
   app.use('/api', requireToken, createBrowserRouter());
@@ -136,7 +132,6 @@ function setupRoutes(app, opts = {}) {
   if (mcpStatusOpts) {
     app.use('/api', createMcpStatusRouter(mcpStatusOpts));
   }
-  setupQuantPageRoutes(app);
   setupFinancePageRoutes(app);
 
   // ── Initialize plugin system ──

@@ -14,36 +14,22 @@
 //   npx esbuild public/lazy.js --bundle --outfile=public/lazy-bundle.js --format=iife --minify
 // ============================================================
 
-// ── Media preview overlay (Q.Upload extensions, all Q reads lazy) ──
-import './media-preview.js'; // MediaPreview → overlay for image/video preview
-
 // ── Terminal search bar (reads Q.searchAddon lazily) ──
 import './terminal-search.js'; // TerminalSearch → search in xterm
 
 // ── Right panel controller (reads Q.Tabs/Q.state/Q.wsSend lazily) ──
-import './right-panel.js';   // RightPanel → dashboard/charts/media sidebar
-
-// ── Stock analysis panel (uses ChartCore, reads Q.RightPanel lazily) ──
-// NOTE: This module registers itself as a plugin tab via Q.UIRegistry.registerTab('stocks', ...)
-import './stock-analysis.js'; // Stocks → stock/fund charts in right panel
-
-// ── Multi-Media panel — image gallery, video player, file preview ──
-// NOTE: This module registers itself as a plugin tab via Q.UIRegistry.registerTab('media', ...)
-import './multi-media.js';   // Media → media gallery in right panel
+import './right-panel.js';   // RightPanel → dashboard/charts sidebar
 
 // ── Phase 2: 围炉圆桌（多 Agent 可视化协作，作为 AI讨论 的一种视图，进 lazy 防主包膨胀）──
 import './components/roundtable-skins.js'; // RoundtableSkins → 皮肤注册表(SKINS/applySkin)，被 roundtable-view.js 依赖
 import './components/roundtable-view.js';   // RoundTableView → 圆桌视图渲染器（引擎复用 Q.ChatAPI，容器 #mahjong-embed）
+import './components/plan-drawer.js';        // PlanDrawer → 全自动 Plan 执行器侧边抽屉渲染器（复用 Q.ChatAPI 同源 LLM 设置，容器 #plan-embed）
 
 // ── Dashboard panel — system status, CLI stats, runtime overview ──
 import './dashboard.js';     // Dashboard → system dashboard tab
 
 // ── System Resources tab — detailed historical data tables & full-size charts ──
 import './system-resources.js'; // SysResources → detailed resource monitoring tab
-
-// ── Quant Trading panel — simulated AI quant strategy backtester ──
-// NOTE: This module registers itself as a plugin tab via Q.UIRegistry.registerTab('quant', ...)
-import './quant-trading.js'; // QuantTrading → quant trading tab
 
 // ── Finance panel — budget management (right panel + standalone page) ──
 // NOTE: This module registers itself as a plugin tab via Q.UIRegistry.registerTab('finance', ...)

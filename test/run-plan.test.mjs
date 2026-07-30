@@ -260,3 +260,95 @@ test('runPlan 审批闸：未提供 requestApproval → 默认通过（不阻断
   assert.equal(res.steps[0].status, 'done');
   fs.rmSync(dir, { recursive: true, force: true });
 });
+
+// ── ② 反思重规划环 ──
+
+test('runPlan ② diverged → 自动修订重跑 → done（attempts=2）', async () => {
+  const dir = tmpRepo();
+  const failing = basePlan({
+    steps: [
+      { id: 's1', goal: '普通步', action: 'echo 1' },
+      { id: 's2', goal: '需圆桌推导', action: 'echo 2', checkpoint: true },
+    ],
+  });
+  const revised = basePlan({
+    steps: [
+      { id: 's1', goal: '普通步', action: 'echo 1' },
+      { id: 's2', goal: '无断点步', action: 'echo 2' },
+    ],
+  });
+  const res = await runPlan(failing, {
+    cwd: dir,
+    workflowManager: makeWf('completed'),
+    roundtableFn: undefined, // 断点无圆桌 → 触发 diverged
+    maxRetries: 1,
+    revisePlanFn: async () => revised,
+  });
+  assert.equal(res.status, 'done');
+  assert.equal(res.revised, true);
+  assert.equal(res.attempts.length, 2);
+  assert.equal(res.attempts[0].status, 'diverged');
+  assert.equal(res.attempts[1].status, 'done');
+  fs.rmSync(dir, { recursive: true, force: true });
+});
+
+test('runPlan ② maxRetries=0 → 不重规划（revisePlanFn 不被调用）', async () => {
+  const dir = tmpRepo();
+  let calls = 0;
+  const failing = basePlan({
+    steps: [
+      { id: 's1', goal: 'g', action: 'echo 1' },
+      { id: 's2', goal: '断点', action: 'echo 2', checkpoint: true },
+    ],
+  });
+  const res = await runPlan(failing, {
+    cwd: dir,
+    workflowManager: makeWf('completed'),
+    roundtableFn: undefined,
+    maxRetries: 0,
+    revisePlanFn: async () => { calls += 1; return basePlan(); },
+  });
+  assert.equal(res.status, 'diverged');
+  assert.equal(res.revised, false);
+  assert.equal(res.attempts.length, 1);
+  assert.equal(calls, 0);
+  fs.rmSync(dir, { recursive: true, force: true });
+});
+
+// ── ④ 运行时逐工具强制拦截 ──
+
+test('runPlan ④ runtimeIntercept 开启：危险 action 被拦截（不执行）', async () => {
+  const dir = tmpRepo();
+  const plan = basePlan({ runtimeIntercept: true, steps: [{ id: 's1', goal: '危险', action: 'rm -rf /tmp/x' }] });
+  const res = await runPlan(plan, { cwd: dir, workflowManager: makeWf('completed'), roundtableFn: mockRoundtable });
+  assert.equal(res.steps[0].status, 'blocked');
+  assert.match(res.steps[0].reason, /拦截/);
+  fs.rmSync(dir, { recursive: true, force: true });
+});
+
+test('runPlan ④ runtimeIntercept 开启：合法命令 action 不被误拦', async () => {
+  const dir = tmpRepo();
+  const plan = basePlan({ runtimeIntercept: true, steps: [{ id: 's1', goal: 'g', action: 'echo hello' }] });
+  const res = await runPlan(plan, { cwd: dir, workflowManager: makeWf('completed'), roundtableFn: mockRoundtable });
+  assert.equal(res.steps[0].status, 'done');
+  fs.rmSync(dir, { recursive: true, force: true });
+});
+
+test('runPlan ④ runtimeIntercept 开启：危险 acceptance 命令被拦截（验收不通过）', async () => {
+  const dir = tmpRepo();
+  const plan = basePlan({
+    runtimeIntercept: true,
+    acceptance: [{ id: 'a1', kind: 'command', command: 'rm -rf /tmp/y', expect: 'x' }],
+  });
+  const res = await runPlan(plan, { cwd: dir, workflowManager: makeWf('completed'), roundtableFn: mockRoundtable });
+  assert.equal(res.reflection.acceptancePassRate, 0);
+  fs.rmSync(dir, { recursive: true, force: true });
+});
+
+test('runPlan ④ 默认关闭：危险 action 文本不阻断执行（无回归）', async () => {
+  const dir = tmpRepo();
+  const plan = basePlan({ steps: [{ id: 's1', goal: 'g', action: 'rm -rf /tmp/z' }] });
+  const res = await runPlan(plan, { cwd: dir, workflowManager: makeWf('completed'), roundtableFn: mockRoundtable });
+  assert.equal(res.steps[0].status, 'done');
+  fs.rmSync(dir, { recursive: true, force: true });
+});

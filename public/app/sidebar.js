@@ -707,6 +707,10 @@ function initToolsSection() {
       case 'tools-page':
         window.open('/tools.html', '_blank');
         break;
+      case 'plan':
+        // 全自动 Plan 执行器：打开聊天侧边抽屉（仿圆桌）
+        { const cp = document.querySelector('chat-panel'); if (cp && cp.togglePlanPanel) cp.togglePlanPanel(true); }
+        break;
     }
   });
 }

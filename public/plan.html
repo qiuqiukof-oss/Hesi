@@ -32,32 +32,57 @@
     <section class="plan-left">
       <label class="plan-label" for="objective-input">自然语言目标（可选）</label>
       <textarea id="objective-input" class="plan-textarea" spellcheck="false"
-        placeholder="例如：把圆桌模板画廊做出来，并修复右侧栏在空注册表时崩溃"></textarea>
-      <p class="plan-hint" style="font-size:12px;color:var(--text-muted,#8a8a8a);margin:2px 0 12px;">
+        placeholder="描述你想完成的事，AI 会自动拆解成 Plan&#10;例：把圆桌模板画廊做出来，并修复右侧栏在空注册表时崩溃"></textarea>
+      <p class="plan-hint">
         填了目标就交给 AI 自动拆解成 Plan；留空则手写下方 JSON。
       </p>
 
-      <label class="plan-label" for="plan-input">Plan JSON</label>
+      <label class="plan-label" for="plan-input">Plan JSON（可选）</label>
       <textarea id="plan-input" class="plan-textarea" spellcheck="false"
-        placeholder='{ "objective": "...", "acceptance": [...], "steps": [...] }'></textarea>
+        placeholder='{&#10;  "objective": "目标描述",&#10;  "acceptance": [&#10;    { "id":"a1", "kind":"command", "command":"test -f foo.txt", "expect":"" }&#10;  ],&#10;  "steps": [&#10;    { "id":"s1", "goal":"步骤目标", "action":"执行的命令" }&#10;  ]&#10;}'></textarea>
 
       <details class="plan-advanced">
-        <summary>高级（圆桌推导 checkpoint 验收所需）</summary>
+        <summary>高级（LLM / 圆桌 / 权限）</summary>
         <div class="adv-grid">
-          <label>API Key<input id="api-key" type="password" placeholder="可选" /></label>
-          <label>Provider<input id="provider" placeholder="openai" /></label>
-          <label>BaseURL<input id="base-url" placeholder="https://..." /></label>
-          <label>Model<input id="model" placeholder="gpt-4o" /></label>
+          <label>API Key<input id="api-key" type="password" placeholder="自动读取全局设置" /></label>
+          <label>Provider<input id="provider" placeholder="自动读取" /></label>
+          <label>BaseURL<input id="base-url" placeholder="自动读取" /></label>
+          <label>Model<input id="model" placeholder="自动读取" /></label>
           <label>Partners<input id="partners" placeholder="逗号分隔的 agent 名" /></label>
         </div>
       </details>
     </section>
 
     <section class="plan-right">
+      <h2 class="plan-result-title">执行结果</h2>
       <div id="status-banner" class="status-banner hidden"></div>
       <div id="reflection" class="reflection hidden"></div>
       <div id="steps" class="steps"></div>
-      <div id="empty-hint" class="empty-hint">执行后这里显示逐步结果与反思。</div>
+
+      <!-- 空状态引导卡片 -->
+      <div id="empty-hint" class="empty-hint">
+        <div class="empty-icon">🎯</div>
+        <div class="empty-title">准备执行你的第一个 Plan</div>
+        <div class="empty-body">
+          <div class="empty-tip"><strong>快速开始：</strong>在左侧填写自然语言目标，或点「载入示例」再执行。</div>
+          <div class="empty-section">
+            <div class="empty-stitle">✅ 验收条件（acceptance）</div>
+            <div class="empty-desc">每条 Plan 必须包含至少一条机器可验证的验收。支持 <code>command</code>（Shell 命令）、<code>script</code>（内联脚本）、<code>http</code>（HTTP 断言）。不支持 <code>manual</code>（人工验收）。</div>
+          </div>
+          <div class="empty-section">
+            <div class="empty-stitle">🔄 反思重规划（v0.6.2+）</div>
+            <div class="empty-desc">若首跑结果为 <code>diverged</code>（偏离），系统会自动修订 Plan 并重试（需开启 autoReplan）。可在权限设置中启用。</div>
+          </div>
+          <div class="empty-section">
+            <div class="empty-stitle">🛡️ 运行时拦截（v0.6.2+）</div>
+            <div class="empty-desc">开启后，每个步骤的 action 会经过安全策略评估；危险命令（如 <code>rm -rf</code>）会被拦截并标记为 <code>blocked</code>。默认关闭。</div>
+          </div>
+          <div class="empty-section">
+            <div class="empty-stitle">📚 RAG 回流（v0.6.2+）</div>
+            <div class="empty-desc">每次 Plan 执行完成后，结果会自动回流到本地索引。后续在聊天中提问时可召回历史 Plan 记录。</div>
+          </div>
+        </div>
+      </div>
     </section>
   </main>
 

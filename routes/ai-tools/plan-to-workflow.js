@@ -20,14 +20,17 @@
 /**
  * 将 Plan 转换为 workflow-manager 任务数组。
  * @param {object} plan
+ * @param {{ defaultAgentId?: string }} [opts]
  * @returns {Array<object>}
  */
-function planToWorkflowTasks(plan) {
+function planToWorkflowTasks(plan, opts) {
   const steps = Array.isArray(plan && plan.steps) ? plan.steps : [];
+  const defaultAgentId = (opts && opts.defaultAgentId) || null;
   return steps.map((s, i) => ({
     id: s.id || `task-${i + 1}`,
     label: s.goal || s.id || `任务 ${i + 1}`,
     task: s.action || '',
+    agentId: s.agentId || defaultAgentId || undefined,
     dependsOn: Array.isArray(s.dependsOn) ? s.dependsOn : [],
     onFailure: s.on_fail || 'stop', // stop / continue / skip-dependents
     maxRetries: s.retry != null ? s.retry : 0,

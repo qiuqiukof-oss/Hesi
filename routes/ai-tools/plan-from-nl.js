@@ -26,7 +26,7 @@ const SYSTEM_PROMPT = [
   '  "objective": "一句话目标（必填）",',
   '  "title": "简短标题（可选）",',
   '  "acceptance": [ { "kind": "command"|"script"|"http"|"manual", "command": "可执行命令（kind 为 command/script 时必填）", "expect": "期望结果（可选）", "description": "验收说明（可选）" } ],',
-  '  "steps": [ { "id": "唯一字符串", "goal": "本步目标", "action": "本步指令（给执行器/智能体）", "type": "可选", "verify": { "kind": "...", "command": "..." }, "requireApproval": false } ],',
+  '  "steps": [ { "id": "唯一字符串", "goal": "本步目标", "action": "本步可执行命令（shell 命令优先）或具体指令", "type": "command（推荐）| exec", "verify": { "kind": "...", "command": "..." }, "requireApproval": false } ],',
   '  "approvalPolicy": "marked",',
   '  "allow_external": false,',
   '  "forbidden": [],',
@@ -34,7 +34,10 @@ const SYSTEM_PROMPT = [
   '  "budget": { "maxRounds": 0, "maxTokens": 0, "maxMinutes": 0 }',
   '}',
   '',
-  '规则：',
+  '【关键规则】',
+  '- steps 的 action 字段：**优先写可直接执行的 shell 命令**（如 `echo "..." > file.txt`、`mkdir -p src/components`、`node scripts/build.js`）。',
+  '- 只有当步骤确实无法用单条命令表达时，才写自然语言描述（此时 type 留空或不写）。',
+  '- **强烈建议每步 action 都设为 type:"command"** 并给出具体 shell 命令，这样执行器可以直接运行，不依赖外部 Agent。',
   '- acceptance 优先用 command/script/http 让机器自动验收；确实只能人判时才用 manual。',
   '- steps 的 id 必须唯一；goal/action 必填且具体。',
   '- 尽量给出可由命令行验证的 acceptance（如 grep/node/构建命令），便于全自动闭环自动判定。',
@@ -44,7 +47,9 @@ const SYSTEM_PROMPT = [
   JSON.stringify({
     objective: '在仓库根 README.md 顶部新增「构建状态」章节',
     acceptance: [{ kind: 'command', command: "grep -q '构建状态' README.md", expect: 'README.md 含「构建状态」章节' }],
-    steps: [{ id: 's1', goal: '插入徽章章节', action: '在 README.md 第 1 行后插入「## 构建状态」及徽章', requireApproval: false }],
+    steps: [
+      { id: 's1', goal: '插入徽章章节', action: 'sed -i "1i ## 构建状态\\n" README.md', type: 'command', requireApproval: false },
+    ],
     approvalPolicy: 'marked',
     budget: { maxRounds: 4, maxMinutes: 8 },
   }),
@@ -90,6 +95,9 @@ function applyDefaults(plan, objectiveText) {
   if (typeof plan.allow_external === 'boolean') out.allow_external = plan.allow_external;
   if (Array.isArray(plan.forbidden)) out.forbidden = plan.forbidden;
   if (Array.isArray(plan.scope_paths)) out.scope_paths = plan.scope_paths;
+  if (typeof plan.autoReplan === 'boolean') out.autoReplan = plan.autoReplan;
+  if (Number(plan.maxRetries) > 0) out.maxRetries = plan.maxRetries;
+  if (typeof plan.runtimeIntercept === 'boolean') out.runtimeIntercept = plan.runtimeIntercept;
   const b = plan.budget && typeof plan.budget === 'object' ? plan.budget : {};
   const n = out.steps.length || 1;
   out.budget = {
@@ -146,4 +154,64 @@ async function generatePlanFromObjective(text, runtime = {}) {
   return applyDefaults(plan, text);
 }
 
-module.exports = { generatePlanFromObjective, extractJson, applyDefaults };
+// ── 修订生成器（② 反思重规划环复用） ──
+
+const SYSTEM_REVISE = [
+  '你是「Plan 修订器」。一个自动化 Plan 没能完全跑通，下面是它的执行结果。',
+  '请基于【原始目标】和【执行结果】，产出一份修订后的结构化 Plan（只输出 JSON，同 schema）。',
+  '修订原则：',
+  '- 保留已完成的步骤（status=done），不要重做。',
+  '- 修正失败/被拦截的步骤（failed/error/blocked/loop/budget）：给出更可行、更具体的 action，或拆分，或删除明显不可能的步骤。',
+  '- 加强验收（acceptance / verify），使其能被机器自动判定（优先 command/script）。',
+  '- 字段结构与示例完全一致，objective 保持原目标。',
+].join('\n');
+
+/** 把上一次执行结果压成给 LLM 的精简上下文 */
+function summarizeResult(prevResult) {
+  const steps = Array.isArray(prevResult && prevResult.results) ? prevResult.results : [];
+  const lines = steps.map((s) => {
+    const extra = s.reason || (s.output ? String(s.output).slice(0, 120) : '');
+    return `- [${s.status}] ${s.goal || s.id}: ${extra}`;
+  });
+  const acc = prevResult && prevResult.reflection ? prevResult.reflection : null;
+  return [
+    '执行结果概要：',
+    ...lines,
+    acc ? `反思状态: ${acc.status}${acc.reason ? ` — ${  acc.reason}` : ''}` : '',
+    acc && acc.acceptancePassRate != null ? `验收通过率: ${acc.acceptancePassRate}` : '',
+  ].filter(Boolean).join('\n');
+}
+
+/**
+ * 基于「上一次失败的 Plan + 执行结果」生成修订 Plan。
+ * 与 generatePlanFromObjective 共用抽取/校验/默认值逻辑，失败返回 null（由调用方决定是否终止重规划）。
+ * @param {object} prevPlan
+ * @param {object} prevResult  runPlan 的上一次返回（含 results / reflection）
+ * @param {{ apiKey?:string, provider?:string, baseUrl?:string, model?:string }} runtime
+ * @returns {Promise<object|null>}
+ */
+async function revisePlan(prevPlan, prevResult, runtime = {}) {
+  const { apiKey, provider, baseUrl, model } = runtime || {};
+  const objective = (prevPlan && prevPlan.objective) || '';
+  const userMsg = [
+    `原始目标：${objective}`,
+    '',
+    summarizeResult(prevResult),
+    '',
+    '请产出修订后的 Plan JSON。',
+  ].join('\n');
+  const raw = await complete(SYSTEM_REVISE, userMsg, { apiKey, provider, model, baseUrl });
+  if (!raw) return null;
+  let plan = extractJson(raw);
+  if (!plan) return null;
+  let v = validatePlan(plan);
+  if (!v.ok) {
+    const repaired = await complete(repairPrompt(v.errors), userMsg, { apiKey, provider, model, baseUrl });
+    const fixed = repaired ? extractJson(repaired) : null;
+    if (fixed) { plan = fixed; v = validatePlan(plan); }
+    if (!v.ok) return null;
+  }
+  return applyDefaults(plan, objective);
+}
+
+module.exports = { generatePlanFromObjective, extractJson, applyDefaults, revisePlan };

@@ -35,6 +35,10 @@ function emptyPlan() {
     forbidden: [], // 命令/关键词黑名单
     scope_paths: [], // 允许路径前缀（空 = 仓库根）
     budget: { maxRounds: 0, maxTokens: 0, maxMinutes: 0 },
+    // 全自动 Phase 1 开关
+    autoReplan: false, // 熔断/diverged 时自动修订重跑（受 maxRetries 限制）
+    maxRetries: 0, // 反思重规划环最大重试次数（0 = 不重规划）
+    runtimeIntercept: false, // 运行时逐工具强制拦截（接 mcp/security/policy.evaluateAiExec）
   };
 }
 

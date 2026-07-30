@@ -68,6 +68,27 @@ export const sidePanelsMixin = {
     if (this.roundtableBtn) this.roundtableBtn.classList.toggle('active', show);
   },
 
+  // ── Public: 全自动 Plan 执行器 嵌入抽屉（应用内直接渲染，引擎复用 Q.ChatAPI 同源设置；无 iframe）──
+  /** @param {boolean} [force] true=强制展开 / false=强制收起 / 省略=切换 */
+  togglePlanPanel(force) {
+    const panel = document.getElementById('plan-embed');
+    if (!panel) return;
+    const pd = window.QCLI && window.QCLI.PlanDrawer;
+    if (!this._planCloseBound) {
+      this._planCloseBound = true;
+      const closeBtn = document.getElementById('plan-embed-close');
+      if (closeBtn) closeBtn.addEventListener('click', () => this.togglePlanPanel(false));
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && !panel.classList.contains('hidden')) this.togglePlanPanel(false);
+      });
+      this.bindDrawerResize('plan-embed', 'qcli-plan-width');
+    }
+    const show = force !== undefined ? force : panel.classList.contains('hidden');
+    panel.classList.toggle('hidden', !show);
+    if (show) { if (pd) pd.open(); } else { if (pd) pd.close(); }
+    if (this.planBtn) this.planBtn.classList.toggle('active', show);
+  },
+
   // ── Drawer resize: 右侧抽屉可拖拽改变宽度，localStorage 记忆 ──
   bindDrawerResize(panelId, storageKey) {
     const panel = document.getElementById(panelId);

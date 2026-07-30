@@ -6,7 +6,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { setLLMCaller } from '../lib/memory/llm-bridge.js';
-import { generatePlanFromObjective, extractJson, applyDefaults } from '../routes/ai-tools/plan-from-nl.js';
+import { generatePlanFromObjective, extractJson, applyDefaults, revisePlan } from '../routes/ai-tools/plan-from-nl.js';
 
 const VALID = JSON.stringify({
   objective: '测试目标',
@@ -86,6 +86,36 @@ test('generatePlanFromObjective: 修复后仍无效 → 抛 GEN_INVALID 带 erro
       () => generatePlanFromObjective('目标', { apiKey: 'x' }),
       /未通过校验/,
     );
+  } finally {
+    setLLMCaller(null);
+  }
+});
+
+// ── revisePlan（② 反思重规划环复用） ──
+
+test('revisePlan: 模型返回有效修订 → 产出通过校验的 plan', async () => {
+  setLLMCaller(async () => '```json\n' + VALID + '\n```');
+  try {
+    const prevPlan = {
+      objective: '原目标',
+      acceptance: [{ id: 'a1', kind: 'command', command: 'true' }],
+      steps: [{ id: 's1', goal: 'g', action: 'a' }],
+    };
+    const prevResult = { status: 'diverged', steps: [{ id: 's1', status: 'failed', reason: 'x' }], reflection: { status: 'diverged' } };
+    const plan = await revisePlan(prevPlan, prevResult, { apiKey: 'x' });
+    assert.equal(plan.objective, '测试目标');
+    assert.equal(plan.steps[0].id, 's1');
+    assert.ok(plan.budget.maxRounds > 0);
+  } finally {
+    setLLMCaller(null);
+  }
+});
+
+test('revisePlan: 模型不可用（返回 null）→ 返回 null（交给调用方终止重规划）', async () => {
+  setLLMCaller(async () => null);
+  try {
+    const plan = await revisePlan({ objective: 'o', steps: [] }, { steps: [] }, { apiKey: 'x' });
+    assert.equal(plan, null);
   } finally {
     setLLMCaller(null);
   }

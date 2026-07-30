@@ -41,8 +41,8 @@ const mod = require('../routes/chat/discuss');
 
 check('module loads without throwing', () => { assert.ok(mod); });
 check('exports an object', () => { assert.strictEqual(typeof mod, 'object'); });
-check('exports exactly { runDiscussion, runRoundtable }', () => {
-  assert.deepStrictEqual(Object.keys(mod).sort(), ['runDiscussion', 'runRoundtable']);
+check('exports exactly { runDiscussion, runRoundtable, normalizeTranscript }', () => {
+  assert.deepStrictEqual(Object.keys(mod).sort(), ['normalizeTranscript', 'runDiscussion', 'runRoundtable']);
 });
 check('runDiscussion is a function', () => {
   assert.strictEqual(typeof mod.runDiscussion, 'function');
