@@ -11,6 +11,17 @@
   - 缺 API Key / 模型未配置 / 模型调用失败 → 友好提示（`code: GEN_FAILED`），引导填 Key 或改手写 JSON。
 - **测试**：新增 `test/plan-from-nl.test.mjs`（7 用例，注入 fake LLM caller 覆盖 正常生成 / 模型返回 null / 校验失败修复重试 / 修复后仍无效）。全量测试 146 绿 / 0 失败，eslint 0 error。
 
+## 本轮补丁：Plan 执行全链路商用级打磨（v0.6.1 发布后修复）
+
+针对实际部署中暴露的 Plan 执行问题，逐轮修复并验证：
+
+- **占位符步骤不再假成功**：LLM（轻量 flash 模型）偶发返回空壳步骤（`goal=action="步骤 N"`），旧版静默标记为 done（假成功）。现改为返回 `error` + 明确诊断提示（模型不稳定/API 配置有误/网络截断）。
+- **严格闸门 Fast Fail**：恢复备份版 `isMachineVerifiable` 严格逻辑——空/manual acceptance → `gatePlan` 立即拒收（不再进入「执行→错误→重试→错误」的慢循环）。`resolveCheckpoint` 无 roundtableFn 恢复严格阻塞。
+- **heredoc 单行兼容**：`cat > file << 'EOF'content...EOF`（flash 模型常把 heredoc 内容输出在同一行）现在能正确匹配并用 Node.js `fs.writeFileSync` 原生写入，绕过 shell 依赖（PortableGit 缺 coreutils 也不怕）。
+- **路径拦截去误判**：`_pathTokens` 恢复排除相对路径、保留绝对路径；`resolveProjectRelativePath` 简化仅处理 `/` 开头项目相对路径；`inScope` 双边盘符+分隔符归一化。
+- **autoReplan 保留**：占位符检测自动启用 autoReplan（maxRetries=1）作为保护网，正常输出时 2 轮重试可恢复执行。
+- **验证**：205 测试通过 / 0 失败 / ESLint 0 error。
+
 ## 顺延（后续 P1 切片）
 - 反思重规划环（受 PlanBudget 熔断后自动 replan）
 - RAG 快照回流 index-store
