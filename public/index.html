@@ -384,6 +384,56 @@
                   </section>
                 </div>
 
+                <!-- Slide: LLM 配置新手引导 -->
+                <div class="carousel-slide" data-slide="0">
+                  <section class="welcome-section">
+                    <h3>🧠 配置你的大模型（必读）</h3>
+                    <p class="welcome-note">Hesi 的 AI 对话、圆桌讨论、Plan 执行都需要一个大语言模型。以下三种方式任选其一即可：</p>
+
+                    <div class="install-grid-2 compact" style="grid-template-columns:1fr;">
+                      <div class="install-card highlight">
+                        <div class="install-header">
+                          <span class="install-icon">☁️</span>
+                          <strong>方案一：云端 API（推荐新手）</strong>
+                        </div>
+                        <div class="install-body">
+                          <p>去 <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener noreferrer">OpenAI</a> 或 <a href="https://console.anthropic.com/" target="_blank" rel="noopener noreferrer">Anthropic</a> 注册并获取 API Key。</p>
+                          <p>然后点击右上角 <strong>🤖 按钮 → AI 设置</strong>，粘贴 Key，选择对应提供商即可。</p>
+                          <p style="color:var(--text-secondary);font-size:12px;">支持所有 OpenAI 兼容接口（含火山引擎、DeepSeek、Together 等），只需填 Base URL。</p>
+                        </div>
+                      </div>
+
+                      <div class="install-card highlight">
+                        <div class="install-header">
+                          <span class="install-icon">🏠</span>
+                          <strong>方案二：本地模型（零费用、离线）</strong>
+                        </div>
+                        <div class="install-body">
+                          <p>安装 <a href="https://ollama.com/" target="_blank" rel="noopener noreferrer">Ollama</a> 或 <a href="https://lmstudio.ai/" target="_blank" rel="noopener noreferrer">LM Studio</a>���拉取模型（如 <code>ollama pull qwen2.5:7b</code>）。</p>
+                          <p>然后在 <strong>AI 设置</strong> 中：提供商选 <em>OpenAI 兼容</em>，Base URL 填 <code>http://localhost:11434/v1</code>（Ollama），API Key 可留空。</p>
+                        </div>
+                      </div>
+
+                      <div class="install-card highlight">
+                        <div class="install-header">
+                          <span class="install-icon">⚙️</span>
+                          <strong>方案三：环境变量（已有 Key 最快捷）</strong>
+                        </div>
+                        <div class="install-body">
+                          <p>设置环境变量后，无需在界面重复填写：</p>
+                          <code class="install-code" style="margin:4px 0;">set OPENAI_API_KEY=sk-xxxxxxxxxxxxxxxx</code>
+                          <code class="install-code" style="margin:4px 0;">set ANTHROPIC_API_KEY=sk-ant-xxxxxxxxxxxx</code>
+                          <p style="color:var(--text-secondary);font-size:12px;">Key 仅存在本机，不会上传。AI 设置弹窗中填写的 Key 也仅存浏览器本地。</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <p class="welcome-note" style="margin-top:10px;">
+                      💡 <strong>提示</strong>：配置完成后可在聊天框输入任意问题验证。若使用本地模型，建议填「规划专用模型」为云端强模型以启用 🔍 核查模式。
+                    </p>
+                  </section>
+                </div>
+
                 <!-- Slide 1: Shortcuts → Tips → Features -->
                 <div class="carousel-slide" data-slide="1">
                   <section class="welcome-section">
@@ -480,6 +530,7 @@
                 <button class="carousel-dot active" data-slide="0" data-i18n-title="carousel.dot0"></button>
                 <button class="carousel-dot" data-slide="1" data-i18n-title="carousel.dot1"></button>
                 <button class="carousel-dot" data-slide="2" data-i18n-title="carousel.dot2"></button>
+                <button class="carousel-dot" data-slide="3" data-i18n-title="carousel.dot3"></button>
               </div>
             </div><!-- /welcome-carousel -->
 
@@ -695,21 +746,6 @@
   <div id="ai-settings-overlay" class="modal-overlay hidden">
     <div class="modal">
       <h2>🤖 AI 设置</h2>
-      <!-- LLM 新手引导气泡 -->
-      <div id="ai-guide-bubble" class="ai-guide-bubble hidden">
-        <div class="agb-header">
-          <span class="agb-icon">💡</span>
-          <span class="agb-title">新手引导：LLM 设置说明</span>
-          <button id="ai-guide-close" class="agb-close" title="不再显示">✕</button>
-        </div>
-        <div class="agb-body">
-          <div class="agb-item"><b>提供商</b> — 选择 OpenAI 兼容（含 Ollama/LM Studio/火山引擎等）或 Anthropic。</div>
-          <div class="agb-item"><b>Base URL</b> — 对接自定义端点。Ollama 填 <code>http://localhost:11434/v1</code>，留空用官方默认。</div>
-          <div class="agb-item"><b>API Key</b> — 仅存储浏览器本地，不离开本机。也可设环境变量 <code>OPENAI_API_KEY</code> / <code>ANTHROPIC_API_KEY</code>。</div>
-          <div class="agb-item"><b>模型</b> — 留空则自动选默认（gpt-4o-mini / claude-haiku）。填模型名可覆盖。</div>
-          <div class="agb-item"><b>规划专用模型</b> — 🔍 核查/验证模式可单独指定更高推理能力的模型（如 claude-opus）。</div>
-        </div>
-      </div>
       <form id="ai-settings-form">
         <label>
           提供商

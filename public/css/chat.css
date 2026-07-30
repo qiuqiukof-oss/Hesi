@@ -2095,51 +2095,6 @@ body.drawer-resizing {
 
 /* Personalization & toggle styles unified into modal.css (theme-safe, shared across .modal popups). */
 
-/* ── LLM 新手引导气泡 ── */
-.ai-guide-bubble {
-  background: var(--bg-surface, #ffffff);
-  border: 1px solid var(--border-default, #d1d5db);
-  border-radius: var(--radius-md, 8px);
-  margin-bottom: 14px;
-  padding: 12px 14px;
-  transition: opacity 0.25s;
-}
-.ai-guide-bubble.hidden { display: none; }
-.agb-header {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  margin-bottom: 8px;
-}
-.agb-icon { font-size: 16px; }
-.agb-title {
-  flex: 1;
-  font-weight: 600;
-  font-size: 13px;
-  color: var(--text-primary, #111827);
-}
-.agb-close {
-  background: none;
-  border: none;
-  font-size: 16px;
-  color: var(--text-secondary, #6b7280);
-  cursor: pointer;
-  padding: 0 4px;
-  line-height: 1;
-}
-.agb-close:hover { color: var(--text-primary, #111827); }
-.agb-body { font-size: 12px; line-height: 1.65; color: var(--text-secondary, #4b5563); }
-.agb-item { margin-bottom: 5px; }
-.agb-item:last-child { margin-bottom: 0; }
-.agb-item b { color: var(--text-primary, #111827); }
-.agb-item code {
-  background: var(--bg-raised, #f3f4f6);
-  padding: 1px 4px;
-  border-radius: 3px;
-  font-size: 11px;
-}
-[data-theme="dark"] .agb-item code { background: rgba(255,255,255,0.10); }
-
 /* ── 圆桌模板引导提示 ── */
 .rt-guide-hint {
   display: inline-flex;
