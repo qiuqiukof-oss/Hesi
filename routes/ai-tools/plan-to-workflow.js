@@ -51,8 +51,13 @@ function planToWorkflowTasks(plan, opts) {
 function inScope(plan, path) {
   const scopes = Array.isArray(plan && plan.scope_paths) ? plan.scope_paths : [];
   if (scopes.length === 0) return true;
-  const p = String(path || '');
-  return scopes.some((s) => p === s || p.startsWith(`${String(s).replace(/\/$/, '')}/`));
+  // 统一正斜杠比较：Windows 路径可能含 \，LLM 生成的路径可能用 /
+  // 避免 H:/Hesi/foo 与 H:\Hesi 因分隔符不同而误判为越界
+  const p = String(path || '').replace(/\\/g, '/');
+  return scopes.some((s) => {
+    const norm = String(s).replace(/\\/g, '/').replace(/\/$/, '');
+    return p === norm || p.startsWith(norm + '/');
+  });
 }
 
 /**

@@ -96,6 +96,12 @@
   transition: border-color .15s;
 }
 .adv-grid input:focus { outline: none; border-color: var(--accent, #6366f1); }
+.adv-grid select {
+  background: var(--bg-ground, #0a0a0b); color: var(--text-primary, #fafafa);
+  border: 1px solid var(--border-default, rgba(255,255,255,.08)); border-radius: var(--radius-md, 6px);
+  padding: 7px 10px; font-size: 12px; font-family: inherit; transition: border-color .15s;
+}
+.adv-grid select:focus { outline: none; border-color: var(--accent, #6366f1); }
 
 .plan-result-title {
   font-size: 13px; font-weight: 600; margin: 0 0 14px;
@@ -149,6 +155,8 @@
   transition: border-left-color .15s;
 }
 .step-done { border-left-color: var(--success, #22c55e); }
+.step-done .step-idx { background: var(--success, #22c55e); }
+.step-done .step-badge { background: rgba(34, 197, 94, .12); border-color: rgba(34, 197, 94, .3); color: var(--success, #22c55e); }
 .step-blocked, .step-loop, .step-budget, .step-aborted { border-left-color: var(--danger, #ef4444); }
 .step-skipped, .step-timeout { border-left-color: var(--warning, #f59e0b); }
 .step-head { display: flex; align-items: center; gap: 8px; }

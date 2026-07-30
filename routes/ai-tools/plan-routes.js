@@ -21,18 +21,19 @@ const { workflowManager } = require('./workflow-manager');
 const { runRoundtable } = require('../chat/discuss');
 const { generatePlanFromObjective, revisePlan } = require('./plan-from-nl');
 const { sinkPlanToIndex } = require('./plan-rag-sink');
-const { loadRegistry } = require('../../cli-discovery');
 
 /**
- * 从 CLI registry 取第一个可用的 Agent ID（供 Plan 步骤默认使用）。
- * 无 Agent 时返回 null（直执模式兜底）。
+ * 解析 Plan 执行默认 Agent（可自选 / 圆桌式默认）。
+ * - 前端显式选择 body.agentId 时优先用（'ai' 表示内置 AI 助手 LLM 管线，
+ *   其余为外部 CLI agent id，走旧 agentPool 回退路径）。
+ * - 未指定 → 圆桌式默认：AI 助手为本地推理方（'ai'），复用其已调好的 LLM 工具环。
+ * @param {object} body 请求体（含可选 agentId）
+ * @returns {string} 'ai' 或外部 agent id
  */
-function resolveDefaultAgentId() {
-  try {
-    const reg = loadRegistry();
-    const agent = (reg.clis || []).find(c => c.category === 'agent');
-    return agent ? (agent.id || agent.name) : null;
-  } catch { return null; }
+function resolveExecutorAgentId(body) {
+  const sel = body && body.agentId;
+  if (typeof sel === 'string' && sel.trim()) return sel.trim();
+  return 'ai';
 }
 
 // 审批闸：execId -> { resolve, timer }
@@ -135,8 +136,9 @@ function createRouter(opts = {}) {
         plannerRuntime: runtime,
         revisePlanFn: revisePlan,
         maxRetries,
-        // Agent 默认值：从 registry 取首个 agent，无则 null（直执兜底）
-        defaultAgentId: resolveDefaultAgentId(),
+        // 执行默认 Agent：前端可自选（body.agentId）；未选则圆桌式默认 'ai'
+        // （AI 助手 LLM 工具环，不重新实现）。
+        executorAgentId: resolveExecutorAgentId(body),
       });
       // ③ RAG 快照回流（跑通即沉淀，失败不影响主流程）
       if (result.ok) {
@@ -177,4 +179,4 @@ function createRouter(opts = {}) {
   return router;
 }
 
-module.exports = { createRouter, buildRoundtableFn };
+module.exports = { createRouter, buildRoundtableFn, resolveExecutorAgentId };

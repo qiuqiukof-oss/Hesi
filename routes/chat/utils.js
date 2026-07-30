@@ -11,6 +11,10 @@
 // safe error parsing, and XML tool call parsing.
 // ============================================================
 
+// URL 构建器（normalizeBaseUrl / buildApiUrl）已抽到 lib/llm/url.js 共用，
+// 此处再导出以保持向后兼容（chat 子系统内多个文件从 ./utils 引入）。
+const { normalizeBaseUrl, buildApiUrl } = require('../../lib/llm/url');
+
 // ── LLM 调用容错配置（均可用环境变量覆盖，便于慢模型 / 不稳定网络调优）──
 // 单轮模型 HTTP 调用超时（毫秒）：默认 3 分钟。超时即触发重试（见 fetchLlmWithRetry）。
 const API_FETCH_TIMEOUT_MS = Number(process.env.HESI_LLM_API_TIMEOUT_MS) || 180_000;
@@ -258,47 +262,6 @@ function parseTextToolCall(xml) {
   while ((m = paramNameRe.exec(xml)) !== null) params[m[1].trim()] = m[2].trim();
 
   return { id: `txtc_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`, name, arguments: JSON.stringify(params) };
-}
-
-/**
- * Normalize a base URL for API calls.
- * Supports hostnames, IP addresses, localhost, and path-only inputs.
- * @param {string} url
- * @returns {string}
- */
-function normalizeBaseUrl(url) {
-  if (!url) return url;
-  url = url.trim();
-  if (/^https?:\/\//i.test(url)) return url;
-  if (url.startsWith('/')) {
-    return `http://localhost:11434${  url}`;
-  }
-  const isHostname = (
-    /^localhost(?::\d+)?(\/|$)/i.test(url) ||
-    /^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}(?::\d+)?(\/|$)/.test(url) ||
-    /^[\w-]+(?:\.\w{2,})+(?::\d+)?(\/|$)/.test(url) ||
-    /^[\w.-]+:\d+(\/|$)/.test(url)
-  );
-  if (isHostname) {
-    return `http://${  url}`;
-  }
-  return `http://localhost:11434/${  url}`;
-}
-
-/**
- * Build a full API URL from a base URL, default URL, and endpoint path.
- * @param {string} baseUrl - User-provided base URL (may be null/undefined)
- * @param {string} defaultUrl - Default API base (e.g. 'https://api.openai.com/v1')
- * @param {string} endpoint - Endpoint path (e.g. '/chat/completions')
- * @returns {string}
- */
-function buildApiUrl(baseUrl, defaultUrl, endpoint) {
-  const normalized = normalizeBaseUrl(baseUrl) || defaultUrl;
-  const clean = normalized.replace(/\/+$/, '');
-  if (/\/v1(\/|$)/i.test(clean)) {
-    return clean + endpoint;
-  }
-  return `${clean  }/v1${  endpoint}`;
 }
 
 /**

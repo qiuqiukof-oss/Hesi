@@ -14,7 +14,7 @@
 // 设计约束：纯异步、零硬编码模型、失败可诊断（带 error.code）。
 // ============================================================
 
-const { complete } = require('../../lib/memory/llm-bridge');
+const { complete, LLMError } = require('../../lib/memory/llm-bridge');
 const { validatePlan, emptyPlan } = require('./plan-schema');
 
 const SYSTEM_PROMPT = [
@@ -43,6 +43,13 @@ const SYSTEM_PROMPT = [
   '- 尽量给出可由命令行验证的 acceptance（如 grep/node/构建命令），便于全自动闭环自动判定。',
   '- budget 给宽松上限（如 maxRounds=步数*4，maxMinutes=步数*8）。',
   '',
+  '【命令兼容性要求（重要）】',
+  '- **必须使用 POSIX 兼容语法**：执行环境是 bash（Git for Windows / MSYS2 / Linux / macOS），不支持 cmd.exe 专用语法。',
+  '- **写文件前必须先确保父目录存在**：用 `mkdir -p` 创建父目录后再写入文件。示例：mkdir -p src/pages && cat > src/pages/App.tsx << EOF ... EOF',
+  '- **优先用简单命令替代 heredoc**：单行内容用 `echo "content" > file.txt`；多行内容才用 heredoc（<< EOF）。',
+  '- **避免使用 Windows 路径**：始终使用正斜杠 `/` 作为路径分隔符（bash 兼容）。',
+  '- **不要假设文件已存在**：如果步骤涉及读写特定文件，先用 ls/test 检查或直接创建。',
+  '',
   '示例（用户目标：在仓库根 README 顶部加「构建状态」章节）：',
   JSON.stringify({
     objective: '在仓库根 README.md 顶部新增「构建状态」章节',
@@ -53,22 +60,174 @@ const SYSTEM_PROMPT = [
     approvalPolicy: 'marked',
     budget: { maxRounds: 4, maxMinutes: 8 },
   }),
+  '',
+  '示例（用户目标：创建新组件文件）：',
+  JSON.stringify({
+    objective: '创建 Gallery 组件',
+    steps: [
+      { id: 's1', goal: '创建组件目录', action: 'mkdir -p src/components/gallery', type: 'command', requireApproval: false },
+      { id: 's2', goal: '创建组件文件', action: "echo 'import React from \"react\";\\nexport default function Gallery() { return <div>Gallery</div>; }' > src/components/Gallery.tsx", type: 'command', requireApproval: false },
+    ],
+    budget: { maxRounds: 6, maxMinutes: 10 },
+  }),
 ].join('\n');
 
-/** 从模型文本中抽出 JSON 对象（容忍 ```json 围栏与两侧多余文字） */
+/** 从模型文本中抽出 JSON 对象（容忍 ```json 围栏与两侧多余文字）
+ *
+ * 容错策略（按优先级）：
+ *   1. 标准 ```json ... ``` 围栏
+ *   2. 首个 { ... } 块（匹配括号深度）
+ *   3. 尝试修复常见问题：尾随逗号、单引号→双引号、注释剔除
+ *   4. 全文直接 JSON.parse（模型恰好只返回纯 JSON）
+ */
 function extractJson(text) {
   if (!text) return null;
   let t = String(text).trim();
+  const original = t;
+
+  // 策略 1：```json 围栏
   const fence = t.match(/```(?:json)?\s*([\s\S]*?)```/i);
-  if (fence) t = fence[1].trim();
+  if (fence) {
+    t = fence[1].trim();
+    try { return JSON.parse(t); } catch { /* 继续尝试其他策略 */ }
+  }
+
+  // 策略 2：找首个 { ... } JSON 对象（处理模型在 JSON 前后加解释文字的情况）
   const start = t.indexOf('{');
   const end = t.lastIndexOf('}');
-  if (start === -1 || end === -1 || end < start) return null;
-  try {
-    return JSON.parse(t.slice(start, end + 1));
-  } catch {
-    return null;
+  if (start !== -1 && end !== -1 && end > start) {
+    let candidate = t.slice(start, end + 1);
+    try { return JSON.parse(candidate); } catch { /* 继续 */ }
+
+    // 策略 3：常见格式修复
+    let repaired = candidate
+      .replace(/,\s*([}\]])/g, '$1')           // 尾随逗号
+      .replace(/\/\/[^\n]*/g, '')                // 单行注释
+      .replace(/\/\*[\s\S]*?\*\//g, '')          // 多行注释
+      .replace(/\n\s*\n/g, '\n');                // 空行压缩
+    try { return JSON.parse(repaired); } catch { /* 继续 */ }
+
+    // 策略 4：单引号 → 双引号（部分模型输出单引号 JSON）
+    try {
+      const singleQuoted = repaired.replace(/'([^']+)'/g, '"$1"');
+      return JSON.parse(singleQuoted);
+    } catch { /* 最终失败 */ }
   }
+
+  // 策略 5：全文就是 JSON
+  try { return JSON.parse(t); } catch { /* 失败 */ }
+
+  // 全部策略失败 → 返回 null
+  console.warn('[extractJson] 所有抽取策略均失败。原始文本前 500 字符:', original.slice(0, 500));
+  return null;
+}
+
+/**
+ * 结构修复（sanitize）：把 LLM 返回的「形状近似但内部畸形」的 plan 修正为合法形状。
+ *
+ * 轻量模型（flash 等）常见问题：
+ *   - acceptance 元素是字符串而非对象：["检查文件"] → [{kind:"manual", description:"检查文件"}]
+ *   - steps 元素是字符串："创建目录" → {id:"s1", goal:"创建目录", action:"创建目录"}
+ *   - steps 缺 goal/action：有其他字段但漏写必填项
+ *   - acceptance/steps 为 null/undefined 而非空数组
+ *
+ * @param {object} plan LLM 原始输出的 plan
+ * @returns {object} 修复后的 plan（原地修改 + 返回）
+ */
+function sanitizePlan(plan) {
+  if (!plan || typeof plan !== 'object') return plan;
+
+  // ── 修复 acceptance ──
+  if (plan.acceptance == null) {
+    plan.acceptance = [];
+  } else if (!Array.isArray(plan.acceptance)) {
+    console.warn('[sanitizePlan] acceptance 不是数组，已重置为 []');
+    plan.acceptance = [];
+  } else {
+    const VALID_KINDS = new Set(['command', 'script', 'http', 'manual']);
+    plan.acceptance = plan.acceptance
+      .map((a, i) => {
+        if (!a || typeof a !== 'object') {
+          // 字符串或其他非对象 → 转为 manual 验收
+          const desc = String(a == null ? '' : a).trim();
+          console.log(`[sanitizePlan] acceptance[${i}] 非对象(${typeof a})，转为 manual: "${desc.slice(0, 60)}"`);
+          return desc ? { kind: 'manual', description: desc } : null;
+        }
+        // 对象但缺少 kind 或 kind 不在已知列表 → 默认 manual
+        // LLM（尤其轻量模型）常遗漏 kind 字段，或写了 command 但命令无法执行
+        if (!VALID_KINDS.has(a.kind)) {
+          const oldKind = a.kind;
+          const desc = a.description || a.command || `验收项${i + 1}`;
+          console.log(`[sanitizePlan] acceptance[${i}] kind="${oldKind}" 无效/缺失，转为 manual: "${desc.slice(0, 60)}"`);
+          return { ...a, kind: 'manual', description: a.description || desc };
+        }
+        return a; // 正常对象保留
+      })
+      .filter(Boolean); // 移除 null
+  }
+
+  // ── 修复 steps ──
+  if (plan.steps == null) {
+    plan.steps = [];
+  } else if (!Array.isArray(plan.steps)) {
+    console.warn('[sanitizePlan] steps 不是数组，已重置为 []');
+    plan.steps = [];
+  } else {
+    const usedIds = new Set();
+    plan.steps = plan.steps
+      .map((s, i) => {
+        const idx = i + 1;
+        // 字符串步骤 → 转为对象
+        if (typeof s === 'string' || typeof s === 'number') {
+          const text = String(s).trim();
+          console.log(`[sanitizePlan] steps[${i}] 是字符串，转为对象: "${text.slice(0, 60)}"`);
+          return { id: `s${idx}`, goal: text, action: text, type: 'command' };
+        }
+        if (!s || typeof s !== 'object') {
+          console.log(`[sanitizePlan] steps[${i}] 非对象/null，跳过`);
+          return null;
+        }
+        // 对象但缺字段 → 尝试推断
+        let changed = false;
+        if (!s.id) { s.id = `s${idx}`; changed = true; }
+        if (!s.goal) {
+          // 用 action 或 title 推断 goal
+          s.goal = s.action || s.title || `步骤 ${idx}`;
+          changed = true;
+          console.log(`[sanitizePlan] steps[${i}].goal 缺失，推断为: "${String(s.goal).slice(0, 60)}"`);
+        }
+        if (!s.action) {
+          // 用 goal 推断 action（至少有个值让校验通过）
+          s.action = s.goal;
+          changed = true;
+          console.log(`[sanitizePlan] steps[${i}].action 缺失，推断为: "${String(s.action).slice(0, 60)}"`);
+        }
+        if (!s.type) { s.type = 'command'; changed = true; }
+
+        // ── 检测占位符步骤（LLM 完全没给内容，sanitizePlan 填充的假数据）──
+        // 特征：goal 和 action 都是 "步骤 N" 格式，且原始对象几乎没有有效字段
+        // 这种步骤执行后无事可做 → 标记为 skip 让执行器跳过
+        const PLACEHOLDER_RE = /^步骤\s+\d+$/;
+        if (PLACEHOLDER_RE.test(s.goal) && s.goal === s.action
+            && !s.verify && (!s.originalFields || s.originalFields <= 1)) {
+          console.log(`[sanitizePlan] steps[${i}] 检测为占位符（无实际内容），标记为 skip`);
+          s.type = 'skip'; // 执行器遇到 type=skip 直接标记 done 不执行
+          s._isPlaceholder = true; // 内部标记
+        }
+
+        if (changed) return s;
+        return s; // 无需修改的保留原样
+      })
+      .filter(Boolean);
+  }
+
+  // ── 确保 objective 是字符串 ──
+  if (plan.objective != null && typeof plan.objective !== 'string') {
+    plan.objective = String(plan.objective);
+    console.log('[sanitizePlan] objective 非字符串，已转换');
+  }
+
+  return plan;
 }
 
 /** 用 schema 默认值补全 plan，保证进入流水线前形状完整 */
@@ -125,33 +284,145 @@ function repairPrompt(errors) {
 async function generatePlanFromObjective(text, runtime = {}) {
   const { apiKey, provider, baseUrl, model } = runtime || {};
   const userMsg = `目标：\n${  text || ''}`;
-  const raw = await complete(SYSTEM_PROMPT, userMsg, { apiKey, provider, model, baseUrl });
+  let raw;
+  try {
+    raw = await complete(SYSTEM_PROMPT, userMsg, { apiKey, provider, model, baseUrl });
+  } catch (e) {
+    // 结构化 LLM 错误 → 透传具体原因，帮助用户定位问题
+    if (e instanceof LLMError) {
+      const hint = [];
+      if (e.code === 'NO_API_KEY') {
+        hint.push('请在 Plan 页面「高级」区域填写 API Key（支持从聊天面板自动读取）');
+        hint.push('或直接手写 Plan JSON 绕过 AI 生成');
+      } else if (e.code === 'API_ERROR') {
+        hint.push(`HTTP ${e.details?.status || '?'}: 请检查 Base URL、模型名称、API Key 是否匹配`);
+        if (e.details?.body) hint.push(`服务端响应: ${e.details.body.slice(0, 200)}`);
+      } else if (e.code === 'NETWORK_ERROR') {
+        hint.push('请检查网络连接 / Base URL 是否可达（本地 LLM 确认端口是否正确）');
+        if (e.details?.original) hint.push(`原因: ${e.details.original}`);
+      }
+      const ne = new Error(`无法从自然语言生成 plan: ${e.message}${hint.length ? `\n${hint.join('\n')}` : ''}`);
+      ne.code = `GEN_${e.code}`;
+      ne.details = e.details;
+      throw ne;
+    }
+    throw e; // 非 LLMError 异常继续上抛
+  }
+  // ── 诊断日志：输出 LLM 原始响应（关键！用于排查模型返回格式问题）──
+  console.log('[PlanGen] LLM 原始响应长度:', String(raw || '').length);
+  console.log('[PlanGen] LLM 原始响应前 800 字符:', String(raw || '').slice(0, 800));
   if (!raw) {
     const e = new Error(
-      '无法从自然语言生成 plan：缺少 API Key / 模型未配置，或模型调用失败。'
-      + '请在「高级」中填写 API Key 与模型，或直接手写 Plan JSON。'
+      '无法从自然语言生成 plan：模型返回空响应。请检查模型名称是否正确，或尝试切换模型。'
     );
-    e.code = 'GEN_FAILED';
+    e.code = 'GEN_EMPTY';
     throw e;
   }
   let plan = extractJson(raw);
-  let v = plan ? validatePlan(plan) : { ok: false, errors: ['模型未返回可解析的 JSON'] };
-  if (!v.ok) {
-    // 校验失败 → 带错误反馈修复一次
-    const repaired = await complete(repairPrompt(v.errors), userMsg, { apiKey, provider, model, baseUrl });
+  // ── 诊断日志：JSON 抽取结果 ──
+  console.log('[PlanGen] extractJson 结果:', plan ? '成功（object）' : '失败（null）');
+  if (plan) {
+    console.log('[PlanGen] 抽取到的 plan 顶层键:', Object.keys(plan).join(','));
+    console.log('[PlanGen] objective 类型:', typeof plan.objective, '值:', String(plan.objective || '(空)').slice(0, 100));
+    console.log('[PlanGen] acceptance 长度:', Array.isArray(plan.acceptance) ? plan.acceptance.length : '非数组');
+    console.log('[PlanGen] steps 长度:', Array.isArray(plan.steps) ? plan.steps.length : '非数组');
+  }
+
+  // ── 关键修复：先 sanitize 结构修复 → applyDefaults 补全默认值 → validatePlan 校验 ──
+  //
+  // LLM（尤其是 flash 类轻量模型）经常返回「形状近似但内部畸形」的数据：
+  //   - acceptance 元素是字符串而非对象
+  //   - steps 元素是字符串或缺少 goal/action
+  //   - acceptance/steps 为 null 而非空数组
+  //
+  // 三层修复：
+  //   1. sanitizePlan()  → 修复数组内部畸形（字符串→对象、缺字段→推断）
+  //   2. applyDefaults()  → 补全顶层字段（objective/budget 等）
+  //   3. auto-acceptance  → 若仍为空则生成兜底验收
+  if (!plan) {
+    // extractJson 完全失败 → 尝试 repair
+    const v0 = { ok: false, errors: ['模型未返回可解析的 JSON'] };
+    console.warn('[PlanGen] 校验失败:', v0.errors.join('；'));
+    const repaired = await complete(repairPrompt(v0.errors), userMsg, { apiKey, provider, model, baseUrl });
+    console.log('[PlanGen] repair 响应前 500 字符:', String(repaired || '').slice(0, 500));
     const fixed = repaired ? extractJson(repaired) : null;
     if (fixed) {
       plan = fixed;
-      v = validatePlan(plan);
+      console.log('[PlanGen] repair 后提取成功，顶层键:', Object.keys(plan).join(','));
+    } else {
+      console.warn('[PlanGen] repair 也未能提取有效 JSON');
+      const e = new Error('无法从自然语言生成 plan：模型未能返回有效 JSON 格式（已尝试一次修复）');
+      e.code = 'GEN_NO_JSON';
+      e.details = { rawLength: String(raw || '').length, rawPreview: String(raw || '').slice(0, 500) };
+      throw e;
     }
+  }
+
+  // 先做结构修复（修复 LLM 返回的畸形数组元素）
+  plan = sanitizePlan(plan);
+  console.log('[PlanGen] sanitize 后 acceptance:', Array.isArray(plan.acceptance) ? plan.acceptance.length : '非数组',
+    'steps:', Array.isArray(plan.steps) ? plan.steps.length : '非数组');
+
+  // 再补全默认值（objective 从用户输入补、budget 自动计算等）
+  plan = applyDefaults(plan, text);
+
+  // 对空 acceptance 自动生成兜底验收（避免因模型漏写 acceptance 而整体失败）
+  if (!plan.acceptance || plan.acceptance.length === 0) {
+    const stepCount = Array.isArray(plan.steps) ? plan.steps.length : 0;
+    if (stepCount > 0) {
+      // 用第一个有 action 的步骤生成基本验收
+      const firstAction = plan.steps.find((s) => s.action);
+      if (firstAction && firstAction.action) {
+        plan.acceptance = [{
+          kind: 'command',
+          command: `echo "Plan 执行完成，共 ${stepCount} 步"`,
+          expect: '完成',
+          description: '自动生成的兜底验收（原 plan 未提供 acceptance）',
+        }];
+        console.log('[PlanGen] 自动生成兜底 acceptance（基于步骤数量）');
+      }
+    }
+  }
+
+  // 现在用补全后的 plan 做最终校验
+  let v = validatePlan(plan);
+  if (!v.ok) {
+    console.warn('[PlanGen] 最终校验仍失败:', v.errors.join('；'));
+    // 最后一次 repair（这次带上补全后的上下文）
+    try {
+      const repaired2 = await complete(
+        [
+          '你刚才生成的 plan 经默认值补全后仍未通过校验，错误如下：',
+          v.errors.join('\n'),
+          '当前 plan 结构：' + JSON.stringify(plan, null, 2).slice(0, 1000),
+          '请修正后只输出完整 JSON（确保含 objective / acceptance[至少一条] / steps[至少一步]）。',
+        ].join('\n'),
+        userMsg,
+        { apiKey, provider, model, baseUrl },
+      );
+      const fixed2 = repaired2 ? extractJson(repaired2) : null;
+      if (fixed2) {
+        plan = sanitizePlan(applyDefaults(fixed2, text));
+        v = validatePlan(plan);
+        console.log('[PlanGen] 第二次 repair 后校验:', v.ok ? '通过' : `仍失败: ${v.errors.join('；')}`);
+      }
+    } catch { /* repair 本身失败，继续用原始错误 */ }
   }
   if (!v.ok) {
     const e = new Error(`生成的 plan 未通过校验：${  v.errors.join('；')}`);
     e.code = 'GEN_INVALID';
     e.errors = v.errors;
+    e.details = {
+      rawLength: String(raw || '').length,
+      rawPreview: String(raw || '').slice(0, 500),
+      finalPlanKeys: Object.keys(plan),
+      finalObjective: String(plan.objective || '').slice(0, 200),
+      finalAcceptanceLen: Array.isArray(plan.acceptance) ? plan.acceptance.length : null,
+      finalStepsLen: Array.isArray(plan.steps) ? plan.steps.length : null,
+    };
     throw e;
   }
-  return applyDefaults(plan, text);
+  return plan;
 }
 
 // ── 修订生成器（② 反思重规划环复用） ──
@@ -200,7 +471,18 @@ async function revisePlan(prevPlan, prevResult, runtime = {}) {
     '',
     '请产出修订后的 Plan JSON。',
   ].join('\n');
-  const raw = await complete(SYSTEM_REVISE, userMsg, { apiKey, provider, model, baseUrl });
+  let raw;
+  try {
+    raw = await complete(SYSTEM_REVISE, userMsg, { apiKey, provider, model, baseUrl });
+  } catch (e) {
+    if (e instanceof LLMError) {
+      const ne = new Error(`无法修订 plan: ${e.message}`);
+      ne.code = `REVISE_${e.code}`;
+      ne.details = e.details;
+      throw ne;
+    }
+    throw e;
+  }
   if (!raw) return null;
   let plan = extractJson(raw);
   if (!plan) return null;
@@ -214,4 +496,4 @@ async function revisePlan(prevPlan, prevResult, runtime = {}) {
   return applyDefaults(plan, objective);
 }
 
-module.exports = { generatePlanFromObjective, extractJson, applyDefaults, revisePlan };
+module.exports = { generatePlanFromObjective, extractJson, applyDefaults, sanitizePlan, revisePlan };

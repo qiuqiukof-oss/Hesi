@@ -62,18 +62,19 @@ function _newRequestId() {
  * @param {Function} [broadcastFn] - WebSocket broadcast for metrics
  * @returns {Promise<{content: string, toolCalls: number, usage: object|null, timedout?: boolean}>}
  */
-async function nonStreamingChat(messages, apiKey, model, provider, baseUrl, broadcastFn, sessionId) {
+async function nonStreamingChat(messages, apiKey, model, provider, baseUrl, broadcastFn, sessionId, tools) {
   const deadline = Date.now() + NON_STREAMING_CHAIN_TIMEOUT;
   if (provider === 'anthropic') {
-    return nonStreamingAnthropic(messages, apiKey, model, baseUrl, broadcastFn, deadline, sessionId);
+    return nonStreamingAnthropic(messages, apiKey, model, baseUrl, broadcastFn, deadline, sessionId, tools);
   }
-  return nonStreamingOpenAI(messages, apiKey, model, baseUrl, broadcastFn, deadline, sessionId);
+  return nonStreamingOpenAI(messages, apiKey, model, baseUrl, broadcastFn, deadline, sessionId, tools);
 }
 
-async function nonStreamingOpenAI(messages, apiKey, model, baseUrl, broadcastFn, deadline, sessionId) {
+async function nonStreamingOpenAI(messages, apiKey, model, baseUrl, broadcastFn, deadline, sessionId, tools) {
   const modelName = model || 'gpt-4o-mini';
   const url = buildApiUrl(baseUrl, 'https://api.openai.com/v1', '/chat/completions');
   const requestId = _newRequestId();
+  const toolDefs = tools || QCLI_TOOLS;
 
   let currentMessages = [...messages];
   let toolCallCount = 0;
@@ -99,7 +100,7 @@ async function nonStreamingOpenAI(messages, apiKey, model, baseUrl, broadcastFn,
       body: JSON.stringify({
         model: modelName,
         messages: currentMessages,
-        tools: QCLI_TOOLS,
+        tools: toolDefs,
         tool_choice: 'auto',
         max_tokens: cwManager.maxOutputTokens(modelName),
       }),
@@ -151,11 +152,12 @@ async function nonStreamingOpenAI(messages, apiKey, model, baseUrl, broadcastFn,
   };
 }
 
-async function nonStreamingAnthropic(messages, apiKey, model, baseUrl, broadcastFn, deadline, sessionId) {
+async function nonStreamingAnthropic(messages, apiKey, model, baseUrl, broadcastFn, deadline, sessionId, tools) {
   const modelName = model || 'claude-sonnet-4-20250514';
   const requestId = _newRequestId();
+  const toolDefs = tools || QCLI_TOOLS;
 
-  const anthropicTools = QCLI_TOOLS.map(t => ({
+  const anthropicTools = toolDefs.map(t => ({
     name: t.function.name,
     description: t.function.description,
     input_schema: t.function.parameters || { type: 'object', properties: {} },
@@ -788,4 +790,7 @@ module.exports = {
   streamAnthropicWithTools,
   parseAnthropicStream,
   buildAnthropicConversation,
+  // 导出「非流式工具调用环」——供 Plan 全自动执行器复用（与 AI 助手同一套
+  // QCLI_TOOLS + executeToolCall + 3min 熔断 + pruneToolContext，不重新实现）。
+  nonStreamingChat,
 };

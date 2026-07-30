@@ -160,20 +160,105 @@
     }
   }
 
-  // ── 从全局 LLM 设置（ChatAPI 同源 localStorage）自动读取 ──
-  function readLLM(key, fallback) {
-    try { return (typeof localStorage !== 'undefined') ? (localStorage.getItem(key) || fallback) : fallback; }
-    catch { return fallback; }
+  // ── 执行 Agent 下拉：合并 /api/clis(agent) + /api/agents(installed) + ⭐收藏 ──
+  async function loadExecAgentOptions() {
+    const sel = $('exec-agent');
+    if (!sel) return;
+    // 默认项：AI 助手（内置 LLM 管线，圆桌式默认）
+    sel.innerHTML = '<option value="ai">AI 助手（内置 LLM 管线）</option>';
+    try {
+      const [clisRes, agentsRes] = await Promise.all([
+        fetch('/api/clis').then((r) => r.json()).catch(() => null),
+        fetch('/api/agents').then((r) => r.json()).catch(() => null),
+      ]);
+      const seen = new Set(['ai']);
+      const add = (id, label) => {
+        if (!id || seen.has(id)) return;
+        seen.add(id);
+        const o = document.createElement('option');
+        o.value = id;
+        o.textContent = label;
+        sel.appendChild(o);
+      };
+      // ── 分组 1：外部 agent（自动识别 category=agent）──
+      const clis = (clisRes && clisRes.clis) || [];
+      const agentClis = clis.filter((c) => c.category === 'agent');
+      if (agentClis.length) {
+        const g = document.createElement('optgroup'); g.label = '外部 Agent';
+        agentClis.forEach((c) => add(c.id || c.name, (c.name || c.id)));
+        if (g.children.length) sel.appendChild(g);
+      }
+      // ── 分组 2：已安装 agents ──
+      const agents = (agentsRes && agentsRes.agents) || [];
+      const installedAgents = agents.filter((a) => a.installed);
+      if (installedAgents.length) {
+        const g = document.createElement('optgroup'); g.label = '已安装';
+        installedAgents.forEach((a) => add(a.id, (a.displayName || a.name)));
+        if (g.children.length) sel.appendChild(g);
+      }
+      // ── 分组 3：⭐ 收藏（用户自选，含不被自动识别为 agent 的条目）──
+      let favIds = [];
+      try { favIds = JSON.parse(localStorage.getItem('qcli-favorites') || '[]'); } catch { favIds = []; }
+      if (favIds.length) {
+        const allClis = clis; // 全量 CLI（不限 category），交叉取名称
+        const favItems = favIds.map((fid) => {
+          const found = allClis.find((c) => (c.id || c.name) === fid) ||
+                        agents.find((a) => a.id === fid);
+          return { id: fid, name: found ? (found.name || found.displayName || found.id) : fid };
+        });
+        const g = document.createElement('optgroup');
+        g.label = '\u2B50 \u6536\u85CF'; // ⭐ 收藏
+        favItems.forEach((f) => {
+          const isCustom = allClis.some((c) => ((c.id || c.name) === f.id) && (c.category !== 'agent'));
+          add(f.id, f.name + (isCustom ? ' \u00B7 \u81EA\u9009' : '')); // · 自选
+        });
+        if (g.children.length) sel.appendChild(g);
+      }
+    } catch { /* 静默：仅保留默认项 */ }
   }
-  function fillLLMFields() {
+
+  // ── 从全局 LLM 设置读取（与 ChatAPI 同源，含 sessionStorage 迁移）──
+  function readLLM(key, fallback) {
+    try {
+      const ls = typeof localStorage !== 'undefined' ? localStorage : null;
+      const ss = typeof sessionStorage !== 'undefined' ? sessionStorage : null;
+      // 优先 localStorage，再试 sessionStorage（API Key 等敏感值可能存在 session 中）
+      if (ls) { const v = ls.getItem(key); if (v) return v; }
+      if (ss) { const v = ss.getItem(key); if (v) {
+        // 迁移到 localStorage（与 ChatAPI 行为一致）
+        try { if (ls) ls.setItem(key, v); } catch { /* quota etc */ }
+        return v;
+      }}
+      return fallback;
+    } catch { return fallback; }
+  }
+
+  // 尝试从 safeStorage 兼容层读取（plan.html 无 bundle.js 时 QCLI.safeStorage 不存在，
+  // 但某些自定义构建可能通过全局脚本注入；多一条路多一个机会）
+  function readSafeStorage(key, fallback) {
+    try {
+      const Q = (typeof window !== 'undefined' && window.QCLI) || {};
+      if (Q.safeStorage && typeof Q.safeStorage.get === 'function') {
+        const v = Q.safeStorage.get(key, fallback);
+        if (v) return v;
+      }
+      if (Q.safeSession && typeof Q.safeSession.get === 'function') {
+        const v = Q.safeSession.get(key, '');
+        if (v) return v;
+      }
+    } catch { /* ignore */ }
+    return fallback;
+  }
+    function fillLLMFields() {
     if (!$('api-key')) return;
+    // 与 ChatAPI 同源：localStorage 优先 → sessionStorage 迁移（plan.html 无 QCLI 全局）
     const ak = readLLM('qcli-ai-key', '');
-    const pv = readLLM('qcli-ai-provider', '');
-    const bu = readLLM('qcli-ai-base-url', '');
-    const md = readLLM('qcli-ai-model', '');
     if (ak && !$('api-key').value) $('api-key').value = ak;
+    const pv = readLLM('qcli-ai-provider', '');
     if (pv && !$('provider').value) $('provider').value = pv;
+    const bu = readLLM('qcli-ai-base-url', '');
     if (bu && !$('base-url').value) $('base-url').value = bu;
+    const md = readLLM('qcli-ai-model', '');
     if (md && !$('model').value) $('model').value = md;
   }
 
@@ -199,16 +284,46 @@
           return;
         }
       }
-      // LLM 配置：优先表单值 → fallback 全局设置（与 ChatAPI 同源）
-      const ak = ($('api-key') && $('api-key').value.trim()) || readLLM('qcli-ai-key', '');
+      // LLM 配置：提交时最终兜底——按优先级链读取（确保即使 fillLLMFields 因时序未命中也能拿到）
+      // 优先级：表单值 > ChatAPI(QCLI) > safeStorage 兼容 > 原生 localStorage/sessionStorage
+      const _getLLM = (inputId, storageKey, chatApiGetter) => {
+        // 1. 表单值（用户手动修改或自动填充）
+        const el = $(inputId);
+        if (el && el.value.trim()) return el.value.trim();
+        // 2. ChatAPI / safeStorage（与聊天面板完全同源，此时 QCLI 可能已就绪）
+        try {
+          const Q = (typeof window !== 'undefined' && window.QCLI) || {};
+          if (chatApiGetter && Q.ChatAPI && Q.ChatAPI[chatApiGetter]) {
+            const v = Q.ChatAPI[chatApiGetter](); if (v) return v;
+          }
+          if (Q.safeStorage) { const v = Q.safeStorage.get(storageKey, ''); if (v) return v; }
+        } catch { /* continue */ }
+        // 3. safeStorage 兼容层（处理非标准注入场景）
+        const sv = readSafeStorage(storageKey, '');
+        if (sv) return sv;
+        // 4. 原生 localStorage → sessionStorage 最终兜底
+        return readLLM(storageKey, '');
+      };
+      // 诊断日志：确认每项 LLM 配置的读取来源（稳定后可移除）
+      try {
+        const diag = {};
+        diag.ak_src = _getLLM('api-key', 'qcli-ai-key', 'getApiKey') ? 'OK' : 'MISSING';
+        diag.pv_src = _getLLM('provider', 'qcli-ai-provider', 'getProvider') || '(default openai)';
+        diag.bu_src = _getLLM('base-url', 'qcli-ai-base-url', 'getBaseUrl') ? 'OK' : '(default)';
+        diag.md_src = _getLLM('model', 'qcli-ai-model', 'getModel') ? 'OK' : '(default gpt-4o-mini)';
+        console.log('[Plan LLM Config]', JSON.stringify(diag));
+      } catch { /* diag 不影响主流程 */ }
+      const ak = _getLLM('api-key', 'qcli-ai-key', 'getApiKey');
       if (ak) body.apiKey = ak;
-      const pv = ($('provider') && $('provider').value.trim()) || readLLM('qcli-ai-provider', '');
+      const pv = _getLLM('provider', 'qcli-ai-provider', 'getProvider');
       if (pv) body.provider = pv;
-      const bu = ($('base-url') && $('base-url').value.trim()) || readLLM('qcli-ai-base-url', '');
+      const bu = _getLLM('base-url', 'qcli-ai-base-url', 'getBaseUrl');
       if (bu) body.baseUrl = bu;
-      const md = ($('model') && $('model').value.trim()) || readLLM('qcli-ai-model', '');
+      const md = _getLLM('model', 'qcli-ai-model', 'getModel');
       if (md) body.model = md;
       const ps = $('partners').value.trim(); if (ps) body.partners = ps.split(',').map((x) => x.trim()).filter(Boolean);
+      const ea = $('exec-agent') ? $('exec-agent').value.trim() : '';
+      if (ea) body.agentId = ea; // 'ai' 或外部 CLI agent id
 
       // 个性化「权限设置」下钻：从 localStorage 读取（与个性化面板同源）
       const permsRaw = (typeof localStorage !== 'undefined') ? localStorage.getItem('qcli-permissions') : null;
@@ -262,6 +377,7 @@
   function init() {
     connectPlanWS();
     fillLLMFields(); // 自动从全局 LLM 设置填充高级字段
+    loadExecAgentOptions(); // 填充执行 Agent 下拉
     $('load-sample').addEventListener('click', () => {
       $('plan-input').value = JSON.stringify(SAMPLE, null, 2);
     });

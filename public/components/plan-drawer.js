@@ -73,7 +73,8 @@ const PlanDrawer = {
           <label>Provider<input id="plan-provider" placeholder="自动读取" /></label>
           <label>BaseURL<input id="plan-base-url" placeholder="自动读取" /></label>
           <label>Model<input id="plan-model" placeholder="自动读取" /></label>
-          <label>Partners<input id="plan-partners" placeholder="逗号分隔的 agent 名" /></label>
+          <label>Partners<input id="plan-partners" placeholder="逗号分隔的 agent 名（圆桌 checkpoint 伙伴）" /></label>
+          <label>执行 Agent<select id="plan-exec-agent" title="步骤默认执行方；默认 AI 助手（内置 LLM 管线），可选外部 CLI agent"></select></label>
         </div>
       </details>
       <div class="plan-actions">
@@ -108,9 +109,60 @@ const PlanDrawer = {
     body.querySelector('#plan-execute').addEventListener('click', () => this._execute());
     // 自动填充 LLM（同源）
     this._fillLLM(body);
+    // 执行 Agent 下拉
+    this._loadExecAgentOptions(body);
     // 审批闸 WS
     this._connectWS();
     this.rendered = true;
+  },
+
+  /** 执行 Agent 下拉：合并 /api/clis(agent) + /api/agents(installed) + ⭐收藏 */
+  _loadExecAgentOptions(body) {
+    const sel = body.querySelector('#plan-exec-agent');
+    if (!sel) return;
+    sel.innerHTML = '<option value="ai">AI 助手（内置 LLM 管线）</option>';
+    Promise.all([
+      fetch('/api/clis').then((r) => r.json()).catch(() => null),
+      fetch('/api/agents').then((r) => r.json()).catch(() => null),
+    ]).then(([clisRes, agentsRes]) => {
+      const seen = new Set(['ai']);
+      const add = (id, label) => {
+        if (!id || seen.has(id)) return;
+        seen.add(id);
+        const o = document.createElement('option');
+        o.value = id;
+        o.textContent = label;
+        sel.appendChild(o);
+      };
+      // ── 分组 1：外部 agent（自动识别 category=agent）──
+      const clis = (clisRes && clisRes.clis) || [];
+      const agentClis = clis.filter((c) => c.category === 'agent');
+      if (agentClis.length) {
+        const g = document.createElement('optgroup'); g.label = '外部 Agent';
+        agentClis.forEach((c) => add(c.id || c.name, (c.name || c.id)));
+        if (g.children.length) sel.appendChild(g);
+      }
+      // ── 分组 2：已安装 agents ──
+      const agents = (agentsRes && agentsRes.agents) || [];
+      const installedAgents = agents.filter((a) => a.installed);
+      if (installedAgents.length) {
+        const g = document.createElement('optgroup'); g.label = '已安装';
+        installedAgents.forEach((a) => add(a.id, (a.displayName || a.name)));
+        if (g.children.length) sel.appendChild(g);
+      }
+      // ── 分组 3：⭐ 收藏（用户自选，含不被自动识别为 agent 的条目）──
+      const favIds = safeStorage.getJSON('qcli-favorites', []);
+      if (favIds.length) {
+        const favItems = favIds.map((fid) => {
+          const found = clis.find((c) => (c.id || c.name) === fid) ||
+                        agents.find((a) => a.id === fid);
+          return { id: fid, name: found ? (found.name || found.displayName || found.id) : fid };
+        });
+        const g = document.createElement('optgroup'); g.label = '⭐ 收藏';
+        favItems.forEach((f) => add(f.id, f.name + (clis.find((c) => (c.id||c.name)===f.id && c.category!=='agent') ? ' · 自选' : '')));
+        if (g.children.length) sel.appendChild(g);
+      }
+    }).catch(() => { /* 静默：仅保留默认项 */ });
   },
 
   /** 从 Q.ChatAPI 读取同源 LLM 设置（与聊天完全一致） */
@@ -200,6 +252,8 @@ const PlanDrawer = {
       if (md) payload.model = md;
       const ps = body.querySelector('#plan-partners').value.trim();
       if (ps) payload.partners = ps.split(',').map((x) => x.trim()).filter(Boolean);
+      const ea = body.querySelector('#plan-exec-agent').value.trim();
+      if (ea) payload.agentId = ea; // 'ai' 或外部 CLI agent id
 
       // 个性化权限下钻（与 plan.html 同源）
       const permsRaw = safeStorage.get('qcli-permissions', null);

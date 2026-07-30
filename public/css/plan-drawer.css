@@ -133,6 +133,12 @@
   padding: 7px 10px; font-size: 12px; font-family: inherit; transition: border-color .15s;
 }
 .plan-embed-body .adv-grid input:focus { outline: none; border-color: var(--accent, #6366f1); }
+.plan-embed-body .adv-grid select {
+  background: var(--bg-ground, #0a0a0b); color: var(--text-primary, #fafafa);
+  border: 1px solid var(--border-default, rgba(255,255,255,.08)); border-radius: var(--radius-md, 6px);
+  padding: 7px 10px; font-size: 12px; font-family: inherit; transition: border-color .15s;
+}
+.plan-embed-body .adv-grid select:focus { outline: none; border-color: var(--accent, #6366f1); }
 
 /* ── 结果区 ── */
 .plan-embed-body .plan-result-title {
