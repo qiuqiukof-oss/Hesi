@@ -453,7 +453,7 @@ function renderAllTabs() {
     let targetTab = RightPanel.activeTab;
     const UIR2 = Q.UIRegistry;
     if (UIR2 && UIR2.isTabHidden(targetTab)) {
-      const firstTab = UIR2.getTabs()[0];
+      const firstTab = (UIR2.getTabs() || [])[0];
       if (firstTab) targetTab = firstTab.id;
     }
     switchTab(targetTab, true);
@@ -616,7 +616,7 @@ function toggleMoreDropdown() {
         const tabId = this.dataset.tabId;
         if (UIR) UIR.setTabHidden(tabId, true);
         if (RightPanel.activeTab === tabId) {
-          const firstTab = UIR.getTabs()[0];
+          const firstTab = (UIR.getTabs() || [])[0];
           if (firstTab) switchTab(firstTab.id);
         }
         renderAllTabs();
