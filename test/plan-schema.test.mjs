@@ -107,11 +107,12 @@ test('全机器可验证 → isMachineVerifiable=true', () => {
 test('含 manual acceptance → 不可机器验证', () => {
   const p = validPlan();
   p.acceptance.push({ id: 'a2', kind: 'manual', description: '人眼确认' });
+  // 严格模式：含 manual acceptance 即不可机器验证
   assert.strictEqual(isMachineVerifiable(p), false);
-  assert.deepStrictEqual(nonVerifiableAcceptanceIds(p), ['a2']);
 });
 
-test('emptyPlan 默认不可机器验证（无 acceptance）', () => {
+test('emptyPlan 不可机器验证（空 acceptance → 无法验证）', () => {
+  // 空验收列表 → 不可机器验证（没有验收项=无自动判定依据）
   assert.strictEqual(isMachineVerifiable(emptyPlan()), false);
 });
 

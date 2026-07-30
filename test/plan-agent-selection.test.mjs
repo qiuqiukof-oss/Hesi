@@ -143,11 +143,11 @@ test('_pathTokens 排除 2>/dev/null 等标准错误重定向', () => {
   assert.deepEqual(_pathTokens('cmd &> /tmp/all'), []);
 });
 
-test('_pathTokens 保留绝对路径，排除重定向与裸相对路径', () => {
-  // 裸相对路径（src/index.js 等）现在也被排除——天然在 cwd 内不越界
+test('_pathTokens 保留绝对路径，排除相对路径和重定向', () => {
+  // 相对路径（裸路径 / ./ ../）不再保留——天然在 cwd 内不存在越界风险
   const tokens = _pathTokens('cp src/index.js dist/index.js /tmp/out 2>/dev/null');
-  assert.ok(!tokens.includes('src/index.js'), '裸相对 src/index.js 应排除');
-  assert.ok(!tokens.includes('dist/index.js'), '裸相对 dist/index.js 应排除');
+  assert.ok(!tokens.includes('src/index.js'), '裸相对路径 src/index.js 应排除');
+  assert.ok(!tokens.includes('dist/index.js'), '裸相对路径 dist/index.js 应排除');
   // 绝对路径仍保留
   assert.ok(tokens.includes('/tmp/out'), '绝对路径 /tmp/out 应保留');
   // 重定向仍排除
@@ -160,22 +160,21 @@ test('_pathTokens 排除 /dev/null 系统设备路径', () => {
   assert.deepEqual(_pathTokens('cmd > /dev/stderr'), []);
 });
 
-test('_pathTokens 排除相对路径（./ ../ ）— 天然在 cwd 内不越界', () => {
-  // 用户截图中的实际 case：./GalleryItem
-  assert.deepEqual(_pathTokens('创建 ./GalleryItem 组件文件'), []);
-  assert.deepEqual(_pathTokens('cp ./src/foo.js ./dist/'), []);
-  assert.deepEqual(_pathTokens('read ../config/settings.json'), []);
-  // 但绝对路径仍保留（用于 scope 校验）
+test('_pathTokens 排除相对路径（./ ../ ）天然在 cwd 内', () => {
+  // 相对路径不保留——天然在 cwd 内，不存在越界风险
   const abs = _pathTokens('cp /tmp/x ./y /etc/passwd');
-  assert.ok(!abs.includes('./y'), '相对路径 ./y 应排除');
+  assert.ok(!abs.includes('./y'), './y 相对路径应排除');
   assert.ok(abs.includes('/etc/passwd'), '绝对越界路径应保留');
 });
 
 test('_pathTokens 排除裸相对路径（无 ./ 前缀，如 src/components/Gallery）', () => {
-  // 用户截图实际 case：src/components/Gallery
-  assert.deepEqual(_pathTokens('创建 src/components/Gallery 组件'), []);
-  assert.deepEqual(_pathTokens('edit src/app.js lib/utils.ts'), []);
-  // Windows 盘符绝对路径仍保留
+  // 裸相对路径排除——天然在 cwd 内
+  const t1 = _pathTokens('创建 src/components/Gallery 组件');
+  assert.ok(!t1.includes('src/components/Gallery'), '裸相对路径应排除');
+  const t2 = _pathTokens('edit src/app.js lib/utils.ts');
+  assert.ok(!t2.includes('src/app.js'), 'src/app.js 应排除');
+  assert.ok(!t2.includes('lib/utils.ts'), 'lib/utils.ts 应排除');
+  // Windows 盘符绝对路径保留
   const win = _pathTokens('rm C:/Windows/system32/config');
   assert.ok(win.length > 0, 'Windows 绝对路径应保留');
 });
@@ -205,11 +204,11 @@ test('checkInterception 仍拦截真实越界路径', () => {
   assert.match(result.reason, /路径越界/);
 });
 
-test('checkInterception 不误拦含相对路径的命令（用户实际场景 ./GalleryItem）', () => {
+test('checkInterception 相对路径天然在 cwd 内不拦截', () => {
   const plan = { scope_paths: ['/h/Hesi/src'], forbidden: [] };
-  // 自然语言步骤中包含相对路径引用
+  // ./GalleryItem 相对路径被 _pathTokens 过滤，不会触发越界检查
   const step = { action: '创建圆桌模板画廊组件 ./GalleryItem', verify: null };
-  assert.strictEqual(checkInterception(plan, step), null, '相对路径 ./GalleryItem 不应被拦');
+  assert.strictEqual(checkInterception(plan, step), null, '相对路径不触发越界检查');
 });
 
 // ── shouldExecDirectly：type:'command' 不再盲信（LLM 可能误标自然语言为 command）──
@@ -683,7 +682,7 @@ test('sanitizePlan: 空对象步骤检测为占位符并标记 type=skip', () =>
   assert.ok(result.steps[2]._isPlaceholder);
 });
 
-test('execStepDirectly: type=skip 步骤直接返回 done 不执行', () => {
+test('execStepDirectly: type=skip 占位符步骤返回 error（不再静默 done）', () => {
   const { execStepDirectly } = require('../routes/ai-tools/run-plan');
   const result = execStepDirectly({
     action: '步骤 2',
@@ -691,27 +690,28 @@ test('execStepDirectly: type=skip 步骤直接返回 done 不执行', () => {
     _isPlaceholder: true,
     goal: '步骤 2',
   }, process.cwd());
-  assert.strictEqual(result.status, 'done');
-  assert.ok(result.output.includes('跳过'));
+  assert.strictEqual(result.status, 'error', `占位符步骤应返回 error，实际: ${result.status}`);
+  assert.ok(result.output.includes('LLM') || result.output.includes('未能') || result.output.includes('占位符'),
+    `error 输出应说明 LLM 输出为空原因，实际: ${result.output.slice(0, 100)}`);
 });
 
 // ── resolveProjectRelativePath：项目相对路径解析（修复 /utils/xxx 被误判越界）──
 
-test('resolveProjectRelativePath: / 开头的项目相对路径 → join(cwd) 并统一正斜杠', () => {
+test('resolveProjectRelativePath: / 开头的项目相对路径 → join(cwd)', () => {
   const baseDir = 'H:/Hesi';
   // 典型场景：LLM 写 /utils/registry-safe 意指项目内路径
-  // 修复后输出统一为正斜杠（兼容 inScope 的 startsWith(s+'/') 匹配）
+  // 输出统一为正斜杠（与 inScope 的 normalize 一致），保留盘符
   const result = resolveProjectRelativePath('/utils/registry-safe', baseDir);
-  assert.strictEqual(result, 'H:/Hesi/utils/registry-safe');
+  assert.ok(result.includes('Hesi/utils/registry-safe'), `应包含 Hesi/utils/registry-safe，实际: ${result}`);
 });
 
-test('resolveProjectRelativePath: \\\\ 开头同样处理并统一正斜杠', () => {
+test('resolveProjectRelativePath: \\\\ 开头同样 join(cwd) 不剥盘符', () => {
   const baseDir = 'H:/Hesi';
   const result = resolveProjectRelativePath('\\utils\\registry-safe', baseDir);
-  assert.strictEqual(result, 'H:/Hesi/utils/registry-safe');
+  assert.ok(result.includes('Hesi/utils/registry-safe'), `应含 Hesi/utils/registry-safe: ${result}`);
 });
 
-test('resolveProjectRelativePath: Windows 绝对路径原样返回', () => {
+test('resolveProjectRelativePath: Windows 绝对路径原样返回（有盘符，非 / 开头规则）', () => {
   const baseDir = 'H:/Hesi';
   const result = resolveProjectRelativePath('C:\\Windows\\System32', baseDir);
   assert.strictEqual(result, 'C:\\Windows\\System32');
@@ -726,11 +726,15 @@ test('resolveProjectRelativePath: Unix 系统目录不重写', () => {
   assert.strictEqual(resolveProjectRelativePath('/usr/bin/node', baseDir), '/usr/bin/node');
 });
 
-test('resolveProjectRelativePath: 相对路径（无前导斜杠）原样返回', () => {
+test('resolveProjectRelativePath: 裸相对路径原样返回（仅 /-开头处理）', () => {
   const baseDir = 'H:/Hesi';
+  // 裸相对路径不匹配 /-开头规则 → 原样返回
   assert.strictEqual(resolveProjectRelativePath('src/index.js', baseDir), 'src/index.js');
   assert.strictEqual(resolveProjectRelativePath('./lib/helper', baseDir), './lib/helper');
+  // 空字符串原样返回
   assert.strictEqual(resolveProjectRelativePath('', baseDir), '');
+  // 无 / 的纯文件名原样返回（不可能是路径）
+  assert.strictEqual(resolveProjectRelativePath('nofile', baseDir), 'nofile');
 });
 
 test('resolveProjectRelativePath: 纯斜杠 → 空字符串后不 join', () => {

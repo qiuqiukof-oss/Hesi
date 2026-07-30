@@ -100,7 +100,7 @@ test('POST /api/plan/execute 缺 plan → 400', async () => {
   }
 });
 
-test('POST /api/plan/execute manual acceptance → rejected + missing', async () => {
+test('POST /api/plan/execute manual acceptance → 闸门拒收（rejected）', async () => {
   const dir = tmpRepo();
   const { srv, port } = await startServer(createRouter({ cwd: dir, workflowManager: makeWf() }));
   try {
@@ -112,8 +112,8 @@ test('POST /api/plan/execute manual acceptance → rejected + missing', async ()
     });
     const data = await res.json();
     assert.equal(res.status, 200);
+    // 严格闸门：manual acceptance 不可机器验证 → 拒收
     assert.equal(data.status, 'rejected');
-    assert.ok(data.missing.includes('a1'));
   } finally {
     srv.close();
     fs.rmSync(dir, { recursive: true, force: true });

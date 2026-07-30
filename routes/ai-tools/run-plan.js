@@ -115,6 +115,8 @@ function _pathTokens(text) {
     if (!/[A-Za-z0-9]/.test(t)) continue;
     // 排除 HTML/JSX/XML 标签片段（/<div, /<span, /<p 等——来自 echo 写入模板的命令）
     if (/^<\/?[a-zA-Z][\w.-]*>?$/.test(t)) continue;
+    // 排除完整 URL（http(s)、ws(s) 等 → 非 filesystem path）
+    if (/^(?:https?|wss?):\/\//i.test(t)) continue;
     // 排除 HTTP URL 路由路径（/api/registers、/static/bundle.js 等 → 非 filesystem path）
     if (WEB_ROUTE_RE.test(t)) continue;
     // 排除相对路径 — 天然在 cwd 内，不存在越界风险
@@ -410,10 +412,14 @@ function rewriteForWindows(command, shell) {
 function execStepDirectly(step, cwd) {
   const action = String(step.action || '').trim();
   if (!action) return { status: 'error', output: '步骤 action 为空' };
-  // 占位符步骤 → 直接返回 done，不执行任何命令
+  // 占位符步骤 → 返回 error（LLM 未能生成有效内容，不应静默通过）
   if (step.type === 'skip' || step._isPlaceholder) {
-    console.log('[execStepDirectly] 跳过占位符步骤:', (step.goal || '').slice(0, 60));
-    return { status: 'done', output: `(跳过：此步骤无实际操作内容，为 LLM 输出缺失时自动填充的占位符)` };
+    console.log('[execStepDirectly] 占位符步骤（LLM 输出为空）:', (step.goal || '').slice(0, 60));
+    return {
+      status: 'error',
+      output: `⚠️ LLM 未能为此步骤生成可执行内容（goal/action 均为占位符「${step.goal || '?'}」）。` +
+        `这通常意味着模型输出不稳定或 API 配置有误。请检查模型设置后重试，或尝试切换更强大的模型。`,
+    };
   }
   try {
     const { execSync } = require('child_process');
@@ -506,10 +512,11 @@ function execStepDirectly(step, cwd) {
     // 可能因缺 coreutils（cat/mkdir）而 exit code 127。
     // 检测到此模式时，直接用 fs.writeFileSync 写文件，零外部命令依赖。
     //
-    // 匹配: cat > path/to/file << 'DELIM'\ncontent\nDELIM
-    //       cat > "path/to/file" << "DELIM"\ncontent\nDELIM
+    // 匹配: cat > path/to/file << 'DELIM'\ncontent\nDELIM     （标准多行格式）
+    //       cat > "path/to/file" << "DELIM"contentDELIM        （LLM 单行输出格式，无换行）
+    // LLM（尤其是 flash 模型）经常将 heredoc 内容紧贴在分隔符后，不换行
     const heredocWriteMatch = action.match(
-      /^cat\s+>\s*['"]?([^'"\s]+)['"]?\s*<<\s*['"]?(\w+)['"]?\s*\n([\s\S]*?)\s*\2\s*$/m
+      /^cat\s+>\s*['"]?([^'"\s]+)['"]?\s*<<\s*['"]?(\w+)['"]?\s*([\s\S]*?)\s*\2\s*$/
     );
     if (heredocWriteMatch) {
       const heredocTarget = heredocWriteMatch[1].trim();
@@ -1088,9 +1095,13 @@ async function runOneAttempt(plan, ctx) {
     if (dryRun) {
       exec = { status: 'skipped', output: '(dryRun)' };
     } else if (step.type === 'skip' || step._isPlaceholder) {
-      // 占位符步骤（sanitizePlan 从空对象推断出的假数据）→ 直接标记 done 不执行
-      console.log(`[runPlan] 跳过占位符步骤 ${step.id}: "${(step.goal || '').slice(0, 60)}"`);
-      exec = { status: 'done', output: `(跳过：此步骤无实际操作内容，为 LLM 输出缺失时自动填充的占位符)` };
+      // 占位符步骤（LLM 输出为空，sanitizePlan 填充的假数据）→ 标记 error 而非静默 done
+      console.log(`[runPlan] 占位符步骤 ${step.id}（LLM 输出为空）: "${(step.goal || '').slice(0, 60)}"`);
+      exec = {
+        status: 'error',
+        output: `⚠️ LLM 未能为此步骤生成可执行内容（goal/action 均为占位符「${step.goal || '?'}」）。` +
+          `这通常意味着模型输出不稳定或 API 配置有误。请检查模型设置后重试，或尝试切换更强大的模型。`,
+      };
     } else if (shouldExecDirectly(task, step)) {
       // 轨道 A：直执模式 — action 是 shell 命令，绕过 agentPool
       exec = execStepDirectly(step, cwd);

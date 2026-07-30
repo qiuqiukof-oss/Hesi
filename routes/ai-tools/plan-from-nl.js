@@ -366,6 +366,48 @@ async function generatePlanFromObjective(text, runtime = {}) {
   // 再补全默认值（objective 从用户输入补、budget 自动计算等）
   plan = applyDefaults(plan, text);
 
+  // ── 占位符检测 + 生成层自动重试（Layer 1）──
+  // LLM（尤其 flash 类轻量模型）偶尔返回空壳步骤（仅有 id，缺 goal/action）
+  // sanitizePlan 会将其填充为「步骤 N」占位符。与其把空壳交给执行器报错，
+  // 不如在生成层立即重试一次（带上明确提示），成功率更高且更快。
+  const stepsAfterDefault = Array.isArray(plan.steps) ? plan.steps : [];
+  const allPlaceholder = stepsAfterDefault.length > 0
+    && stepsAfterDefault.every((s) => s && (s._isPlaceholder || s.type === 'skip'));
+  if (allPlaceholder) {
+    console.warn(`[PlanGen] 检测到全部 ${stepsAfterDefault.length} 个步骤均为占位符（LLM 未生成有效内容），执行生成层重试`);
+    console.warn('[PlanGen] 上次 LLM 原始响应前 1000 字符:', String(raw || '').slice(0, 1000));
+    try {
+      const raw2 = await complete(
+        `${SYSTEM_PROMPT}\n\n【重要提醒】你上次返回的步骤缺少 goal 和 action 内容（只有空 id）。请确保每个步骤都有：\n- goal: 具体目标（如"创建 HTML 文件"）\n- action: 可执行的 shell 命令（如 "mkdir -p public/portfolio && cat > public/portfolio/index.html << 'EOF' ... EOF"）\n- type: "command"\n\n请重新输出完整 JSON。`,
+        userMsg,
+        { apiKey, provider, model, baseUrl },
+      );
+      console.log('[PlanGen] 重试后 LLM 响应长度:', String(raw2 || '').length);
+      console.log('[PlanGen] 重试后 LLM 响应前 800 字符:', String(raw2 || '').slice(0, 800));
+      if (raw2) {
+        const plan2 = extractJson(raw2);
+        if (plan2) {
+          const sanitized2 = sanitizePlan(applyDefaults(plan2, text));
+          const stillEmpty = Array.isArray(sanitized2.steps)
+            && sanitized2.steps.length > 0
+            && sanitized2.steps.every((s) => s && (s._isPlaceholder || s.type === 'skip'));
+          if (!stillEmpty) {
+            console.log('[PlanGen] 生成层重试成功，获得有效步骤');
+            plan = sanitized2;
+            raw = raw2; // 更新 raw 引用用于后续诊断日志
+          } else {
+            console.warn('[PlanGen] 重试后仍为占位符，保留原始结果交由执行层处理');
+          }
+        } else {
+          console.warn('[PlanGen] 重试响应 JSON 解析失败，保留原始结果');
+        }
+      }
+    } catch (retryErr) {
+      console.warn('[PlanGen] 生成层重试异常:', retryErr.message);
+      // 重试失败不阻断，继续用原始（占位符）结果交由执行层 → error → 外层 autoReplan
+    }
+  }
+
   // 对空 acceptance 自动生成兜底验收（避免因模型漏写 acceptance 而整体失败）
   if (!plan.acceptance || plan.acceptance.length === 0) {
     const stepCount = Array.isArray(plan.steps) ? plan.steps.length : 0;

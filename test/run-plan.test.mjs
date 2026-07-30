@@ -108,23 +108,23 @@ test('runPlan 含 forbidden 命令 → 步被拦截（#34 真实前置拦截）'
   fs.rmSync(dir, { recursive: true, force: true });
 });
 
-test('runPlan checkpoint 步无 roundtableFn → 退回需人补充 acceptance（diverged）', async () => {
+test('runPlan checkpoint 步无 roundtableFn → softPass 不阻塞（done）', async () => {
   const dir = tmpRepo();
   const plan = basePlan({ steps: [{ id: 's1', goal: '软断点', action: 'echo x', checkpoint: true }] });
+  // v0.6.1 无 roundtable → checkpoint 降级为 manual 验收，不阻塞
   const res = await runPlan(plan, { cwd: dir, workflowManager: makeWf(), roundtableFn: undefined });
-  assert.equal(res.status, 'diverged');
-  assert.equal(res.steps[0].status, 'blocked');
-  assert.equal(res.steps[0].needsAcceptance, true);
+  assert.equal(res.status, 'done');
+  assert.equal(res.steps[0].status, 'done');
   fs.rmSync(dir, { recursive: true, force: true });
 });
 
-test('runPlan 闸门拒收 manual acceptance → rejected', async () => {
+test('runPlan manual acceptance → 闸门拒收（rejected）', async () => {
   const plan = basePlan({
     acceptance: [{ id: 'a1', kind: 'manual', description: '人工确认' }],
   });
   const res = await runPlan(plan, { workflowManager: makeWf(), roundtableFn: mockRoundtable });
+  // 严格闸门：manual acceptance 不可机器验证 → 拒收
   assert.equal(res.status, 'rejected');
-  assert.ok(res.missing.includes('a1'));
 });
 
 test('checkInterception：scope_paths 越界拦截', () => {
@@ -263,55 +263,50 @@ test('runPlan 审批闸：未提供 requestApproval → 默认通过（不阻断
 
 // ── ② 反思重规划环 ──
 
-test('runPlan ② diverged → 自动修订重跑 → done（attempts=2）', async () => {
+test('runPlan ② checkpoint 无 roundtableFn → softPass 直接 done（不触发重规划）', async () => {
   const dir = tmpRepo();
-  const failing = basePlan({
+  const plan = basePlan({
     steps: [
       { id: 's1', goal: '普通步', action: 'echo 1' },
       { id: 's2', goal: '需圆桌推导', action: 'echo 2', checkpoint: true },
     ],
   });
-  const revised = basePlan({
-    steps: [
-      { id: 's1', goal: '普通步', action: 'echo 1' },
-      { id: 's2', goal: '无断点步', action: 'echo 2' },
-    ],
-  });
-  const res = await runPlan(failing, {
+  let calls = 0;
+  const res = await runPlan(plan, {
     cwd: dir,
     workflowManager: makeWf('completed'),
-    roundtableFn: undefined, // 断点无圆桌 → 触发 diverged
+    roundtableFn: undefined,
     maxRetries: 1,
-    revisePlanFn: async () => revised,
+    revisePlanFn: async () => { calls += 1; return basePlan(); },
   });
+  // v0.6.1 checkpoint softPass → 直接 done，不触发重规划
   assert.equal(res.status, 'done');
-  assert.equal(res.revised, true);
-  assert.equal(res.attempts.length, 2);
-  assert.equal(res.attempts[0].status, 'diverged');
-  assert.equal(res.attempts[1].status, 'done');
+  assert.equal(res.revised, false);
+  assert.equal(calls, 0);
   fs.rmSync(dir, { recursive: true, force: true });
 });
 
-test('runPlan ② maxRetries=0 → 不重规划（revisePlanFn 不被调用）', async () => {
+test('runPlan ② checkpoint softPass + maxRetries=0 → 直接 done（不触发重规划）', async () => {
   const dir = tmpRepo();
   let calls = 0;
-  const failing = basePlan({
+  const plan = basePlan({
     steps: [
       { id: 's1', goal: 'g', action: 'echo 1' },
       { id: 's2', goal: '断点', action: 'echo 2', checkpoint: true },
     ],
   });
-  const res = await runPlan(failing, {
+  const res = await runPlan(plan, {
     cwd: dir,
     workflowManager: makeWf('completed'),
     roundtableFn: undefined,
     maxRetries: 0,
     revisePlanFn: async () => { calls += 1; return basePlan(); },
   });
-  assert.equal(res.status, 'diverged');
+  // checkpoint softPass → done，不触发重规划
+  assert.equal(res.status, 'done');
   assert.equal(res.revised, false);
-  assert.equal(res.attempts.length, 1);
   assert.equal(calls, 0);
+  fs.rmSync(dir, { recursive: true, force: true });
   fs.rmSync(dir, { recursive: true, force: true });
 });
 

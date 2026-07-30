@@ -111,6 +111,7 @@ async function resolveCheckpoint(plan, step, opts = {}) {
     ok: false,
     needsAcceptance: true,
     fellBack: true,
+    usedRoundtable: true,
     roundsUsed: rounds,
     reason: `roundtable 经 ${rounds} 轮仍无法推导机器可验证标准，退回需人补充 acceptance`,
   };

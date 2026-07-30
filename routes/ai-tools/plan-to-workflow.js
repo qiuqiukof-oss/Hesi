@@ -51,11 +51,11 @@ function planToWorkflowTasks(plan, opts) {
 function inScope(plan, path) {
   const scopes = Array.isArray(plan && plan.scope_paths) ? plan.scope_paths : [];
   if (scopes.length === 0) return true;
-  // 统一正斜杠比较：Windows 路径可能含 \，LLM 生成的路径可能用 /
-  // 避免 H:/Hesi/foo 与 H:\Hesi 因分隔符不同而误判为越界
-  const p = String(path || '').replace(/\\/g, '/');
+  // 统一正斜杠 + 剥离盘符：避免 H:/Hesi/foo 与 /Hesi/foo 因盘符不一致而误判
+  const stripDrive = (s) => s.replace(/\\/g, '/').replace(/^[A-Za-z]:/, '');
+  const p = stripDrive(String(path || ''));
   return scopes.some((s) => {
-    const norm = String(s).replace(/\\/g, '/').replace(/\/$/, '');
+    const norm = stripDrive(String(s)).replace(/\/$/, '');
     return p === norm || p.startsWith(norm + '/');
   });
 }

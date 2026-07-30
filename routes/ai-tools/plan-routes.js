@@ -119,7 +119,11 @@ function createRouter(opts = {}) {
       // ② 反思重规划环 / ④ 运行时拦截开关（仅当显式开启或 fullAuto 时激活，默认关闭避免回归）
       const perms = (body.permissions && typeof body.permissions === 'object') ? body.permissions : null;
       const fullAuto = !!(perms && perms.fullAuto);
-      const autoReplan = !!(body.autoReplan || plan.autoReplan || fullAuto);
+      // 占位符步骤（LLM 输出为空壳）自动启用 autoReplan：让反思重规划环重新生成 Plan
+      // 一次，符合用户期望的"发现问题自动修复一次"能力（而非静默 done 或直接失败）。
+      const hasPlaceholderSteps = Array.isArray(plan.steps)
+        && plan.steps.some((s) => s && (s._isPlaceholder || s.type === 'skip'));
+      const autoReplan = !!(body.autoReplan || plan.autoReplan || fullAuto || hasPlaceholderSteps);
       const maxRetries = Number.isFinite(Number(body.maxRetries)) && body.maxRetries > 0 ? body.maxRetries
         : (Number.isFinite(Number(plan.maxRetries)) && plan.maxRetries > 0 ? plan.maxRetries
           : (autoReplan ? 1 : 0));

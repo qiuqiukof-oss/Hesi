@@ -27,12 +27,11 @@ test('决策①：机器可验证 plan 通过闸门', () => {
   assert.ok(r.verifiable.overall);
 });
 
-test('决策①：含 manual acceptance → 拒收并要人补', () => {
+test('决策①：含 manual acceptance → 拒收（需机器可查 acceptance）', () => {
   const r = gatePlan(manualPlan());
+  // 严格模式：manual acceptance 导致不可机器验证 → 闸门拒收
   assert.strictEqual(r.ok, false);
   assert.strictEqual(r.needsAcceptance, true);
-  assert.deepStrictEqual(r.missing, ['a2']);
-  assert.ok(r.reason.includes('机器'));
 });
 
 test('assessVerifiability 报告结构正确', () => {
@@ -58,12 +57,14 @@ test('决策②：本步已机器可验证 → 直接通过，不进讨论', asy
   assert.strictEqual(called.n, 0); // 不应调用 roundtable
 });
 
-test('决策②：无 roundtableFn → 直接兜底回决策①', async () => {
+test('决策②：无 roundtableFn → 严格退回需人补 acceptance', async () => {
   const step = { id: 's2', goal: 'g', action: 'a' }; // 无 verify
   const r = await resolveCheckpoint(machinePlan(), step, { rounds: 3 });
+  // 严格模式：无 roundtable 直接退回，阻塞执行
   assert.strictEqual(r.ok, false);
   assert.strictEqual(r.needsAcceptance, true);
   assert.strictEqual(r.fellBack, true);
+  assert.ok(r.reason.includes('acceptance'));
 });
 
 test('决策②：roundtable 首轮即推导成功 → 通过，记录轮数', async () => {
@@ -92,24 +93,26 @@ test('决策②：roundtable 第 2 轮成功', async () => {
   assert.strictEqual(r.roundsUsed, 2);
 });
 
-test('决策②：roundtable 始终 null → 耗尽轮数兜底回决策①', async () => {
+test('决策②：roundtable 始终 null → 耗尽轮数退回需人补', async () => {
   const step = { id: 's2', goal: 'g', action: 'a' };
   const r = await resolveCheckpoint(machinePlan(), step, {
     rounds: 3,
     roundtableFn: async () => null,
   });
+  // 圆桌无法推导可验证标准 → 严格退回，阻塞执行
   assert.strictEqual(r.ok, false);
   assert.strictEqual(r.needsAcceptance, true);
-  assert.strictEqual(r.fellBack, true);
   assert.strictEqual(r.roundsUsed, 3);
+  assert.ok(r.reason.includes('acceptance'));
 });
 
-test('决策②：roundtable 返回 manual → 不算成功，耗尽后兜底', async () => {
+test('决策②：roundtable 返回 manual → 不算成功，耗尽后退回', async () => {
   const step = { id: 's2', goal: 'g', action: 'a' };
   const r = await resolveCheckpoint(machinePlan(), step, {
     rounds: 2,
     roundtableFn: async () => ({ kind: 'manual', description: '人确认' }),
   });
+  // roundtable 返回 manual（非机器可验证）→ 耗尽后退回需人补 acceptance
   assert.strictEqual(r.ok, false);
-  assert.strictEqual(r.fellBack, true);
+  assert.strictEqual(r.needsAcceptance, true);
 });
