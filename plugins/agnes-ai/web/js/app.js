@@ -194,13 +194,21 @@ function showToast(message, type = 'info', duration = 3500) {
 // 设置管理
 // ============================================
 async function loadSettings() {
-  // API Key 与后端 API 地址存于 Hesi 后端（插件配置接口），浏览器不持久化明文 Key。
+  // API Key 与全部偏好存于 Hesi 后端（插件配置接口），前端不持久化明文 Key。
   try {
     const resp = await fetch('/api/plugins/agnes-ai/config');
     if (resp.ok) {
       const cfg = await resp.json();
       if (cfg.apiKey) State.apiKey = cfg.apiKey;
       if (cfg.apiBaseUrl) State.apiBaseUrl = cfg.apiBaseUrl;
+      if (cfg.chatModel) State.chatModel = cfg.chatModel;
+      if (cfg.imageModel) State.imageModel = cfg.imageModel;
+      if (cfg.videoModel) State.videoModel = cfg.videoModel;
+      if (cfg.temperature !== undefined && cfg.temperature !== '') {
+        State.temperature = parseFloat(cfg.temperature) || State.temperature;
+      }
+      if (cfg.defaultImageSize) State.defaultImageSize = cfg.defaultImageSize;
+      if (cfg.videoResolution) State.videoResolution = cfg.videoResolution;
     }
   } catch (e) {
     console.warn('[Agnes] 读取插件配置失败:', e);
@@ -209,12 +217,21 @@ async function loadSettings() {
 }
 
 async function saveSettingsToStorage() {
-  // 仅把 Key + 后端 API 地址同步到 Hesi 后端；其它模型/温度等偏好仍留前端。
+  // 全部设置（含 Key 与模型/温度偏好）同步到 Hesi 后端持久化，重启不再丢失。
   try {
     await fetch('/api/plugins/agnes-ai/config', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ apiKey: State.apiKey, apiBaseUrl: State.apiBaseUrl }),
+      body: JSON.stringify({
+        apiKey: State.apiKey,
+        apiBaseUrl: State.apiBaseUrl,
+        chatModel: State.chatModel,
+        imageModel: State.imageModel,
+        videoModel: State.videoModel,
+        temperature: State.temperature,
+        defaultImageSize: State.defaultImageSize,
+        videoResolution: State.videoResolution,
+      }),
     });
   } catch (e) {
     console.warn('[Agnes] 保存插件配置失败:', e);
@@ -1446,10 +1463,15 @@ function initSettings() {
       State.imageHistory = [];
       State.videoTasks.clear();
       State.apiKey = '';
+      State.temperature = 0.7;
+      State.defaultImageSize = '1024x768';
+      State.videoResolution = '720p';
       applySettingsToUI();
       ChatModule.renderMessages();
       ImageModule.renderGallery();
       VideoModule.renderTasks();
+      // 同时清空服务端持久化配置（含 API Key）
+      fetch('/api/plugins/agnes-ai/config', { method: 'DELETE' }).catch(() => {});
       showToast('所有数据已清除', 'info');
     }
   });
