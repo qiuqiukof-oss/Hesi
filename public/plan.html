@@ -30,6 +30,13 @@
 
   <main class="plan-main">
     <section class="plan-left">
+      <label class="plan-label" for="objective-input">自然语言目标（可选）</label>
+      <textarea id="objective-input" class="plan-textarea" spellcheck="false"
+        placeholder="例如：把圆桌模板画廊做出来，并修复右侧栏在空注册表时崩溃"></textarea>
+      <p class="plan-hint" style="font-size:12px;color:var(--text-muted,#8a8a8a);margin:2px 0 12px;">
+        填了目标就交给 AI 自动拆解成 Plan；留空则手写下方 JSON。
+      </p>
+
       <label class="plan-label" for="plan-input">Plan JSON</label>
       <textarea id="plan-input" class="plan-textarea" spellcheck="false"
         placeholder='{ "objective": "...", "acceptance": [...], "steps": [...] }'></textarea>

@@ -161,19 +161,27 @@
   }
 
   async function execute() {
-    let plan;
-    const raw = $('plan-input').value.trim();
-    try {
-      plan = JSON.parse(raw);
-    } catch (e) {
-      setStatus('Plan JSON 解析失败：' + e.message, 'error');
-      return;
-    }
+    const objective = $('objective-input').value.trim();
+    const body = {};
     clearResults();
     setStatus('执行中…', 'info');
     $('execute').disabled = true;
     try {
-      const body = { plan };
+      if (objective) {
+        body.objective = objective; // 自然语言入口：交给 AI 拆解
+      } else {
+        const raw = $('plan-input').value.trim();
+        if (!raw) {
+          setStatus('请填写「自然语言目标」或「Plan JSON」', 'error');
+          return;
+        }
+        try {
+          body.plan = JSON.parse(raw);
+        } catch (e) {
+          setStatus('Plan JSON 解析失败：' + e.message, 'error');
+          return;
+        }
+      }
       const ak = $('api-key').value.trim();
       if (ak) body.apiKey = ak;
       const pv = $('provider').value.trim(); if (pv) body.provider = pv;

@@ -19,6 +19,7 @@ const crypto = require('crypto');
 const { runPlan, parseVerifyFromSummary } = require('./run-plan');
 const { workflowManager } = require('./workflow-manager');
 const { runRoundtable } = require('../chat/discuss');
+const { generatePlanFromObjective } = require('./plan-from-nl');
 
 // 审批闸：execId -> { resolve, timer }
 const pendingApprovals = new Map();
@@ -67,10 +68,7 @@ function createRouter(opts = {}) {
 
   router.post('/execute', async (req, res) => {
     const body = req.body || {};
-    const plan = body.plan && typeof body.plan === 'object' ? body.plan : null;
-    if (!plan) {
-      return res.status(400).json({ ok: false, error: '缺少 plan 对象（body.plan）' });
-    }
+    const objective = typeof body.objective === 'string' ? body.objective.trim() : '';
     const runtime = {
       apiKey: body.apiKey,
       provider: body.provider,
@@ -79,6 +77,18 @@ function createRouter(opts = {}) {
       partner: body.partner,
       partners: body.partners,
     };
+    let plan = body.plan && typeof body.plan === 'object' ? body.plan : null;
+    // 自然语言入口：给了 objective 且没手写 plan → 先让 AI 拆解成 plan
+    if (!plan && objective) {
+      try {
+        plan = await generatePlanFromObjective(objective, runtime);
+      } catch (e) {
+        return res.status(400).json({ ok: false, error: e.message, code: e.code || 'GEN_FAILED' });
+      }
+    }
+    if (!plan) {
+      return res.status(400).json({ ok: false, error: '缺少 plan 对象（body.plan）或目标（body.objective）' });
+    }
     const execId = crypto.randomUUID();
     // 审批闸：等待人工决议（超时兜底→驳回）
     const requestApproval = (reqInfo) => new Promise((resolve) => {

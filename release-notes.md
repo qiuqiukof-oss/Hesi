@@ -1,3 +1,10 @@
+# Hesi v0.6.1
+
+## 全自动 Phase 1 · auto-Planner（自然语言驱动）
+- **自然语言 → Plan**：`plan.html` 新增「自然语言目标」输入框；`POST /api/plan/execute` 支持 `body.objective`，由 `routes/ai-tools/plan-from-nl.js` 调用 LLM 把目标拆解成结构化、机器可验证的 Plan，再复用既有 gate→budget→圆桌→过闸流水线。
+- 模型返回非法 JSON 或校验失败时自动修复重试一次；缺 API Key / 模型失败时返回友好错误（含 `code`）。
+- 手写 Plan JSON 方式保留（目标留空即走原路径）。
+
 # Hesi v0.5.8
 
 ## 核心修复：聊天体验大幅提升
