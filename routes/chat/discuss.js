@@ -234,9 +234,22 @@ async function runSummary({ p, key, url, m }, question, transcript, onToken, onU
  */
 const MAX_DISCUSS_AGENTS = 4; // 同时参与讨论的 CLI Agent 上限（控成本/防失控）
 
+// 把上游传入的 transcript（string | {role,content}[] | 其它）规整为可注入圆桌的上下文文本。
+// checkpoint 圆桌靠它拿到前置讨论/摘要，否则会丢失来龙去脉。
+function normalizeTranscript(transcript) {
+  if (!transcript) return '';
+  if (Array.isArray(transcript)) {
+    return transcript
+      .map((t) => (typeof t === 'string' ? t : (t && typeof t.content === 'string' ? t.content : '')))
+      .join('\n')
+      .trim();
+  }
+  return String(transcript).trim();
+}
+
 // 纯圆桌函数（无 SSE 依赖）：供 runDiscussion（SSE 包装）与 plan 的 resolveCheckpoint 复用。
 // 通过 onEvent(type, payload) 发射事件，shouldAbort() 用于中断检测。
-async function runRoundtable({ message, partner, partners, maxTurns = 6, apiKey, provider, baseUrl, model, takenOver = {}, personas, protocol, onEvent, shouldAbort }) {
+async function runRoundtable({ message, partner, partners, maxTurns = 6, apiKey, provider, baseUrl, model, takenOver = {}, personas, protocol, transcript, onEvent, shouldAbort }) {
   const cfg = resolveConfig({ apiKey, provider, baseUrl, model });
   if (!cfg.key) {
     onEvent?.('error', { message: '未配置 API Key（OPENAI/ANTHROPIC），无法运行 AI 讨论。' });
@@ -264,6 +277,9 @@ async function runRoundtable({ message, partner, partners, maxTurns = 6, apiKey,
   const aborted = () => !!(shouldAbort && shouldAbort());
   const question = message;
   const transcriptLines = [];
+  // 注入上游前置上下文（来自 plan checkpoint 的上游讨论/摘要），让圆桌看到来龙去脉
+  const seedContext = normalizeTranscript(transcript);
+  if (seedContext) transcriptLines.push(`【前置上下文】\n${seedContext}`);
   let cleanFinish = true;
 
   // ── token 统计（让圆桌 vs 单模型的成本可被实测）──
@@ -384,4 +400,4 @@ async function runDiscussion(res, { message, partner, partners, maxTurns = 6, ap
   }
 }
 
-module.exports = { runDiscussion, runRoundtable };
+module.exports = { runDiscussion, runRoundtable, normalizeTranscript };

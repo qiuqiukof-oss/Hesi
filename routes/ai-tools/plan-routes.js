@@ -40,7 +40,7 @@ function buildRoundtableFn(runtime) {
         provider: runtime.provider,
         baseUrl: runtime.baseUrl,
         model: runtime.model,
-        transcript: transcript ? [{ role: 'user', content: transcript }] : [],
+        transcript: transcript || '',
         onEvent: null,
         shouldAbort: null,
       });
