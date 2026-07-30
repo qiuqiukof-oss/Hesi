@@ -95,6 +95,15 @@ import { getSeen, setSeen } from './onboarding-state.js';
       highlightTarget: 'discuss-switch',  // 高亮框只圈🤝开关本身，不圈整条宽栏
     },
     {
+      target: 'ai-settings-btn',
+      title: '🤖 接入你的大模型（必做）',
+      text: 'Hesi 的所有 AI 能力都依赖一个大模型。点这个 🤖 打开「AI 设置」：<br>• 云端：选 OpenAI / Anthropic，粘贴 API Key；<br>• 本地：选「OpenAI 兼容」，Base URL 填 http://localhost:11434/v1（Ollama），Key 留空；<br>• 或设环境变量 OPENAI_API_KEY / ANTHROPIC_API_KEY，连界面都不用填。<br>Key 只存在本机，绝不外传。',
+      highlight: true,
+      prefer: 'down',  // 气泡在按钮下方，箭头向上指 🤖
+      align: 'end',    // 右对齐，避免溢出屏幕右缘
+      offset: { x: 0, y: 8 },
+    },
+    {
       target: 'chat-attach-btn',
       title: '📎 发附件给 AI',
       text: '点对话框的 📎 发图片、视频或代码文件，AI 真能「看懂」图、读取文件内容。',
