@@ -235,6 +235,33 @@ test('审批闸：超时未操作 → 视为驳回（plan:approval-resolved time
   }
 });
 
+test('审批闸：body.approvalTimeoutMs 覆盖默认 30min（per-plan 配置生效）', async () => {
+  const dir = tmpRepo();
+  const events = [];
+  // 注意：createRouter 不注入 approvalTimeoutMs（回退 30min 默认），
+  // 仅靠 body.approvalTimeoutMs=80 驱动超时路径，验证 per-plan 覆盖已接入。
+  const router = createRouter({ cwd: dir, workflowManager: makeWf('completed'), broadcastFn: (d) => events.push(d) });
+  const { srv, port } = await startServer(router);
+  try {
+    const plan = { ...goodPlan, steps: [
+      { id: 's1', goal: 'g1', action: 'echo 1' },
+      { id: 's2', goal: '需审批', action: 'echo 2', requireApproval: true },
+      { id: 's3', goal: 'g3', action: 'echo 3' },
+    ] };
+    const data = await (await fetch(`http://127.0.0.1:${port}/api/plan/execute`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ plan, approvalTimeoutMs: 80 }),
+    })).json();
+    assert.equal(data.status, 'diverged');          // 超时驳回 = 人为中止（diverged）
+    assert.equal(data.steps.length, 2);             // 第三步未执行
+    assert.equal(data.steps[1].status, 'rejected'); // 第二步被超时驳回
+    await waitFor(() => events.some((e) => e.type === 'plan:approval-resolved' && e.timedOut === true));
+  } finally {
+    srv.close();
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
 // ── ④ 运行时逐工具强制拦截（路由层） ──
 
 test('POST /api/plan/execute runtimeIntercept：危险 action 被拦截', async () => {

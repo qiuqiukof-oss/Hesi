@@ -28,12 +28,20 @@ const { agentPool } = require('./agent-pool');
 const agentRoles = require('../../lib/agent-roles');
 const blackboard = require('../../lib/blackboard');
 
-// ── 配置常量 ──
-const MAX_WORKFLOWS = 20;           // 最大工作流数
+// ── 配置常量（支持 env 覆盖，避免硬编码到具体部署环境） ──
+// 最大工作流数：HESI_MAX_WORKFLOWS（缺省 20）
+const MAX_WORKFLOWS = (() => {
+  const v = parseInt(process.env.HESI_MAX_WORKFLOWS, 10);
+  return Number.isFinite(v) && v > 0 ? v : 20;
+})();
 const MAX_TASKS_PER_WF = 50;        // 每工作流最大任务数
 const DONE_WF_TTL_MS = 10 * 60 * 1000;  // 完成后保留 10 分钟
 const CLEANUP_INTERVAL_MS = 120_000;     // 清理周期 2 分钟
-const WF_TIMEOUT_MS = 30 * 60 * 1000;    // 工作流总超时 30 分钟
+// 工作流总超时：HESI_WF_TIMEOUT_MS（缺省 30min）
+const WF_TIMEOUT_MS = (() => {
+  const v = parseInt(process.env.HESI_WF_TIMEOUT_MS, 10);
+  return Number.isFinite(v) && v > 0 ? v : 30 * 60 * 1000;
+})();
 
 // Agent 启动重试策略：
 //   agentPool.start() 可能因资源竞争临时失败（如并发池满），

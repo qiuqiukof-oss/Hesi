@@ -76,8 +76,9 @@ function createRouter(opts = {}) {
   const cwd = opts.cwd || process.cwd();
   const wf = opts.workflowManager || workflowManager;
   const broadcast = (data) => { try { if (opts.broadcastFn) opts.broadcastFn(data); } catch { /* ignore */ } };
-  // 审批超时（默认 30min）；测试可注入极小值以覆盖超时路径
-  const approvalTimeoutMs = Number.isFinite(opts.approvalTimeoutMs) && opts.approvalTimeoutMs > 0
+  // 审批超时回退值（默认 30min）；测试可注入极小值以覆盖超时路径。
+  // 真实请求可经 body.approvalTimeoutMs / plan.approvalTimeoutMs 按 plan 覆盖（见 /execute 处理器）。
+  const factoryApprovalTimeoutMs = Number.isFinite(opts.approvalTimeoutMs) && opts.approvalTimeoutMs > 0
     ? opts.approvalTimeoutMs
     : APPROVAL_TIMEOUT_MS;
 
@@ -104,6 +105,14 @@ function createRouter(opts = {}) {
     if (!plan) {
       return res.status(400).json({ ok: false, error: '缺少 plan 对象（body.plan）或目标（body.objective）' });
     }
+    // 审批超时：支持 per-plan 配置（body.approvalTimeoutMs / plan.approvalTimeoutMs），
+    // 回退到路由工厂注入值，最终回退 30min 默认。大型多步重构可调长。
+    const reqApprovalTimeoutMs = Number(body.approvalTimeoutMs);
+    const planApprovalTimeoutMs = Number(plan && plan.approvalTimeoutMs);
+    const approvalTimeoutMs =
+      (Number.isFinite(reqApprovalTimeoutMs) && reqApprovalTimeoutMs > 0 && reqApprovalTimeoutMs) ||
+      (Number.isFinite(planApprovalTimeoutMs) && planApprovalTimeoutMs > 0 && planApprovalTimeoutMs) ||
+      factoryApprovalTimeoutMs;
     const execId = crypto.randomUUID();
     // 审批闸：等待人工决议（超时兜底→驳回）
     const requestApproval = (reqInfo) => new Promise((resolve) => {
