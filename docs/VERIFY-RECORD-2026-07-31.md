@@ -80,7 +80,7 @@ README「Phase 0 待实施」的标注**不准确**。
 ### 链路图
 
 ```
-用户点击「执行 plan」（plan-view.js:587 / plan-drawer.js:365）
+用户点击「执行 plan」（plan-drawer.js `_execute()`，右侧抽屉 `#plan-execute` 按钮）
   → POST /api/plan/execute（routes/index.js:218 挂载）
   → plan-routes.js:99
       ├─ [可选] M3 前置讨论：runRoundtable()（discuss.js:252）+ 用户确认/超时自动继续
@@ -107,7 +107,7 @@ README「Phase 0 待实施」的标注**不准确**。
 
 | 模块 | 状态 | 证据 |
 |------|------|------|
-| 前端入口 | ✅ | plan-view.js:587 + plan-drawer.js:365 |
+| 前端入口 | ✅ | plan-drawer.js `_execute()`（右侧抽屉 `#plan-execute`） |
 | API 路由 | ✅ | routes/index.js:218 |
 | 前置讨论 | ✅ | plan-routes.js:137-170 |
 | NL→Plan | ✅ | plan-from-nl.js:284（llm-bridge.complete 真实调用，3 层容错） |
@@ -315,3 +315,9 @@ README「Phase 0 待实施」的标注**不准确**。
 - **「反向链路测试真空」（六.3）确证**：`test/` 在两个树（H:\Hesi 与 F:\Hesi-0.6.4）均无 `callback*` 测试，原记录未冤枉。
 - **gap #4 runtimeIntercept 条件性生效** 确证（见 8.3）。
 - **版本有效性**：当前 `H:\Hesi` HEAD = `de39f4a` = v0.6.4，与 `F:\Hesi-0.6.4` 快照一致，记录仍对应当前 main，无版本漂移。建议文档头补一行 commit SHA 便于将来重验。
+
+### 8.8 2026-08-01：删除 Plan 独立页，历史功能并入右侧抽屉
+- 经用户确认，原 `public/plan.html` + `plan-view.js` + `css/plan-view.css` + `css/plan-history.css` 与右侧抽屉（`plan-drawer.js`，挂载于 `index.html` `#plan-embed`）在「执行器 UI」上完全冗余；但独立页独有的 **Plan 历史**（`/api/plan/history` 浏览/重跑/删除）抽屉此前缺失。
+- 处理：将 Plan 历史功能**移植进右侧抽屉**（抽屉内新增「📚 历史 Plan」按钮 + 历史面板，复用既有 API），随后**删除独立页全部 4 个文件**，并移除 `index.html` 指向独立页的 `⛶` 链接。零功能丢失，消除重复入口。
+- 提交：`d97bdc5`（11 文件，+280/−1491）。本记录原始核对基准 `de39f4a` 仍为 v0.6.4 发布点；当前 main 已前进至 `d97bdc5`。
+- 注：Plan 执行器相关结论（8.2–8.4、8.6）未因本次重构改变，依旧有效。
