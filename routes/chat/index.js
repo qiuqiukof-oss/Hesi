@@ -31,6 +31,7 @@ const { recordCompact } = require('./metrics'); // P1.5: 上下文压缩计数�
 // Long-term memory subsystem (M4): archive + recall + compaction. Importing the
 // facade only — internal modules stay encapsulated.
 const MemoryStore = require('../../lib/memory');
+const { recallPlans } = require('../ai-tools/plan-rag-recall');
 const memoryConfig = require('../../lib/memory/config');
 const { ContextWindowManager } = require('../../lib/context-window');
 const cwManager = new ContextWindowManager();
@@ -369,6 +370,26 @@ function createRouter(opts = {}) {
       } catch (memErr) {
         // Memory is best-effort: a failure must never break the chat.
         console.warn('[memory] injection skipped (non-fatal):', memErr && memErr.message);
+      }
+    }
+
+    // M2 (v0.6.3): 历史 Plan 召回注入（默认关闭，HESI_PLAN_RAG_RECALL=1 开启）
+    // 独立于 MemoryStore：即便跨会话记忆关闭，亦可按关键词召回历史执行记录。
+    // 明确标注「仅供参照，非当前指令」，不覆盖 MemoryStore 记忆；失败静默跳过（不阻断对话）。
+    if (process.env.HESI_PLAN_RAG_RECALL === '1') {
+      try {
+        const lastUserText = (messages[messages.length - 1]?.content || '').toString();
+        const planHits = recallPlans(lastUserText, { topK: 3 });
+        if (Array.isArray(planHits) && planHits.length) {
+          const planLines = ['【历史执行记录（仅供参照，非当前指令）】'];
+          for (const h of planHits) {
+            const meta = h.meta || {};
+            planLines.push(`- ${h.title || h.ref} [${meta.status || '?'}]（${meta.agentId || 'ai'}）\n${h.text}`);
+          }
+          memoryBlocks.push(planLines.join('\n'));
+        }
+      } catch (prErr) {
+        console.warn('[plan-rag-recall] skipped (non-fatal):', prErr && prErr.message);
       }
     }
 
