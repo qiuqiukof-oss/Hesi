@@ -36,3 +36,25 @@
 - 无破坏性变更；审批闸/并发行为默认值不变。
 - 如需调并发上限，设 `HESI_MAX_WORKFLOWS` / `HESI_WF_TIMEOUT_MS` 后重启服务。
 - 如需按 Plan 调审批超时，提交 plan 时带 `approvalTimeoutMs` 字段。
+
+## 附：本地模型（Plan 生成）兼容性修复（用户实测发现，本版一并修复）
+> 适用范围：Plan 页面的「自然语言 → Plan 生成」走独立的 `lib/memory/llm-bridge` 通道（与聊天通道分离）。
+
+### ⑤ 超时从硬编码 120s 改为可配 + 重试（`38d7b9e`）
+- **问题**：本地模型（Qwen3 等）生成 Plan 的长 JSON 常超 2 分钟，原硬编码 `AbortSignal.timeout(120000)` **无重试**直接抛 `The operation was aborted due to timeout`。
+- **修复**：
+  - 超时读 `HESI_LLM_API_TIMEOUT_MS`，默认 **300000（5 分钟）**，与聊天通道同环境变量。
+  - 新增 `_fetchWithRetry`：仅对 `AbortError`（超时）/ `TypeError`（网络抖动）自动重试 **2 次**（指数退避 1s→2s），可用 `HESI_LLM_BRIDGE_RETRIES` 覆盖。
+
+### ⑥ 内容提取兼容推理模型（`7e31ea9`）
+- **问题**：超时修复后 HTTP 200 成功，但 `_extractOpenAIContent` 提取不到文本（Qwen3 推理模型返回格式非标准）。
+- **修复**：新增提取路径
+  - `message.reasoning_content`（vLLM/llama.cpp 常用非标准字段）
+  - content 数组中 `type: thinking/reasoning/thought` 块
+  - 兜底：数组中任意含文本值的块
+  - 全路径失败时记录完整响应结构诊断（`[LLMBridge]` 前缀日志）
+  - 前端错误信息附带 `content` 类型（string/array/null）便于定位
+
+### 本地模型调优建议
+- 若仍偶发超时：启动加 `HESI_LLM_API_TIMEOUT_MS=600000`（10 分钟）。
+- 若报「模型返回空响应」：看 Hesi 终端 `[LLMBridge]` 诊断日志贴回，可进一步精确适配。
