@@ -938,11 +938,33 @@ function buildFailureContext(body) {
 }
 
 /** M4/C5：为「重试时间线」生成一句话失败摘要（供前端展示，不堆砌原始输出）。 */
+// 真正有信息量的错误行特征（跨语言/跨工具的通用信号）
+const ERR_SIGNAL_RE = /(\w*Error|Exception|Traceback)\b|Cannot find|ENOENT|EACCES|EADDRINUSE|no such file|not found|Permission denied|is not recognized|fatal:|failed|错误|失败|异常/i;
+// 纯噪声行：Node 版本尾行、孤立括号/插入符、堆栈帧
+const NOISE_LINE_RE = /^(Node\.js v[\d.]+|[{}()[\]^~]+|at\s.*)$/;
+
+/**
+ * 从命令输出里挑出最能说明「为什么失败」的几行。
+ * 直接取尾部 N 行是错的：Node 的错误输出尾部恰好是 `}` / 空行 / `Node.js v22.x`，
+ * 真正的 `Error: Cannot find module ...` 在中间，会被整段丢掉，前端只显示一堆噪声。
+ * @param {string} raw
+ * @returns {string}
+ */
+function pickErrorLines(raw) {
+  const all = String(raw || '').split('\n').map((s) => s.trim()).filter(Boolean);
+  if (!all.length) return '';
+  const meaningful = all.filter((s) => !NOISE_LINE_RE.test(s));
+  const hits = meaningful.filter((s) => ERR_SIGNAL_RE.test(s));
+  // 全是噪声时宁可返回空串（前端只显示步骤名），也不要把 `}` / `Node.js v22.x` 当失败原因
+  const picked = hits.length ? hits : meaningful.slice(-3);
+  return picked.slice(0, 3).join(' ');
+}
+
 function summarizeAttemptReason(body) {
   const results = (body && body.results) || [];
   for (const r of results) {
     if (r.status === 'error' || r.status === 'blocked' || r.status === 'failed') {
-      const tail = String(r.output || r.error || '').trim().split('\n').slice(-3).join(' ');
+      const tail = pickErrorLines(r.output || r.error || '');
       const head = `步骤 ${r.id || '?'}（${r.goal || ''}）${r.status}`;
       return tail ? `${head}：${tail.slice(0, 160)}` : head;
     }
@@ -1336,4 +1358,6 @@ module.exports = {
   resolveShell,
   rewriteForWindows,
   resolveProjectRelativePath,
+  pickErrorLines,
+  summarizeAttemptReason,
 };
