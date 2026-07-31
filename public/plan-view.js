@@ -58,9 +58,12 @@
     const el = $('attempts');
     if (!el) return;
     if (!attempts || !attempts.length) { el.classList.add('hidden'); el.innerHTML = ''; return; }
-    // 仅 1 轮且无重试 → 不渲染时间线（避免无谓噪声，P-C5）
+    // 仅「一次干净收敛」才不渲染时间线（避免无谓噪声，P-C5）。
+    // 注意：不能简单按「只有 1 轮」隐藏——致命失败(fatal)与修订失败同样只有 1 轮，
+    // 而那恰恰是最需要展示诊断的场景，隐藏会让用户完全看不到失败归因。
     const retried = attempts.filter((a) => a.revised).length > 0;
-    if (attempts.length === 1 && !retried) { el.classList.add('hidden'); el.innerHTML = ''; return; }
+    const cleanSingleRun = attempts.length === 1 && !retried && attempts[0].kind === 'terminal';
+    if (cleanSingleRun) { el.classList.add('hidden'); el.innerHTML = ''; return; }
 
     const statusLabel = {
       done: '成功', partial: '部分完成', diverged: '偏离', rejected: '已拒绝',
@@ -71,7 +74,8 @@
       const kindChip = a.kind === 'fatal'
         ? '<span class="at-chip at-fatal">致命失败 · 重试无意义</span>'
         : (a.revised ? '<span class="at-chip at-revised">✏️ 已修订</span>' : '');
-      const reasonLine = (a.kind === 'retryable' && a.reason)
+      // fatal 的失败原因同样要展示——那是用户手动修 Plan 的唯一线索
+      const reasonLine = ((a.kind === 'retryable' || a.kind === 'fatal') && a.reason)
         ? `<div class="at-reason">因：${esc(a.reason)}</div>`
         : '';
       const statusBadge = `<span class="at-status at-${esc(a.status)}">${esc(statusLabel[a.status] || a.status)}</span>`;
@@ -95,7 +99,11 @@
         </div>`;
     }).join('');
 
-    el.innerHTML = `<div class="at-title">🔁 自动重试轨迹（共 ${attempts.length} 轮）</div><div class="at-list">${rows}</div>`;
+    // 单轮未重试时标题不能叫「重试轨迹」（并没有重试过），否则与实际发生的事不符
+    const title = attempts.length === 1 && !retried
+      ? '🔎 执行诊断'
+      : `🔁 自动重试轨迹（共 ${attempts.length} 轮）`;
+    el.innerHTML = `<div class="at-title">${title}</div><div class="at-list">${rows}</div>`;
     el.classList.remove('hidden');
   }
 
@@ -550,18 +558,30 @@
       list.innerHTML = '';
       for (const it of items) {
         const meta = it.meta || {};
+        // 三态：有 meta.status → ok/fail；无（v0.6.3 之前沉淀的旧记录）→ unknown，
+        // 否则旧记录会被一律染成红色 fail，让用户误以为历史上全是失败。
+        const hasStatus = typeof meta.status === 'string' && !!meta.status;
+        const statusCls = hasStatus ? (meta.ok ? 'ok' : 'fail') : 'unknown';
+        const statusText = hasStatus ? meta.status : '无记录';
         const dur = (meta.startedAt && meta.endedAt)
           ? ((new Date(meta.endedAt) - new Date(meta.startedAt)) / 1000).toFixed(1)
-          : '?';
+          : '';
         const when = meta.endedAt ? String(meta.endedAt).slice(0, 19).replace('T', ' ') : '';
+        const bits = [];
+        if (dur) bits.push(`⏱ ${esc(dur)}s`);
+        if (meta.agentId) bits.push(`🤖 ${esc(meta.agentId)}`);
+        if (when) bits.push(`🕒 ${esc(when)}`);
+        const metaLine = bits.length
+          ? bits.join(' · ')
+          : '<span class="hi-legacy">早期记录 · 无执行元信息</span>';
         const div = document.createElement('div');
         div.className = 'history-item';
         div.innerHTML = `
           <div class="hi-head">
             <span class="hi-title">${esc(it.title || it.ref)}</span>
-            <span class="hi-status ${meta.ok ? 'ok' : 'fail'}">${esc(meta.status || '?')}</span>
+            <span class="hi-status ${statusCls}">${esc(statusText)}</span>
           </div>
-          <div class="hi-meta">⏱ ${esc(dur)}s · 🤖 ${esc(meta.agentId || 'ai')} · 🕒 ${esc(when)}</div>
+          <div class="hi-meta">${metaLine}</div>
           <div class="hi-actions">
             <button class="hi-btn hi-run">↻ 重新执行</button>
             <button class="hi-btn hi-del">🗑 删除</button>

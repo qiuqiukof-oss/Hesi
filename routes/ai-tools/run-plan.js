@@ -996,6 +996,7 @@ async function runPlan(plan, opts = {}) {
   let noProgress = false;
   let lastPlanSig = null;
   let reviseFailed = false; // autoReplan 修订抛异常 → 终止且明确标记 rejected
+  let reviseErrMsg = ''; // 修订异常原文，用于区分「LLM 超时」与「Plan 真的没救」
   // C6：同一 runPlan（同 execId）内，首次已审批的步骤在重试时复用审批结论，不再重复弹窗打扰。
   const runOpts = Object.assign({}, opts, { approvedSteps: new Set() });
   for (let attempt = 0; ; attempt++) {
@@ -1021,7 +1022,12 @@ async function runPlan(plan, opts = {}) {
     if (attempt >= maxRetries) break;
     let revised = null;
     try { revised = await reviseFn(currentPlan, body, plannerRuntime, buildFailureContext(body)); }
-    catch (e) { revised = null; reviseFailed = true; console.warn('[runPlan] autoReplan 修订失败:', e && e.message); }
+    catch (e) {
+      revised = null;
+      reviseFailed = true;
+      reviseErrMsg = (e && e.message) ? String(e.message) : '';
+      console.warn('[runPlan] autoReplan 修订失败:', reviseErrMsg);
+    }
     if (!revised) break;
     // 标记上一轮已触发修订（供前端展示「已修订」）
     attempts[attempts.length - 1].revised = true;
@@ -1041,7 +1047,16 @@ async function runPlan(plan, opts = {}) {
   let finalReason = undefined;
   if (reviseFailed && finalStatus !== 'done' && finalStatus !== 'rejected') {
     finalStatus = 'rejected';
-    finalReason = 'autoReplan 修订失败：Plan 无法自动优化，请手动调整 Plan 或重试';
+    // 区分「LLM 超时/不可达」与「Plan 真的没救」：前者笼统报「无法自动优化」会误导用户
+    // 去改本来没问题的 Plan（实测本地小模型改写 Plan 常超过默认 5 分钟）。
+    if (/timeout|abort|超时|ECONNREFUSED|fetch failed/i.test(reviseErrMsg)) {
+      const { LLM_BRIDGE_TIMEOUT_MS } = require('../../lib/memory/llm-bridge');
+      finalReason = `autoReplan 修订未完成：调用大模型超时或不可达（当前上限 ${Math.round(LLM_BRIDGE_TIMEOUT_MS / 1000)}s）。`
+        + 'Plan 本身未必有问题——请调大环境变量 HESI_LLM_API_TIMEOUT_MS，或改用更快的模型后重试。'
+        + `原始错误：${reviseErrMsg}`;
+    } else {
+      finalReason = `autoReplan 修订失败：Plan 无法自动优化，请手动调整 Plan 或重试${reviseErrMsg ? `（${reviseErrMsg}）` : ''}`;
+    }
   }
   if (fatalReason && finalStatus !== 'done' && finalStatus !== 'rejected') {
     finalStatus = 'rejected';

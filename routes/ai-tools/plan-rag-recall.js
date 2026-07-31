@@ -42,6 +42,19 @@ function getIndex() {
 }
 
 /**
+ * 出参投影：剔除 BM25 内部字段（tf/tokens/vec）。
+ * 这些字段仅供打分使用，前端从不消费；50 条历史里 tf 可占 ~67% 体积，
+ * 直接外发会让 /history 响应膨胀到百 KB 级（P-A9）。
+ * @param {object} doc
+ * @returns {object}
+ */
+function toView(doc) {
+  if (!doc || typeof doc !== 'object') return doc;
+  const { tf: _tf, tokens: _tokens, vec: _vec, ...rest } = doc;
+  return rest;
+}
+
+/**
  * 关键词召回历史 Plan。
  * @param {string} q
  * @param {{topK?:number}} [opts]
@@ -50,7 +63,7 @@ function getIndex() {
 function recallPlans(q, { topK = 3 } = {}) {
   const idx = getIndex();
   const hits = indexStore.query(idx, q, { topK });
-  return hits.filter((d) => d.type === 'plan');
+  return hits.filter((d) => d.type === 'plan').map(toView);
 }
 
 /**
@@ -66,7 +79,7 @@ function listPlans({ limit = 50, offset = 0, status = null } = {}) {
     - (a.meta && a.meta.updatedAt ? a.meta.updatedAt : 0));
   const total = docs.length;
   const paged = docs.slice(Math.max(offset, 0), Math.max(offset, 0) + Math.min(limit, 200));
-  return { total, items: paged };
+  return { total, items: paged.map(toView) };
 }
 
 /**
@@ -90,4 +103,4 @@ function clearPlans() {
   return true;
 }
 
-module.exports = { recallPlans, listPlans, deletePlan, clearPlans, getIndex };
+module.exports = { recallPlans, listPlans, deletePlan, clearPlans, getIndex, toView };

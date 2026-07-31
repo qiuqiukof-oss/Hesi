@@ -96,6 +96,9 @@
 }
 .hi-status.ok { background: #e6f7ec; color: #1a7f43; }
 .hi-status.fail { background: #fdeaea; color: #c0392b; }
+/* 三态：v0.6.3 之前沉淀的旧记录没有 meta.status，用中性灰而非红色 fail */
+.hi-status.unknown { background: #eef0f2; color: #6b7280; }
+.hi-legacy { color: #9aa0a6; font-style: italic; }
 
 .hi-meta {
   font-size: 12px;
