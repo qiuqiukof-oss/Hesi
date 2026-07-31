@@ -52,6 +52,7 @@
           <label>Model<input id="model" placeholder="自动读取" /></label>
           <label>执行 Agent<select id="exec-agent" title="步骤默认执行方；默认 AI 助手（内置 LLM 管线），可选外部 CLI agent"></select></label>
         </div>
+        <p class="llm-hint">修改会保存到本地，刷新不丢，且与「设置 → AI」互通。</p>
         <div class="disc-block">
           <label class="disc-toggle"><input type="checkbox" id="discuss-before" /> 🤝 执行前先多角色讨论方案（M3）</label>
           <!-- 多选讨论伙伴：勾选「先讨论」后出现，数据源 Favorites + Agent CLI -->
@@ -65,7 +66,7 @@
             <label>确认模式<select id="discuss-mode"><option value="confirm" selected>确认后执行</option><option value="auto">自动执行</option></select></label>
             <label>讨论轮次<input id="discuss-turns" type="number" min="1" max="8" value="4" /></label>
           </div>
-          <p class="disc-hint">勾选上方「选择讨论伙伴」从收藏夹 / 已装 Agent 中多选参与讨论的 CLI Agent。选模板会自动带入角色视角协议。</p>
+          <p class="disc-hint">从收藏夹 / 已装 Agent 多选；与聊天「AI 讨论」共用同一份选择，任一处改动两边实时同步。</p>
         </div>
       </details>
     </section>
@@ -119,6 +120,7 @@
   </aside>
   <div id="history-backdrop" class="history-backdrop hidden"></div>
 
+  <script src="/components/partner-store.js"></script>
   <script src="/plan-view.js"></script>
 </body>
 </html>

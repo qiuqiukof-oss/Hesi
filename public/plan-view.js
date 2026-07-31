@@ -353,87 +353,104 @@
     } catch { /* 静默：仅保留默认项 */ }
   }
 
-  // ── 讨论伙伴多选（M3）：复用聊天面板「AI 讨论」的多选模式 ──
-  // 数据源：/api/agents(installed) + /api/clis(category=agent) + localStorage qcli-favorites
-  async function loadPartnerOptions() {
+  // ── 讨论伙伴多选（M3）：复用 PartnerStore 共享状态（与聊天「AI 讨论」双边同步）──
+  function loadPartnerOptions() {
+    const PS = window.PartnerStore;
     const btn = $('plan-partner-btn');
     const dd = $('plan-partner-dropdown');
     const wrap = $('plan-disc-partner-wrap');
-    if (!btn || !dd) return;
+    if (!btn || !dd || !PS) return;
 
-    // 讨论开关联动：勾选才显示多选区
+    // 讨论开关联动：勾选才显示多选区（保留原行为）
     const toggle = $('discuss-before');
     const syncWrap = () => { if (wrap) wrap.style.display = (toggle && toggle.checked) ? '' : 'none'; };
     if (toggle) toggle.addEventListener('change', syncWrap);
     syncWrap();
 
-    const list = [];
-    try {
-      const [agentsRes, clisRes] = await Promise.all([
-        fetch('/api/agents').then((r) => r.json()).catch(() => null),
-        fetch('/api/clis').then((r) => r.json()).catch(() => null),
-      ]);
-      const agents = (agentsRes && agentsRes.agents ? agentsRes.agents : []).filter((a) => a.installed);
-      agents.forEach((a) => list.push({ id: a.id, name: a.displayName || a.name }));
-      const clis = (clisRes && clisRes.clis ? clisRes.clis : []).filter((c) => c.category === 'agent');
-      clis.forEach((c) => { if (!list.some((x) => x.id === c.id)) list.push({ id: c.id || c.name, name: c.name }); });
-    } catch { /* 静默降级：显示空提示 */ }
-
-    // 收藏夹同步
-    let favIds = [];
-    try { favIds = JSON.parse(localStorage.getItem('qcli-favorites') || '[]'); } catch { favIds = []; }
-    const favSet = new Set(favIds);
-    list.sort((a, b) => {
-      const af = favSet.has(a.id) ? 0 : 1;
-      const bf = favSet.has(b.id) ? 0 : 1;
-      if (af !== bf) return af - bf;
-      return (a.name || '').localeCompare(b.name || '');
-    });
-
-    dd.innerHTML = '';
-    if (!list.length) {
-      dd.innerHTML = '<div class="discuss-dropdown-empty">未发现可用 CLI Agent</div>';
-    } else {
-      if (list.some((a) => favSet.has(a.id))) {
-        const hint = document.createElement('div');
-        hint.className = 'discuss-fav-hint';
-        hint.textContent = `★ 已与收藏夹同步（${list.filter((a) => favSet.has(a.id)).length} 个）`;
-        dd.appendChild(hint);
-      }
-      list.forEach((a) => {
-        const isFav = favSet.has(a.id);
-        const label = document.createElement('label');
-        label.className = 'discuss-option' + (isFav ? ' favorited' : '');
-        const cb = document.createElement('input');
-        cb.type = 'checkbox';
-        cb.dataset.id = a.id;
-        if (isFav) cb.checked = true;
-        label.appendChild(cb);
-        const star = document.createElement('span');
-        star.className = 'discuss-fav-star';
-        star.textContent = isFav ? '★ ' : '';
-        label.appendChild(star);
-        label.appendChild(document.createTextNode(a.name + (a.version ? ' · ' + a.version : '')));
-        dd.appendChild(label);
-      });
-    }
-
-    const updateLabel = () => {
-      const checked = Array.from(dd.querySelectorAll('input[type="checkbox"]:checked')).map((cb) => cb.dataset.id);
-      if (!checked.length) { btn.textContent = '选择讨论伙伴 ▾'; btn.classList.add('placeholder'); }
-      else if (checked.length === 1) {
-        const n = list.find((x) => x.id === checked[0]);
-        btn.textContent = (n ? n.name : checked[0]) + ' ▾';
-        btn.classList.remove('placeholder');
-      } else { btn.textContent = `已选 ${checked.length} 个伙伴 ▾`; btn.classList.remove('placeholder'); }
-    };
-
+    // 同步挂载 click handler（不等 await，根治「点不开」）
     btn.addEventListener('click', (e) => { e.stopPropagation(); dd.classList.toggle('hidden'); });
     document.addEventListener('click', (e) => {
       if (!dd.contains(e.target) && e.target !== btn && !btn.contains(e.target)) dd.classList.add('hidden');
     });
-    dd.addEventListener('change', updateLabel);
-    updateLabel();
+
+    const nameMap = new Map();
+    const updateLabel = () => {
+      const checked = Array.from(dd.querySelectorAll('input[type="checkbox"]:checked')).map((cb) => cb.dataset.id);
+      if (!checked.length) { btn.textContent = '选择讨论伙伴 ▾'; btn.classList.add('placeholder'); }
+      else if (checked.length === 1) { btn.textContent = (nameMap.get(checked[0]) || checked[0]) + ' ▾'; btn.classList.remove('placeholder'); }
+      else { btn.textContent = `已选 ${checked.length} 个伙伴 ▾`; btn.classList.remove('placeholder'); }
+    };
+
+    // 渲染选项（失败也不影响开合）
+    PS.loadPartnerSource().then(({ list, favSet }) => {
+      dd.innerHTML = '';
+      if (!list.length) {
+        dd.innerHTML = '<div class="discuss-dropdown-empty">未发现可用 CLI Agent</div>';
+      } else {
+        if (list.some((a) => favSet.has(a.id))) {
+          const hint = document.createElement('div');
+          hint.className = 'discuss-fav-hint';
+          hint.textContent = `★ 已与收藏夹同步（${list.filter((a) => favSet.has(a.id)).length} 个）`;
+          dd.appendChild(hint);
+        }
+        const checked = new Set(PS.getPartners());
+        list.forEach((a) => {
+          const isFav = favSet.has(a.id);
+          nameMap.set(a.id, a.name);
+          const label = document.createElement('label');
+          label.className = 'discuss-option' + (isFav ? ' favorited' : '');
+          const cb = document.createElement('input');
+          cb.type = 'checkbox';
+          cb.dataset.id = a.id;
+          if (isFav || checked.has(a.id)) cb.checked = true; // 收藏夹 + 共享 store 同步
+          label.appendChild(cb);
+          const star = document.createElement('span');
+          star.className = 'discuss-fav-star';
+          star.textContent = isFav ? '★ ' : '';
+          label.appendChild(star);
+          label.appendChild(document.createTextNode(a.name + (a.version ? ' · ' + a.version : '')));
+          dd.appendChild(label);
+        });
+      }
+      updateLabel();
+    }).catch(() => { dd.innerHTML = '<div class="discuss-dropdown-empty">加载失败，请检查网络</div>'; });
+
+    // 勾选 → 写回共享 store；订阅 → 聊天面板改了这里实时更新
+    dd.addEventListener('change', () => {
+      const ids = Array.from(dd.querySelectorAll('input[type="checkbox"]:checked')).map((cb) => cb.dataset.id);
+      PS.setPartners(ids);
+      updateLabel();
+    });
+    PS.subscribe((ids) => {
+      const set = new Set(ids);
+      dd.querySelectorAll('input[type="checkbox"]').forEach((cb) => { cb.checked = set.has(cb.dataset.id); });
+      updateLabel();
+    });
+  }
+
+  // ── LLM 字段持久化（与「设置 → AI」同 key：qcli-ai-*）──
+  function wireLLMPersist() {
+    const fields = [
+      ['api-key', 'qcli-ai-key'],
+      ['provider', 'qcli-ai-provider'],
+      ['base-url', 'qcli-ai-base-url'],
+      ['model', 'qcli-ai-model'],
+    ];
+    fields.forEach(([inputId, key]) => {
+      const el = $(inputId);
+      if (!el) return;
+      const save = () => { try { localStorage.setItem(key, el.value); } catch { /* ignore */ } };
+      el.addEventListener('input', save);
+      el.addEventListener('change', save);
+    });
+    // 跨标签：其他页面 / 设置页改了 → 回填未聚焦字段
+    window.addEventListener('storage', (e) => {
+      if (!e.key || e.key.indexOf('qcli-ai-') !== 0) return;
+      const m = fields.find(([, k]) => k === e.key);
+      if (!m) return;
+      const el = $(m[0]);
+      if (el && document.activeElement !== el) el.value = e.newValue || '';
+    });
   }
 
   // ── 从全局 LLM 设置读取（与 ChatAPI 同源，含 sessionStorage 迁移）──
@@ -745,6 +762,7 @@
     $('history-backdrop').addEventListener('click', closeHistory);
     $('history-search').addEventListener('input', onHistorySearch);
     $('history-clear').addEventListener('click', clearHistory);
+    wireLLMPersist(); // LLM 字段写回 localStorage（qcli-ai-*），与「设置 → AI」互通
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);

@@ -269,3 +269,8 @@
 }
 [data-theme="light"] .discuss-option:hover { background: rgba(99,102,241,0.10); }
 [data-theme="light"] .plan-partner-btn.placeholder { color: #9a9aa0; }
+
+/* 提示文案（M3 双边同步 / LLM 持久化说明） */
+.disc-hint { color: var(--text-muted, #8a8a8e); font-size: 12px; margin: 8px 0 0; line-height: 1.45; }
+.llm-hint { color: var(--text-muted, #8a8a8e); font-size: 12px; margin: 6px 0 0; line-height: 1.45; }
+[data-theme="light"] .disc-hint, [data-theme="light"] .llm-hint { color: #6b7280; }

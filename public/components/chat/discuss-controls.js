@@ -15,6 +15,7 @@
 
 export const discussControlsMixin = {
   _setupDiscussControls() {
+    const PS = window.PartnerStore;
     const toggle = document.getElementById('discuss-toggle');
     const btn = document.getElementById('discuss-partner-btn');
     const dropdown = document.getElementById('discuss-partner-dropdown');
@@ -22,24 +23,25 @@ export const discussControlsMixin = {
     const controls = document.getElementById('discuss-controls');
     if (!toggle || !btn || !dropdown || !roundsSel || !controls) return;
 
-    this._discussPartners = [];
     this._agentNameMap = new Map();
+    this._noAgents = false;
 
     // 多选按钮文案：0 个 → 占位提示；1 个 → 显示名称；多个 → “已选 N 个”
     const updateBtnLabel = () => {
+      const partners = PS ? PS.getPartners() : (this._discussPartners || []);
       if (this._noAgents) {
         btn.textContent = '未安装 Agent · 点击安装 ▾';
         btn.classList.add('placeholder');
         return;
       }
-      if (this._discussPartners.length === 0) {
+      if (partners.length === 0) {
         btn.textContent = '选择 CLI Agent ▾';
         btn.classList.add('placeholder');
-      } else if (this._discussPartners.length === 1) {
-        btn.textContent = (this._agentNameMap.get(this._discussPartners[0]) || this._discussPartners[0]) + ' ▾';
+      } else if (partners.length === 1) {
+        btn.textContent = (this._agentNameMap.get(partners[0]) || partners[0]) + ' ▾';
         btn.classList.remove('placeholder');
       } else {
-        btn.textContent = `已选 ${this._discussPartners.length} 个 Agent ▾`;
+        btn.textContent = `已选 ${partners.length} 个 Agent ▾`;
         btn.classList.remove('placeholder');
       }
     };
@@ -47,9 +49,9 @@ export const discussControlsMixin = {
     const sync = () => {
       this._discussEnabled = !!toggle.checked;
       this._discussMaxTurns = parseInt(roundsSel.value, 10) || 6;
-      this._discussPartners = Array.from(dropdown.querySelectorAll('input[type="checkbox"]:checked'))
-        .map(cb => cb.dataset.id);
-      this._discussPartner = this._discussPartners[0] || '';
+      const partners = PS ? PS.getPartners() : [];
+      this._discussPartners = partners;
+      this._discussPartner = partners[0] || '';
       // 开关常驻可见；勾选后才展开「选择 CLI Agent + 轮数」控件
       controls.style.display = this._discussEnabled ? 'flex' : 'none';
       // 关闭讨论开关时收起下拉，避免遮挡
@@ -59,7 +61,13 @@ export const discussControlsMixin = {
 
     toggle.addEventListener('change', sync);
     roundsSel.addEventListener('change', sync);
-    dropdown.addEventListener('change', sync);
+    dropdown.addEventListener('change', () => {
+      if (PS) {
+        const ids = Array.from(dropdown.querySelectorAll('input[type="checkbox"]:checked')).map((cb) => cb.dataset.id);
+        PS.setPartners(ids);
+      }
+      sync();
+    });
 
     // 点击按钮切换下拉显隐
     btn.addEventListener('click', (e) => {
@@ -73,25 +81,15 @@ export const discussControlsMixin = {
       }
     });
 
-    // 拉取已安装的 CLI Agent + 注册表中所有 agent 类 CLI，并与左侧栏「收藏夹」同步
-    Promise.all([
-      fetch('/api/agents').then(r => r.ok ? r.json() : null).catch(() => null),
-      fetch('/api/clis').then(r => r.ok ? r.json() : null).catch(() => null),
-    ]).then(([agentsData, clisData]) => {
-      const list = (agentsData && agentsData.agents ? agentsData.agents : []).filter(a => a.installed);
-      // 合并注册表中 category==='agent' 但不在 /api/agents 的 CLI（如 mimo / opencli）
-      const registryAgents = (clisData && clisData.clis ? clisData.clis : [])
-        .filter(c => (c.category || '') === 'agent');
-      const seen = new Set(list.map(a => a.id));
-      for (const c of registryAgents) {
-        if (!seen.has(c.id)) {
-          seen.add(c.id);
-          list.push({ id: c.id, name: c.name, displayName: c.name, version: c.version || '', installed: true, fromRegistry: true });
-        }
-      }
-      // 读取左侧栏收藏夹（localStorage: qcli-favorites）
-      const favs = (window.QCLI && typeof window.QCLI.getFavorites === 'function') ? window.QCLI.getFavorites() : [];
-      const favSet = new Set(favs);
+    // 选项渲染用共享 store（与 Plan 页一致）；初始勾选从共享 store 恢复
+    if (!PS) {
+      this._noAgents = true;
+      sync();
+      return;
+    }
+    const render = (res) => {
+      const list = res.list;
+      const favSet = res.favSet;
       dropdown.innerHTML = '';
       this._agentNameMap = new Map();
       if (list.length === 0) {
@@ -120,13 +118,14 @@ export const discussControlsMixin = {
           return (a.name || '').localeCompare(b.name || '');
         });
         // 收藏夹同步提示
-        const availableFavs = list.filter(a => favSet.has(a.id)).length;
+        const availableFavs = list.filter((a) => favSet.has(a.id)).length;
         if (availableFavs > 0) {
           const hint = document.createElement('div');
           hint.className = 'discuss-fav-hint';
           hint.textContent = `★ 已与左侧「收藏夹」同步（${availableFavs} 个）`;
           dropdown.appendChild(hint);
         }
+        const checked = new Set(PS.getPartners());
         for (const a of list) {
           const name = a.displayName || a.name;
           const isFav = favSet.has(a.id);
@@ -136,7 +135,7 @@ export const discussControlsMixin = {
           const cb = document.createElement('input');
           cb.type = 'checkbox';
           cb.dataset.id = a.id;
-          if (isFav) cb.checked = true; // 与收藏夹同步：默认勾选
+          if (isFav || checked.has(a.id)) cb.checked = true; // 收藏夹 + 共享 store 同步
           label.appendChild(cb);
           const star = document.createElement('span');
           star.className = 'discuss-fav-star';
@@ -147,7 +146,15 @@ export const discussControlsMixin = {
         }
       }
       sync();
-    }).catch(() => { sync(); });
+    };
+
+    PS.loadPartnerSource().then(render).catch(() => { this._noAgents = true; sync(); });
+    // 订阅：Plan 页改了伙伴选择，这里实时更新
+    PS.subscribe((ids) => {
+      this._discussPartners = ids;
+      dropdown.querySelectorAll('input[type="checkbox"]').forEach((cb) => { cb.checked = ids.indexOf(cb.dataset.id) !== -1; });
+      updateBtnLabel();
+    });
     sync();
   },
 };
