@@ -201,7 +201,6 @@ Q.onWSMessage = function(msg) {
         if (Q.Orchestrator?.handleWSMessage) Q.Orchestrator.handleWSMessage(msg);
         return;
       }
-      console.log('[WS] Routed message type:', msg.type, JSON.stringify(msg).substring(0, 200));
       if (Q.Agents?.handleWSMessage) Q.Agents.handleWSMessage(msg);
       if (Q.Workflows?.handleWSMessage) Q.Workflows.handleWSMessage(msg);
       if (Q.Orchestrator?.handleWSMessage) Q.Orchestrator.handleWSMessage(msg);

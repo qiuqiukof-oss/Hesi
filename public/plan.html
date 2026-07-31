@@ -39,8 +39,8 @@
         填了目标就交给 AI 自动拆解成 Plan；留空则手写下方 JSON。
       </p>
 
-      <!-- 讨论伙伴多选：放在 <details> 外部，避免 <details> 层叠上下文裁剪下拉菜单 -->
-      <div class="disc-partner-wrap" id="plan-disc-partner-wrap" style="display:none;">
+      <!-- 讨论伙伴多选：放在 <details> 外部，默认可见便于调试 -->
+      <div class="disc-partner-wrap" id="plan-disc-partner-wrap">
         <button type="button" id="plan-partner-btn" class="discuss-multibtn plan-partner-btn placeholder"
           title="选择参与讨论的 CLI Agent（可多选，收藏夹已同步）">选择讨论伙伴 ▾</button>
         <div id="plan-partner-dropdown" class="discuss-dropdown hidden"></div>

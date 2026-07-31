@@ -387,8 +387,8 @@ const RoundTableView = {
       const chip = document.createElement('label');
       chip.className = 'clichip' + (disabled ? ' disabled' : '') + (starred ? ' starred' : '');
       const star = starred ? '⭐ ' : '';
-      const catTag = (!disabled && c.category && c.category !== 'agent') ? ` <span class="cat">${c.category}</span>` : '';
-      chip.innerHTML = `<input type="checkbox" value="${c.id}" ${disabled ? 'disabled' : ''}> ${star}${c.displayName || c.name}${catTag}`;
+      const catTag = (!disabled && c.category && c.category !== 'agent') ? ` <span class="cat">${this.esc(c.category)}</span>` : '';
+      chip.innerHTML = `<input type="checkbox" value="${this.esc(c.id)}" ${disabled ? 'disabled' : ''}> ${star}${this.esc(c.displayName || c.name)}${catTag}`;
       if (!disabled) {
         chip.querySelector('input').addEventListener('change', (ev) => {
           chip.classList.toggle('on', ev.target.checked);
@@ -426,12 +426,12 @@ const RoundTableView = {
     seat.className = 'rtseat' + (empty ? ' empty' : '') + (host ? ' host' : '');
     seat.setAttribute('data-seat', seatId);
     seat.setAttribute('style', pos.style);
-    const color = agent.themeColor || '#c9ced4';
+    const color = this.sanitizeColor(agent.themeColor);
     const avInner = empty ? '' : renderAvatarInner(agent);
     seat.innerHTML = `
       <div class="rt-av ${empty ? '' : statusClass('idle')}" style="border-color:${color}">${avInner}</div>
-      <div class="rtname">${agent.name || ''}</div>
-      <div class="rtrole">${agent.roleLabel || ''}</div>
+      <div class="rtname">${this.esc(agent.name || '')}</div>
+      <div class="rtrole">${this.esc(agent.roleLabel || '')}</div>
       ${empty ? '<div class="seatchair">空座</div>' : '<div class="rtst" style="background:#9aa1a9">待命</div>'}
       <div class="${host ? 'bub' : 'bub bub-side'}" style="display:none"></div>
       ${host ? '' : '<div class="likes" style="display:none">👍 <span>0</span></div>'}
@@ -527,7 +527,7 @@ const RoundTableView = {
     if (bubble !== undefined) {
       s._bub = (s._bub || '') + bubble;
       s.bubEl.style.display = 'block';
-      const color = (s.agent && s.agent.themeColor) || '#c9ced4';
+      const color = this.sanitizeColor((s.agent && s.agent.themeColor) || '#c9ced4');
       const av = renderAvatarInner(s.agent);
       const nm = this.esc(name || s.agent.name || '');
       s.bubEl.style.borderLeftColor = color;
@@ -764,11 +764,11 @@ const RoundTableView = {
       const seat = document.createElement('div');
       seat.className = 'mseat';
       seat.innerHTML = `
-        <div class="mt">${a.name} <span style="color:var(--sub);font-weight:400">(${a.id})</span></div>
-        <div class="mfield">名字 <input type="text" data-k="name" data-id="${a.id}" value="${this.esc(a.name)}"></div>
-        <div class="mfield">角色 <input type="text" data-k="roleLabel" data-id="${a.id}" value="${this.esc(a.roleLabel)}"></div>
-        <div class="mfield">主题色 <input type="color" data-k="themeColor" data-id="${a.id}" value="${this.esc(a.themeColor)}"></div>
-        <div class="mfield">头像(emoji) <input type="text" data-k="emoji" data-id="${a.id}" placeholder="留空用内置SVG" value="${a.avatar && a.avatar.type === 'emoji' ? this.esc(a.avatar.value) : ''}" style="width:80px"></div>`;
+        <div class="mt">${this.esc(a.name)} <span style="color:var(--sub);font-weight:400">(${this.esc(a.id)})</span></div>
+        <div class="mfield">名字 <input type="text" data-k="name" data-id="${this.esc(a.id)}" value="${this.esc(a.name)}"></div>
+        <div class="mfield">角色 <input type="text" data-k="roleLabel" data-id="${this.esc(a.id)}" value="${this.esc(a.roleLabel)}"></div>
+        <div class="mfield">主题色 <input type="color" data-k="themeColor" data-id="${this.esc(a.id)}" value="${this.esc(a.themeColor)}"></div>
+        <div class="mfield">头像(emoji) <input type="text" data-k="emoji" data-id="${this.esc(a.id)}" placeholder="留空用内置SVG" value="${a.avatar && a.avatar.type === 'emoji' ? this.esc(a.avatar.value) : ''}" style="width:80px"></div>`;
       this.elModalBody.appendChild(seat);
     }
     this.elModal.classList.add('show');
@@ -819,7 +819,22 @@ const RoundTableView = {
   },
 
   esc(s) {
-    return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    // 5 字符完整转义：esc() 结果会拼进 class="..." / style 等属性上下文，
+    // 只转义 & < > 时含 " 的内容可注入任意属性（XSS）。与 plan-view.js 一致。
+    return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  },
+
+  // 主题色白名单：只允许 CSS 安全颜色值，拒绝任何可闭合 style 的注入（如
+  // `red;background:url(...)`）。输入来自用户保存的覆盖配置，理论上可控，
+  // 但圆桌渲染时它被拼进 style="..." 属性，必须白名单化而非仅转义。
+  sanitizeColor(v, fallback = '#c9ced4') {
+    const s = String(v == null ? '' : v).trim();
+    if (!s) return fallback;
+    // #hex（3/4/6/8 位）、rgb()/rgba()/hsl()/hsla()、以及常见命名色
+    if (/^#[0-9a-fA-F]{3,8}$/.test(s)) return s;
+    if (/^(rgb|rgba|hsl|hsla)\(\s*[\d.]+%?\s*(,\s*[\d.]+%?\s*){2,3}\)$/.test(s)) return s;
+    if (/^(red|blue|green|yellow|orange|purple|pink|brown|black|white|gray|grey|silver|teal|cyan|magenta|violet|gold|navy|maroon|olive|lime|aqua|fuchsia)$/i.test(s)) return s;
+    return fallback;
   },
 
   // ── 由 chat-panel 调起的弹层控制 ──

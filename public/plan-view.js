@@ -35,8 +35,12 @@
   }
 
   function esc(s) {
+    // 5 字符完整转义：除 & < > 外必须处理 " 与 '——esc() 的结果会被拼进
+    // class="..." 等属性上下文（如 class="at-status at-${esc(a.status)}"），
+    // 只转义 3 字符时，含 " 的服务器返回内容可注入任意属性/事件处理器（XSS）。
     return String(s == null ? '' : s)
-      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
   }
 
   function renderReflection(r) {
@@ -551,19 +555,10 @@
         // 3. safeStorage 兼容层（处理非标准注入场景）
         const sv = readSafeStorage(storageKey, '');
         if (sv) return sv;
-        // 4. 原生 localStorage → sessionStorage 最终兜底
-        return readLLM(storageKey, '');
-      };
-      // 诊断日志：确认每项 LLM 配置的读取来源（稳定后可移除）
-      try {
-        const diag = {};
-        diag.ak_src = _getLLM('api-key', 'qcli-ai-key', 'getApiKey') ? 'OK' : 'MISSING';
-        diag.pv_src = _getLLM('provider', 'qcli-ai-provider', 'getProvider') || '(default openai)';
-        diag.bu_src = _getLLM('base-url', 'qcli-ai-base-url', 'getBaseUrl') ? 'OK' : '(default)';
-        diag.md_src = _getLLM('model', 'qcli-ai-model', 'getModel') ? 'OK' : '(default gpt-4o-mini)';
-        console.log('[Plan LLM Config]', JSON.stringify(diag));
-      } catch { /* diag 不影响主流程 */ }
-      const ak = _getLLM('api-key', 'qcli-ai-key', 'getApiKey');
+      // 4. 原生 localStorage → sessionStorage 最终兜底
+      return readLLM(storageKey, '');
+    };
+    const ak = _getLLM('api-key', 'qcli-ai-key', 'getApiKey');
       if (ak) body.apiKey = ak;
       const pv = _getLLM('provider', 'qcli-ai-provider', 'getProvider');
       if (pv) body.provider = pv;
@@ -571,15 +566,11 @@
       if (bu) body.baseUrl = bu;
       const md = _getLLM('model', 'qcli-ai-model', 'getModel');
       if (md) body.model = md;
-      // 讨论伙伴：优先从多选下拉读取；降级兼容旧文本框（plan-drawer 入口）
+      // 讨论伙伴：从多选下拉读取（plan-drawer 入口复用同一下拉）
       const dd = $('plan-partner-dropdown');
       if (dd) {
         body.partners = Array.from(dd.querySelectorAll('input[type="checkbox"]:checked'))
           .map((cb) => cb.dataset.id).filter(Boolean);
-      } else {
-        const ps = $('partners');
-        const raw = ps ? ps.value.trim() : '';
-        if (raw) body.partners = raw.split(',').map((x) => x.trim()).filter(Boolean);
       }
       const ea = $('exec-agent') ? $('exec-agent').value.trim() : '';
       if (ea) body.agentId = ea; // 'ai' 或外部 CLI agent id

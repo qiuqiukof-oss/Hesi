@@ -9,6 +9,7 @@
 // ============================================================
 const express = require('express');
 const { loadRegistry, saveRegistry } = require('../cli-discovery');
+const { SENSITIVE_VAR_PATTERNS } = require('../lib/env-filter');
 
 /**
  * Create the settings router.
@@ -65,13 +66,12 @@ function createRouter() {
    */
   router.get('/settings/env', (req, res) => {
     const safeVars = {};
-    const sensitivePatterns = [
-      /^API_KEY/i, /^TOKEN/i, /^SECRET/i, /^PASSWORD/i, /^AUTH/i,
-      /^JWT/i, /^COOKIE/i, /^SESSION/i, /^PRIVATE_KEY/i,
-    ];
+    // 复用 lib/env-filter.js 的共享敏感模式（段边界匹配，覆盖 OPENAI_API_KEY /
+    // QCLI_ACCESS_TOKEN 等前缀式命名；不误伤 TOKENIZERS_PARALLELISM 等无害变量）。
+    // 不再使用 `^` 锚定正则——那会漏掉所有带业务前缀的密钥变量。
 
     for (const [key, value] of Object.entries(process.env)) {
-      const isSensitive = sensitivePatterns.some(p => p.test(key));
+      const isSensitive = SENSITIVE_VAR_PATTERNS.some(p => p.test(key));
       if (!isSensitive && typeof value === 'string' && value.length < 200) {
         safeVars[key] = value;
       }

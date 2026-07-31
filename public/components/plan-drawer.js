@@ -36,8 +36,11 @@ const SAMPLE = {
 };
 
 function esc(s) {
+  // 5 字符完整转义：与 plan-view.js 保持一致。esc() 结果会拼进 class="..."
+  // 等属性上下文，只转义 & < > 时含 " 的内容可注入任意属性（XSS）。
   return String(s == null ? '' : s)
-    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
 
 const PlanDrawer = {

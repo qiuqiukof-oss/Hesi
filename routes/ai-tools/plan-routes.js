@@ -109,6 +109,10 @@ function createRouter(opts = {}) {
     };
     let plan = body.plan && typeof body.plan === 'object' ? body.plan : null;
     // ── M3：前置多角色讨论（先讨论方案再动手）──
+    // execId 必须在讨论分支之前声明：讨论分支（broadcast/waitDiscussionConfirm）
+    // 与后续执行流程都引用它，声明放后会造成 TDZ ReferenceError（catch 内二次
+    // 抛出会逃逸出 try/catch，Express 4 不捕获 async 异常 → 请求挂起）。
+    const execId = crypto.randomUUID();
     let discussionSummary = null;
     let discussionTranscript = '';
     const discussBeforePlan = !!body.discussBeforePlan;
@@ -184,7 +188,6 @@ function createRouter(opts = {}) {
       (Number.isFinite(planApprovalTimeoutMs) && planApprovalTimeoutMs > 0 && planApprovalTimeoutMs) ||
       factoryApprovalTimeoutMs;
     const executorAgentId = resolveExecutorAgentId(body);
-    const execId = crypto.randomUUID();
     // 审批闸：等待人工决议（超时兜底→驳回）
     const requestApproval = (reqInfo) => new Promise((resolve) => {
       const timer = setTimeout(() => {
