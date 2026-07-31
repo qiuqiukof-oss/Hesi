@@ -138,3 +138,27 @@
   text-align: center;
 }
 .history-err { color: #c0392b; }
+
+/* 前置讨论控件（M3） */
+.disc-block { margin-top: 10px; border-top: 1px dashed var(--border, #ddd); padding-top: 10px; }
+.disc-toggle { display: flex; align-items: center; gap: 6px; font-weight: 600; cursor: pointer; }
+.disc-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 8px 0; }
+.disc-grid label { display: flex; flex-direction: column; gap: 3px; font-size: 12px; color: var(--text-dim, #666); }
+.disc-grid select, .disc-grid input { padding: 5px 7px; border: 1px solid var(--border, #ccc); border-radius: 6px; background: var(--input-bg, #fff); color: inherit; }
+.disc-hint { font-size: 12px; color: var(--text-dim, #888); margin: 4px 0 0; }
+
+/* 讨论面板（M3） */
+.discussion-panel {
+  position: fixed; top: 12%; left: 50%; transform: translateX(-50%);
+  width: 560px; max-width: 94vw; max-height: 76vh; display: flex; flex-direction: column;
+  background: var(--panel-bg, #fff); color: var(--text, #1f2328);
+  border: 1px solid var(--border, #ddd); border-radius: 12px;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.25); z-index: 60; overflow: hidden;
+}
+.discussion-panel.hidden { display: none; }
+.dp-head { display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; border-bottom: 1px solid var(--border, #eee); font-weight: 600; }
+.dp-x { border: none; background: transparent; font-size: 16px; cursor: pointer; color: var(--text-dim, #888); }
+.dp-status { padding: 8px 16px; font-size: 13px; color: var(--text-dim, #666); border-bottom: 1px solid var(--border, #f3f3f3); min-height: 20px; }
+.dp-transcript { flex: 1; overflow: auto; margin: 0; padding: 12px 16px; font-size: 13px; line-height: 1.6; white-space: pre-wrap; word-break: break-all; background: var(--code-bg, #f7f7f7); color: var(--code-text, #333); }
+.dp-actions { display: flex; gap: 10px; padding: 12px 16px; border-top: 1px solid var(--border, #eee); }
+.dp-actions.hidden { display: none; }

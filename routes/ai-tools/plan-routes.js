@@ -22,6 +22,7 @@ const { runRoundtable } = require('../chat/discuss');
 const { generatePlanFromObjective, revisePlan } = require('./plan-from-nl');
 const { sinkPlanToIndex } = require('./plan-rag-sink');
 const { recallPlans, listPlans, deletePlan, clearPlans } = require('./plan-rag-recall');
+const { getPreset } = require('./roundtable-presets');
 
 /**
  * 解析 Plan 执行默认 Agent（可自选 / 圆桌式默认）。
@@ -77,6 +78,18 @@ function createRouter(opts = {}) {
   const cwd = opts.cwd || process.cwd();
   const wf = opts.workflowManager || workflowManager;
   const broadcast = (data) => { try { if (opts.broadcastFn) opts.broadcastFn(data); } catch { /* ignore */ } };
+  // 前置讨论确认闸（M3）：discussMode==='confirm' 时，讨论结束后挂起 HTTP 等待用户确认，
+  // 复用与审批闸相同的「挂起 HTTP + WS 广播 + 超时兜底」范式（超时默认自动继续，方案 P-B6）。
+  const pendingDiscussions = new Map();
+  const waitDiscussionConfirm = (id) => new Promise((resolve) => {
+    const timeoutMs = Number(process.env.HESI_PLAN_DISCUSS_CONFIRM_TIMEOUT) || 10 * 60 * 1000;
+    const timer = setTimeout(() => {
+      pendingDiscussions.delete(id);
+      broadcast({ type: 'plan:discussion-timeout', execId: id });
+      resolve(true); // 超时自动继续生成（方案 P-B6）
+    }, timeoutMs);
+    pendingDiscussions.set(id, { resolve, timer });
+  });
   // 审批超时回退值（默认 30min）；测试可注入极小值以覆盖超时路径。
   // 真实请求可经 body.approvalTimeoutMs / plan.approvalTimeoutMs 按 plan 覆盖（见 /execute 处理器）。
   const factoryApprovalTimeoutMs = Number.isFinite(opts.approvalTimeoutMs) && opts.approvalTimeoutMs > 0
@@ -95,10 +108,66 @@ function createRouter(opts = {}) {
       partners: body.partners,
     };
     let plan = body.plan && typeof body.plan === 'object' ? body.plan : null;
+    // ── M3：前置多角色讨论（先讨论方案再动手）──
+    let discussionSummary = null;
+    let discussionTranscript = '';
+    const discussBeforePlan = !!body.discussBeforePlan;
+    const discussTemplateId = typeof body.discussTemplateId === 'string' ? body.discussTemplateId : '';
+    const discussMode = body.discussMode === 'auto' ? 'auto' : 'confirm'; // 默认 confirm（用户把关）
+    const discussMaxTurns = Number.isFinite(Number(body.discussMaxTurns)) && body.discussMaxTurns > 0
+      ? Math.min(Number(body.discussMaxTurns), 8) : 4;
+    let discussPartners = Array.isArray(body.partners) ? body.partners.slice()
+      : (typeof body.partners === 'string' && body.partners.trim() ? body.partners.split(',').map((s) => s.trim()).filter(Boolean) : []);
+    let discussProtocol = null;
+    let discussPersonas = null;
+    if (discussTemplateId) {
+      const tpl = getPreset(discussTemplateId);
+      if (tpl) {
+        discussProtocol = tpl.protocol || null;
+        discussPersonas = Array.isArray(tpl.personas) ? tpl.personas : null;
+        if (!discussPartners.length && Array.isArray(tpl.personas) && tpl.personas.length) {
+          discussPartners = tpl.personas.map((p) => p.id); // best-effort：用 persona id 作 agent
+        }
+      }
+    }
+    if (discussBeforePlan && !plan && objective && discussPartners.length) {
+      try {
+        broadcast({ type: 'plan:discussion-start', execId, objective });
+        const out = await runRoundtable({
+          message: objective,
+          partners: discussPartners,
+          personas: discussPersonas,
+          protocol: discussProtocol,
+          maxTurns: discussMaxTurns,
+          apiKey: runtime.apiKey,
+          provider: runtime.provider,
+          baseUrl: runtime.baseUrl,
+          model: runtime.model,
+          onEvent: (type, payload) => broadcast({ type: `plan:discuss-${type}`, execId, ...(payload || {}) }),
+          shouldAbort: () => false,
+        });
+        discussionSummary = (out && out.summary) ? out.summary : '';
+        discussionTranscript = (out && out.transcript) ? out.transcript : '';
+        broadcast({ type: 'plan:discussion-result', execId, summary: discussionSummary, cleanFinish: !!(out && out.cleanFinish) });
+        // 仅当讨论真正产出结论才挂起等确认；空结论（无 Key / 无产出）降级为直接生成（B6）
+        if (discussMode === 'confirm' && discussionSummary) {
+          const confirmed = await waitDiscussionConfirm(execId);
+          if (!confirmed) {
+            broadcast({ type: 'plan:discussion-cancelled', execId });
+            return res.json({ ok: false, execId, status: 'discussion-cancelled', error: '已取消：讨论后未确认执行' });
+          }
+        }
+      } catch (de) {
+        // 讨论失败/无 Key/无 Partner → 降级直接生成（方案 B6）
+        broadcast({ type: 'plan:discussion-error', execId, message: de.message });
+        discussionSummary = null;
+        discussionTranscript = '';
+      }
+    }
     // 自然语言入口：给了 objective 且没手写 plan → 先让 AI 拆解成 plan
     if (!plan && objective) {
       try {
-        plan = await generatePlanFromObjective(objective, runtime);
+        plan = await generatePlanFromObjective(objective, runtime, { discussionContext: discussionSummary || undefined });
       } catch (e) {
         return res.status(400).json({ ok: false, error: e.message, code: e.code || 'GEN_FAILED' });
       }
@@ -159,7 +228,11 @@ function createRouter(opts = {}) {
       // ③ RAG 快照回流（成功/失败均沉淀，失败不影响主流程；M1 增强：传计时+执行Agent）
       const endedAt = Date.now();
       try {
-        sinkPlanToIndex(plan, result, { startedAt, endedAt, agentId: executorAgentId });
+        sinkPlanToIndex(plan, result, {
+          startedAt, endedAt, agentId: executorAgentId,
+          discussionSummary: discussionSummary || null,
+          discussionTranscript: process.env.HESI_PLAN_RAG_SINK_DISCUSSION !== '0' ? discussionTranscript : '',
+        });
       } catch { /* RAG 回流失败不影响主流程 */ }
       const p = pendingApprovals.get(execId);
       if (p) { clearTimeout(p.timer); pendingApprovals.delete(execId); }
@@ -243,6 +316,26 @@ function createRouter(opts = {}) {
     } catch (e) {
       res.status(500).json({ ok: false, error: e.message });
     }
+  });
+
+  // 前置讨论确认（M3）：confirm 模式在讨论结束后挂起 HTTP 等待用户确认才继续生成+执行
+  router.post('/:execId/discuss-confirm', (req, res) => {
+    const p = pendingDiscussions.get(req.params.execId);
+    if (!p) return res.status(404).json({ ok: false, error: '无待确认讨论（已结束或超时）' });
+    clearTimeout(p.timer);
+    pendingDiscussions.delete(req.params.execId);
+    broadcast({ type: 'plan:discussion-confirmed', execId: req.params.execId });
+    p.resolve(true);
+    res.json({ ok: true });
+  });
+  router.post('/:execId/discuss-cancel', (req, res) => {
+    const p = pendingDiscussions.get(req.params.execId);
+    if (!p) return res.status(404).json({ ok: false, error: '无待确认讨论（已结束或超时）' });
+    clearTimeout(p.timer);
+    pendingDiscussions.delete(req.params.execId);
+    broadcast({ type: 'plan:discussion-cancelled', execId: req.params.execId });
+    p.resolve(false);
+    res.json({ ok: true });
   });
 
   return router;

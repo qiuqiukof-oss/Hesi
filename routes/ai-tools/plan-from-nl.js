@@ -281,9 +281,15 @@ function repairPrompt(errors) {
  * @param {{ apiKey?:string, provider?:string, baseUrl?:string, model?:string }} runtime
  * @returns {Promise<object>}
  */
-async function generatePlanFromObjective(text, runtime = {}) {
+async function generatePlanFromObjective(text, runtime = {}, opts = {}) {
   const { apiKey, provider, baseUrl, model } = runtime || {};
-  const userMsg = `目标：\n${  text || ''}`;
+  const discussionContext = opts && opts.discussionContext;
+  let userMsg = `目标：\n${text || ''}`;
+  if (discussionContext) {
+    // M3：把多角色讨论结论作为参考上下文注入（≤6KB 截断）。明确「仅供参考、须对齐原始目标」。
+    const dc = String(discussionContext).slice(0, 6000);
+    userMsg += `\n\n【多角色讨论结论（仅供参考，最终 Plan 必须对齐上方原始目标并满足机器可验证）】\n${dc}\n\n请吸收上述角色观点，产出结构化、可机器验证的 Plan JSON。`;
+  }
   let raw;
   try {
     raw = await complete(SYSTEM_PROMPT, userMsg, { apiKey, provider, model, baseUrl });

@@ -53,6 +53,15 @@
           <label>Partners<input id="partners" placeholder="逗号分隔的 agent 名（圆桌 checkpoint 伙伴）" /></label>
           <label>执行 Agent<select id="exec-agent" title="步骤默认执行方；默认 AI 助手（内置 LLM 管线），可选外部 CLI agent"></select></label>
         </div>
+        <div class="disc-block">
+          <label class="disc-toggle"><input type="checkbox" id="discuss-before" /> 🤝 执行前先多角色讨论方案（M3）</label>
+          <div class="disc-grid">
+            <label>讨论模板<select id="discuss-template"><option value="">（自定义 Partners）</option></select></label>
+            <label>确认模式<select id="discuss-mode"><option value="confirm" selected>确认后执行</option><option value="auto">自动执行</option></select></label>
+            <label>讨论轮次<input id="discuss-turns" type="number" min="1" max="8" value="4" /></label>
+          </div>
+          <p class="disc-hint">需配合上方「Partners」填写参与讨论的 CLI Agent（逗号分隔）。选模板会自动带入角色视角协议。</p>
+        </div>
       </details>
     </section>
 

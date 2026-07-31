@@ -165,6 +165,7 @@ function sinkPlanToIndex(plan, result, meta = {}) {
     agentId: (meta && meta.agentId) || plan.agentId || 'ai',
     branch: result && result.branch ? result.branch : null,
     plan: redactPlan(plan),
+    discussionTranscript: (meta && meta.discussionTranscript) ? meta.discussionTranscript : null,
     executions: 1,
     updatedAt: Date.now(),
     discussionSummary: meta && meta.discussionSummary ? meta.discussionSummary : null,

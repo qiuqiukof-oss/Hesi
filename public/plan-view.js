@@ -9,6 +9,8 @@
   'use strict';
 
   const $ = (id) => document.getElementById(id);
+  let currentDiscussMode = 'confirm';
+  let discussionExecId = null;
 
   const SAMPLE = {
     objective: '在仓库根新增计划说明文件 PLAN_DEMO.md，内容为 # Demo',
@@ -102,6 +104,16 @@
           showGate(msg.step);
         } else if (msg.type === 'plan:approval-resolved' && msg.execId === currentExecId) {
           updateGateStatus(msg.approved ? '已通过，继续执行…' : (msg.timedOut ? '超时（视为驳回），已中止' : '已驳回，已中止'));
+        } else if (msg.type === 'plan:discussion-start') {
+          discussionExecId = msg.execId; showDiscussionPanel();
+        } else if (msg.type && msg.type.indexOf('plan:discuss-') === 0) {
+          appendDiscussionEvent(msg.type.slice('plan:discuss-'.length), msg);
+        } else if (msg.type === 'plan:discussion-result') {
+          discussionExecId = msg.execId; showDiscussionResult(msg.summary);
+        } else if (msg.type === 'plan:discussion-cancelled' || msg.type === 'plan:discussion-timeout') {
+          hideDiscussionPanel();
+        } else if (msg.type === 'plan:discussion-error') {
+          setStatus('讨论出错：' + (msg.message || ''), 'error'); hideDiscussionPanel();
         }
       };
       planWs.onclose = () => { planWs = null; };
@@ -158,6 +170,74 @@
     } catch (e) {
       updateGateStatus('网络异常：' + e.message);
     }
+  }
+
+  // ---------- 前置讨论面板（M3） ----------
+  function showDiscussionPanel() {
+    let p = $('discussion-panel');
+    if (!p) {
+      p = document.createElement('div');
+      p.id = 'discussion-panel';
+      p.className = 'discussion-panel hidden';
+      p.innerHTML =
+        '<div class="dp-head">🤝 多角色讨论中…<button id="dp-close" class="dp-x" type="button">✕</button></div>' +
+        '<div class="dp-status"></div>' +
+        '<pre class="dp-transcript"></pre>' +
+        '<div class="dp-actions hidden">' +
+          '<button id="dp-confirm" class="btn btn-primary" type="button">据此生成 Plan</button>' +
+          '<button id="dp-cancel" class="btn" type="button">取消</button>' +
+        '</div>';
+      document.body.appendChild(p);
+      p.querySelector('#dp-close').addEventListener('click', hideDiscussionPanel);
+      p.querySelector('#dp-confirm').addEventListener('click', () => resolveDiscussion('confirm'));
+      p.querySelector('#dp-cancel').addEventListener('click', () => resolveDiscussion('cancel'));
+    }
+    p.classList.remove('hidden');
+    p.querySelector('.dp-transcript').textContent = '';
+    p.querySelector('.dp-status').textContent = '讨论开始…';
+    p.querySelector('.dp-actions').classList.add('hidden');
+  }
+  function appendDiscussionEvent(sub, msg) {
+    const p = $('discussion-panel'); if (!p) return;
+    const tr = p.querySelector('.dp-transcript');
+    const st = p.querySelector('.dp-status');
+    if (sub === 'status') st.textContent = msg.message || '';
+    else if (sub === 'token') tr.textContent += (msg.content || '');
+    else if (sub === 'discuss_start') tr.textContent += `\n\n【第${msg.round || '?'}轮 · ${msg.label || msg.speaker || ''}】\n`;
+    else if (sub === 'discuss_end') tr.textContent += '\n';
+    else if (sub === 'discuss_stats') tr.textContent += `\n〔讨论统计：${JSON.stringify(msg.stats || {})}〕\n`;
+    tr.scrollTop = tr.scrollHeight;
+  }
+  function showDiscussionResult(summary) {
+    const p = $('discussion-panel'); if (!p) return;
+    const tr = p.querySelector('.dp-transcript');
+    tr.textContent += `\n\n【讨论结论】\n${summary || '(无结论)'}\n`;
+    tr.scrollTop = tr.scrollHeight;
+    const actions = p.querySelector('.dp-actions');
+    if (currentDiscussMode === 'confirm') actions.classList.remove('hidden');
+    else setTimeout(hideDiscussionPanel, 1500); // auto 模式：讨论后自动继续生成执行
+  }
+  function resolveDiscussion(kind) {
+    if (!discussionExecId) return;
+    const btn = $('dp-confirm'); if (btn) btn.disabled = true;
+    fetch('/api/plan/' + encodeURIComponent(discussionExecId) + '/discuss-' + (kind === 'confirm' ? 'confirm' : 'cancel'), {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+    }).then(() => hideDiscussionPanel()).catch((e) => setStatus('讨论确认失败：' + e.message, 'error'));
+  }
+  function hideDiscussionPanel() { const p = $('discussion-panel'); if (p) p.classList.add('hidden'); }
+  async function loadDiscussionTemplates() {
+    const sel = $('discuss-template');
+    if (!sel) return;
+    try {
+      const resp = await fetch('/api/roundtable/templates');
+      const data = await resp.json().catch(() => ({}));
+      const list = (data && data.templates) || [];
+      for (const t of list) {
+        const o = document.createElement('option');
+        o.value = t.id; o.textContent = (t.title || t.id);
+        sel.appendChild(o);
+      }
+    } catch { /* 模板加载失败不阻断 */ }
   }
 
   // ── 执行 Agent 下拉：合并 /api/clis(agent) + /api/agents(installed) + ⭐收藏 ──
@@ -283,6 +363,14 @@
           setStatus('Plan JSON 解析失败：' + e.message, 'error');
           return;
         }
+      }
+      // M3：前置讨论参数（若勾选「执行前先多角色讨论」）
+      if ($('discuss-before') && $('discuss-before').checked) {
+        body.discussBeforePlan = true;
+        body.discussTemplateId = $('discuss-template').value || undefined;
+        body.discussMode = $('discuss-mode').value || 'confirm';
+        body.discussMaxTurns = Number($('discuss-turns').value) || 4;
+        currentDiscussMode = body.discussMode;
       }
       // LLM 配置：提交时最终兜底——按优先级链读取（确保即使 fillLLMFields 因时序未命中也能拿到）
       // 优先级：表单值 > ChatAPI(QCLI) > safeStorage 兼容 > 原生 localStorage/sessionStorage
@@ -479,6 +567,7 @@
     connectPlanWS();
     fillLLMFields(); // 自动从全局 LLM 设置填充高级字段
     loadExecAgentOptions(); // 填充执行 Agent 下拉
+    loadDiscussionTemplates(); // 填充讨论模板下拉（M3）
     $('load-sample').addEventListener('click', () => {
       $('plan-input').value = JSON.stringify(SAMPLE, null, 2);
     });
