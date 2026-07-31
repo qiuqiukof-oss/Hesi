@@ -162,3 +162,30 @@
 .dp-transcript { flex: 1; overflow: auto; margin: 0; padding: 12px 16px; font-size: 13px; line-height: 1.6; white-space: pre-wrap; word-break: break-all; background: var(--code-bg, #f7f7f7); color: var(--code-text, #333); }
 .dp-actions { display: flex; gap: 10px; padding: 12px 16px; border-top: 1px solid var(--border, #eee); }
 .dp-actions.hidden { display: none; }
+
+/* 自动重试时间线（v0.6.3 M4/C5） */
+.attempts { margin: 10px 0 4px; padding: 12px 14px; background: var(--code-bg, #f7f8fa); border: 1px solid var(--border, #e6e6e6); border-radius: 10px; }
+.attempts.hidden { display: none; }
+.at-title { font-size: 13px; font-weight: 600; color: var(--text, #1f2328); margin-bottom: 10px; }
+.at-list { position: relative; }
+.at-row { display: flex; align-items: flex-start; gap: 10px; padding-bottom: 4px; }
+.at-dot { flex: 0 0 auto; width: 12px; height: 12px; border-radius: 50%; margin-top: 4px; background: #c8c8c8; box-shadow: 0 0 0 3px rgba(0,0,0,0.04); }
+.at-dot-done { background: #2da44e; }
+.at-dot-partial { background: #d4a72c; }
+.at-dot-diverged { background: #e0823d; }
+.at-dot-rejected { background: #cf222e; }
+.at-body { flex: 1 1 auto; min-width: 0; }
+.at-head { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.at-idx { display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px; border-radius: 50%; background: var(--panel-bg, #fff); border: 1px solid var(--border, #ccc); font-size: 12px; font-weight: 600; color: var(--text-dim, #555); }
+.at-label { font-size: 13px; font-weight: 600; color: var(--text, #1f2328); }
+.at-status { font-size: 12px; font-weight: 600; padding: 1px 8px; border-radius: 999px; background: #ececec; color: #555; }
+.at-status.at-done { background: #e6f4ea; color: #1a7f37; }
+.at-status.at-partial { background: #fbf3df; color: #9a6700; }
+.at-status.at-diverged { background: #fdeede; color: #bc4c00; }
+.at-status.at-rejected { background: #fbe9eb; color: #cf222e; }
+.at-chip { font-size: 11px; padding: 1px 8px; border-radius: 999px; }
+.at-revised { background: #e7f0ff; color: #1756c5; }
+.at-fatal { background: #fbe9eb; color: #cf222e; }
+.at-reason { font-size: 12px; color: var(--text-dim, #666); margin-top: 3px; line-height: 1.5; word-break: break-word; }
+.at-arrow { display: block; font-size: 11px; color: var(--text-dim, #999); margin: 2px 0 2px 22px; }
+.at-last .at-arrow { display: none; }

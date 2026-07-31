@@ -204,9 +204,11 @@ function createRouter(opts = {}) {
       const hasPlaceholderSteps = Array.isArray(plan.steps)
         && plan.steps.some((s) => s && (s._isPlaceholder || s.type === 'skip'));
       const autoReplan = !!(body.autoReplan || plan.autoReplan || fullAuto || hasPlaceholderSteps);
-      const maxRetries = Number.isFinite(Number(body.maxRetries)) && body.maxRetries > 0 ? body.maxRetries
+      // C3：maxRetries 解析顺序 body > plan > HESI_PLAN_MAX_RETRIES(默认2) > 旧默认1；封顶5 防失控
+      const _mr = Number.isFinite(Number(body.maxRetries)) && body.maxRetries > 0 ? body.maxRetries
         : (Number.isFinite(Number(plan.maxRetries)) && plan.maxRetries > 0 ? plan.maxRetries
-          : (autoReplan ? 1 : 0));
+          : (Number(process.env.HESI_PLAN_MAX_RETRIES) || (autoReplan ? 2 : 0)));
+      const maxRetries = Math.min(_mr, 5);
       const startedAt = Date.now();
       const result = await runPlan(plan, {
         cwd,

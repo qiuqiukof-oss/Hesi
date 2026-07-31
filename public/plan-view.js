@@ -53,6 +53,52 @@
     el.classList.remove('hidden');
   }
 
+  // M4/C5：重试时间线——展示「第 N 次重试 · 因 X 失败 · 已修订」轨迹
+  function renderAttempts(attempts) {
+    const el = $('attempts');
+    if (!el) return;
+    if (!attempts || !attempts.length) { el.classList.add('hidden'); el.innerHTML = ''; return; }
+    // 仅 1 轮且无重试 → 不渲染时间线（避免无谓噪声，P-C5）
+    const retried = attempts.filter((a) => a.revised).length > 0;
+    if (attempts.length === 1 && !retried) { el.classList.add('hidden'); el.innerHTML = ''; return; }
+
+    const statusLabel = {
+      done: '成功', partial: '部分完成', diverged: '偏离', rejected: '已拒绝',
+    };
+    const rows = attempts.map((a, idx) => {
+      const isRetry = a.n > 1;
+      const label = isRetry ? `第 ${a.n - 1} 次重试` : '首次执行';
+      const kindChip = a.kind === 'fatal'
+        ? '<span class="at-chip at-fatal">致命失败 · 重试无意义</span>'
+        : (a.revised ? '<span class="at-chip at-revised">✏️ 已修订</span>' : '');
+      const reasonLine = (a.kind === 'retryable' && a.reason)
+        ? `<div class="at-reason">因：${esc(a.reason)}</div>`
+        : '';
+      const statusBadge = `<span class="at-status at-${esc(a.status)}">${esc(statusLabel[a.status] || a.status)}</span>`;
+      const last = idx === attempts.length - 1;
+      const tail = last
+        ? ''
+        : (a.kind === 'fatal' ? '' : '<span class="at-arrow">↓ 自动修订后重跑</span>');
+      return `
+        <div class="at-row ${last ? 'at-last' : ''}">
+          <div class="at-dot at-dot-${esc(a.status)}"></div>
+          <div class="at-body">
+            <div class="at-head">
+              <span class="at-idx">${a.n}</span>
+              <span class="at-label">${esc(label)}</span>
+              ${statusBadge}
+              ${kindChip}
+            </div>
+            ${reasonLine}
+          </div>
+          ${tail}
+        </div>`;
+    }).join('');
+
+    el.innerHTML = `<div class="at-title">🔁 自动重试轨迹（共 ${attempts.length} 轮）</div><div class="at-list">${rows}</div>`;
+    el.classList.remove('hidden');
+  }
+
   function renderSteps(steps) {
     const wrap = $('steps');
     wrap.innerHTML = '';
@@ -79,6 +125,8 @@
   function clearResults() {
     $('status-banner').classList.add('hidden');
     $('reflection').classList.add('hidden');
+    const at = $('attempts');
+    if (at) { at.classList.add('hidden'); at.innerHTML = ''; }
     $('steps').innerHTML = '';
     $('empty-hint').classList.remove('hidden');
     hideGate();
@@ -453,6 +501,7 @@
       }
       setStatus(msg, kind);
       renderReflection(data.reflection);
+      renderAttempts(data.attempts);
       renderSteps(data.steps);
       hideGate();
     } catch (e) {

@@ -509,16 +509,17 @@ function summarizeResult(prevResult) {
  * @param {{ apiKey?:string, provider?:string, baseUrl?:string, model?:string }} runtime
  * @returns {Promise<object|null>}
  */
-async function revisePlan(prevPlan, prevResult, runtime = {}) {
+async function revisePlan(prevPlan, prevResult, runtime = {}, failureContext) {
   const { apiKey, provider, baseUrl, model } = runtime || {};
   const objective = (prevPlan && prevPlan.objective) || '';
   const userMsg = [
     `原始目标：${objective}`,
     '',
     summarizeResult(prevResult),
+    failureContext ? `\n【上次执行失败详情（请重点针对修复）】\n${String(failureContext).slice(0, 4000)}` : '',
     '',
     '请产出修订后的 Plan JSON。',
-  ].join('\n');
+  ].filter(Boolean).join('\n');
   let raw;
   try {
     raw = await complete(SYSTEM_REVISE, userMsg, { apiKey, provider, model, baseUrl });

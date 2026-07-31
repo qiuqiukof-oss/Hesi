@@ -901,6 +901,61 @@ function reflectPlan(plan, stepResults, budget, acceptance, opts) {
  *        - mode 当前仅落库，chat Agent HITL 留 Phase 1
  * @returns {Promise<{ ok: boolean, status: string, branch: string|null, steps: object[], reflection: object }>}
  */
+/**
+ * M4/C1：失败分类——区分「可重试」与「致命（重试无意义）」。
+ * @param {object} body  runOneAttempt 返回（含 results / reflection）
+ * @returns {'retryable'|'fatal'}
+ */
+function classifyFailure(body) {
+  const results = (body && body.results) || [];
+  for (const r of results) {
+    const st = r.status;
+    const err = String(r.error || r.output || '');
+    // 注意：'blocked'（运行时拦截 / forbidden / scope 越界）不归入 fatal——
+    // 它是「可被 autoReplan 修订修复」的（如 LLM 修正 scope_paths / 去掉危险命令），
+    // 故视为 retryable，由 maxRetries + 无进展早停防止死循环。fatal 仅保留给真正的
+    // 执行层致命错误（权限 / 语法 / 逻辑），避免「假装修好」式无限重试。
+    if (/permission denied|EACCES|EPERM/i.test(err)) return 'fatal';
+    if (/syntax error|SyntaxError|TypeError|ReferenceError|Unexpected token/i.test(err)) return 'fatal';
+    if (/command not found|not recognized as|ENOENT|No such file/i.test(err)) return 'retryable';
+    if (/timeout|ETIMEDOUT|timed out|aborted/i.test(err)) return 'retryable';
+    if (st === 'error' || st === 'failed') return 'retryable';
+  }
+  return 'retryable';
+}
+
+/** M4/C2：构造精简失败上下文（失败步骤 id + 错误 + 输出末尾），供 revisePlan 精准修复。 */
+function buildFailureContext(body) {
+  const results = (body && body.results) || [];
+  const lines = [];
+  for (const r of results) {
+    if (r.status === 'error' || r.status === 'blocked' || r.status === 'failed') {
+      const tail = String(r.output || r.error || '').trim().split('\n').slice(-8).join('\n');
+      lines.push(`- 步骤 ${r.id || '?'} [${r.status}]: ${r.goal || ''}\n  错误/输出末尾: ${tail}`);
+    }
+  }
+  return lines.join('\n') || '(无明确失败步骤，但整体未达 done)';
+}
+
+/** M4/C5：为「重试时间线」生成一句话失败摘要（供前端展示，不堆砌原始输出）。 */
+function summarizeAttemptReason(body) {
+  const results = (body && body.results) || [];
+  for (const r of results) {
+    if (r.status === 'error' || r.status === 'blocked' || r.status === 'failed') {
+      const tail = String(r.output || r.error || '').trim().split('\n').slice(-3).join(' ');
+      const head = `步骤 ${r.id || '?'}（${r.goal || ''}）${r.status}`;
+      return tail ? `${head}：${tail.slice(0, 160)}` : head;
+    }
+  }
+  return '整体未达 done（未识别到明确失败步骤）';
+}
+
+/** M4/C4：Plan 步骤结构签名，用于「无进展早停」判定（防修订死循环烧 token）。 */
+function planStepSig(plan) {
+  const steps = (plan && plan.steps) || [];
+  return JSON.stringify(steps.map((s) => ({ goal: s.goal, action: s.action, type: s.type })));
+}
+
 async function runPlan(plan, opts = {}) {
   const cwd = opts.cwd;
   const wf = opts.workflowManager;
@@ -937,18 +992,46 @@ async function runPlan(plan, opts = {}) {
   let currentPlan = plan;
   let lastBody = null;
   const attempts = [];
+  let fatalReason = null;
+  let noProgress = false;
+  let lastPlanSig = null;
   let reviseFailed = false; // autoReplan 修订抛异常 → 终止且明确标记 rejected
+  // C6：同一 runPlan（同 execId）内，首次已审批的步骤在重试时复用审批结论，不再重复弹窗打扰。
+  const runOpts = Object.assign({}, opts, { approvedSteps: new Set() });
   for (let attempt = 0; ; attempt++) {
-    const body = await runOneAttempt(currentPlan, { cwd, wf, roundtableFn, onStep, dryRun, runAcc, skipGate, opts });
+    const body = await runOneAttempt(currentPlan, { cwd, wf, roundtableFn, onStep, dryRun, runAcc, skipGate, opts: runOpts });
     lastBody = body;
-    attempts.push({ planId: currentPlan.id, status: body.reflection.status });
     const st = body.reflection.status;
-    if (st === 'done' || st === 'rejected') break;
+    const terminal = st === 'done' || st === 'rejected';
+    const failureKind = terminal ? 'terminal' : classifyFailure(body);
+    // C5：记录每轮轨迹（轮次 / 状态 / 失败原因），供前端「重试时间线」展示
+    attempts.push({
+      n: attempt + 1,
+      planId: currentPlan.id,
+      status: st,
+      kind: failureKind,
+      reason: terminal ? '' : summarizeAttemptReason(body).slice(0, 300),
+    });
+    if (terminal) break;
+    // C1：致命性失败（权限/语法/逻辑）→ 重试无意义，直接失败（避免「假装修好」）
+    if (failureKind === 'fatal') {
+      fatalReason = '检测到致命性失败（权限不足 / 语法错误 / 逻辑错误），自动重试无意义，请手动修正 Plan';
+      break;
+    }
     if (attempt >= maxRetries) break;
     let revised = null;
-    try { revised = await reviseFn(currentPlan, body, plannerRuntime); }
+    try { revised = await reviseFn(currentPlan, body, plannerRuntime, buildFailureContext(body)); }
     catch (e) { revised = null; reviseFailed = true; console.warn('[runPlan] autoReplan 修订失败:', e && e.message); }
     if (!revised) break;
+    // 标记上一轮已触发修订（供前端展示「已修订」）
+    attempts[attempts.length - 1].revised = true;
+    // C4：无进展早停——连续修订产出的 Plan 结构完全相同则判定死循环，停止以避免烧 token
+    const sig = planStepSig(revised);
+    if (lastPlanSig !== null && sig === lastPlanSig) {
+      noProgress = true;
+      break;
+    }
+    lastPlanSig = sig;
     currentPlan = revised;
   }
 
@@ -959,6 +1042,14 @@ async function runPlan(plan, opts = {}) {
   if (reviseFailed && finalStatus !== 'done' && finalStatus !== 'rejected') {
     finalStatus = 'rejected';
     finalReason = 'autoReplan 修订失败：Plan 无法自动优化，请手动调整 Plan 或重试';
+  }
+  if (fatalReason && finalStatus !== 'done' && finalStatus !== 'rejected') {
+    finalStatus = 'rejected';
+    finalReason = fatalReason;
+  }
+  if (noProgress && finalStatus !== 'done' && finalStatus !== 'rejected') {
+    finalStatus = 'rejected';
+    finalReason = '自动重试未产生新方案（连续修订无进展），已停止以避免死循环';
   }
   return {
     // 保持原语义：done / partial 视为 ok=true；仅当 autoReplan 修订失败被明确升级为 rejected 时 ok=false
@@ -1080,7 +1171,11 @@ async function runOneAttempt(plan, ctx) {
       ev.requiresApproval = true;
       await onStep(ev); // 通知前端出闸门卡片
       let approved = true;
-      if (typeof opts.requestApproval === 'function') {
+      const approvedSteps = opts && opts.approvedSteps;
+      // C6：同一 runPlan 内重试时，复用首次审批结论，不再重复打扰
+      if (approvedSteps && approvedSteps.has(task.id)) {
+        approved = true;
+      } else if (typeof opts.requestApproval === 'function') {
         approved = await opts.requestApproval({
           execId: opts.execId,
           index: i,
@@ -1090,6 +1185,7 @@ async function runOneAttempt(plan, ctx) {
           risk: step.risk || null,
         });
       }
+      if (approved && approvedSteps) approvedSteps.add(task.id);
       if (!approved) {
         ev.status = 'rejected';
         ev.reason = '人工驳回（审批闸）';
