@@ -238,6 +238,7 @@
 }
 .discuss-option {
   display: flex;
+  flex-direction: row; /* 显式横向，防被 .adv-grid label{flex-direction:column} 覆盖 */
   align-items: center;
   gap: 6px;
   padding: 6px 8px;

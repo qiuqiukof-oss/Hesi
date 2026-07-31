@@ -243,6 +243,7 @@
 }
 #plan-embed .discuss-option {
   display: flex;
+  flex-direction: row; /* 显式覆盖 .adv-grid label 的 flex-direction:column */
   align-items: center;
   gap: 6px;
   padding: 6px 8px;
