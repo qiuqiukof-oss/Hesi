@@ -367,10 +367,36 @@
     if (toggle) toggle.addEventListener('change', syncWrap);
     syncWrap();
 
-    // 同步挂载 click handler（不等 await，根治「点不开」）
-    btn.addEventListener('click', (e) => { e.stopPropagation(); dd.classList.toggle('hidden'); });
+    // 点击按钮切换下拉显隐（fixed 定位，脱离 <details> 层叠上下文）
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const isOpening = dd.classList.contains('hidden');
+      if (isOpening) {
+        // 用 fixed 定位：直接相对视口，不受 <details>/overflow 任何影响
+        const rect = btn.getBoundingClientRect();
+        dd.style.position = 'fixed';
+        dd.style.left = rect.left + 'px';
+        dd.style.top = (rect.bottom + 4) + 'px';
+        dd.style.width = rect.width + 'px';
+        dd.classList.remove('hidden');
+      } else {
+        dd.classList.add('hidden');
+      }
+    });
+    // 点击其它区域收起下拉
     document.addEventListener('click', (e) => {
-      if (!dd.contains(e.target) && e.target !== btn && !btn.contains(e.target)) dd.classList.add('hidden');
+      if (!dd.contains(e.target) && e.target !== btn && !btn.contains(e.target)) {
+        dd.classList.add('hidden');
+      }
+    });
+    // 窗口大小变化 / 滚动时重新对齐（fixed 需手动跟进）
+    window.addEventListener('resize', () => {
+      if (!dd.classList.contains('hidden')) {
+        const rect = btn.getBoundingClientRect();
+        dd.style.left = rect.left + 'px';
+        dd.style.top = (rect.bottom + 4) + 'px';
+        dd.style.width = rect.width + 'px';
+      }
     });
 
     const nameMap = new Map();
