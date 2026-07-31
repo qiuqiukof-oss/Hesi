@@ -367,17 +367,20 @@
     if (toggle) toggle.addEventListener('change', syncWrap);
     syncWrap();
 
-    // 点击按钮切换下拉显隐（fixed 定位，脱离 <details> 层叠上下文）
+    // 点击按钮切换下拉显隐（fixed 定位 + 挂到 body 顶层，彻底脱离任何祖先层叠上下文）
     btn.addEventListener('click', (e) => {
       e.stopPropagation();
       const isOpening = dd.classList.contains('hidden');
       if (isOpening) {
-        // 用 fixed 定位：直接相对视口，不受 <details>/overflow 任何影响
+        // 移入 body 顶层：彻底摆脱 .disc-partner-wrap(z-index:10) 的层叠上下文囚笼，
+        // 避免被页面其他浮层（历史抽屉/审批闸等）覆盖而「看不见」
+        if (dd.parentElement !== document.body) document.body.appendChild(dd);
         const rect = btn.getBoundingClientRect();
         dd.style.position = 'fixed';
         dd.style.left = rect.left + 'px';
         dd.style.top = (rect.bottom + 4) + 'px';
         dd.style.width = rect.width + 'px';
+        dd.style.zIndex = '99999'; // 高于审批闸(1000)与历史抽屉(60)，稳居最前
         dd.classList.remove('hidden');
       } else {
         dd.classList.add('hidden');
