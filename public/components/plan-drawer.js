@@ -73,7 +73,11 @@ const PlanDrawer = {
           <label>Provider<input id="plan-provider" placeholder="自动读取" /></label>
           <label>BaseURL<input id="plan-base-url" placeholder="自动读取" /></label>
           <label>Model<input id="plan-model" placeholder="自动读取" /></label>
-          <label>Partners<input id="plan-partners" placeholder="逗号分隔的 agent 名（圆桌 checkpoint 伙伴）" /></label>
+          <div class="disc-partner-wrap">
+            <button type="button" id="plan-drawer-partner-btn" class="discuss-multibtn plan-partner-btn placeholder"
+              title="选择参与讨论的 CLI Agent（可多选，收藏夹已同步）">选择讨论伙伴 ▾</button>
+            <div id="plan-drawer-partner-dropdown" class="discuss-dropdown hidden"></div>
+          </div>
           <label>执行 Agent<select id="plan-exec-agent" title="步骤默认执行方；默认 AI 助手（内置 LLM 管线），可选外部 CLI agent"></select></label>
         </div>
       </details>
@@ -111,6 +115,8 @@ const PlanDrawer = {
     this._fillLLM(body);
     // 执行 Agent 下拉
     this._loadExecAgentOptions(body);
+    // 讨论伙伴多选（M3）
+    this._loadPartnerOptions(body);
     // 审批闸 WS
     this._connectWS();
     this.rendered = true;
@@ -163,6 +169,78 @@ const PlanDrawer = {
         if (g.children.length) sel.appendChild(g);
       }
     }).catch(() => { /* 静默：仅保留默认项 */ });
+  },
+
+  /** 讨论伙伴多选（M3）：复用聊天面板多选模式；抽屉无「先讨论」开关，常显 */
+  _loadPartnerOptions(body) {
+    const btn = body.querySelector('#plan-drawer-partner-btn');
+    const dd = body.querySelector('#plan-drawer-partner-dropdown');
+    if (!btn || !dd) return;
+
+    const list = [];
+    Promise.all([
+      fetch('/api/clis').then((r) => r.json()).catch(() => null),
+      fetch('/api/agents').then((r) => r.json()).catch(() => null),
+    ]).then(([clisRes, agentsRes]) => {
+      const agents = (agentsRes && agentsRes.agents ? agentsRes.agents : []).filter((a) => a.installed);
+      agents.forEach((a) => list.push({ id: a.id, name: a.displayName || a.name }));
+      const clis = (clisRes && clisRes.clis ? clisRes.clis : []).filter((c) => c.category === 'agent');
+      clis.forEach((c) => { if (!list.some((x) => x.id === c.id)) list.push({ id: c.id || c.name, name: c.name }); });
+
+      const favIds = safeStorage.getJSON('qcli-favorites', []);
+      const favSet = new Set(favIds);
+      list.sort((a, b) => {
+        const af = favSet.has(a.id) ? 0 : 1;
+        const bf = favSet.has(b.id) ? 0 : 1;
+        if (af !== bf) return af - bf;
+        return (a.name || '').localeCompare(b.name || '');
+      });
+
+      dd.innerHTML = '';
+      if (!list.length) {
+        dd.innerHTML = '<div class="discuss-dropdown-empty">未发现可用 CLI Agent</div>';
+        return;
+      }
+      if (list.some((a) => favSet.has(a.id))) {
+        const hint = document.createElement('div');
+        hint.className = 'discuss-fav-hint';
+        hint.textContent = `★ 已与收藏夹同步（${list.filter((a) => favSet.has(a.id)).length} 个）`;
+        dd.appendChild(hint);
+      }
+      list.forEach((a) => {
+        const isFav = favSet.has(a.id);
+        const label = document.createElement('label');
+        label.className = 'discuss-option' + (isFav ? ' favorited' : '');
+        const cb = document.createElement('input');
+        cb.type = 'checkbox';
+        cb.dataset.id = a.id;
+        if (isFav) cb.checked = true;
+        label.appendChild(cb);
+        const star = document.createElement('span');
+        star.className = 'discuss-fav-star';
+        star.textContent = isFav ? '★ ' : '';
+        label.appendChild(star);
+        label.appendChild(document.createTextNode(a.name + (a.version ? ' · ' + a.version : '')));
+        dd.appendChild(label);
+      });
+    }).catch(() => { /* 静默 */ });
+
+    const updateLabel = () => {
+      const checked = Array.from(dd.querySelectorAll('input[type="checkbox"]:checked')).map((cb) => cb.dataset.id);
+      if (!checked.length) { btn.textContent = '选择讨论伙伴 ▾'; btn.classList.add('placeholder'); }
+      else if (checked.length === 1) {
+        const n = list.find((x) => x.id === checked[0]);
+        btn.textContent = (n ? n.name : checked[0]) + ' ▾';
+        btn.classList.remove('placeholder');
+      } else { btn.textContent = `已选 ${checked.length} 个伙伴 ▾`; btn.classList.remove('placeholder'); }
+    };
+
+    btn.addEventListener('click', (e) => { e.stopPropagation(); dd.classList.toggle('hidden'); });
+    document.addEventListener('click', (e) => {
+      if (!dd.contains(e.target) && e.target !== btn && !btn.contains(e.target)) dd.classList.add('hidden');
+    });
+    dd.addEventListener('change', updateLabel);
+    updateLabel();
   },
 
   /** 从 Q.ChatAPI 读取同源 LLM 设置（与聊天完全一致） */
@@ -250,8 +328,12 @@ const PlanDrawer = {
       if (bu) payload.baseUrl = bu;
       const md = body.querySelector('#plan-model').value.trim() || (Q.ChatAPI && Q.ChatAPI.getModel ? Q.ChatAPI.getModel() : '');
       if (md) payload.model = md;
-      const ps = body.querySelector('#plan-partners').value.trim();
-      if (ps) payload.partners = ps.split(',').map((x) => x.trim()).filter(Boolean);
+      // 讨论伙伴：从多选下拉读取
+      const dd = body.querySelector('#plan-drawer-partner-dropdown');
+      if (dd) {
+        payload.partners = Array.from(dd.querySelectorAll('input[type="checkbox"]:checked'))
+          .map((cb) => cb.dataset.id).filter(Boolean);
+      }
       const ea = body.querySelector('#plan-exec-agent').value.trim();
       if (ea) payload.agentId = ea; // 'ai' 或外部 CLI agent id
 
