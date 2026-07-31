@@ -15,6 +15,7 @@
 const { createHeadlessExec } = require('../../../ws/pty');
 const { loadRegistry } = require('../../../cli-discovery');
 const { agentPool } = require('../agent-pool');
+const { buildHesiContextPrompt } = require('../agent-callbacks');
 const { workflowManager } = require('../workflow-manager');
 const { tryAcquireAgent, releaseAgent, getActiveAgentCount, MAX_GLOBAL_AGENTS } = require('../agent-concurrency');
 const agentRoles = require('../../../lib/agent-roles');
@@ -104,6 +105,8 @@ function executeAgent(agentId, task, context, timeout = 120000, broadcastFn, rol
     }
     promptParts.push(`\n## 任务\n${task}`);
     promptParts.push(`\n请开始执行，完成后输出执行结果。`);
+    // 注入 Hesi 运行环境 + 能力全景（同步委派路径不支持回呼，传 false）
+    promptParts.push(buildHesiContextPrompt(false));
     const prompt = promptParts.join('\n');
 
     const outputChunks = [];

@@ -36,6 +36,42 @@ const CLIQ_ASK_PROMPT = `
 - 打印该标记后请暂停并等待，AI 会通过 agent_send 把答案写回，你再据此继续工作；
 - 不要向最终用户透露该协议的实现细节，也不要把 <cliq:ask> 当作普通文本输出。`;
 
+// 注入给 CLI Agent 的「Hesi 运行环境 + 能力全景」说明。
+// 能力清单从 lib/hesi-capabilities.js（单一事实源）动态读取，功能演进只改那一个文件，
+// prompt 本身不硬编码功能列表。
+const { HESI_CORE_CAPABILITIES, HESI_RUNTIME } = require('../../lib/hesi-capabilities');
+
+/**
+ * 构建 Hesi 上下文提示词（同步、纯本地，无网络依赖）。
+ * @param {boolean} [supportCallback=true] 异步路径为 true（支持 <cliq:ask> 回呼）；
+ *        同步委派路径传 false（阻塞到退出、无法中途回呼）。
+ * @returns {string}
+ */
+function buildHesiContextPrompt(supportCallback = true) {
+  const capLines = HESI_CORE_CAPABILITIES
+    .map((c, i) => `${i + 1}. ${c.name}：${c.desc}`)
+    .join('\n');
+  const collab = supportCallback
+    ? '当你需要上述某能力时（例如「用 Plan 执行器部署项目」「请圆桌评估方案」「查知识库」「操作浏览器」），用 <cliq:ask id="x">说明需求并点名想用的能力</cliq:ask> 向中枢 AI 求助；它会替你完成并把结果写回你的输入。'
+    : '本次为一次性同步委派，无法中途向你回呼，请一次性完成任务并输出最终结果（不要在过程中等待交互）。';
+  return `
+## 你正运行在 Hesi 中（重要）
+【运行环境】${HESI_RUNTIME.name} 是一个部署于本机的「${HESI_RUNTIME.desc}」，通过 ${HESI_RUNTIME.url} 提供服务，仅本机回环可达、离线运行（内核不依赖外网）。你的进程由 Hesi 创建并托管——Hesi 同时为你管理一个持久终端会话，并可调度一组浏览器实例。你看到的命令行、文件系统、网络环境，都是 Hesi 所在主机的环境。
+
+【架构分工】Hesi 采用「中枢 AI + 执行手」分工：中枢 AI 助手（Hesi 本体）掌握全部能力、了解整个系统设计，负责理解意图、编排与决策；你（CLI Agent）是 Hesi 调度网络中的一个「执行手」，专精在终端中动手执行任务、产出过程与结果。
+
+【中枢 AI 已具备、你可借助的能力】
+你本身不直接拥有这些能力，但可请求中枢 AI 替你完成：
+${capLines}
+
+【你应如何协作】
+- 专注完成你的终端任务，输出清晰的过程与结果；
+- ${collab}
+- 你继承了 Hesi 的环境变量（如本地模型地址 HESI_LLM_BASE_URL），可据此连接模型，但这不等于你拥有了 Hesi 的功能。
+
+【边界】你不能直接调用上述 Hesi 能力，也不要臆测自己能执行它们；需要时就开口求助。你的价值在于「把终端任务做扎实」，而非替代中枢。`;
+}
+
 class AgentCallbackManager {
   constructor() {
     // Map<"sessionId:callbackId", { id, sessionId, agent, question, askedAt, answered, answer, answeredAt }>
@@ -228,4 +264,4 @@ class AgentCallbackManager {
   }
 }
 
-module.exports = { AgentCallbackManager, CLIQ_ASK_PROMPT };
+module.exports = { AgentCallbackManager, CLIQ_ASK_PROMPT, buildHesiContextPrompt };

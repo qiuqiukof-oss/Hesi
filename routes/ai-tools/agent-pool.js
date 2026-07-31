@@ -17,7 +17,7 @@
 
 const { createHeadlessExec } = require('../../ws/pty');
 const { loadRegistry } = require('../../cli-discovery');
-const { AgentCallbackManager, CLIQ_ASK_PROMPT } = require('./agent-callbacks');
+const { AgentCallbackManager, CLIQ_ASK_PROMPT, buildHesiContextPrompt } = require('./agent-callbacks');
 const { tryAcquireAgent, releaseAgent, getActiveAgentCount, MAX_GLOBAL_AGENTS } = require('./agent-concurrency');
 const agentRoles = require('../../lib/agent-roles');
 
@@ -156,6 +156,8 @@ class AgentPoolManager {
       promptParts.push(`\n请开始执行，完成后输出执行结果。`);
       // 注入「向 AI 求助」协议，让 Agent 能在卡点时反向请求 AI 协助（仅异步路径支持回呼通道）
       promptParts.push(CLIQ_ASK_PROMPT);
+      // 注入 Hesi 运行环境 + 能力全景（异步路径，支持回呼通道）
+      promptParts.push(buildHesiContextPrompt(true));
       const prompt = promptParts.join('\n');
 
       // 创建 headless 执行（优先非 TTY 模式，避免 TUI 渲染污染讨论；无 descriptor 时回退 PTY）
