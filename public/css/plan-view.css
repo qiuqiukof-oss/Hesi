@@ -204,7 +204,7 @@
 .approval-gate .ag-status { margin-top: 10px; font-size: 12px; color: var(--text-secondary, #a1a1aa); min-height: 16px; }
 
 /* ── 讨论伙伴多选下拉（M3，与聊天面板 discuss-controls 同款结构）── */
-.disc-partner-wrap { display: block; margin: 8px 0 4px; }
+.disc-partner-wrap { display: block; margin: 8px 0 4px; position: relative; }
 .disc-block { position: relative; }
 .plan-partner-btn {
   width: 100%;
@@ -226,6 +226,7 @@
   position: absolute;
   top: calc(100% + 4px);
   left: 0;
+  z-index: 50;
   min-width: 100%;
   max-height: 260px;
   overflow-y: auto;
