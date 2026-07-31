@@ -39,7 +39,7 @@ const CLIQ_ASK_PROMPT = `
 // 注入给 CLI Agent 的「Hesi 运行环境 + 能力全景」说明。
 // 能力清单从 lib/hesi-capabilities.js（单一事实源）动态读取，功能演进只改那一个文件，
 // prompt 本身不硬编码功能列表。
-const { HESI_CORE_CAPABILITIES, HESI_RUNTIME } = require('../../lib/hesi-capabilities');
+const { HESI_CORE_CAPABILITIES, HESI_RUNTIME, resolveHesiUrl } = require('../../lib/hesi-capabilities');
 
 /**
  * 构建 Hesi 上下文提示词（同步、纯本地，无网络依赖）。
@@ -54,9 +54,11 @@ function buildHesiContextPrompt(supportCallback = true) {
   const collab = supportCallback
     ? '当你需要上述某能力时（例如「用 Plan 执行器部署项目」「请圆桌评估方案」「查知识库」「操作浏览器」），用 <cliq:ask id="x">说明需求并点名想用的能力</cliq:ask> 向中枢 AI 求助；它会替你完成并把结果写回你的输入。'
     : '本次为一次性同步委派，无法中途向你回呼，请一次性完成任务并输出最终结果（不要在过程中等待交互）。';
+  // URL 运行时动态解析（读 process.env.PORT，兜底 4264），不硬编码端口。
+  const url = resolveHesiUrl();
   return `
 ## 你正运行在 Hesi 中（重要）
-【运行环境】${HESI_RUNTIME.name} 是一个部署于本机的「${HESI_RUNTIME.desc}」，通过 ${HESI_RUNTIME.url} 提供服务，仅本机回环可达、离线运行（内核不依赖外网）。你的进程由 Hesi 创建并托管——Hesi 同时为你管理一个持久终端会话，并可调度一组浏览器实例。你看到的命令行、文件系统、网络环境，都是 Hesi 所在主机的环境。
+【运行环境】${HESI_RUNTIME.name} 是一个部署于本机的「${HESI_RUNTIME.desc}」，通过 ${url} 提供服务，仅本机回环可达、离线运行（内核不依赖外网）。你的进程由 Hesi 创建并托管——Hesi 同时为你管理一个持久终端会话，并可调度一组浏览器实例。你看到的命令行、文件系统、网络环境，都是 Hesi 所在主机的环境。
 
 【架构分工】Hesi 采用「中枢 AI + 执行手」分工：中枢 AI 助手（Hesi 本体）掌握全部能力、了解整个系统设计，负责理解意图、编排与决策；你（CLI Agent）是 Hesi 调度网络中的一个「执行手」，专精在终端中动手执行任务、产出过程与结果。
 
