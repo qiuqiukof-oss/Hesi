@@ -2,8 +2,8 @@
  * 讨论伙伴共享状态：跨页面 / 跨组件同步 + 本地持久化
  *
  * 设计要点：
- * - 普通脚本（IIFE），挂到 window.PartnerStore，供 plan-view.js（普通脚本）、
- *   discuss-controls.js、plan-drawer.js（lazy-bundle 内）统一使用，避免 ESM/defer 时序问题。
+ * - 普通脚本（IIFE），挂到 window.PartnerStore，供 plan-drawer.js（lazy-bundle 内）、
+ *   discuss-controls.js 统一使用，避免 ESM/defer 时序问题。
  * - 选中的伙伴存 localStorage('hesi-discuss-partners')；同浏览器多标签通过 'storage' 事件实时同步；
  *   同页通过订阅（subscribe）同步。
  * - 数据源（loadPartnerSource）两边共用：已装 agents + registry agent 类 CLI + 收藏夹排序。

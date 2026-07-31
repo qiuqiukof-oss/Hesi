@@ -36,8 +36,8 @@ const SAMPLE = {
 };
 
 function esc(s) {
-  // 5 字符完整转义：与 plan-view.js 保持一致。esc() 结果会拼进 class="..."
-  // 等属性上下文，只转义 & < > 时含 " 的内容可注入任意属性（XSS）。
+  // 5 字符完整转义（防 XSS）：与全局 esc 约定保持一致。esc() 结果会拼进 class="..."
+  // 等属性上下文，只转义 & < > 时含 " 的内容可注入任意属性。
   return String(s == null ? '' : s)
     .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
@@ -48,6 +48,7 @@ const PlanDrawer = {
   rendered: false,
   planWs: null,
   currentExecId: null,
+  historyTimer: null,
 
   /** 首次打开时把静态 UI 渲染进抽屉容器 */
   _ensureRendered() {
@@ -88,6 +89,7 @@ const PlanDrawer = {
         <button id="plan-load-sample" class="btn">载入示例</button>
         <button id="plan-format" class="btn">格式化</button>
         <button id="plan-execute" class="btn btn-primary">▶ 执行 plan</button>
+        <button id="plan-history-open" class="btn">📚 历史 Plan</button>
       </div>
       <h2 class="plan-result-title">执行结果</h2>
       <div id="plan-status" class="status-banner hidden"></div>
@@ -104,6 +106,15 @@ const PlanDrawer = {
           <div class="empty-section"><div class="empty-stitle">📚 RAG 回流（v0.6.2+）</div><div class="empty-desc">每次执行完成自动回流本地索引，聊天可召回历史 Plan。</div></div>
         </div>
       </div>
+      <div id="plan-history-panel" class="pd-history hidden">
+        <div class="pd-hist-bar">
+          <input id="plan-history-search" class="pd-hist-search" placeholder="搜索目标 / 步骤 / 结论…" />
+          <button id="plan-history-clear" class="pd-hist-btn" title="清空全部历史（需确认）">清空</button>
+          <button id="plan-history-close" class="pd-hist-btn" title="关闭">✕</button>
+        </div>
+        <div class="pd-hist-hint">每次 Plan 执行后自动沉淀；点条目展开详情，可重新执行或删除。</div>
+        <div id="plan-history-list" class="pd-hist-list"></div>
+      </div>
     `;
     // 事件绑定
     body.querySelector('#plan-load-sample').addEventListener('click', () => {
@@ -114,6 +125,11 @@ const PlanDrawer = {
       catch (e) { this._setStatus('格式化失败：' + e.message, 'error'); }
     });
     body.querySelector('#plan-execute').addEventListener('click', () => this._execute());
+    // Plan 历史（从独立页 plan.html 移植，v0.6.5）
+    body.querySelector('#plan-history-open').addEventListener('click', () => this._openHistory());
+    body.querySelector('#plan-history-close').addEventListener('click', () => this._closeHistory());
+    body.querySelector('#plan-history-search').addEventListener('input', (e) => this._onHistorySearch(e));
+    body.querySelector('#plan-history-clear').addEventListener('click', () => this._clearHistory());
     // 自动填充 LLM（同源）
     this._fillLLM(body);
     // 执行 Agent 下拉
@@ -450,6 +466,118 @@ const PlanDrawer = {
       const data = await res.json().catch(() => ({}));
       if (!res.ok) this._updateGateStatus('操作失败：' + (data.error || res.status));
     } catch (e) { this._updateGateStatus('网络异常：' + e.message); }
+  },
+
+  // ── Plan 历史（从独立页 plan.html 移植，v0.6.5）──
+  _openHistory() {
+    const p = this.root.querySelector('#plan-history-panel');
+    if (p) p.classList.remove('hidden');
+    this._loadHistory('');
+  },
+  _closeHistory() {
+    const p = this.root.querySelector('#plan-history-panel');
+    if (p) p.classList.add('hidden');
+  },
+  _onHistorySearch(e) {
+    clearTimeout(this.historyTimer);
+    const q = e.target.value.trim();
+    this.historyTimer = setTimeout(() => this._loadHistory(q), 250);
+  },
+  async _loadHistory(q) {
+    const list = this.root.querySelector('#plan-history-list');
+    if (!list) return;
+    list.innerHTML = '<div class="pd-hist-loading">加载中…</div>';
+    try {
+      const url = q
+        ? `/api/plan/history/search?q=${encodeURIComponent(q)}&topK=15`
+        : '/api/plan/history?limit=50';
+      const resp = await fetch(url);
+      const data = await resp.json();
+      if (!resp.ok || !data.ok) {
+        list.innerHTML = `<div class="pd-hist-err">${esc(data.error || '加载失败')}</div>`;
+        return;
+      }
+      const items = data.items || [];
+      if (!items.length) {
+        list.innerHTML = '<div class="pd-hist-empty">暂无历史 Plan 记录。执行 Plan 后会自动沉淀到这里。</div>';
+        return;
+      }
+      list.innerHTML = '';
+      for (const it of items) {
+        const meta = it.meta || {};
+        // 三态：有 meta.status → ok/fail；无（v0.6.3 之前沉淀的旧记录）→ unknown，避免一律染红
+        const hasStatus = typeof meta.status === 'string' && !!meta.status;
+        const statusCls = hasStatus ? (meta.ok ? 'ok' : 'fail') : 'unknown';
+        const statusText = hasStatus ? meta.status : '无记录';
+        const dur = (meta.startedAt && meta.endedAt)
+          ? ((new Date(meta.endedAt) - new Date(meta.startedAt)) / 1000).toFixed(1)
+          : '';
+        const when = meta.endedAt ? String(meta.endedAt).slice(0, 19).replace('T', ' ') : '';
+        const bits = [];
+        if (dur) bits.push(`⏱ ${esc(dur)}s`);
+        if (meta.agentId) bits.push(`🤖 ${esc(meta.agentId)}`);
+        if (when) bits.push(`🕒 ${esc(when)}`);
+        const metaLine = bits.length
+          ? bits.join(' · ')
+          : '<span class="pd-hist-legacy">早期记录 · 无执行元信息</span>';
+        const div = document.createElement('div');
+        div.className = 'pd-hist-item';
+        div.innerHTML =
+          '<div class="pd-hi-head">' +
+            `<span class="pd-hi-title">${esc(it.title || it.ref)}</span>` +
+            `<span class="pd-hi-status ${statusCls}">${esc(statusText)}</span>` +
+          '</div>' +
+          `<div class="pd-hi-meta">${metaLine}</div>` +
+          '<div class="pd-hi-actions">' +
+            '<button class="pd-hi-btn pd-hi-run">↻ 重新执行</button>' +
+            '<button class="pd-hi-btn pd-hi-del">🗑 删除</button>' +
+          '</div>' +
+          '<pre class="pd-hi-detail hidden"></pre>';
+        div.querySelector('.pd-hi-head').addEventListener('click', () => {
+          const d = div.querySelector('.pd-hi-detail');
+          d.textContent = it.text || '';
+          d.classList.toggle('hidden');
+        });
+        div.querySelector('.pd-hi-run').addEventListener('click', (e) => { e.stopPropagation(); this._rerunHistory(it); });
+        div.querySelector('.pd-hi-del').addEventListener('click', (e) => { e.stopPropagation(); this._deleteHistory(it.ref, div); });
+        list.appendChild(div);
+      }
+    } catch (e) {
+      list.innerHTML = `<div class="pd-hist-err">加载失败：${esc(e.message)}</div>`;
+    }
+  },
+  _rerunHistory(it) {
+    const plan = it.meta && it.meta.plan;
+    const objEl = this.root.querySelector('#plan-objective');
+    const jsonEl = this.root.querySelector('#plan-json');
+    if (plan && typeof plan === 'object') {
+      objEl.value = '';
+      jsonEl.value = JSON.stringify(plan, null, 2);
+    } else if (it.title) {
+      objEl.value = it.title;
+      jsonEl.value = '';
+    }
+    this._closeHistory();
+    this._setStatus('已把历史 Plan 填入输入框，点「执行 plan」重试。', 'info');
+    jsonEl.scrollIntoView({ behavior: 'smooth' });
+  },
+  async _deleteHistory(ref, div) {
+    if (!confirm(`确认删除历史记录 ${ref}？`)) return;
+    try {
+      const resp = await fetch(`/api/plan/history/${encodeURIComponent(ref)}`, { method: 'DELETE' });
+      const data = await resp.json();
+      if (data.ok) { div.remove(); this._setStatus('已删除该历史记录', 'info'); }
+      else this._setStatus('删除失败：' + (data.error || ''), 'error');
+    } catch (e) { this._setStatus('删除失败：' + e.message, 'error'); }
+  },
+  async _clearHistory() {
+    if (!confirm('确认清空全部历史 Plan 记录？此操作不可恢复。')) return;
+    try {
+      const resp = await fetch('/api/plan/history', { method: 'DELETE' });
+      const data = await resp.json();
+      if (data.ok) { this._loadHistory(''); this._setStatus('已清空历史记录', 'info'); }
+      else this._setStatus('清空失败：' + (data.error || ''), 'error');
+    } catch (e) { this._setStatus('清空失败：' + e.message, 'error'); }
   },
 
   // ── 对外 API ──

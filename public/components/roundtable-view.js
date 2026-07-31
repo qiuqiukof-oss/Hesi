@@ -820,7 +820,7 @@ const RoundTableView = {
 
   esc(s) {
     // 5 字符完整转义：esc() 结果会拼进 class="..." / style 等属性上下文，
-    // 只转义 & < > 时含 " 的内容可注入任意属性（XSS）。与 plan-view.js 一致。
+    // 只转义 & < > 时含 " 的内容可注入任意属性（XSS）。与 plan-drawer.js 一致。
     return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
   },
 

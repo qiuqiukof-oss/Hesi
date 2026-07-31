@@ -129,6 +129,6 @@ export const Personalization = {
   },
 };
 
-// 暴露到全局，便于 boot.js / plan-view.js 直接调用
+// 暴露到全局，便于 boot.js / plan-drawer.js 直接调用
 window.QCLI = window.QCLI || {};
 window.QCLI.Personalization = Personalization;
