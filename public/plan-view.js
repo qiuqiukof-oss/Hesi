@@ -359,7 +359,7 @@
     const btn = $('plan-partner-btn');
     const dd = $('plan-partner-dropdown');
     const wrap = $('plan-disc-partner-wrap');
-    if (!btn || !dd || !PS) return;
+    if (!btn || !dd) return;
 
     // 讨论开关联动：勾选才显示多选区（保留原行为）
     const toggle = $('discuss-before');
@@ -367,11 +367,17 @@
     if (toggle) toggle.addEventListener('change', syncWrap);
     syncWrap();
 
-    // 点击按钮切换下拉显隐（已搬出 <details>，普通 absolute 定位即可，与聊天面板一致）
+    // 点击按钮切换下拉显隐（无条件先挂，PS 不可用也不影响开合）
     btn.addEventListener('click', (e) => { e.stopPropagation(); dd.classList.toggle('hidden'); });
     document.addEventListener('click', (e) => {
       if (!dd.contains(e.target) && e.target !== btn && !btn.contains(e.target)) dd.classList.add('hidden');
     });
+
+    // PS 不可用：给出提示而非整段失效
+    if (!PS) {
+      dd.innerHTML = '<div class="discuss-dropdown-empty">伙伴选择器暂不可用（PartnerStore 未加载）</div>';
+      return;
+    }
 
     const nameMap = new Map();
     const updateLabel = () => {
