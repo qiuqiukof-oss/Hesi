@@ -39,6 +39,13 @@
         填了目标就交给 AI 自动拆解成 Plan；留空则手写下方 JSON。
       </p>
 
+      <!-- 讨论伙伴多选：放在 <details> 外部，避免 <details> 层叠上下文裁剪下拉菜单 -->
+      <div class="disc-partner-wrap" id="plan-disc-partner-wrap" style="display:none;">
+        <button type="button" id="plan-partner-btn" class="discuss-multibtn plan-partner-btn placeholder"
+          title="选择参与讨论的 CLI Agent（可多选，收藏夹已同步）">选择讨论伙伴 ▾</button>
+        <div id="plan-partner-dropdown" class="discuss-dropdown hidden"></div>
+      </div>
+
       <label class="plan-label" for="plan-input">Plan JSON（可选）</label>
       <textarea id="plan-input" class="plan-textarea" spellcheck="false"
         placeholder='{&#10;  "objective": "目标描述",&#10;  "acceptance": [&#10;    { "id":"a1", "kind":"command", "command":"test -f foo.txt", "expect":"" }&#10;  ],&#10;  "steps": [&#10;    { "id":"s1", "goal":"步骤目标", "action":"执行的命令" }&#10;  ]&#10;}'></textarea>
@@ -55,12 +62,6 @@
         <p class="llm-hint">修改会保存到本地，刷新不丢，且与「设置 → AI」互通。</p>
         <div class="disc-block">
           <label class="disc-toggle"><input type="checkbox" id="discuss-before" /> 🤝 执行前先多角色讨论方案（M3）</label>
-          <!-- 多选讨论伙伴：勾选「先讨论」后出现，数据源 Favorites + Agent CLI -->
-          <div class="disc-partner-wrap" id="plan-disc-partner-wrap" style="display:none;">
-            <button type="button" id="plan-partner-btn" class="discuss-multibtn plan-partner-btn placeholder"
-              title="选择参与讨论的 CLI Agent（可多选，收藏夹已同步）">选择讨论伙伴 ▾</button>
-            <div id="plan-partner-dropdown" class="discuss-dropdown hidden"></div>
-          </div>
           <div class="disc-grid">
             <label>讨论模板<select id="discuss-template"><option value="">（自定义 Partners）</option></select></label>
             <label>确认模式<select id="discuss-mode"><option value="confirm" selected>确认后执行</option><option value="auto">自动执行</option></select></label>
