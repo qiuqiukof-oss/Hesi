@@ -208,10 +208,10 @@
 #plan-embed .ag-actions { display: flex; gap: 10px; }
 #plan-embed .ag-actions .btn { flex: 1; padding: 9px 14px; font-size: 13px; justify-content: center; }
 
-/* ── 讨论伙伴多选下拉（M3，与 Plan 页 / 聊天面板共享结构；抽屉页此前缺失这些样式，导致下拉无定位上下文、点不出）── */
-.disc-partner-wrap { display: block; margin: 8px 0 4px; position: relative; }
-.disc-block { position: relative; }
-.plan-partner-btn {
+/* ── 讨论伙伴多选下拉（仅 #plan-embed 作用域，绝不污染 chat.css 全局样式）── */
+#plan-embed .disc-partner-wrap { display: block; margin: 8px 0 4px; position: relative; }
+#plan-embed .disc-block { position: relative; }
+#plan-embed .plan-partner-btn {
   width: 100%;
   display: flex;
   justify-content: space-between;
@@ -225,9 +225,9 @@
   font-size: 13px;
   cursor: pointer;
 }
-.plan-partner-btn:hover { border-color: var(--accent, #6366f1); }
-.plan-partner-btn.placeholder { color: var(--text-muted, #8a8a8e); }
-.discuss-dropdown {
+#plan-embed .plan-partner-btn:hover { border-color: var(--accent, #6366f1); }
+#plan-embed .plan-partner-btn.placeholder { color: var(--text-muted, #8a8a8e); }
+#plan-embed .discuss-dropdown {
   position: absolute;
   top: calc(100% + 4px);
   left: 0;
@@ -241,7 +241,7 @@
   box-shadow: 0 8px 24px rgba(0, 0, 0, .45);
   padding: 4px;
 }
-.discuss-option {
+#plan-embed .discuss-option {
   display: flex;
   align-items: center;
   gap: 6px;
@@ -252,12 +252,12 @@
   cursor: pointer;
   white-space: nowrap;
 }
-.discuss-option:hover { background: var(--accent-transparent, rgba(99, 102, 241, .12)); }
-.discuss-option input { width: 14px; height: 14px; accent-color: var(--accent, #6366f1); cursor: pointer; }
-.discuss-option.favorited { background: rgba(250, 204, 21, 0.10); }
-.discuss-option.favorited:hover { background: rgba(250, 204, 21, 0.18); }
-.discuss-fav-star { color: #facc15; font-size: 12px; line-height: 1; }
-.discuss-fav-hint {
+#plan-embed .discuss-option:hover { background: var(--accent-transparent, rgba(99, 102, 241, .12)); }
+#plan-embed .discuss-option input { width: 14px; height: 14px; accent-color: var(--accent, #6366f1); cursor: pointer; }
+#plan-embed .discuss-option.favorited { background: rgba(250, 204, 21, 0.10); }
+#plan-embed .discuss-option.favorited:hover { background: rgba(250, 204, 21, 0.18); }
+#plan-embed .discuss-fav-star { color: #facc15; font-size: 12px; line-height: 1; }
+#plan-embed .discuss-fav-hint {
   padding: 4px 8px 6px;
   margin-bottom: 2px;
   font-size: 11px;
@@ -265,12 +265,12 @@
   color: #facc15;
   border-bottom: 1px solid var(--border-default, rgba(255, 255, 255, .08));
 }
-.discuss-dropdown-empty { padding: 8px; font-size: 12px; color: var(--text-muted, #8a8a8e); }
-/* 抽屉内强制向下弹（覆盖 chat.css 的向上弹；父级 .disc-partner-wrap 已 position:relative） */
+#plan-embed .discuss-dropdown-empty { padding: 8px; font-size: 12px; color: var(--text-muted, #8a8a8e); }
+/* 抽屉内强制向下弹（覆盖 chat.css 的向上弹） */
 #plan-embed .discuss-dropdown { top: calc(100% + 4px); bottom: auto; }
-[data-theme="light"] .discuss-dropdown {
+#plan-embed[data-theme="light"] .discuss-dropdown {
   background: #ffffff;
   border-color: #d8d8dc;
-  box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.12);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15); /* 向下弹用向下阴影 */
 }
 #plan-embed .ag-status { margin-top: 10px; font-size: 12px; color: var(--text-secondary, #a1a1aa); min-height: 16px; }
