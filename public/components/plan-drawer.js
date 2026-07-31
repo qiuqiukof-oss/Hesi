@@ -472,11 +472,21 @@ const PlanDrawer = {
   _openHistory() {
     const p = this.root.querySelector('#plan-history-panel');
     if (p) p.classList.remove('hidden');
+    const btn = this.root.querySelector('#plan-history-open');
+    if (btn) btn.classList.add('active');
+    // 面板位于滚动容器最底部（空状态卡片之后），不滚动的话用户完全看不到展开 → 体感"点击没反应"。
+    if (p) {
+      try {
+        p.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      } catch { /* 旧浏览器不支持 scrollIntoView options，忽略 */ }
+    }
     this._loadHistory('');
   },
   _closeHistory() {
     const p = this.root.querySelector('#plan-history-panel');
     if (p) p.classList.add('hidden');
+    const btn = this.root.querySelector('#plan-history-open');
+    if (btn) btn.classList.remove('active');
   },
   _onHistorySearch(e) {
     clearTimeout(this.historyTimer);
@@ -544,6 +554,15 @@ const PlanDrawer = {
       }
     } catch (e) {
       list.innerHTML = `<div class="pd-hist-err">加载失败：${esc(e.message)}</div>`;
+    } finally {
+      // 列表是异步渲染的：_openHistory 里的 scrollIntoView 执行时面板高度尚未定型，
+      // 等这里渲染完高度才固定 → 再滚一次，确保整个面板完整进入视口（否则底部被截断）。
+      const p = this.root.querySelector('#plan-history-panel');
+      if (p) {
+        try {
+          p.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        } catch { /* 旧浏览器不支持 scrollIntoView options，忽略 */ }
+      }
     }
   },
   _rerunHistory(it) {
