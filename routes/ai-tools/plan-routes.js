@@ -21,6 +21,7 @@ const { workflowManager } = require('./workflow-manager');
 const { runRoundtable } = require('../chat/discuss');
 const { generatePlanFromObjective, revisePlan } = require('./plan-from-nl');
 const { sinkPlanToIndex } = require('./plan-rag-sink');
+const { recallPlans, listPlans, deletePlan, clearPlans } = require('./plan-rag-recall');
 
 /**
  * 解析 Plan 执行默认 Agent（可自选 / 圆桌式默认）。
@@ -113,6 +114,7 @@ function createRouter(opts = {}) {
       (Number.isFinite(reqApprovalTimeoutMs) && reqApprovalTimeoutMs > 0 && reqApprovalTimeoutMs) ||
       (Number.isFinite(planApprovalTimeoutMs) && planApprovalTimeoutMs > 0 && planApprovalTimeoutMs) ||
       factoryApprovalTimeoutMs;
+    const executorAgentId = resolveExecutorAgentId(body);
     const execId = crypto.randomUUID();
     // 审批闸：等待人工决议（超时兜底→驳回）
     const requestApproval = (reqInfo) => new Promise((resolve) => {
@@ -136,6 +138,7 @@ function createRouter(opts = {}) {
       const maxRetries = Number.isFinite(Number(body.maxRetries)) && body.maxRetries > 0 ? body.maxRetries
         : (Number.isFinite(Number(plan.maxRetries)) && plan.maxRetries > 0 ? plan.maxRetries
           : (autoReplan ? 1 : 0));
+      const startedAt = Date.now();
       const result = await runPlan(plan, {
         cwd,
         workflowManager: wf,
@@ -151,12 +154,13 @@ function createRouter(opts = {}) {
         maxRetries,
         // 执行默认 Agent：前端可自选（body.agentId）；未选则圆桌式默认 'ai'
         // （AI 助手 LLM 工具环，不重新实现）。
-        executorAgentId: resolveExecutorAgentId(body),
+        executorAgentId,
       });
-      // ③ RAG 快照回流（跑通即沉淀，失败不影响主流程）
-      if (result.ok) {
-        try { sinkPlanToIndex(plan, result); } catch { /* RAG 回流失败不影响主流程 */ }
-      }
+      // ③ RAG 快照回流（成功/失败均沉淀，失败不影响主流程；M1 增强：传计时+执行Agent）
+      const endedAt = Date.now();
+      try {
+        sinkPlanToIndex(plan, result, { startedAt, endedAt, agentId: executorAgentId });
+      } catch { /* RAG 回流失败不影响主流程 */ }
       const p = pendingApprovals.get(execId);
       if (p) { clearTimeout(p.timer); pendingApprovals.delete(execId); }
       return res.json({ ok: result.ok, execId, ...result });
@@ -187,6 +191,58 @@ function createRouter(opts = {}) {
     broadcast({ type: 'plan:approval-resolved', execId: req.params.execId, approved: false });
     p.resolve(false);
     res.json({ ok: true });
+  });
+
+  // ---------- 历史 Plan 检索 / 清理（v0.6.3 M1） ----------
+  // 全部受 HESI_PLAN_RAG_SINK !== '0' 总开关 gate；失败静默降级。
+  const ragEnabled = () => process.env.HESI_PLAN_RAG_SINK !== '0';
+
+  // 列表（分页 + 按状态过滤）
+  router.get('/history', (req, res) => {
+    if (!ragEnabled()) return res.status(503).json({ ok: false, error: 'RAG 回流已关闭（HESI_PLAN_RAG_SINK=0）' });
+    const limit = Math.min(Number(req.query.limit) || 50, 200);
+    const offset = Math.max(Number(req.query.offset) || 0, 0);
+    const status = typeof req.query.status === 'string' ? req.query.status : null;
+    try {
+      res.json({ ok: true, ...listPlans({ limit, offset, status }) });
+    } catch (e) {
+      res.status(500).json({ ok: false, error: e.message });
+    }
+  });
+
+  // 关键词召回（供 Plan 页搜索框 + M2 聊天召回）
+  router.get('/history/search', (req, res) => {
+    if (!ragEnabled()) return res.status(503).json({ ok: false, error: 'RAG 回流已关闭（HESI_PLAN_RAG_SINK=0）' });
+    const q = typeof req.query.q === 'string' ? req.query.q.trim() : '';
+    if (!q) return res.json({ ok: true, items: [] });
+    const topK = Math.min(Number(req.query.topK) || 5, 20);
+    try {
+      res.json({ ok: true, items: recallPlans(q, { topK }) });
+    } catch (e) {
+      res.status(500).json({ ok: false, error: e.message });
+    }
+  });
+
+  // 精确删除一条历史
+  router.delete('/history/:ref', (req, res) => {
+    if (!ragEnabled()) return res.status(503).json({ ok: false, error: 'RAG 回流已关闭（HESI_PLAN_RAG_SINK=0）' });
+    try {
+      const ok = deletePlan(req.params.ref);
+      res.json({ ok });
+    } catch (e) {
+      res.status(500).json({ ok: false, error: e.message });
+    }
+  });
+
+  // 清空全部历史（前端须二次确认）
+  router.delete('/history', (req, res) => {
+    if (!ragEnabled()) return res.status(503).json({ ok: false, error: 'RAG 回流已关闭（HESI_PLAN_RAG_SINK=0）' });
+    try {
+      clearPlans();
+      res.json({ ok: true });
+    } catch (e) {
+      res.status(500).json({ ok: false, error: e.message });
+    }
   });
 
   return router;

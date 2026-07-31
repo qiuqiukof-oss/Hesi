@@ -12,6 +12,7 @@
   <link rel="stylesheet" href="/css/theme.css" />
   <link rel="stylesheet" href="/css/modal.css" />
   <link rel="stylesheet" href="/css/plan-view.css" />
+  <link rel="stylesheet" href="/css/plan-history.css" />
 </head>
 <body class="plan-page">
   <header class="plan-header">
@@ -25,6 +26,7 @@
       <button id="format-json" class="btn">格式化</button>
       <button id="execute" class="btn btn-primary">▶ 执行 plan</button>
       <a href="/" class="btn btn-ghost">返回</a>
+      <button id="open-history" class="btn">📚 历史 Plan</button>
     </div>
   </header>
 
@@ -86,6 +88,21 @@
       </div>
     </section>
   </main>
+
+  <!-- 历史 Plan 抽屉（v0.6.3 M1） -->
+  <aside id="history-panel" class="history-panel hidden">
+    <div class="hp-header">
+      <h2>📚 历史 Plan 记录</h2>
+      <div class="hp-tools">
+        <input id="history-search" class="hp-search" placeholder="搜索目标 / 步骤 / 结论…" />
+        <button id="history-clear" class="hp-btn" title="清空全部历史（需确认）">清空</button>
+        <button id="history-close" class="hp-btn" title="关闭">✕</button>
+      </div>
+    </div>
+    <div class="history-hint">每次 Plan 执行完成后自动沉淀；点击条目展开详情，可「重新执行」或「删除」。</div>
+    <div id="history-list" class="history-list"></div>
+  </aside>
+  <div id="history-backdrop" class="history-backdrop hidden"></div>
 
   <script src="/plan-view.js"></script>
 </body>

@@ -374,6 +374,107 @@
     }
   }
 
+  // ---------- 历史 Plan 抽屉（v0.6.3 M1） ----------
+  function openHistory() {
+    const p = $('history-panel'); const b = $('history-backdrop');
+    if (p) p.classList.remove('hidden');
+    if (b) b.classList.remove('hidden');
+    loadHistory('');
+  }
+  function closeHistory() {
+    const p = $('history-panel'); const b = $('history-backdrop');
+    if (p) p.classList.add('hidden');
+    if (b) b.classList.add('hidden');
+  }
+  let _historyTimer = null;
+  function onHistorySearch() {
+    clearTimeout(_historyTimer);
+    _historyTimer = setTimeout(() => loadHistory($('history-search').value.trim()), 250);
+  }
+  async function loadHistory(q) {
+    const list = $('history-list');
+    if (!list) return;
+    list.innerHTML = '<div class="history-loading">加载中…</div>';
+    try {
+      const url = q
+        ? `/api/plan/history/search?q=${encodeURIComponent(q)}&topK=15`
+        : '/api/plan/history?limit=50';
+      const resp = await fetch(url);
+      const data = await resp.json();
+      if (!resp.ok || !data.ok) {
+        list.innerHTML = `<div class="history-err">${esc(data.error || '加载失败')}</div>`;
+        return;
+      }
+      const items = data.items || [];
+      if (!items.length) {
+        list.innerHTML = '<div class="history-empty">暂无历史 Plan 记录。执行 Plan 后会自动沉淀到这里。</div>';
+        return;
+      }
+      list.innerHTML = '';
+      for (const it of items) {
+        const meta = it.meta || {};
+        const dur = (meta.startedAt && meta.endedAt)
+          ? ((new Date(meta.endedAt) - new Date(meta.startedAt)) / 1000).toFixed(1)
+          : '?';
+        const when = meta.endedAt ? String(meta.endedAt).slice(0, 19).replace('T', ' ') : '';
+        const div = document.createElement('div');
+        div.className = 'history-item';
+        div.innerHTML = `
+          <div class="hi-head">
+            <span class="hi-title">${esc(it.title || it.ref)}</span>
+            <span class="hi-status ${meta.ok ? 'ok' : 'fail'}">${esc(meta.status || '?')}</span>
+          </div>
+          <div class="hi-meta">⏱ ${esc(dur)}s · 🤖 ${esc(meta.agentId || 'ai')} · 🕒 ${esc(when)}</div>
+          <div class="hi-actions">
+            <button class="hi-btn hi-run">↻ 重新执行</button>
+            <button class="hi-btn hi-del">🗑 删除</button>
+          </div>
+          <pre class="hi-detail hidden"></pre>`;
+        div.querySelector('.hi-head').addEventListener('click', () => {
+          const d = div.querySelector('.hi-detail');
+          d.textContent = it.text || '';
+          d.classList.toggle('hidden');
+        });
+        div.querySelector('.hi-run').addEventListener('click', (e) => { e.stopPropagation(); rerunHistory(it); });
+        div.querySelector('.hi-del').addEventListener('click', (e) => { e.stopPropagation(); deleteHistory(it.ref, div); });
+        list.appendChild(div);
+      }
+    } catch (e) {
+      list.innerHTML = `<div class="history-err">加载失败：${esc(e.message)}</div>`;
+    }
+  }
+  function rerunHistory(it) {
+    const plan = it.meta && it.meta.plan;
+    if (plan && typeof plan === 'object') {
+      $('objective-input').value = '';
+      $('plan-input').value = JSON.stringify(plan, null, 2);
+    } else if (it.title) {
+      $('objective-input').value = it.title;
+      $('plan-input').value = '';
+    }
+    closeHistory();
+    setStatus('已把历史 Plan 填入输入框，点「执行 plan」重试。', 'info');
+    $('plan-input').scrollIntoView({ behavior: 'smooth' });
+  }
+  async function deleteHistory(ref, div) {
+    if (!confirm(`确认删除历史记录 ${ref}？`)) return;
+    try {
+      const resp = await fetch(`/api/plan/history/${encodeURIComponent(ref)}`, { method: 'DELETE' });
+      const data = await resp.json();
+      if (data.ok) { div.remove(); setStatus('已删除该历史记录', 'info'); }
+      else setStatus('删除失败：' + (data.error || ''), 'error');
+    } catch (e) { setStatus('删除失败：' + e.message, 'error'); }
+  }
+  async function clearHistory() {
+    if (!confirm('确认清空全部历史 Plan 记录？此操作不可恢复。')) return;
+    try {
+      const resp = await fetch('/api/plan/history', { method: 'DELETE' });
+      const data = await resp.json();
+      if (data.ok) { loadHistory(''); setStatus('已清空历史记录', 'info'); }
+      else setStatus('清空失败：' + (data.error || ''), 'error');
+    } catch (e) { setStatus('清空失败：' + e.message, 'error'); }
+  }
+
   function init() {
     connectPlanWS();
     fillLLMFields(); // 自动从全局 LLM 设置填充高级字段
@@ -387,6 +488,12 @@
       } catch (e) { setStatus('格式化失败：' + e.message, 'error'); }
     });
     $('execute').addEventListener('click', execute);
+    // 历史 Plan 抽屉（v0.6.3 M1）
+    $('open-history').addEventListener('click', openHistory);
+    $('history-close').addEventListener('click', closeHistory);
+    $('history-backdrop').addEventListener('click', closeHistory);
+    $('history-search').addEventListener('input', onHistorySearch);
+    $('history-clear').addEventListener('click', clearHistory);
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);

@@ -1,0 +1,140 @@
+/* 历史 Plan 抽屉（v0.6.3 M1）—— 独立样式，不污染现有 bundle */
+
+.history-panel {
+  position: fixed;
+  top: 0;
+  right: 0;
+  width: 440px;
+  max-width: 94vw;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--panel-bg, #ffffff);
+  color: var(--text, #1f2328);
+  box-shadow: -10px 0 30px rgba(0, 0, 0, 0.18);
+  z-index: 50;
+  border-left: 1px solid var(--border, #e3e3e3);
+}
+.history-panel.hidden,
+.history-backdrop.hidden { display: none; }
+
+.history-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.32);
+  z-index: 49;
+}
+
+.hp-header {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border, #eee);
+}
+.hp-header h2 { margin: 0; font-size: 16px; }
+.hp-tools { display: flex; gap: 6px; }
+.hp-search {
+  flex: 1;
+  min-width: 0;
+  padding: 6px 9px;
+  border: 1px solid var(--border, #ccc);
+  border-radius: 6px;
+  background: var(--input-bg, #fff);
+  color: inherit;
+}
+.hp-btn {
+  padding: 4px 10px;
+  border: 1px solid var(--border, #ccc);
+  border-radius: 6px;
+  background: var(--btn-bg, #f4f4f4);
+  color: inherit;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.hp-btn:hover { background: var(--btn-bg-hover, #e9e9e9); }
+
+.history-hint {
+  padding: 8px 16px;
+  font-size: 12px;
+  color: var(--text-dim, #888);
+  border-bottom: 1px solid var(--border, #f0f0f0);
+}
+
+.history-list {
+  flex: 1;
+  overflow: auto;
+  padding: 10px 12px;
+}
+
+.history-item {
+  border: 1px solid var(--border, #ececec);
+  border-radius: 9px;
+  padding: 10px 12px;
+  margin-bottom: 10px;
+  cursor: pointer;
+  background: var(--item-bg, #fafafa);
+}
+.history-item:hover { border-color: var(--accent, #4a8cff); }
+
+.hi-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 8px;
+}
+.hi-title {
+  font-weight: 600;
+  word-break: break-all;
+  line-height: 1.35;
+}
+.hi-status {
+  flex: none;
+  font-size: 12px;
+  padding: 2px 9px;
+  border-radius: 999px;
+}
+.hi-status.ok { background: #e6f7ec; color: #1a7f43; }
+.hi-status.fail { background: #fdeaea; color: #c0392b; }
+
+.hi-meta {
+  font-size: 12px;
+  color: var(--text-dim, #888);
+  margin: 6px 0;
+}
+
+.hi-actions { display: flex; gap: 8px; }
+.hi-btn {
+  font-size: 12px;
+  padding: 3px 9px;
+  border: 1px solid var(--border, #ccc);
+  border-radius: 6px;
+  background: #fff;
+  color: var(--text, #333);
+  cursor: pointer;
+}
+.hi-btn:hover { background: #f0f0f0; }
+
+.hi-detail {
+  margin-top: 8px;
+  max-height: 260px;
+  overflow: auto;
+  font-size: 12px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-all;
+  background: var(--code-bg, #f6f6f6);
+  color: var(--code-text, #333);
+  padding: 9px;
+  border-radius: 6px;
+  border: 1px solid var(--border, #eee);
+}
+
+.history-loading,
+.history-empty,
+.history-err {
+  color: var(--text-dim, #888);
+  padding: 20px 12px;
+  text-align: center;
+}
+.history-err { color: #c0392b; }
