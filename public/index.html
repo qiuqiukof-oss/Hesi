@@ -21,6 +21,7 @@
   <link rel="stylesheet" href="/css/modal.css" />
   <link rel="stylesheet" href="/css/roundtable-view.css" />
   <link rel="stylesheet" href="/css/plan-drawer.css" />
+  <link rel="stylesheet" href="/css/plan-chat.css" />
   <link rel="stylesheet" href="/css/workflow.css" />
   <link rel="stylesheet" href="/css/orchestrator.css" />
     <link rel="stylesheet" href="/css/sidebar-core.css" />
@@ -268,6 +269,17 @@
                 <option value="8">8 轮</option>
                 <option value="10">10 轮</option>
               </select>
+            </div>
+            <span class="discuss-sep" aria-hidden="true"></span>
+            <label class="discuss-switch plan-switch" id="plan-switch" title="开启后，你这句话会被拆解成可执行步骤并真实执行；每步的状态与输出实时可见（与 AI 讨论互斥）">
+              <input type="checkbox" id="plan-toggle" />
+              <span class="discuss-switch-label">⚡ 自动执行</span>
+            </label>
+            <div id="plan-controls" class="discuss-controls" style="display:none;">
+              <select id="plan-agent" class="discuss-select" title="由谁来执行每一步">
+                <option value="ai" selected>AI 助手执行</option>
+              </select>
+              <span class="plan-hint">会真实改动本机文件 · 关闭页面即取消</span>
             </div>
           </div>
           <div id="chat-attachments" class="chat-attachments"></div>

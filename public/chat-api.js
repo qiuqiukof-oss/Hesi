@@ -123,7 +123,7 @@ export const ChatAPI = {
      * @param {boolean} [options.terminalContextChanged] - Whether terminal content has changed since last message
      * @param {AbortSignal} [options.signal] - Optional abort signal
      */
-    async sendMessage({ messages, onToken, onDone, onError, onStatus, onToolCall, onToolLive, onUsage, onAgentMetrics, terminalContext, terminalContextChanged, signal, discuss, partner, partners, maxTurns, onDiscuss, sessionId, category, verifyMode, takenOver }) {
+    async sendMessage({ messages, onToken, onDone, onError, onStatus, onToolCall, onToolLive, onUsage, onAgentMetrics, terminalContext, terminalContextChanged, signal, discuss, partner, partners, maxTurns, onDiscuss, sessionId, category, verifyMode, takenOver, planMode, planAgentId, onPlan }) {
       const apiKey = this.getApiKey();
       const provider = this.getProvider();
       let model = this.getModel();
@@ -147,6 +147,12 @@ export const ChatAPI = {
           body.maxTurns = maxTurns || undefined;
           // P2.5 落座接管：把人工提交的席位文本透传给讨论内核（内核跳过该席位自动生成）
           if (takenOver && typeof takenOver === 'object' && Object.keys(takenOver).length) body.takenOver = takenOver;
+        }
+        // 「⚡ 自动执行」模式（P2）：与讨论并列的第三种回合，后端走 runPlanTurn。
+        // 两者互斥由 UI 保证；万一同时为真，后端讨论优先（见 routes/chat/index.js）。
+        if (planMode) {
+          body.planMode = true;
+          if (planAgentId) body.agentId = planAgentId;
         }
         if (terminalContext) {
           body.terminalContext = terminalContext;
@@ -220,6 +226,9 @@ export const ChatAPI = {
                   onDiscuss?.({ type: 'end', speaker: parsed.speaker });
                 } else if (parsed.type === 'discuss_stats') {
                   onDiscuss?.({ type: 'stats', stats: parsed.stats });
+                } else if (typeof parsed.type === 'string' && parsed.type.startsWith('plan_')) {
+                  // 「⚡ 自动执行」事件：统一剥掉 plan_ 前缀后交给渲染层分流
+                  onPlan?.({ ...parsed, type: parsed.type.slice(5) });
                 } else if (parsed.type === 'tool_call_start') {
                   onToolCall?.({ type: 'start', names: parsed.names });
                   onStatus?.(`🔧 正在调用: ${(parsed.names || []).join(', ')}`);

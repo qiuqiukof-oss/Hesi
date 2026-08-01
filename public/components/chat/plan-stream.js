@@ -1,0 +1,305 @@
+/**
+ * Copyright (c) 2026 qiuqiukof-oss
+ * Licensed under the MIT License. See LICENSE for details.
+ */
+
+// ============================================================
+// 「⚡ 自动执行」回合渲染（P2：Plan 执行器并入 AI 对话）
+//
+// 原型 mixin：planStreamMixin，含 _handlePlanEvent。
+// 在 chat-panel.js 经 Object.assign(ChatPanel.prototype, planStreamMixin) 挂回。
+//
+// 与 _handleDiscussEvent 同构：后端 SSE 帧 → 一个常驻「执行卡片」气泡，
+// 计划清单在 generated 时铺开，每个 plan_step 事件就地更新对应行的状态与输出。
+//
+// 安全：所有步骤输出一律 textContent 写入 <pre>，不走 markdown 渲染
+//       （命令输出可能含任意字符，不应被解释为 HTML）。
+// ============================================================
+'use strict';
+
+/** 步骤状态 → { icon, label, cls } */
+const STEP_STATE = {
+  pending: { icon: '○', label: '待执行', cls: 'pending' },
+  start: { icon: '⏳', label: '执行中', cls: 'running' },
+  done: { icon: '✅', label: '完成', cls: 'done' },
+  completed: { icon: '✅', label: '完成', cls: 'done' },
+  error: { icon: '❌', label: '失败', cls: 'error' },
+  failed: { icon: '❌', label: '失败', cls: 'error' },
+  blocked: { icon: '⛔', label: '已拦截', cls: 'blocked' },
+  rejected: { icon: '🚫', label: '驳回', cls: 'blocked' },
+  aborted: { icon: '⏹', label: '已中止', cls: 'blocked' },
+  budget: { icon: '⚠️', label: '超预算', cls: 'warn' },
+  loop: { icon: '⚠️', label: '熔断', cls: 'warn' },
+  timeout: { icon: '⚠️', label: '超时', cls: 'warn' },
+  skipped: { icon: '⤼', label: '跳过', cls: 'pending' },
+  'await-approval': { icon: '🔒', label: '待审批', cls: 'warn' },
+};
+
+function stateOf(status) {
+  return STEP_STATE[status] || { icon: '•', label: String(status || ''), cls: 'pending' };
+}
+
+export const planStreamMixin = {
+  /**
+   * 处理一帧「自动执行」事件。
+   * @param {{type:string,[k:string]:any}} evt 已剥掉 plan_ 前缀的事件
+   */
+  _handlePlanEvent(evt) {
+    if (!this.msgsEl || !evt) return;
+    const t = evt.type;
+
+    if (t === 'start') {
+      this.removeThinking();
+      this._planCard = this._createPlanCard(evt.objective || '');
+      this._planStepRows = new Map();
+      this._planText = '';
+      this.scrollToBottom();
+      return;
+    }
+
+    if (!this._planCard) return; // 未开卡（异常序）→ 忽略，避免脏 DOM
+
+    if (t === 'status') {
+      this._setPlanStatus(evt.message || '');
+    } else if (t === 'generated') {
+      this._renderPlanSteps(evt);
+    } else if (t === 'step') {
+      this._updatePlanStep(evt);
+    } else if (t === 'chat_token') {
+      this._appendPlanLive(evt.content || '');
+    } else if (t === 'chat_status') {
+      this._setPlanStatus(evt.message || '');
+    } else if (t === 'approval_required') {
+      const id = evt.step && evt.step.id;
+      this._planNote(`🔒 步骤「${(evt.step && evt.step.goal) || id || '?'}」需要人工审批；对话模式暂不支持审批闸，已停止执行。可改用 Plan 面板执行。`, 'warn');
+    } else if (t === 'done') {
+      this._finishPlanCard(evt);
+    } else if (t === 'cancelled') {
+      this._planNote(`⏹ 已取消（${evt.reason || '客户端断开'}）`, 'warn');
+      this._finishPlanCard({ ok: false, status: 'cancelled' }, true);
+    } else if (t === 'error') {
+      this._planNote(`❌ ${evt.message || '自动执行出错'}`, 'error');
+      this._finishPlanCard({ ok: false, status: 'error' }, true);
+    }
+    this.scrollToBottom();
+  },
+
+  // ── DOM 构造 ──
+
+  _createPlanCard(objective) {
+    const div = document.createElement('div');
+    div.className = 'chat-message plan-message';
+
+    const avatar = document.createElement('div');
+    avatar.className = 'msg-avatar plan-avatar';
+    avatar.textContent = '⚡';
+    div.appendChild(avatar);
+
+    const content = document.createElement('div');
+    content.className = 'msg-content';
+
+    const sender = document.createElement('div');
+    sender.className = 'msg-sender plan-sender';
+    sender.appendChild(document.createTextNode('自动执行 · '));
+    const statusEl = document.createElement('span');
+    statusEl.className = 'plan-status-text';
+    statusEl.textContent = '准备中…';
+    sender.appendChild(statusEl);
+    content.appendChild(sender);
+
+    const bubble = document.createElement('div');
+    bubble.className = 'msg-bubble plan-bubble';
+
+    if (objective) {
+      const obj = document.createElement('div');
+      obj.className = 'plan-objective';
+      obj.textContent = objective;
+      bubble.appendChild(obj);
+    }
+
+    const list = document.createElement('ol');
+    list.className = 'plan-steps';
+    bubble.appendChild(list);
+
+    const notes = document.createElement('div');
+    notes.className = 'plan-notes';
+    bubble.appendChild(notes);
+
+    content.appendChild(bubble);
+    div.appendChild(content);
+    this.msgsEl.appendChild(div);
+
+    return { root: div, statusEl, bubble, list, notes };
+  },
+
+  _setPlanStatus(text) {
+    if (this._planCard && this._planCard.statusEl) this._planCard.statusEl.textContent = text;
+  },
+
+  _renderPlanSteps(evt) {
+    const card = this._planCard;
+    if (!card) return;
+    card.list.innerHTML = '';
+    this._planStepRows = new Map();
+    const steps = Array.isArray(evt.steps) ? evt.steps : [];
+    this._setPlanStatus(`已拆解 ${steps.length} 步，开始执行…`);
+    for (const s of steps) {
+      const li = document.createElement('li');
+      li.className = 'plan-step pending';
+      li.dataset.stepId = s.id || '';
+
+      const head = document.createElement('div');
+      head.className = 'plan-step-head';
+
+      const icon = document.createElement('span');
+      icon.className = 'plan-step-icon';
+      icon.textContent = '○';
+      head.appendChild(icon);
+
+      const goal = document.createElement('span');
+      goal.className = 'plan-step-goal';
+      goal.textContent = s.goal || s.id || '';
+      head.appendChild(goal);
+
+      const badge = document.createElement('span');
+      badge.className = 'plan-step-badge';
+      badge.textContent = '待执行';
+      head.appendChild(badge);
+
+      li.appendChild(head);
+
+      if (s.action) {
+        const act = document.createElement('code');
+        act.className = 'plan-step-action';
+        act.textContent = s.action;
+        li.appendChild(act);
+      }
+
+      card.list.appendChild(li);
+      this._planStepRows.set(s.id || `#${s.index}`, { li, icon, badge });
+      if (typeof s.index === 'number') this._planStepRows.set(`#${s.index}`, { li, icon, badge });
+    }
+  },
+
+  _updatePlanStep(ev) {
+    const card = this._planCard;
+    if (!card) return;
+    const key = ev.id || (typeof ev.index === 'number' ? `#${ev.index}` : '');
+    let row = this._planStepRows.get(key);
+    // Plan 被 autoReplan 改写过 → 清单里没有这一行，补一条，绝不丢事件
+    if (!row) {
+      const li = document.createElement('li');
+      li.className = 'plan-step pending';
+      const head = document.createElement('div');
+      head.className = 'plan-step-head';
+      const icon = document.createElement('span');
+      icon.className = 'plan-step-icon';
+      const goal = document.createElement('span');
+      goal.className = 'plan-step-goal';
+      goal.textContent = ev.goal || ev.reason || key || '(新步骤)';
+      const badge = document.createElement('span');
+      badge.className = 'plan-step-badge';
+      head.appendChild(icon); head.appendChild(goal); head.appendChild(badge);
+      li.appendChild(head);
+      card.list.appendChild(li);
+      row = { li, icon, badge };
+      if (key) this._planStepRows.set(key, row);
+    }
+
+    // 闸门驳回是 LLM 生成 plan 最常见的失败模式：必须把「缺什么」说清楚，
+    // 否则用户只看到一个「驳回」不知所措。
+    if (ev.status === 'rejected' && Array.isArray(ev.missing) && ev.missing.length) {
+      this._planNote(`🚫 计划未通过可验证性闸门，缺少可机器验证的：${ev.missing.join('、')}`, 'warn');
+    }
+
+    const st = stateOf(ev.status);
+    row.li.className = `plan-step ${st.cls}`;
+    row.icon.textContent = st.icon;
+    row.badge.textContent = ev.reason ? `${st.label} · ${ev.reason}` : st.label;
+    this._setPlanStatus(`${st.label}：${ev.goal || key}`);
+    this._planActiveRow = row;
+
+    if (ev.status === 'start') {
+      // 为轨道 B（AI 管线）的实时 token 预留输出区
+      this._planLiveEl = this._ensureStepOutput(row.li);
+      this._planLiveEl.textContent = '';
+      return;
+    }
+
+    if (typeof ev.output === 'string' && ev.output.trim()) {
+      const pre = this._ensureStepOutput(row.li);
+      pre.textContent = ev.output;
+      if (ev.outputTruncated) {
+        const det = pre.closest('details');
+        const sum = det && det.querySelector('summary');
+        if (sum) sum.textContent = `输出（已截断，原长 ${ev.outputFullLength} 字符）`;
+      }
+    }
+    this._planLiveEl = null;
+  },
+
+  _ensureStepOutput(li) {
+    let det = li.querySelector('details.plan-step-output');
+    if (!det) {
+      det = document.createElement('details');
+      det.className = 'plan-step-output';
+      const sum = document.createElement('summary');
+      sum.textContent = '输出';
+      det.appendChild(sum);
+      const pre = document.createElement('pre');
+      det.appendChild(pre);
+      li.appendChild(det);
+    }
+    return det.querySelector('pre');
+  },
+
+  _appendPlanLive(text) {
+    if (!this._planLiveEl || !text) return;
+    this._planLiveEl.textContent += text;
+    const det = this._planLiveEl.closest('details');
+    if (det && !det.open) det.open = true;
+  },
+
+  _planNote(text, kind) {
+    const card = this._planCard;
+    if (!card) return;
+    const p = document.createElement('div');
+    p.className = `plan-note plan-note-${kind || 'info'}`;
+    p.textContent = text;
+    card.notes.appendChild(p);
+  },
+
+  /** 收尾：写终态、落盘到消息历史（供刷新后回看）。 */
+  _finishPlanCard(evt, isFailure) {
+    const card = this._planCard;
+    if (!card) return;
+    const ok = !!evt.ok;
+    const status = evt.status || (ok ? 'done' : 'failed');
+    const secs = evt.durationMs ? ` · ${(evt.durationMs / 1000).toFixed(1)}s` : '';
+    this._setPlanStatus(`${ok ? '✅ 执行完成' : (isFailure ? '⏹ 已结束' : '⚠️ 未完成')} · ${status}${secs}`);
+    card.root.classList.add(ok ? 'plan-ok' : 'plan-fail');
+
+    if (evt.acceptance) {
+      const acc = evt.acceptance;
+      const passed = acc.ok === true || acc.passed === true;
+      this._planNote(`${passed ? '✅' : '⚠️'} 验收：${passed ? '通过' : '未通过'}`, passed ? 'info' : 'warn');
+    }
+    if (evt.branch) this._planNote(`🌿 执行分支：${evt.branch}`, 'info');
+
+    // 落盘：只存一条可读摘要，避免把整卡 DOM 塞进 localStorage
+    const lines = [`⚡ 自动执行：${status}${secs}`];
+    card.list.querySelectorAll('.plan-step').forEach((li) => {
+      const goal = li.querySelector('.plan-step-goal');
+      const badge = li.querySelector('.plan-step-badge');
+      lines.push(`- ${(li.querySelector('.plan-step-icon') || {}).textContent || ''} ${goal ? goal.textContent : ''} · ${badge ? badge.textContent : ''}`);
+    });
+    card.notes.querySelectorAll('.plan-note').forEach((n) => lines.push(n.textContent));
+    this.messages.push({ role: 'assistant', content: lines.join('\n'), _planSummary: true });
+    this._saveHistory();
+
+    this._planCard = null;
+    this._planStepRows = null;
+    this._planLiveEl = null;
+    this._planActiveRow = null;
+  },
+};

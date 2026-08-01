@@ -31,6 +31,8 @@ import { computeContextUsage } from './context-usage.js';
 import { mountCategoryChips, getActiveCategory } from './category-chips.js';
 import { mermaidPreviewMixin } from './chat/mermaid-preview.js';
 import { discussControlsMixin } from './chat/discuss-controls.js';
+import { planControlsMixin } from './chat/plan-controls.js';
+import { planStreamMixin } from './chat/plan-stream.js';
 import { attachmentsMixin } from './chat/attachments.js';
 import { historySessionMixin } from './chat/history-session.js';
 import { sidePanelsMixin } from './chat/side-panels.js';
@@ -107,6 +109,14 @@ class ChatPanel extends HTMLElement {
     this._agentNameMap = new Map();   // id -> displayName（用于多选按钮文案）
     this._noAgents = false;           // 是否已确认无任何可用 CLI Agent（用于「去安装」引导）
 
+    // ── ⚡ 自动执行（Plan）模式状态（P2）──
+    this._planEnabled = false;        // 开关是否打开
+    this._planAgentId = 'ai';         // 执行方：'ai' 或外部 CLI agent id
+    this._planTurnActive = false;     // 本轮是否为自动执行回合（onDone 分流用）
+    this._planCard = null;            // 当前执行卡片 DOM 句柄
+    this._planStepRows = null;        // stepId -> 行 DOM
+    this._planLiveEl = null;          // 当前步骤实时输出 <pre>
+
     // ── 多模态附件（对话框发送给 AI 的图片/视频/文本文件）──
     this.pendingAttachments = [];     // 待发送附件（短 URL + 元数据，不含 base64）
     this.attachBtn = null;
@@ -159,6 +169,7 @@ class ChatPanel extends HTMLElement {
 
     this._setupEvents();
     this._setupDiscussControls();
+    this._setupPlanControls();
     this._restoreState();
     this._patchQCLI();
     this._initCategoryChips();
@@ -724,6 +735,9 @@ class ChatPanel extends HTMLElement {
         this._ttsBuffer = '';
         this._ttsStreamed = false;
 
+        // 自动执行回合标记（onDone/onError 分流；讨论优先时不生效，与后端一致）
+        this._planTurnActive = !!this._planEnabled && !this._discussEnabled;
+
         api.sendMessage({
           messages: msgs,
           category: getActiveCategory() || undefined,
@@ -737,6 +751,9 @@ class ChatPanel extends HTMLElement {
           partners: this._discussPartners,
           maxTurns: this._discussMaxTurns,
           onDiscuss: (evt) => this._handleDiscussEvent(evt),
+          planMode: this._planEnabled,
+          planAgentId: this._planAgentId,
+          onPlan: (evt) => this._handlePlanEvent(evt),
           onToolCall: (evt) => {
             if (evt.type === 'start') {
               for (const n of evt.names || []) {
@@ -848,6 +865,18 @@ class ChatPanel extends HTMLElement {
             }
           },
           onDone: () => {
+            // 自动执行模式：执行卡片已在 plan_done/error/cancelled 时落盘，
+            // 这里不再追加空 assistant 消息（与讨论模式同款分流）。
+            if (this._planTurnActive) {
+              this._planTurnActive = false;
+              // 兜底：后端异常早退未发终态 → 收掉悬空卡片，避免永远停在「执行中」
+              if (this._planCard) this._finishPlanCard({ ok: false, status: 'interrupted' }, true);
+              this.removeThinking();
+              this._endSending();
+              if (this.input) this.input.focus();
+              return;
+            }
+
             // 讨论模式：各发言气泡已在 discuss_end 时落盘，这里不再追加空 assistant 消息
             if (this._discussActive) {
               this._discussActive = false;
@@ -1013,6 +1042,11 @@ class ChatPanel extends HTMLElement {
           },
           onError: (err) => {
             this.removeThinking();
+            // 自动执行回合出错：先收掉悬空执行卡片，避免永远停在「执行中」
+            if (this._planTurnActive) {
+              this._planTurnActive = false;
+              if (this._planCard) this._finishPlanCard({ ok: false, status: 'error' }, true);
+            }
 
             // Structured error from chat-api.js
             if (typeof err === 'object' && err !== null && err.type) {
@@ -1454,7 +1488,7 @@ class ChatPanel extends HTMLElement {
 }
 
 // ── 原型 mixin 装配（从 chat/ 子模块挂回 ChatPanel.prototype）──
-Object.assign(ChatPanel.prototype, mermaidPreviewMixin, discussControlsMixin, attachmentsMixin, historySessionMixin, sidePanelsMixin, metricsSavingsMixin, messageDomMixin, terminalContextMixin);
+Object.assign(ChatPanel.prototype, mermaidPreviewMixin, discussControlsMixin, planControlsMixin, planStreamMixin, attachmentsMixin, historySessionMixin, sidePanelsMixin, metricsSavingsMixin, messageDomMixin, terminalContextMixin);
 
 customElements.define('chat-panel', ChatPanel);
 

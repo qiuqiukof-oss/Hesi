@@ -27,6 +27,7 @@ const { streamOpenAIWithTools } = require('./stream-openai');
 const { streamAnthropicWithTools, parseAnthropicStream, buildAnthropicConversation } = require('./stream-anthropic');
 const { injectAttachments } = require('./attachments');
 const { runDiscussion } = require('./discuss');
+const { runPlanTurn } = require('./plan-turn');
 const { recordCompact } = require('./metrics'); // P1.5: 上下文压缩计数累加
 // Long-term memory subsystem (M4): archive + recall + compaction. Importing the
 // facade only — internal modules stay encapsulated.
@@ -279,7 +280,7 @@ function createRouter(opts = {}) {
   // Response: SSE stream of tokens
   // ──────────────────────────────────────────────
   router.post('/chat', async (req, res) => {
-    const { messages, model, apiKey: clientKey, provider: clientProvider, baseUrl: clientBaseUrl, disableTools, terminalContext, terminalContextChanged, discuss, partner, partners, maxTurns, sessionId, category, verifyMode, takenOver, persona, role, customInstructions, language, memoryEnabled, permissions, personas, protocol } = req.body;
+    const { messages, model, apiKey: clientKey, provider: clientProvider, baseUrl: clientBaseUrl, disableTools, terminalContext, terminalContextChanged, discuss, partner, partners, maxTurns, sessionId, category, verifyMode, takenOver, persona, role, customInstructions, language, memoryEnabled, permissions, personas, protocol, planMode, plan: presetPlan, agentId: planAgentId, autoReplan, maxRetries } = req.body;
     // Phase 2：把 sessionId 挂到请求上，供流式路径里的 executeToolCall 透传到 /tools/write-file 做副作用快照。
     req._hesiSessionId = sessionId || '';
     // 分类 Chips（两级小功能）：当前对话模式 → 注入 [当前模式] 系统提示段 + Skill 检索加权
@@ -288,6 +289,29 @@ function createRouter(opts = {}) {
 
     if (!messages || !Array.isArray(messages) || messages.length === 0) {
       return res.status(400).json({ error: 'messages array is required' });
+    }
+
+    // ── 自动执行模式（P2）：把这轮说的话拆成 Plan 并真执行，步骤过程以 SSE 实时可见 ──
+    // 与 AI 讨论并列的第三种回合；两者同时勾选时讨论优先（讨论是「先谈」，执行是「后做」）。
+    if (planMode && !discuss) {
+      const userText = (messages[messages.length - 1]?.content || '').toString();
+      try {
+        await runPlanTurn(res, {
+          objective: userText,
+          plan: (presetPlan && typeof presetPlan === 'object') ? presetPlan : undefined,
+          apiKey: clientKey,
+          provider: clientProvider,
+          baseUrl: clientBaseUrl,
+          model,
+          agentId: planAgentId,
+          permissions,
+          autoReplan,
+          maxRetries,
+        });
+      } catch (err) {
+        if (!res.headersSent) res.status(500).json({ error: err.message });
+      }
+      return;
     }
 
     // ── AI 讨论模式：AI 助手 ↔ 一个或多个 CLI Agent 按回合交替（圆桌），过程以 SSE 实时可见 ──

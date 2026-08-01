@@ -89,10 +89,8 @@ const SUMMARY_SYSTEM_PROMPT = `你是一场「AI 助手 ↔ CLI Agent」协作�
 3. 用要点列出仍有分歧或待验证的部分；
 4. 若适用，给出可立即执行的下一步建议。`;
 
-// ── SSE 辅助 ──
-function sse(res, obj) {
-  try { res.write(`data: ${JSON.stringify(obj)}\n\n`); } catch { /* closed */ }
-}
+// ── SSE 辅助（与「自动执行」回合共用同一套工具，避免两条长任务链路行为漂移）──
+const { sse, openSseStream, startHeartbeat, watchDisconnect } = require('./sse-util');
 
 // ── provider 解析（与 routes/chat/index.js 保持一致）──
 function resolveConfig({ apiKey, provider, baseUrl, model }) {
@@ -538,25 +536,21 @@ async function runDiscussion(res, { message, partner, partners, maxTurns = 6, ap
   }
   if (agents.length > MAX_DISCUSS_AGENTS) agents = agents.slice(0, MAX_DISCUSS_AGENTS);
 
-  res.setHeader('Content-Type', 'text/event-stream');
-  res.setHeader('Cache-Control', 'no-cache');
-  res.setHeader('Connection', 'keep-alive');
-  res.setHeader('X-Accel-Buffering', 'no');
-  res.setTimeout(0);
-
-  let _aborted = false;
-  const onClose = () => { if (!res.writableEnded) _aborted = true; };
-  res.on('close', onClose);
+  openSseStream(res);
+  // 心跳保活：长讨论（多 Agent × 多轮）中间层易判定空闲断连，注释帧前端天然忽略
+  const stopHeartbeat = startHeartbeat(res);
+  const watcher = watchDisconnect(res);
 
   const onEvent = (type, payload) => sse(res, { type, ...payload });
 
   try {
-    const { cleanFinish } = await runRoundtable({ message, partner, partners, maxTurns, apiKey, provider, baseUrl, model, takenOver, onEvent, shouldAbort: () => _aborted });
+    const { cleanFinish } = await runRoundtable({ message, partner, partners, maxTurns, apiKey, provider, baseUrl, model, takenOver, onEvent, shouldAbort: () => watcher.isAborted() });
     sse(res, { type: 'status', message: cleanFinish ? '✅ 讨论完成' : '⏹ 讨论已停止' });
   } catch (err) {
     sse(res, { type: 'error', message: err.message || '讨论执行出错' });
   } finally {
-    res.removeListener('close', onClose);
+    stopHeartbeat();
+    watcher.dispose();
     sse(res, { type: '[DONE]' });
     res.end();
   }

@@ -1,0 +1,169 @@
+/*
+ * Copyright (c) 2026 qiuqiukof-oss
+ * Licensed under the MIT License. See LICENSE for details.
+ */
+
+/* ============================================================
+   「⚡ 自动执行」对话卡片（P2：Plan 执行器并入 AI 对话）
+   与 discuss-* 气泡并列的第三种回合样式；全部走主题变量，
+   浅/深色主题自动跟随。
+   ============================================================ */
+
+/* ── 输入框上的开关行 ── */
+.discuss-sep {
+  width: 1px;
+  height: 16px;
+  background: var(--border-strong);
+  margin: 0 var(--space-1);
+  flex: 0 0 auto;
+}
+
+.plan-switch .discuss-switch-label { white-space: nowrap; }
+
+.plan-hint {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  white-space: nowrap;
+  align-self: center;
+}
+
+/* ── 执行卡片 ── */
+.plan-message .plan-avatar {
+  background: linear-gradient(135deg, var(--warning), var(--accent));
+  color: #fff;
+}
+
+.plan-sender { color: var(--text-secondary); }
+
+.plan-status-text {
+  color: var(--accent-hover);
+  font-variant-numeric: tabular-nums;
+}
+
+.plan-bubble {
+  border: 1px solid var(--border-default);
+  border-left: 3px solid var(--warning);
+  background: var(--bg-elevated);
+  padding: var(--space-3);
+  border-radius: var(--radius-lg);
+}
+
+.plan-message.plan-ok .plan-bubble { border-left-color: var(--success); }
+.plan-message.plan-fail .plan-bubble { border-left-color: var(--danger); }
+
+.plan-objective {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-bottom: var(--space-2);
+  padding-bottom: var(--space-2);
+  border-bottom: 1px dashed var(--border-default);
+  word-break: break-word;
+}
+
+/* ── 步骤清单 ── */
+.plan-steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.plan-step {
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: var(--space-2);
+  background: var(--bg-surface);
+  transition: border-color 0.2s var(--ease-out), background 0.2s var(--ease-out);
+}
+
+.plan-step-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.plan-step-icon { flex: 0 0 auto; width: 18px; text-align: center; }
+
+.plan-step-goal {
+  flex: 1 1 auto;
+  min-width: 0;
+  color: var(--text-primary);
+  word-break: break-word;
+}
+
+.plan-step-badge {
+  flex: 0 0 auto;
+  font-size: 11px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  border: 1px solid var(--border-default);
+  color: var(--text-tertiary);
+  max-width: 45%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.plan-step-action {
+  display: block;
+  margin-top: var(--space-1);
+  padding: var(--space-1) var(--space-2);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-secondary);
+  background: var(--bg-ground);
+  border-radius: var(--radius-sm);
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+/* 状态配色 */
+.plan-step.running { border-color: var(--accent); background: var(--accent-glow); }
+.plan-step.running .plan-step-badge { color: var(--accent-hover); border-color: var(--accent); }
+.plan-step.done .plan-step-badge { color: var(--success); border-color: var(--success); }
+.plan-step.error { border-color: var(--danger); }
+.plan-step.error .plan-step-badge { color: var(--danger); border-color: var(--danger); }
+.plan-step.blocked .plan-step-badge { color: var(--warning); border-color: var(--warning); }
+.plan-step.warn .plan-step-badge { color: var(--warning); border-color: var(--warning); }
+
+/* ── 步骤输出 ── */
+.plan-step-output { margin-top: var(--space-2); }
+
+.plan-step-output > summary {
+  cursor: pointer;
+  font-size: 11px;
+  color: var(--text-tertiary);
+  user-select: none;
+}
+
+.plan-step-output > summary:hover { color: var(--text-secondary); }
+
+.plan-step-output pre {
+  margin: var(--space-1) 0 0;
+  padding: var(--space-2);
+  max-height: 260px;
+  overflow: auto;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--text-secondary);
+  background: var(--bg-ground);
+  border-radius: var(--radius-sm);
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+/* ── 备注行 ── */
+.plan-notes:empty { display: none; }
+
+.plan-note {
+  margin-top: var(--space-2);
+  font-size: 12px;
+  color: var(--text-secondary);
+  word-break: break-word;
+}
+
+.plan-note-warn { color: var(--warning); }
+.plan-note-error { color: var(--danger); }
