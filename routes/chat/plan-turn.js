@@ -167,18 +167,17 @@ async function runPlanTurn(res, p = {}) {
   };
 
   try {
-    // ── 0. 协作工作流：前置多 Agent 讨论 ──
-    if (discussBeforePlan) {
-      emit('phase', { phase: 'discuss', label: '💬 AI 助手 + CLI Agents 讨论中…' });
+    // ── 讨论 helper（减少 runRoundtable 样板代码）──
+    const doDiscuss = async (message, label, maxT) => {
+      if (!discussBeforePlan || !discussPartners.length) return '';
+      emit('phase', { phase: 'discuss', label });
       try {
-        const dr = await runRoundtable({
-          message: objective,
+        const out = await runRoundtable({
+          message,
           partners: discussPartners,
-          maxTurns: p.maxTurns || 4,
-          apiKey: runtime.apiKey,
-          provider: runtime.provider,
-          baseUrl: runtime.baseUrl,
-          model: runtime.model,
+          maxTurns: maxT || 2,
+          apiKey: runtime.apiKey, provider: runtime.provider,
+          baseUrl: runtime.baseUrl, model: runtime.model,
           budget: p.budget,
           onEvent: (type, payload) => {
             if (type === 'error') emit('discussion-error', payload || {});
@@ -186,12 +185,17 @@ async function runPlanTurn(res, p = {}) {
           },
           shouldAbort: () => watcher.isAborted(),
         });
-        discussionSummary = (dr && dr.summary) ? dr.summary : '';
-        emit('phase', { phase: 'discuss_done', label: '✅ 讨论完成，方案制定中…' });
-      } catch (de) {
-        emit('discussion-error', { message: de.message });
-        discussionSummary = null;
-      }
+        return (out && out.summary) || '';
+      } catch { return ''; }
+    };
+
+    // ── 0. 协作工作流：前置多 Agent 讨论 ──
+    if (discussBeforePlan) {
+      discussionSummary = await doDiscuss(
+        `我们需要完成以下目标：${objective}`,
+        '💬 AI 讨论中（第1轮：目标分析）…',
+        p.maxTurns || 4
+      );
       if (watcher.isAborted()) {
         emit('cancelled', { execId, phase: 'discuss', reason: '客户端断开' });
         return;
@@ -217,6 +221,19 @@ async function runPlanTurn(res, p = {}) {
     }
 
     emit('generated', summarizePlan(plan, execId));
+
+    // ── 1.5 协作工作流：方案审查讨论 ──
+    if (discussBeforePlan) {
+      await doDiscuss(
+        `请审查以下执行方案是否合理、是否有遗漏或错误步骤。\n方案：${JSON.stringify(summarizePlan(plan, execId))}`,
+        '💬 AI 讨论中（第2轮：方案审查）…',
+        2
+      );
+      if (watcher.isAborted()) {
+        emit('cancelled', { execId, phase: 'review_plan', reason: '客户端断开' });
+        return;
+      }
+    }
 
     // ── 2. 执行参数（与 /api/plan/execute 同源语义，避免两条链路行为漂移）──
     const fullAuto = !!(perms && perms.fullAuto);
@@ -262,6 +279,18 @@ async function runPlanTurn(res, p = {}) {
       return;
     }
 
+    // ── 4. 协作工作流：审核讨论 + 生成报告 ──
+    let reviewConclusion = '';
+    if (discussBeforePlan && result) {
+      const status = (result && result.status) || 'unknown';
+      const reflection = result && result.reflection ? JSON.stringify(result.reflection) : '';
+      reviewConclusion = await doDiscuss(
+        `执行已完成，状态：${status}。请审核结果并给出最终结论。${reflection ? `\n执行反思：${reflection}` : ''}`,
+        '💬 AI 讨论中（第3轮：结果审核）…',
+        2
+      );
+    }
+
     emit('done', {
       execId,
       ok: !!(result && result.ok),
@@ -274,6 +303,7 @@ async function runPlanTurn(res, p = {}) {
       durationMs: Date.now() - startedAt,
       discussed: !!discussionSummary,
       discussionSummary: discussionSummary || '',
+      reviewConclusion: reviewConclusion || '',
     });
   } catch (err) {
     // 异常不吞：保留 message，stack 落服务端日志便于归因
