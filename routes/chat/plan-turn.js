@@ -167,26 +167,36 @@ async function runPlanTurn(res, p = {}) {
   };
 
   try {
-    // ── 讨论 helper（减少 runRoundtable 样板代码）──
+    // ── 讨论 helper（带超时保护，讨论失败不阻塞 Plan 生成）──
+    const DISCUSS_TIMEOUT_MS = Number(process.env.HESI_COLLAB_DISCUSS_TIMEOUT) || 120000; // 2min 兜底
     const doDiscuss = async (message, label, maxT) => {
       if (!discussBeforePlan || !discussPartners.length) return '';
       emit('phase', { phase: 'discuss', label });
+      console.log('[runPlanTurn] 开始讨论 phase, partners=%d, label=%s', discussPartners.length, label);
       try {
-        const out = await runRoundtable({
-          message,
-          partners: discussPartners,
-          maxTurns: maxT || 2,
-          apiKey: runtime.apiKey, provider: runtime.provider,
-          baseUrl: runtime.baseUrl, model: runtime.model,
-          budget: p.budget,
-          onEvent: (type, payload) => {
-            if (type === 'error') emit('discussion-error', payload || {});
-            else emit(`discuss-${type}`, payload || {});
-          },
-          shouldAbort: () => watcher.isAborted(),
-        });
+        const out = await Promise.race([
+          runRoundtable({
+            message,
+            partners: discussPartners,
+            maxTurns: maxT || 2,
+            apiKey: runtime.apiKey, provider: runtime.provider,
+            baseUrl: runtime.baseUrl, model: runtime.model,
+            budget: p.budget,
+            onEvent: (type, payload) => {
+              if (type === 'error') emit('discussion-error', payload || {});
+              else emit(`discuss-${type}`, payload || {});
+            },
+            shouldAbort: () => watcher.isAborted(),
+          }),
+          new Promise((_, reject) => setTimeout(() => reject(new Error(`讨论超时（${Math.round(DISCUSS_TIMEOUT_MS / 1000)}s）`)), DISCUSS_TIMEOUT_MS)),
+        ]);
+        console.log('[runPlanTurn] 讨论完成, summary length=%d', (out && out.summary) ? out.summary.length : 0);
         return (out && out.summary) || '';
-      } catch { return ''; }
+      } catch (e) {
+        console.warn('[runPlanTurn] 讨论跳过: %s', e.message);
+        emit('discussion-error', { message: `讨论跳过，直接生成方案：${e.message}` });
+        return '';
+      }
     };
 
     // ── 0. 协作工作流：前置多 Agent 讨论 ──
@@ -196,6 +206,7 @@ async function runPlanTurn(res, p = {}) {
         '💬 AI 讨论中（第1轮：目标分析）…',
         p.maxTurns || 4
       );
+      emit('phase', { phase: 'plan', label: discussionSummary ? '✅ 讨论完成，方案制定中…' : '⚠️ 讨论未产出结论，直接制定方案…' });
       if (watcher.isAborted()) {
         emit('cancelled', { execId, phase: 'discuss', reason: '客户端断开' });
         return;
