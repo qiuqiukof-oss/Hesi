@@ -16,8 +16,8 @@
 'use strict';
 
 /** Ring radius (px) — must match the SVG circle r in the header button. */
-export const RING_RADIUS = 15;
-/** Circumference for r=15 (≈94.25). */
+export const RING_RADIUS = 21;
+/** Circumference for r=21 (≈131.95). */
 export const RING_CIRCUMFERENCE = 2 * Math.PI * RING_RADIUS;
 
 /** Compact number formatter: 1234 -> "1.2k". @param {number} n */
@@ -48,8 +48,8 @@ export function computeSavings(s) {
   const C = RING_CIRCUMFERENCE;
   const fmt = fmtTokens;
   const title = total > 0
-    ? `本会话已节省 ≈${fmt(saved)} tokens / 实际消耗 ${fmt(used)} tokens（约 ${pct}% 来自缓存命中 / 工具复用 / 经验命中）${compact > 0 ? ` · 上下文压缩 ${compact} 次` : ''}`
-    : '本会话暂无节省记录';
+    ? `缓存命中率 ${pct}%：已节省 ≈${fmt(saved)} tokens / 实际消耗 ${fmt(used)} tokens（命中原因为 LLM prompt cache / 工具复用 / 经验命中）${compact > 0 ? ` · 上下文压缩 ${compact} 次` : ''}`
+    : '本会话暂无缓存命中记录';
 
   return {
     pct,

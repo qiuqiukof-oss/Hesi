@@ -107,7 +107,7 @@ export const metricsSavingsMixin = {
     // 纯计算部分抽至 ./savings-icon.js（P2.1）；此处只负责写 DOM。
     const v = computeSavings(this._sessionSavings);
     const pctEl = btn.querySelector('.savings-pct');
-    if (pctEl) pctEl.textContent = v.pct + '%';
+    if (pctEl) pctEl.textContent = v.active ? (v.pct + '%') : '--';
     const fill = btn.querySelector('.savings-fill');
     if (fill) {
       fill.style.strokeDasharray = v.strokeDasharray;
