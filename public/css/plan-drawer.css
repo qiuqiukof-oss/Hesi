@@ -161,6 +161,95 @@
 .plan-embed-body .status-error { background: rgba(239, 68, 68, .1); border-color: var(--danger, #ef4444); color: var(--danger, #ef4444); }
 .plan-embed-body .status-info { background: rgba(99, 102, 241, .1); border-color: var(--info, #3b82f6); color: var(--info, #3b82f6); }
 
+/* ── 前置圆桌讨论舞台（M3 实时可视化）── */
+.plan-embed-body .plan-discussion-stage {
+  background: var(--bg-surface, #121214);
+  border: 1px solid var(--accent, #6366f1);
+  border-left-width: 4px;
+  border-radius: var(--radius-lg, 10px);
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  box-shadow: 0 0 0 1px rgba(99, 102, 241, .08), 0 8px 24px rgba(99, 102, 241, .12);
+  animation: pd-stage-pop .25s var(--ease-out, ease-out);
+}
+@keyframes pd-stage-pop {
+  from { transform: scale(.98); opacity: .6; }
+  to { transform: scale(1); opacity: 1; }
+}
+.plan-embed-body .pd-stage-header { display: flex; align-items: center; gap: 10px; }
+.plan-embed-body .pd-stage-pulse {
+  width: 10px; height: 10px; border-radius: 50%;
+  background: var(--accent, #6366f1);
+  box-shadow: 0 0 0 0 rgba(99, 102, 241, .5);
+  animation: pd-pulse 1.4s infinite;
+  flex: 0 0 auto;
+}
+@keyframes pd-pulse {
+  0% { box-shadow: 0 0 0 0 rgba(99, 102, 241, .5); }
+  70% { box-shadow: 0 0 0 8px rgba(99, 102, 241, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(99, 102, 241, 0); }
+}
+.plan-embed-body .pd-stage-title { font-size: 13px; font-weight: 700; color: var(--accent, #818cf8); }
+.plan-embed-body .pd-stage-status { margin-left: auto; font-size: 12px; color: var(--text-secondary, #a1a1aa); font-weight: 500; }
+.plan-embed-body .pd-stage-progress {
+  height: 4px; border-radius: 2px;
+  background: var(--bg-ground, #0a0a0b);
+  overflow: hidden;
+}
+.plan-embed-body .pd-stage-progress-bar {
+  height: 100%; width: 0%;
+  background: linear-gradient(90deg, var(--accent, #6366f1), var(--info, #3b82f6));
+  transition: width .25s ease-out;
+}
+.plan-embed-body .pd-stage-meta { font-size: 11px; color: var(--text-tertiary, #71717a); }
+.plan-embed-body .pd-stage-log {
+  max-height: 260px; overflow-y: auto;
+  display: flex; flex-direction: column; gap: 8px;
+  padding: 4px;
+}
+.plan-embed-body .pd-bubble {
+  background: var(--bg-elevated, #18181b);
+  border: 1px solid var(--border-default, rgba(255,255,255,.08));
+  border-radius: var(--radius-md, 8px);
+  padding: 8px 10px;
+  font-size: 12px;
+  line-height: 1.55;
+}
+.plan-embed-body .pd-bubble-ai { border-left-color: var(--accent, #6366f1); border-left-width: 3px; }
+.plan-embed-body .pd-bubble-cli { border-left-color: var(--warning, #f59e0b); border-left-width: 3px; }
+.plan-embed-body .pd-bubble-summary { border-left-color: var(--success, #22c55e); border-left-width: 3px; }
+.plan-embed-body .pd-bubble-head {
+  font-size: 11px; font-weight: 600;
+  color: var(--text-secondary, #a1a1aa);
+  margin-bottom: 4px;
+}
+.plan-embed-body .pd-bubble-content {
+  margin: 0; padding: 0;
+  white-space: pre-wrap; word-break: break-word;
+  font-family: var(--font-ui, system-ui, sans-serif);
+  color: var(--text-primary, #fafafa);
+  background: transparent;
+}
+.plan-embed-body .pd-stage-actions { display: flex; gap: 10px; }
+.plan-embed-body .pd-stage-actions .btn { flex: 1; justify-content: center; }
+.plan-embed-body .pd-stage-summary { margin: 0; }
+.plan-embed-body .pd-stage-summary summary {
+  cursor: pointer; font-size: 12px; font-weight: 600;
+  color: var(--text-secondary, #a1a1aa); padding: 4px 0;
+}
+.plan-embed-body .pd-stage-summary-body {
+  margin-top: 8px; padding: 10px;
+  background: var(--bg-ground, #0a0a0b);
+  border: 1px solid var(--border-subtle, rgba(255,255,255,.04));
+  border-radius: var(--radius-md, 6px);
+  font-size: 12px; line-height: 1.6;
+  color: var(--text-primary, #fafafa);
+  white-space: pre-wrap; word-break: break-word;
+  max-height: 220px; overflow: auto;
+}
+
 .plan-embed-body .reflection { display: flex; flex-wrap: wrap; gap: 8px; }
 .plan-embed-body .ref-card {
   background: var(--bg-surface, #121214); border: 1px solid var(--border-default, rgba(255, 255, 255, .08));

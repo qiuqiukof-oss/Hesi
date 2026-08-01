@@ -49,6 +49,8 @@ const PlanDrawer = {
   planWs: null,
   currentExecId: null,
   historyTimer: null,
+  pendingExecId: null,
+  discussMode: 'auto',
 
   /** 首次打开时把静态 UI 渲染进抽屉容器 */
   _ensureRendered() {
@@ -105,6 +107,25 @@ const PlanDrawer = {
         <button id="plan-format" class="btn">格式化</button>
         <button id="plan-execute" class="btn btn-primary">▶ 执行 plan</button>
         <button id="plan-history-open" class="btn">📚 历史 Plan</button>
+      </div>
+      <!-- 前置圆桌讨论舞台（M3）：实时展示讨论轮次、发言人、token 统计 -->
+      <div id="plan-discussion-stage" class="plan-discussion-stage hidden">
+        <div class="pd-stage-header">
+          <span class="pd-stage-pulse"></span>
+          <span class="pd-stage-title">🤝 圆桌讨论</span>
+          <span class="pd-stage-status">准备中…</span>
+        </div>
+        <div class="pd-stage-progress"><div class="pd-stage-progress-bar"></div></div>
+        <div class="pd-stage-meta"></div>
+        <div class="pd-stage-log"></div>
+        <div class="pd-stage-actions hidden">
+          <button type="button" class="btn btn-primary pd-stage-continue">✅ 继续生成 Plan</button>
+          <button type="button" class="btn pd-stage-cancel">❌ 取消</button>
+        </div>
+        <details class="pd-stage-summary hidden">
+          <summary>讨论结论</summary>
+          <div class="pd-stage-summary-body"></div>
+        </details>
       </div>
       <h2 class="plan-result-title">执行结果</h2>
       <div id="plan-status" class="status-banner hidden"></div>
@@ -168,6 +189,12 @@ const PlanDrawer = {
       const btn = e.target.closest('.step-copy');
       if (btn && btn.dataset.copyText) this._copyText(btn.dataset.copyText, btn);
     });
+    // 前置讨论确认闸（confirm 模式）
+    const stage = body.querySelector('#plan-discussion-stage');
+    if (stage) {
+      stage.querySelector('.pd-stage-continue')?.addEventListener('click', () => this._confirmDiscussion());
+      stage.querySelector('.pd-stage-cancel')?.addEventListener('click', () => this._cancelDiscussion());
+    }
     this.rendered = true;
   },
 
@@ -200,12 +227,20 @@ const PlanDrawer = {
     });
   },
 
+  /** 生成请求级 execId，前后端 WS 事件关联用 */
+  _uuid() {
+    if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID();
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+      const r = Math.random() * 16 | 0;
+      return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
+    });
+  },
+
   /** 讨论开关：勾选后才把 discussBeforePlan 等字段打进 /api/plan/execute */
   _wireDiscussToggle(body) {
     const cb = body.querySelector('#plan-discuss-before');
     const opts = body.querySelector('#plan-discuss-opts');
     const mode = body.querySelector('#plan-discuss-mode');
-    const turns = body.querySelector('#plan-discuss-turns');
     if (!cb || !opts) return;
     const apply = () => {
       const on = cb.checked;
@@ -484,6 +519,21 @@ const PlanDrawer = {
         const turns = Number(body.querySelector('#plan-discuss-turns')?.value || 4);
         payload.discussMaxTurns = Number.isFinite(turns) && turns > 0 ? Math.min(turns, 8) : 4;
       }
+      // 用统一 execId 关联后端 WS 事件，让前端能实时渲染讨论舞台
+      const execId = this._uuid();
+      this.pendingExecId = execId;
+      payload.execId = execId;
+      this.discussMode = discussBefore ? (payload.discussMode || 'auto') : 'auto';
+      // 后端只在「有自然语言目标、未手写 plan、且选了伙伴」时才真正跑讨论
+      if (discussBefore && objective) {
+        this._showDiscussionStage({
+          partners: payload.partners || [],
+          maxTurns: payload.discussMaxTurns || 4,
+          mode: this.discussMode,
+        });
+      } else {
+        this._hideDiscussionStage();
+      }
       const ea = body.querySelector('#plan-exec-agent').value.trim();
       if (ea) payload.agentId = ea; // 'ai' 或外部 CLI agent id
 
@@ -499,6 +549,11 @@ const PlanDrawer = {
       const data = await res.json();
       this.root.querySelector('#plan-empty').classList.add('hidden');
       if (!res.ok) { this._setStatus('请求失败：' + (data.error || res.status), 'error'); return; }
+      if (data.status === 'discussion-cancelled') {
+        this._setStageStatus('已取消：讨论后未确认执行');
+        this._setStatus('已取消：讨论后未确认执行', 'warn');
+        return;
+      }
       const kind = data.status === 'done' ? 'ok' : (data.status === 'diverged' || data.status === 'rejected') ? 'error' : 'warn';
       let msg = '状态：' + data.status + (data.branch ? ' · 分支 ' + data.branch : '');
       if (data.missing && data.missing.length) msg += ' · 需补 acceptance: ' + data.missing.join(',');
@@ -530,6 +585,11 @@ const PlanDrawer = {
         if (msg.type === 'plan:await-approval') { this.currentExecId = msg.execId; this._showGate(msg.step); }
         else if (msg.type === 'plan:approval-resolved' && msg.execId === this.currentExecId) {
           this._updateGateStatus(msg.approved ? '已通过，继续执行…' : (msg.timedOut ? '超时（视为驳回），已中止' : '已驳回，已中止'));
+        }
+        // 前置圆桌讨论实时事件（与本次 execute 的 execId 关联）
+        else if (this.pendingExecId && msg.execId === this.pendingExecId
+          && (msg.type.startsWith('plan:discuss') || msg.type.startsWith('plan:discussion'))) {
+          this._onDiscussionEvent(msg.type, msg);
         }
       };
       this.planWs.onclose = () => { this.planWs = null; };
@@ -579,6 +639,187 @@ const PlanDrawer = {
       const data = await res.json().catch(() => ({}));
       if (!res.ok) this._updateGateStatus('操作失败：' + (data.error || res.status));
     } catch (e) { this._updateGateStatus('网络异常：' + e.message); }
+  },
+
+  // ── 前置圆桌讨论舞台（M3 实时可视化）──
+  _showDiscussionStage({ partners, maxTurns, mode }) {
+    const stage = this.root.querySelector('#plan-discussion-stage');
+    if (!stage) return;
+    stage.classList.remove('hidden');
+    stage.querySelector('.pd-stage-status').textContent = '准备开始…';
+    stage.querySelector('.pd-stage-progress-bar').style.width = '0%';
+    stage.querySelector('.pd-stage-meta').textContent =
+      `模式：${mode === 'confirm' ? '确认后生成' : '自动继续'} · 最多 ${maxTurns} 轮 · 伙伴：${(partners || []).join(' / ') || '未选'}`;
+    stage.querySelector('.pd-stage-log').innerHTML = '';
+    stage.querySelector('.pd-stage-actions').classList.add('hidden');
+    stage.querySelector('.pd-stage-summary').classList.add('hidden');
+    stage.querySelector('.pd-stage-summary-body').textContent = '';
+    this._discussCurrentBubble = null;
+    // 立即滚动到舞台，让用户明确感知讨论已开始
+    try { stage.scrollIntoView({ behavior: 'smooth', block: 'start' }); } catch { /* ignore */ }
+  },
+
+  _hideDiscussionStage() {
+    const stage = this.root.querySelector('#plan-discussion-stage');
+    if (stage) stage.classList.add('hidden');
+    this._discussCurrentBubble = null;
+  },
+
+  _setStageStatus(text) {
+    const stage = this.root.querySelector('#plan-discussion-stage');
+    if (!stage) return;
+    stage.querySelector('.pd-stage-status').textContent = text;
+    // 尝试从 status 文本里解析「第 x/y 轮」来更新进度条
+    const m = text.match(/第\s*(\d+)\s*\/\s*(\d+)\s*轮/);
+    if (m) {
+      const [, cur, total] = m;
+      const pct = total > 0 ? Math.min(100, Math.max(0, (Number(cur) / Number(total)) * 100)) : 0;
+      stage.querySelector('.pd-stage-progress-bar').style.width = pct + '%';
+    }
+  },
+
+  _addStageBubble({ speaker, label, round }) {
+    const log = this.root.querySelector('#plan-discussion-stage .pd-stage-log');
+    if (!log) return null;
+    const wrap = document.createElement('div');
+    wrap.className = 'pd-bubble pd-bubble-' + esc(speaker);
+    wrap.dataset.speaker = speaker;
+    const header = document.createElement('div');
+    header.className = 'pd-bubble-head';
+    const icon = speaker === 'ai' ? '🧠' : (speaker === 'summary' ? '📋' : '🤖');
+    header.textContent = `${icon} ${esc(label || speaker)} · 第 ${round || '?'} 轮`;
+    const content = document.createElement('pre');
+    content.className = 'pd-bubble-content';
+    wrap.appendChild(header);
+    wrap.appendChild(content);
+    log.appendChild(wrap);
+    this._discussCurrentBubble = content;
+    this._stageScrollToBottom();
+    return content;
+  },
+
+  _stageScrollToBottom() {
+    const log = this.root.querySelector('#plan-discussion-stage .pd-stage-log');
+    if (log) { try { log.scrollTo({ top: log.scrollHeight, behavior: 'smooth' }); } catch { log.scrollTop = log.scrollHeight; } }
+  },
+
+  _formatStageStats(stats) {
+    if (!stats) return '';
+    const parts = [];
+    if (stats.rounds != null) parts.push(`实际 ${stats.rounds} 轮`);
+    if (stats.aiInputTokens != null) parts.push(`AI 输入 ${stats.aiInputTokens.toLocaleString()} tokens`);
+    if (stats.aiOutputTokens != null) parts.push(`AI 输出 ${stats.aiOutputTokens.toLocaleString()} tokens`);
+    if (stats.cacheHitRate != null) parts.push(`缓存命中 ${Math.round(stats.cacheHitRate * 100)}%`);
+    if (stats.cliOutputChars != null) parts.push(`CLI 输出 ${stats.cliOutputChars.toLocaleString()} 字符`);
+    return parts.join(' · ');
+  },
+
+  _onDiscussionEvent(type, msg) {
+    const stage = this.root.querySelector('#plan-discussion-stage');
+    if (!stage) return;
+    switch (type) {
+      case 'plan:discussion-start': {
+        stage.classList.remove('hidden');
+        this._setStageStatus('讨论开始');
+        break;
+      }
+      case 'plan:discussion-shared': {
+        this._setStageStatus('复用进行中的讨论…');
+        break;
+      }
+      case 'plan:discuss-status': {
+        if (msg.message) this._setStageStatus(msg.message);
+        break;
+      }
+      case 'plan:discuss-discuss_start': {
+        this._addStageBubble({ speaker: msg.speaker, label: msg.label, round: msg.round });
+        break;
+      }
+      case 'plan:discuss-token': {
+        if (this._discussCurrentBubble && msg.content != null) {
+          this._discussCurrentBubble.textContent += msg.content;
+          this._stageScrollToBottom();
+        }
+        break;
+      }
+      case 'plan:discuss-discuss_end': {
+        this._discussCurrentBubble = null;
+        break;
+      }
+      case 'plan:discuss-discuss_stats': {
+        const meta = stage.querySelector('.pd-stage-meta');
+        const statsLine = this._formatStageStats(msg.stats);
+        if (statsLine) meta.textContent = statsLine;
+        break;
+      }
+      case 'plan:discussion-result': {
+        this._setStageStatus('讨论完成');
+        const summary = msg.summary || '';
+        const summaryEl = stage.querySelector('.pd-stage-summary');
+        const summaryBody = stage.querySelector('.pd-stage-summary-body');
+        summaryBody.textContent = summary;
+        summaryEl.classList.remove('hidden');
+        if (this.discussMode === 'confirm') {
+          stage.querySelector('.pd-stage-actions').classList.remove('hidden');
+          this._setStageStatus('讨论完成，等待你确认是否继续生成 Plan');
+        } else {
+          this._setStageStatus('讨论完成，正在生成 Plan…');
+        }
+        break;
+      }
+      case 'plan:discussion-error': {
+        this._setStageStatus('讨论出错：' + (msg.message || '未知错误'));
+        break;
+      }
+      case 'plan:discussion-confirmed': {
+        stage.querySelector('.pd-stage-actions').classList.add('hidden');
+        this._setStageStatus('已确认，继续生成 Plan…');
+        break;
+      }
+      case 'plan:discussion-cancelled': {
+        stage.querySelector('.pd-stage-actions').classList.add('hidden');
+        this._setStageStatus('已取消');
+        break;
+      }
+      case 'plan:discussion-timeout': {
+        stage.querySelector('.pd-stage-actions').classList.add('hidden');
+        this._setStageStatus('确认超时，自动继续生成 Plan…');
+        break;
+      }
+      default: break;
+    }
+  },
+
+  async _confirmDiscussion() {
+    if (!this.pendingExecId) return;
+    const stage = this.root.querySelector('#plan-discussion-stage');
+    if (stage) {
+      stage.querySelector('.pd-stage-actions').classList.add('hidden');
+      this._setStageStatus('提交确认中…');
+    }
+    try {
+      const res = await fetch('/api/plan/discuss/' + encodeURIComponent(this.pendingExecId) + '/confirm', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) this._setStageStatus('确认失败：' + (data.error || res.status));
+    } catch (e) { this._setStageStatus('确认异常：' + e.message); }
+  },
+
+  async _cancelDiscussion() {
+    if (!this.pendingExecId) return;
+    const stage = this.root.querySelector('#plan-discussion-stage');
+    if (stage) {
+      stage.querySelector('.pd-stage-actions').classList.add('hidden');
+      this._setStageStatus('取消中…');
+    }
+    try {
+      const res = await fetch('/api/plan/discuss/' + encodeURIComponent(this.pendingExecId) + '/cancel', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) this._setStageStatus('取消失败：' + (data.error || res.status));
+    } catch (e) { this._setStageStatus('取消异常：' + e.message); }
   },
 
   // ── Plan 历史（从独立页 plan.html 移植，v0.6.5）──

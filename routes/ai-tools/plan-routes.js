@@ -116,7 +116,11 @@ function createRouter(opts = {}) {
     // execId 必须在讨论分支之前声明：讨论分支（broadcast/waitDiscussionConfirm）
     // 与后续执行流程都引用它，声明放后会造成 TDZ ReferenceError（catch 内二次
     // 抛出会逃逸出 try/catch，Express 4 不捕获 async 异常 → 请求挂起）。
-    const execId = crypto.randomUUID();
+    // 前端可传入 execId 以便 WS 事件与本次请求关联（必须是合法 UUID）。
+    const providedExecId = typeof body.execId === 'string' ? body.execId.trim() : '';
+    const execId = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(providedExecId)
+      ? providedExecId
+      : crypto.randomUUID();
     let discussionSummary = null;
     let discussionTranscript = '';
     const discussBeforePlan = !!body.discussBeforePlan;
