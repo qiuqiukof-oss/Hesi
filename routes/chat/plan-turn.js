@@ -298,13 +298,18 @@ async function runPlanTurn(res, p = {}) {
     let reviewConclusion = '';
     if (discussBeforePlan && result) {
       const status = (result && result.status) || 'unknown';
-      const reflection = result && result.reflection ? JSON.stringify(result.reflection) : '';
-      reviewConclusion = await doDiscuss(
-        `执行已完成，状态：${status}。请审核结果并给出最终结论。${reflection ? `\n执行反思：${reflection}` : ''}`,
-        '💬 AI 讨论中（第3轮：结果审核）…',
-        2
-      );
-      if (reviewConclusion) emit('collab_summary', { phase: 3, title: '📋 审核结论', text: reviewConclusion.slice(0, 800) });
+      // 执行完全成功（done）→ 跳过审核，直接报告（避免对已完成任务展开新讨论）
+      if (status === 'done') {
+        emit('phase', { phase: 'done', label: '✅ 执行通过，协作完成' });
+      } else {
+        const reflection = result && result.reflection ? JSON.stringify(result.reflection) : '';
+        reviewConclusion = await doDiscuss(
+          `执行结果：${status}。请简述原因并给出结论（需简短，不超过一段）。${reflection ? `\n反思：${reflection}` : ''}`,
+          '💬 AI 讨论中（第3轮：审核）…',
+          1
+        );
+        if (reviewConclusion) emit('collab_summary', { phase: 3, title: '📋 审核结论', text: reviewConclusion.slice(0, 800) });
+      }
     }
 
     emit('done', {
