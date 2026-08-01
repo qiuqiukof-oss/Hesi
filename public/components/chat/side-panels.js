@@ -44,7 +44,7 @@ export const sidePanelsMixin = {
 
   /** @param {boolean} [force] true=强制展开 / false=强制收起 / 省略=切换
    *  @param {string} [skin] 展开时指定皮肤（hearth / mahjong） */
-  toggleMahjongPanel(force, skin) {
+  async toggleMahjongPanel(force, skin) {
     const panel = document.getElementById('mahjong-embed');
     if (!panel) return;
     const rt = window.QCLI && window.QCLI.RoundTableView;
@@ -61,6 +61,12 @@ export const sidePanelsMixin = {
     const show = force !== undefined ? force : panel.classList.contains('hidden');
     panel.classList.toggle('hidden', !show);
     if (show) {
+      // P2-9：圆桌视图按需加载（首次打开时动态 import）
+      let rt = window.QCLI && window.QCLI.RoundTableView;
+      if (!rt && window.__hesiLoadRoundtable) {
+        try { await window.__hesiLoadRoundtable(); } catch { /* ignore */ }
+        rt = window.QCLI && window.QCLI.RoundTableView;
+      }
       if (rt) rt.open(skin);   // 应用内渲染圆桌，引擎复用 chat-panel 的 Q.ChatAPI
     } else {
       if (rt) rt.close();

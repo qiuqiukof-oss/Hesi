@@ -20,9 +20,11 @@ import './terminal-search.js'; // TerminalSearch → search in xterm
 // ── Right panel controller (reads Q.Tabs/Q.state/Q.wsSend lazily) ──
 import './right-panel.js';   // RightPanel → dashboard/charts sidebar
 
-// ── Phase 2: 围炉圆桌（多 Agent 可视化协作，作为 AI讨论 的一种视图，进 lazy 防主包膨胀）──
-import './components/roundtable-skins.js'; // RoundtableSkins → 皮肤注册表(SKINS/applySkin)，被 roundtable-view.js 依赖
-import './components/roundtable-view.js';   // RoundTableView → 圆桌视图渲染器（引擎复用 Q.ChatAPI，容器 #mahjong-embed）
+// ── 围炉圆桌：动态按需加载（P2-9 chunk 分割，首次打开时加载 ~80KB 独立 chunk）──
+import './components/roundtable-skins.js'; // RoundtableSkins → 始终同步（~3KB，皮肤注册表）
+// roundtable-view.js → 改为动态 import，esbuild ESM 自动生成独立 chunk
+// 懒加载入口被 side-panels.js toggleMahjongPanel 调用
+window.__hesiLoadRoundtable = () => import('./components/roundtable-view.js');
 
 // ── Dashboard panel — system status, CLI stats, runtime overview ──
 import './dashboard.js';     // Dashboard → system dashboard tab
