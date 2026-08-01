@@ -81,7 +81,11 @@ function emitAsBroadcastFn(emit) {
     if (!type) return;
     // chat 管线发的事件（如 tool_call）已有自己的语义，原样带出不加 plan: 前缀会
     // 与 plan 事件混淆 → 统一收进 plan:chat-* 命名空间，前端可选择性忽略。
-    const name = String(type).startsWith('plan:') ? String(type).slice(5) : `chat-${type}`;
+    // 例外：usage / agent_metrics 不加前缀，让前端 onUsage/onAgentMetrics 正常路由
+    // → token 消耗和缓存命中统计在协作工作流中也能正常显示。
+    const name = (type === 'usage' || type === 'agent_metrics')
+      ? type
+      : (String(type).startsWith('plan:') ? String(type).slice(5) : `chat-${type}`);
     emit(name, rest);
   };
 }

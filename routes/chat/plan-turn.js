@@ -160,8 +160,10 @@ async function runPlanTurn(res, p = {}) {
           model: runtime.model,
           budget: p.budget,
           onEvent: (type, payload) => {
-            if (type === 'error') emit('discussion-error', payload || {});
-            else emit(`discuss-${type}`, payload || {});
+            // 讨论事件直写 SSE（不加 plan_ 前缀），与独立讨论模式行为一致，
+            // 让 chat-api.js 的 token/discuss_start/discuss_stats 路由正常工作
+            // → TTS 语音播报、token 消耗、缓存命中统计全部生效。
+            sse(res, { type, ...(payload || {}) });
           },
           shouldAbort: () => watcher.isAborted(),
         });
