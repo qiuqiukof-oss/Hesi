@@ -296,9 +296,12 @@ async function streamAnthropicCore(baseUrl, apiKey, model, systemText, messages,
   const modelName = model || 'claude-sonnet-4-20250514';
   // 请求体与主聊 doModelCall 完全一致：system + messages + stream + max_tokens；
   // 不传 tools → 纯文本生成，契合讨论模式「AI 助手回合 / 结论汇总」不需要工具调用。
+  // M1② (v0.3.1): system 打 cache_control，命中 Anthropic 前缀缓存——
+  // 镜像 streamAnthropicWithTools L479-485 的 system 缓存模式（受 HESI_PROMPT_CACHE 门控）。
+  const promptCacheOn = process.env.HESI_PROMPT_CACHE !== '0';
   const body = {
     model: modelName,
-    system: [{ type: 'text', text: systemText }],
+    system: [{ type: 'text', text: systemText, ...(promptCacheOn ? { cache_control: { type: 'ephemeral' } } : {}) }],
     messages,
     stream: true,
     max_tokens: cwManager.maxOutputTokens(modelName),

@@ -20,8 +20,8 @@ const { runPlan, parseVerifyFromSummary } = require('./run-plan');
 const { workflowManager } = require('./workflow-manager');
 const { runRoundtable } = require('../chat/discuss');
 const { generatePlanFromObjective, revisePlan } = require('./plan-from-nl');
-const { sinkPlanToIndex } = require('./plan-rag-sink');
-const { recallPlans, listPlans, deletePlan, clearPlans } = require('./plan-rag-recall');
+const { sinkPlanToIndex, sinkRoundtableToIndex, roundtableStableRef } = require('./plan-rag-sink');
+const { recallPlans, recallRoundtables, listPlans, deletePlan, clearPlans } = require('./plan-rag-recall');
 const { getPreset } = require('./roundtable-presets');
 
 /**
@@ -45,8 +45,9 @@ const APPROVAL_TIMEOUT_MS = 30 * 60 * 1000; // 30min 无操作 → 视为驳回
 /**
  * 用 discuss.runRoundtable 包装出 resolveCheckpoint 需要的 roundtableFn。
  * @param {object} runtime  { apiKey, provider, baseUrl, model, partner, partners }
+ * @param {object} [budget] plan.budget（{ maxTokens?, maxMinutes? }）→ 透传进 runRoundtable 循环守卫
  */
-function buildRoundtableFn(runtime) {
+function buildRoundtableFn(runtime, budget) {
   return async function roundtableFn({ question, transcript, rounds }) {
     try {
       const out = await runRoundtable({
@@ -59,6 +60,7 @@ function buildRoundtableFn(runtime) {
         baseUrl: runtime.baseUrl,
         model: runtime.model,
         transcript: transcript || '',
+        budget,
         onEvent: null,
         shouldAbort: null,
       });
@@ -81,6 +83,8 @@ function createRouter(opts = {}) {
   // 前置讨论确认闸（M3）：discussMode==='confirm' 时，讨论结束后挂起 HTTP 等待用户确认，
   // 复用与审批闸相同的「挂起 HTTP + WS 广播 + 超时兜底」范式（超时默认自动继续，方案 P-B6）。
   const pendingDiscussions = new Map();
+  // 防并发注册表：question stableRef -> Promise（方案 D-3）——同一目标的多请求共享一次讨论结果。
+  const inFlightRoundtables = new Map();
   const waitDiscussionConfirm = (id) => new Promise((resolve) => {
     const timeoutMs = Number(process.env.HESI_PLAN_DISCUSS_CONFIRM_TIMEOUT) || 10 * 60 * 1000;
     const timer = setTimeout(() => {
@@ -135,37 +139,69 @@ function createRouter(opts = {}) {
       }
     }
     if (discussBeforePlan && !plan && objective && discussPartners.length) {
-      try {
-        broadcast({ type: 'plan:discussion-start', execId, objective });
-        const out = await runRoundtable({
-          message: objective,
-          partners: discussPartners,
-          personas: discussPersonas,
-          protocol: discussProtocol,
-          maxTurns: discussMaxTurns,
-          apiKey: runtime.apiKey,
-          provider: runtime.provider,
-          baseUrl: runtime.baseUrl,
-          model: runtime.model,
-          onEvent: (type, payload) => broadcast({ type: `plan:discuss-${type}`, execId, ...(payload || {}) }),
-          shouldAbort: () => false,
-        });
-        discussionSummary = (out && out.summary) ? out.summary : '';
-        discussionTranscript = (out && out.transcript) ? out.transcript : '';
-        broadcast({ type: 'plan:discussion-result', execId, summary: discussionSummary, cleanFinish: !!(out && out.cleanFinish) });
-        // 仅当讨论真正产出结论才挂起等确认；空结论（无 Key / 无产出）降级为直接生成（B6）
-        if (discussMode === 'confirm' && discussionSummary) {
-          const confirmed = await waitDiscussionConfirm(execId);
-          if (!confirmed) {
-            broadcast({ type: 'plan:discussion-cancelled', execId });
-            return res.json({ ok: false, execId, status: 'discussion-cancelled', error: '已取消：讨论后未确认执行' });
+      // 讨论结果回流（讨论库：跨工作线复用，方案 D）——同目标讨论执行完后沉淀，
+      // 后续可通过 /history/search 召回「人工确认复用建议」（原问题 + 结论 + verify）。
+      const sinkRoundtable = (summary, transcript) => {
+        try {
+          sinkRoundtableToIndex({
+            question: objective,
+            summary: summary || undefined,
+            transcript: transcript || undefined,
+            products: [],
+            verify: '',
+          });
+        } catch { /* 讨论回流失败不影响主流程 */ }
+      };
+      // 防并发：同一目标（stableRef 键控）的讨论进行中 → 复用其结果，避免双跑烧钱（方案 D-3）
+      const rtRef = roundtableStableRef(objective);
+      let shared = inFlightRoundtables.get(rtRef);
+      if (!shared) {
+        shared = (async () => {
+          try {
+            broadcast({ type: 'plan:discussion-start', execId, objective });
+            const out = await runRoundtable({
+              message: objective,
+              partners: discussPartners,
+              personas: discussPersonas,
+              protocol: discussProtocol,
+              maxTurns: discussMaxTurns,
+              apiKey: runtime.apiKey,
+              provider: runtime.provider,
+              baseUrl: runtime.baseUrl,
+              model: runtime.model,
+              budget: body.budget,
+              onEvent: (type, payload) => broadcast({ type: `plan:discuss-${type}`, execId, ...(payload || {}) }),
+              shouldAbort: () => false,
+            });
+            discussionSummary = (out && out.summary) ? out.summary : '';
+            discussionTranscript = (out && out.transcript) ? out.transcript : '';
+            sinkRoundtable(discussionSummary, discussionTranscript);
+            broadcast({ type: 'plan:discussion-result', execId, summary: discussionSummary, cleanFinish: !!(out && out.cleanFinish) });
+            return { summary: discussionSummary, transcript: discussionTranscript };
+          } catch (de) {
+            // 讨论失败/无 Key/无 Partner → 降级直接生成（方案 B6）
+            broadcast({ type: 'plan:discussion-error', execId, message: de.message });
+            discussionSummary = null;
+            discussionTranscript = '';
+            return { summary: '', transcript: '' };
           }
+        })();
+        inFlightRoundtables.set(rtRef, shared);
+        shared.finally(() => { if (inFlightRoundtables.get(rtRef) === shared) inFlightRoundtables.delete(rtRef); }).catch(() => {});
+      } else {
+        // 复用进行中讨论：同目标并发请求共享结果（不重复广播 start，避免前端重复气泡）
+        broadcast({ type: 'plan:discussion-shared', execId, objective });
+        const reused = await shared;
+        discussionSummary = reused && reused.summary ? reused.summary : '';
+        discussionTranscript = reused && reused.transcript ? reused.transcript : '';
+      }
+      // 仅当讨论真正产出结论才挂起等确认；空结论（无 Key / 无产出）降级为直接生成（B6）
+      if (discussMode === 'confirm' && discussionSummary) {
+        const confirmed = await waitDiscussionConfirm(execId);
+        if (!confirmed) {
+          broadcast({ type: 'plan:discussion-cancelled', execId });
+          return res.json({ ok: false, execId, status: 'discussion-cancelled', error: '已取消：讨论后未确认执行' });
         }
-      } catch (de) {
-        // 讨论失败/无 Key/无 Partner → 降级直接生成（方案 B6）
-        broadcast({ type: 'plan:discussion-error', execId, message: de.message });
-        discussionSummary = null;
-        discussionTranscript = '';
       }
     }
     // 自然语言入口：给了 objective 且没手写 plan → 先让 AI 拆解成 plan
@@ -216,7 +252,7 @@ function createRouter(opts = {}) {
       const result = await runPlan(plan, {
         cwd,
         workflowManager: wf,
-        roundtableFn: buildRoundtableFn(runtime),
+        roundtableFn: buildRoundtableFn(runtime, plan && plan.budget),
         execId,
         requestApproval,
         // 个性化「权限设置」下钻（来自前端 localStorage）
@@ -288,14 +324,16 @@ function createRouter(opts = {}) {
     }
   });
 
-  // 关键词召回（供 Plan 页搜索框 + M2 聊天召回）
+  // 关键词召回（供 Plan 页搜索框 + M2 聊天召回；M3：同时召回历史讨论「人工确认复用建议」）
   router.get('/history/search', (req, res) => {
     if (!ragEnabled()) return res.status(503).json({ ok: false, error: 'RAG 回流已关闭（HESI_PLAN_RAG_SINK=0）' });
     const q = typeof req.query.q === 'string' ? req.query.q.trim() : '';
     if (!q) return res.json({ ok: true, items: [] });
     const topK = Math.min(Number(req.query.topK) || 5, 20);
     try {
-      res.json({ ok: true, items: recallPlans(q, { topK }) });
+      const plans = recallPlans(q, { topK });
+      const roundtables = recallRoundtables(q, { topK });
+      res.json({ ok: true, items: [...roundtables, ...plans], plans, roundtables });
     } catch (e) {
       res.status(500).json({ ok: false, error: e.message });
     }

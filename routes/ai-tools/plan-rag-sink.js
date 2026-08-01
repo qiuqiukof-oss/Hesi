@@ -22,9 +22,24 @@
 // ============================================================
 
 const crypto = require('crypto');
+const path = require('path');
 const indexStore = require('../../lib/memory/index-store');
+const config = require('../../lib/memory/config');
+const storage = require('../../lib/memory/storage');
 
 const TEXT_LIMIT = 4096;
+
+/**
+ * 圆桌讨论的稳定 ref：基于 question 的 sha1 哈希（非 UUID）。
+ * 同一问题反复讨论 → 落到同一 ref（更新而非新增），并保留执行次数（方案 D-1/讨论库设计）。
+ * @param {string} question
+ * @returns {string}
+ */
+function roundtableStableRef(question) {
+  const q = question ? String(question) : '';
+  const hash = crypto.createHash('sha1').update(q).digest('hex').slice(0, 12);
+  return `roundtable:${hash}`;
+}
 
 /**
  * 稳定 ref：基于 objective + steps 关键字段的哈希，保证同一目标反复执行落到同一 ref
@@ -175,4 +190,69 @@ function sinkPlanToIndex(plan, result, meta = {}) {
   return doc;
 }
 
-module.exports = { sinkPlanToIndex, stableRef, redact, truncate, enforceCapacity };
+/**
+ * 把圆桌讨论结果回流进 index-store（讨论库：跨工作线复用，方案 D）。
+ * 键 = question 的稳定 ref（roundtableStableRef，非 UUID）——同一问题反复讨论 → 更新而非新增。
+ * 完整 transcript 落盘到 data/memory/roundtables/<hash>.txt（INDEX_FILE 只存引用，防 index JSON 膨胀）；
+ * summary/products/verify 进 text 供 BM25 召回；verify 供「复用前重跑验证命令」确认结论仍成立。
+ * 全流程零 LLM 依赖、失败静默降级（与 sinkPlanToIndex 同一原则）。
+ * @param {{question:string, summary?:string, transcript?:string, products?:string[], verify?:string, planRef?:string|null}} [meta]
+ * @returns {object|null} 回流的文档，或关闭/跳过时返回 null
+ */
+function sinkRoundtableToIndex(meta = {}) {
+  if (process.env.HESI_PLAN_RAG_SINK === '0') return null;
+  const question = meta && meta.question ? String(meta.question).trim() : '';
+  const summary = meta && meta.summary ? String(meta.summary) : '';
+  const transcript = meta && meta.transcript ? String(meta.transcript) : '';
+  // 数据不完整（无问题，或连结论+记录都没有）→ 不写垃圾文档
+  if (!question || (!summary && !transcript)) return null;
+  const ref = roundtableStableRef(question);
+  const title = (summary ? summary.slice(0, 40) : question.slice(0, 40)) || ref;
+  const products = Array.isArray(meta.products) ? meta.products : [];
+  const verify = meta && meta.verify ? String(meta.verify) : '';
+  const rawText = [
+    `问题: ${question}`,
+    summary ? `结论: ${summary}` : '',
+    products.length ? `产出: ${products.join('; ')}` : '',
+    verify ? `验证: ${verify}` : '',
+  ].filter(Boolean).join('\n');
+  const text = truncate(redact(rawText));
+  const doc = indexStore.buildDoc({ ref, type: 'roundtable', title, text });
+
+  // transcript 落盘（append 到 roundtables/ 目录，INDEX_FILE 只存引用）
+  let transcriptRef = null;
+  if (transcript) {
+    try {
+      const dir = path.join(config.ROOT, 'roundtables');
+      storage.ensureDir(dir);
+      const fname = `${ref.replace(':', '_')}.txt`;
+      const abs = path.join(dir, fname);
+      storage.writeFileAtomic(abs, transcript);
+      transcriptRef = fname; // 相对名；前端/召回侧以 config.ROOT 为基座拼接
+    } catch { /* transcript 落盘失败不阻断回流 */ }
+  }
+
+  // 同问题反复讨论 → 覆盖更新，executions 递增（upsert 整文档替换，需先读旧 meta）
+  let executions = 1;
+  try {
+    const existing = indexStore.load().docs.find((d) => d.ref === ref);
+    if (existing && existing.meta && typeof existing.meta.executions === 'number') {
+      executions = existing.meta.executions + 1;
+    }
+  } catch { /* 读旧 meta 失败按首次处理 */ }
+
+  doc.meta = {
+    question,
+    summary: summary || null,
+    transcriptRef,
+    products,
+    verify: verify || null,
+    planRef: meta && meta.planRef ? meta.planRef : null,
+    executions,
+    updatedAt: Date.now(),
+  };
+  indexStore.upsert(doc);
+  return doc;
+}
+
+module.exports = { sinkPlanToIndex, sinkRoundtableToIndex, roundtableStableRef, stableRef, redact, truncate, enforceCapacity };

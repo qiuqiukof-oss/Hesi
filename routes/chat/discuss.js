@@ -107,23 +107,104 @@ function resolveConfig({ apiKey, provider, baseUrl, model }) {
 //（streamOpenAI.streamOpenAICore / streamAnthropic.streamAnthropicCore），
 // 见下方 runAiTurn / runSummary。删除讨论模式自写的重复解析器，根除「AI 助手空白」根因。
 
+// 把讨论记录按「轮」切块（【前置上下文】并入首块），供 Anthropic 拆块缓存复用。
+// 纯函数（便于单测）。每块对应一轮的完整发言，块与块之间构成稳定增长的前缀。
+function splitTranscriptRounds(transcript) {
+  if (!transcript) return [];
+  return String(transcript).split(/(?=【第\d+轮)/).map((s) => s.trim()).filter(Boolean);
+}
+
+/**
+ * 构造 Anthropic 讨论轮次的 user content blocks（纯函数，便于单测）。
+ * 按轮拆块 + 边界块 cache_control（镜像 stream-anthropic.js system 缓存模式）：
+ * Anthropic 前缀缓存对「稳定前缀 + 单块增量」命中率最高——每轮只在最后一条
+ * transcript 块打 breakpoint → 上轮的完整前缀在本轮请求中逐 token 命中 cache_read，
+ * 新增的当轮发言块才是 cache_creation。首轮/仅前置上下文时前缀过短，跳过缓存。
+ * @param {string} question
+ * @param {string} transcript
+ * @param {boolean} promptCacheOn  HESI_PROMPT_CACHE 门控
+ * @returns {Array<{type:'text',text:string,cache_control?:{type:'ephemeral'}}>}
+ */
+function buildAnthropicDiscussBlocks(question, transcript, promptCacheOn) {
+  const blocks = [
+    { type: 'text', text: `【用户原问题】${question}\n\n【至今讨论记录】` },
+    ...splitTranscriptRounds(transcript).map((text) => ({ type: 'text', text })),
+    { type: 'text', text: '\n\n请输出你这一轮的发言：' },
+  ];
+  if (promptCacheOn && blocks.length > 2) {
+    blocks[blocks.length - 2].cache_control = { type: 'ephemeral' };
+  }
+  return blocks;
+}
+
+/**
+ * budget 守卫判定（纯函数，便于单测）。
+ * @param {{maxTokens?:number, maxMinutes?:number}|null|undefined} budget  0/缺省 = 不限
+ * @param {number} usedTokens  已消耗 AI token（input+output）
+ * @param {number} usedMs      已耗时（毫秒）
+ * @returns {boolean} 是否超限需提前收敛
+ */
+function budgetExceeded(budget, usedTokens, usedMs) {
+  const maxTokens = Number((budget && budget.maxTokens) || 0);
+  const maxMinutes = Number((budget && budget.maxMinutes) || 0);
+  return (maxTokens > 0 && usedTokens >= maxTokens)
+    || (maxMinutes > 0 && usedMs >= maxMinutes * 60 * 1000);
+}
+
+// 归一化单次 usage（纯函数，便于单测）：兼容 Anthropic（input_tokens/output_tokens/
+// cache_read_input_tokens）与 OpenAI（prompt_tokens/completion_tokens/
+// prompt_tokens_details.cached_tokens）两套字段。
+function usageFields(u) {
+  if (!u) return null;
+  return {
+    input: u.input_tokens || u.prompt_tokens || 0,
+    output: u.output_tokens || u.completion_tokens || 0,
+    cacheRead: u.cache_read_input_tokens || (u.prompt_tokens_details && u.prompt_tokens_details.cached_tokens) || 0,
+  };
+}
+
 // 跑一轮 AI 助手发言，返回完整文本
 async function runAiTurn({ p, key, url, m }, question, transcript, onToken, onUsage, shouldAbort) {
   const sysText = AI_SYSTEM_PROMPT.replace('{QUESTION}', question);
+  const collect = (tk) => { onToken(tk); };
+  const promptCacheOn = process.env.HESI_PROMPT_CACHE !== '0';
+  if (p === 'anthropic') {
+    const blocks = buildAnthropicDiscussBlocks(question, transcript, promptCacheOn);
+    return (await streamAnthropicCore(url, key, m, sysText,
+      [{ role: 'user', content: blocks }], { onToken: collect, onUsage, isAborted: shouldAbort })).trim();
+  }
+  // OpenAI：保持单条增长的 user 消息（其前缀缓存天然对齐「整条消息拼接」，拆块反而破坏命中）
   const userContent =
     `【用户原问题】${question}\n\n【至今讨论记录】\n${transcript || '（首轮，请先给分析框架/初步方案）'}\n\n请输出你这一轮的发言：`;
-  const collect = (tk) => { onToken(tk); };
-  if (p === 'anthropic') {
-    return (await streamAnthropicCore(url, key, m, sysText,
-      [{ role: 'user', content: userContent }], { onToken: collect, onUsage, isAborted: shouldAbort })).trim();
-  }
   return (await streamOpenAICore(url, key, m,
     [{ role: 'system', content: sysText }, { role: 'user', content: userContent }], { onToken: collect, onUsage, isAborted: shouldAbort })).trim();
 }
 
+// CLI Agent 输入压缩（纯函数，便于单测）：镜像 utils.capToolRounds 的 keep-last-N 模式——
+// 早期轮次做确定性截断摘要（零 LLM 成本），仅最近 2 轮逐字保留。
+// CLI Agent 是「新开会话 + 一次性喂 task」模式，压缩早期轮次不破坏任何 LLM API 前缀缓存
+//（CLI 本地运行，不走 Anthropic/OpenAI 缓存）；最近 2 轮必含「AI 助手最后一段发言」，
+// 保证 CLI 有足够的回应上下文。env HESI_CLI_DIGEST=0 可关闭压缩。
+const CLI_KEEP_RECENT_ROUNDS = 2;
+const CLI_EARLY_ROUND_CHARS = 240; // 早期每轮摘要保留字符数
+function compactTranscriptForCli(transcript) {
+  if (!transcript) return '';
+  const segs = splitTranscriptRounds(transcript);
+  if (segs.length <= CLI_KEEP_RECENT_ROUNDS) return transcript;
+  const early = segs.slice(0, -CLI_KEEP_RECENT_ROUNDS);
+  const recent = segs.slice(-CLI_KEEP_RECENT_ROUNDS);
+  const earlyDigest = early.map((s) => {
+    const t = s.replace(/\s+/g, ' ').trim();
+    return t.length > CLI_EARLY_ROUND_CHARS ? `${t.slice(0, CLI_EARLY_ROUND_CHARS)}…` : t;
+  });
+  return `【早期轮次摘要（${early.length} 轮，已压缩）】\n${earlyDigest.join('\n')}\n\n${recent.join('\n')}`;
+}
+
 // 跑一轮 CLI Agent 发言：每次新开 session（task 含完整记录），轮询到完成
 async function runCliTurn({ partner, persona, protocol }, question, transcript, round, onToken, shouldAbort) {
-  const task = buildCliTask({ question, transcript, round, persona, protocol });
+  // 早期轮次压缩摘要 + 最近 2 轮逐字（HESI_CLI_DIGEST=0 关闭压缩，恢复完整记录）
+  const forCli = process.env.HESI_CLI_DIGEST === '0' ? transcript : compactTranscriptForCli(transcript);
+  const task = buildCliTask({ question, transcript: forCli, round, persona, protocol });
   const started = JSON.parse(await agentPool.start(partner, task, '', null));
   if (!started.ok) {
     onToken(`（无法启动 CLI Agent「${partner}」：${started.error}）`);
@@ -249,12 +330,17 @@ function normalizeTranscript(transcript) {
 
 // 纯圆桌函数（无 SSE 依赖）：供 runDiscussion（SSE 包装）与 plan 的 resolveCheckpoint 复用。
 // 通过 onEvent(type, payload) 发射事件，shouldAbort() 用于中断检测。
-async function runRoundtable({ message, partner, partners, maxTurns = 6, apiKey, provider, baseUrl, model, takenOver = {}, personas, protocol, transcript, onEvent, shouldAbort }) {
+// budget: { maxTokens?, maxMinutes? }（0/缺省 = 不限）——接入 plan.budget 的成本守卫（优化方向.md 第 5 步）。
+async function runRoundtable({ message, partner, partners, maxTurns = 6, apiKey, provider, baseUrl, model, takenOver = {}, personas, protocol, transcript, budget, onEvent, shouldAbort }) {
   const cfg = resolveConfig({ apiKey, provider, baseUrl, model });
   if (!cfg.key) {
     onEvent?.('error', { message: '未配置 API Key（OPENAI/ANTHROPIC），无法运行 AI 讨论。' });
     return { summary: '', transcript: '', stats: null, cleanFinish: false };
   }
+
+  const budgetTokens = Number((budget && budget.maxTokens) || 0);
+  const budgetMinutes = Number((budget && budget.maxMinutes) || 0);
+  const startMs = Date.now();
 
   let agents = (Array.isArray(partners) && partners.length) ? partners.slice() : (partner ? [partner] : []);
   if (agents.length === 0) {
@@ -285,8 +371,17 @@ async function runRoundtable({ message, partner, partners, maxTurns = 6, apiKey,
   // ── token 统计（让圆桌 vs 单模型的成本可被实测）──
   let aiInputTokens = 0;
   let aiOutputTokens = 0;
+  let aiCacheReadTokens = 0;
   let cliOutputChars = 0;
-  const recordAi = (u) => { aiInputTokens += (u.input_tokens || 0); aiOutputTokens += (u.output_tokens || 0); };
+  let actualRounds = 0; // 实际执行的轮数（[CONVERGE] 早停 / budget 提前收敛后为真实值，非 maxTurns）
+  // 兼容 Anthropic / OpenAI 两套 usage 字段（见 usageFields）
+  const recordAi = (u) => {
+    const f = usageFields(u);
+    if (!f) return;
+    aiInputTokens += f.input;
+    aiOutputTokens += f.output;
+    aiCacheReadTokens += f.cacheRead;
+  };
 
   try {
     const agentLabels = agents.map(a => labelOf(a)).join(' / ');
@@ -294,6 +389,7 @@ async function runRoundtable({ message, partner, partners, maxTurns = 6, apiKey,
 
     for (let round = 1; round <= maxTurns; round++) {
       if (aborted()) { cleanFinish = false; break; }
+      actualRounds = round;
       onEvent?.('status', { message: `讨论进行中… 第 ${round}/${maxTurns} 轮` });
 
       // ① AI 助手发言（看到全部 Agent 上一轮观点）
@@ -302,6 +398,15 @@ async function runRoundtable({ message, partner, partners, maxTurns = 6, apiKey,
       onEvent?.('discuss_end', { speaker: 'ai' });
       if (aiText) transcriptLines.push(`【第${round}轮 · AI 助手】\n${aiText}`);
       if (aborted()) { cleanFinish = false; break; }
+
+      // ── budget 守卫（plan.budget.maxTokens / maxMinutes，0 = 不限）──
+      // AI 发言后即查累计消耗：超限 → 提前收敛进入汇总，防止成本失控（优化方向.md 第 5 步）。
+      const usedTokens = aiInputTokens + aiOutputTokens;
+      const usedMs = Date.now() - startMs;
+      if (budgetExceeded({ maxTokens: budgetTokens, maxMinutes: budgetMinutes }, usedTokens, usedMs)) {
+        onEvent?.('status', { message: `⏱ 已达讨论预算（tokens ${usedTokens} / 时长 ${Math.round(usedMs / 1000)}s），提前收敛进入汇总。` });
+        break;
+      }
 
       // ② 每个 CLI Agent 依次发言（圆桌：每位都看到 AI 与前面 Agent 的观点）
       for (const p of agents) {
@@ -346,16 +451,19 @@ async function runRoundtable({ message, partner, partners, maxTurns = 6, apiKey,
       onEvent?.('discuss_end', { speaker: 'summary' });
 
       const cliEstTokens = Math.ceil(cliOutputChars / 4);
-      onEvent?.('discuss_stats', {
-        stats: { aiInputTokens, aiOutputTokens, cliOutputChars, cliEstTokens, agents: agents.length, rounds: maxTurns },
-      });
-      return { summary: summaryText, transcript: transcriptLines.join('\n'), stats: { aiInputTokens, aiOutputTokens, cliOutputChars, cliEstTokens, agents: agents.length, rounds: maxTurns }, cleanFinish: true };
+      // 每轮缓存命中率 = cacheRead / 累计输入（Anthropic cache_read_input_tokens；OpenAI cached_tokens）
+      const cacheHitRate = aiInputTokens > 0 ? Math.round((aiCacheReadTokens / aiInputTokens) * 1000) / 1000 : 0;
+      // rounds 用实际轮数 actualRounds（修复旧版误报 maxTurns 的统计 bug；[CONVERGE] 早停同样正确）
+      const stats = { aiInputTokens, aiOutputTokens, aiCacheReadTokens, cacheHitRate, cliOutputChars, cliEstTokens, agents: agents.length, rounds: actualRounds };
+      onEvent?.('discuss_stats', { stats });
+      return { summary: summaryText, transcript: transcriptLines.join('\n'), stats, cleanFinish: true };
     }
   } catch (err) {
     cleanFinish = false;
     onEvent?.('error', { message: err.message || '讨论执行出错' });
   }
-  return { summary: '', transcript: transcriptLines.join('\n'), stats: { aiInputTokens, aiOutputTokens, cliOutputChars, agents: agents.length, rounds: maxTurns }, cleanFinish };
+  const stats = { aiInputTokens, aiOutputTokens, aiCacheReadTokens, cliOutputChars, agents: agents.length, rounds: actualRounds };
+  return { summary: '', transcript: transcriptLines.join('\n'), stats, cleanFinish };
 }
 
 async function runDiscussion(res, { message, partner, partners, maxTurns = 6, apiKey, provider, baseUrl, model, takenOver = {}, personas, protocol }) {
@@ -400,4 +508,8 @@ async function runDiscussion(res, { message, partner, partners, maxTurns = 6, ap
   }
 }
 
-module.exports = { runDiscussion, runRoundtable, normalizeTranscript };
+module.exports = {
+  runDiscussion, runRoundtable, normalizeTranscript,
+  splitTranscriptRounds, buildAnthropicDiscussBlocks, compactTranscriptForCli, buildCliTask,
+  budgetExceeded, usageFields,
+};

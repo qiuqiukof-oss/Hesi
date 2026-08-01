@@ -67,6 +67,33 @@ function recallPlans(q, { topK = 3 } = {}) {
 }
 
 /**
+ * 关键词召回历史圆桌讨论（type='roundtable'，讨论库，方案 D）。
+ * 命中项含 question/summary/verify/transcriptRef —— 供前端展示「人工确认复用建议」：
+ * 原问题 + 结论 + 验收命令（复用前可重跑 verify 确认结论仍成立），绝不自动跳过。
+ * @param {string} q
+ * @param {{topK?:number}} [opts]
+ * @returns {Array<object>}
+ */
+function recallRoundtables(q, { topK = 3 } = {}) {
+  const idx = getIndex();
+  const hits = indexStore.query(idx, q, { topK });
+  return hits.filter((d) => d.type === 'roundtable').map(toView);
+}
+
+/**
+ * 关键词召回全部可复用记录（plan + roundtable），按 type 区分。
+ * 供 /history/search 一次返回两类（前端可分别展示「历史 Plan」与「历史讨论建议」）。
+ * @param {string} q
+ * @param {{topK?:number}} [opts]
+ * @returns {Array<object>}
+ */
+function recallAll(q, { topK = 5 } = {}) {
+  const idx = getIndex();
+  const hits = indexStore.query(idx, q, { topK });
+  return hits.map(toView);
+}
+
+/**
  * 分页列出历史 Plan（默认按更新时间倒序）。
  * @param {{limit?:number,offset?:number,status?:string|null}} [opts]
  * @returns {{total:number,items:Array<object>}}
@@ -103,4 +130,4 @@ function clearPlans() {
   return true;
 }
 
-module.exports = { recallPlans, listPlans, deletePlan, clearPlans, getIndex, toView };
+module.exports = { recallPlans, recallRoundtables, recallAll, listPlans, deletePlan, clearPlans, getIndex, toView };
