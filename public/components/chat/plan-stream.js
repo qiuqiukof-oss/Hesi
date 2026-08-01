@@ -65,6 +65,9 @@ export const planStreamMixin = {
       this._renderPlanSteps(evt);
     } else if (t === 'step') {
       this._updatePlanStep(evt);
+    } else if (t === 'step_chunk') {
+      // P3：命令型步骤的 stdout/stderr 增量帧，逐块追加到对应步骤输出区（真流式）
+      this._appendPlanChunk(evt);
     } else if (t === 'chat_token') {
       this._appendPlanLive(evt.content || '');
     } else if (t === 'chat_status') {
@@ -258,6 +261,20 @@ export const planStreamMixin = {
     this._planLiveEl.textContent += text;
     const det = this._planLiveEl.closest('details');
     if (det && !det.open) det.open = true;
+  },
+
+  /** P3：命令型步骤的 stdout/stderr 增量帧，逐块追加到对应步骤输出 <pre>。 */
+  _appendPlanChunk(evt) {
+    const card = this._planCard;
+    if (!card || !evt || typeof evt.chunk !== 'string' || !evt.chunk) return;
+    const key = evt.stepId || (typeof evt.index === 'number' ? `#${evt.index}` : '');
+    const row = (key && this._planStepRows && this._planStepRows.get(key)) || this._planActiveRow || null;
+    if (!row) return;
+    const pre = this._ensureStepOutput(row.li);
+    pre.textContent += evt.chunk;
+    const det = pre.closest('details');
+    if (det && !det.open) det.open = true;
+    this.scrollToBottom();
   },
 
   _planNote(text, kind) {

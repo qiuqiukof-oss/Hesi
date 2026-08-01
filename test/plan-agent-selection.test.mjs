@@ -344,33 +344,33 @@ test('rewriteForWindows: heredoc 命令在 cmd.exe 下被重写', () => {
 
 // ── 多行命令自动临时脚本执行（Task #44）──
 // multiline command auto-temp-script (Task #44)
-test('execStepDirectly: multiline echo via temp script succeeds', () => {
+test('execStepDirectly: multiline echo via temp script succeeds', async () => {
   const { execStepDirectly } = require('../routes/ai-tools/run-plan');
   const multiLineEcho = "echo 'line1';\necho 'line2';\necho 'line3';";
-  const result = execStepDirectly({ action: multiLineEcho }, process.cwd());
+  const result = await execStepDirectly({ action: multiLineEcho }, process.cwd());
   assert.strictEqual(result.status, 'done', 'expected done, status=' + result.status);
   assert.ok(result.output.includes('line1'), 'output should contain line1');
   assert.ok(result.output.includes('line3'), 'output should contain line3');
 });
 
-test('execStepDirectly: single-line command does not use temp script', () => {
+test('execStepDirectly: single-line command does not use temp script', async () => {
   const { execStepDirectly } = require('../routes/ai-tools/run-plan');
-  const result = execStepDirectly({ action: 'echo hello_single' }, process.cwd());
+  const result = await execStepDirectly({ action: 'echo hello_single' }, process.cwd());
   assert.strictEqual(result.status, 'done');
   assert.ok(result.output.includes('hello_single'));
 });
 
-test('execStepDirectly: heredoc command via temp script succeeds (fix: heredoc is multiline)', () => {
+test('execStepDirectly: heredoc command via temp script succeeds (fix: heredoc is multiline)', async () => {
   const { execStepDirectly } = require('../routes/ai-tools/run-plan');
   // heredoc 含 \n → isMultiline=true → 写临时 .sh 脚本执行（不再走 execSync -c 单行路径）
   const heredocCmd = "cat << 'EOF'\nheredoc line1\nheredoc line2\nEOF";
-  const result = execStepDirectly({ action: heredocCmd }, process.cwd());
+  const result = await execStepDirectly({ action: heredocCmd }, process.cwd());
   assert.strictEqual(result.status, 'done', 'heredoc via temp script should succeed, got: ' + result.output);
   assert.ok(result.output.includes('heredoc line1'), 'output should contain heredoc line1');
   assert.ok(result.output.includes('heredoc line2'), 'output should contain heredoc line2');
 });
 
-test('execStepDirectly: heredoc writing file via temp script succeeds', () => {
+test('execStepDirectly: heredoc writing file via temp script succeeds', async () => {
   const { execStepDirectly } = require('../routes/ai-tools/run-plan');
   const os = require('os');
   const path = require('path');
@@ -387,7 +387,7 @@ export const RightSidebar = () => {
 };
 ENDOFFILE`;
   try {
-    const result = execStepDirectly({ action: heredocWrite }, process.cwd());
+    const result = await execStepDirectly({ action: heredocWrite }, process.cwd());
     assert.strictEqual(result.status, 'done', 'heredoc file write should succeed, got: ' + result.output);
     // 验证文件确实被写入且内容完整
     assert.ok(fs.existsSync(tmpFile), 'target file should exist after heredoc');
@@ -647,7 +647,7 @@ test('sanitizePlan: 完整流程 sanitize→applyDefaults→validate 通过（�
 });
 
 // ── 自动创建父目录安全网（Task #52：heredoc 写文件时父目录不存在）──
-test('execStepDirectly: heredoc 写文件到不存在的目录 → 自动 mkdir -p', () => {
+test('execStepDirectly: heredoc 写文件到不存在的目录 → 自动 mkdir -p', async () => {
   const { execStepDirectly } = require('../routes/ai-tools/run-plan');
   const fs = require('fs');
   const path = require('path');
@@ -663,7 +663,7 @@ test('execStepDirectly: heredoc 写文件到不存在的目录 → 自动 mkdir 
 
   try {
     // heredoc 写文件到不存在的目录（精确复现用户截图场景）
-    const result = execStepDirectly({
+    const result = await execStepDirectly({
       action: `cat > "${targetFile.replace(/\\/g, '/')}" << 'EOF'\nhello from heredoc\nauto-mkdir test\nEOF`,
     }, process.cwd());
 
@@ -698,9 +698,9 @@ test('sanitizePlan: 空对象步骤检测为占位符并标记 type=skip', () =>
   assert.ok(result.steps[2]._isPlaceholder);
 });
 
-test('execStepDirectly: type=skip 占位符步骤返回 error（不再静默 done）', () => {
+test('execStepDirectly: type=skip 占位符步骤返回 error（不再静默 done）', async () => {
   const { execStepDirectly } = require('../routes/ai-tools/run-plan');
-  const result = execStepDirectly({
+  const result = await execStepDirectly({
     action: '步骤 2',
     type: 'skip',
     _isPlaceholder: true,
@@ -918,7 +918,7 @@ test('reflectPlan: strictAcceptance 模式下验收未全过 → partial', () =>
   assert.strictEqual(result.status, 'partial', '严格模式下验收未全过应降级为 partial');
 });
 
-test('execStepDirectly: heredoc 文件写入用 Node.js 原生 API（绕过 cat 依赖）', () => {
+test('execStepDirectly: heredoc 文件写入用 Node.js 原生 API（绕过 cat 依赖）', async () => {
   const fs = require('fs');
   const path = require('path');
   const { execStepDirectly } = require('../routes/ai-tools/run-plan');
@@ -935,7 +935,7 @@ export default function Test() {
 EOF`,
   };
 
-  const result = execStepDirectly(step, testDir);
+  const result = await execStepDirectly(step, testDir);
   assert.strictEqual(result.status, 'done', 'heredoc 文件写入应成功');
 
   // 验证文件确实被创建且内容正确
@@ -951,11 +951,11 @@ EOF`,
   try { fs.rmdirSync(path.join(testDir, 'src')); } catch (_) {}
 });
 
-test('execStepDirectly: 非 heredoc 写文件模式不受影响（仍走 shell 执行）', () => {
+test('execStepDirectly: 非 heredoc 写文件模式不受影响（仍走 shell 执行）', async () => {
   const { execStepDirectly } = require('../routes/ai-tools/run-plan');
 
   // echo 单行写文件——不匹配 heredoc 正则，走原有 shell 路径
-  const result = execStepDirectly({
+  const result = await execStepDirectly({
     action: "echo 'hello' > /dev/null",
   }, process.cwd());
   // 不应抛异常，返回 done 或 error 均可（取决于环境）

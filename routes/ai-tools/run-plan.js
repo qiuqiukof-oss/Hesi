@@ -432,7 +432,24 @@ function rewriteForWindows(command, shell) {
  * @param {string} [cwd] 工作目录
  * @returns {{ status: string, output: string }}
  */
-function execStepDirectly(step, cwd) {
+/**
+ * 直执模式：对「命令型」步骤（action 是可执行 shell 命令）绕过 agentPool，
+ * 用 child_process.spawn 异步执行，并增量把 stdout/stderr 通过 onChunk 推流，
+ * 支持 shouldAbort()/AbortSignal 在用户断开时立即杀掉子进程（决策③真流式 + 决策①取消生效）。
+ *
+ * 判定标准复用 isPossibleCommand()；通过 resolveShell() 自动选择最佳 shell。
+ * 多行命令（含裸换行但非 heredoc）自动写入临时脚本执行。
+ *
+ * @param {object} step  plan.steps[i]（含 action）
+ * @param {string} [cwd] 工作目录
+ * @param {object} [opts]
+ * @param {Function} [opts.onChunk]   (chunk: string, stream: 'stdout'|'stderr') => void  增量输出
+ * @param {Function} [opts.shouldAbort] () => boolean  用户中止轮询
+ * @param {AbortSignal} [opts.signal]  中止信号
+ * @returns {Promise<{status: string, output: string}>}
+ */
+async function execStepDirectly(step, cwd, opts = {}) {
+  const { onChunk, shouldAbort, signal } = opts;
   const action = String(step.action || '').trim();
   if (!action) return { status: 'error', output: '步骤 action 为空' };
   // 占位符步骤 → 返回 error（LLM 未能生成有效内容，不应静默通过）
@@ -445,7 +462,7 @@ function execStepDirectly(step, cwd) {
     };
   }
   try {
-    const { execSync } = require('child_process');
+    const { spawn, execSync, execFileSync } = require('child_process');
     const fs = require('fs');
     const path = require('path');
     const os = require('os');
@@ -458,38 +475,28 @@ function execStepDirectly(step, cwd) {
       stdio: ['ignore', 'pipe', 'pipe'],
       timeout: STEP_TIMEOUT_MS,
     };
-    let execOpts = { ...baseOpts, cwd: effectiveCwd };
+    const execOpts = { ...baseOpts, cwd: effectiveCwd };
 
     // PATH 丰富：确保 shell 自身的 bin 目录在 PATH 中
-    // （服务进程的 PATH 可能缺少 PortableGit/Git 的 /usr/bin 等目录，
-    //  导致 mkdir/cp/mv 等 coreutils 命令找不到 → exit code 127）
     if (shell !== 'cmd.exe' && (shell.includes('/') || shell.includes('\\'))) {
       const enrichedEnv = { ...process.env };
-      const shellDir = path.dirname(shell);           // e.g., .../usr/bin
-      const shellParent = path.dirname(shellDir);       // e.g., .../usr
-      const shellRoot = path.dirname(shellParent);      // e.g., .../PortableGit
-
-      // 收集 shell 相关的 bin 目录（按优先级排序）
-      const extraPaths = [shellDir]; // shell 所在目录
-
-      // 常见布局：Git/PortableGit 有 mingw64/bin（含 coreutils）
+      const shellDir = path.dirname(shell);
+      const shellParent = path.dirname(shellDir);
+      const shellRoot = path.dirname(shellParent);
+      const extraPaths = [shellDir];
       const candidates = [
         path.join(shellRoot, 'mingw64', 'bin'),
         path.join(shellRoot, 'mingw32', 'bin'),
         path.join(shellRoot, 'bin'),
       ];
       for (const c of candidates) {
-        if (!extraPaths.includes(c) && fs.existsSync(c)) {
-          extraPaths.push(c);
-        }
+        if (!extraPaths.includes(c) && fs.existsSync(c)) extraPaths.push(c);
       }
-
-      // 去重后 prepend 到 PATH
       const currentPath = enrichedEnv.PATH || '';
       const existing = new Set(currentPath.split(';').map((p) => p.toLowerCase().replace(/\\/g, '/')));
       const toAdd = extraPaths.filter((p) => !existing.has(p.toLowerCase().replace(/\\/g, '/')));
       if (toAdd.length > 0) {
-        enrichedEnv.PATH = toAdd.join(';') + ';' + currentPath;
+        enrichedEnv.PATH = `${toAdd.join(';')};${currentPath}`;
         execOpts.env = enrichedEnv;
         console.log('[execStepDirectly] PATH 已丰富 (+', toAdd.length, '个目录):', toAdd.join(', '));
       }
@@ -499,54 +506,86 @@ function execStepDirectly(step, cwd) {
       const wslCwd = maybeConvertToWslPath(shell, effectiveCwd);
       if (wslCwd !== effectiveCwd) {
         execOpts.cwd = wslCwd;
-        console.log('[execStepDirectly] WSL cwd 转换:', effectiveCwd, '��', wslCwd);
+        console.log('[execStepDirectly] WSL cwd 转换:', effectiveCwd, '→', wslCwd);
       }
     }
-    // 诊断日志：输出实际执行的命令、shell 和工作目录（排查 LLM 生成命令问题）
-      const heredocMatch = action.match(/<<-?\s*['"]?(\w+)['"]?/);
-      console.log('[execStepDirectly]', JSON.stringify({
-        shell,
-        isWsl,
-        cwd: effectiveCwd,
-        actionPreview: action.slice(0, 200),
-        actionLength: action.length,
-        hasNewline: action.includes('\n'),
-        hasHeredoc: !!heredocMatch,
-        heredocDelim: heredocMatch ? heredocMatch[1] : null,
-        isMultiline: action.includes('\n'),
-        execViaTempScript: action.includes('\n'),
-      }));
+    console.log('[execStepDirectly]', JSON.stringify({
+      shell, isWsl, cwd: effectiveCwd, actionPreview: action.slice(0, 200),
+      actionLength: action.length, hasNewline: action.includes('\n'),
+      isMultiline: action.includes('\n'), execViaTempScript: action.includes('\n'),
+    }));
 
-    // ── 多行命令检测与处理 ──
-    // heredoc（<< EOF）、裸换行、以及其他无法通过单行 execSync -c 传递的命令，
-    // 统一写入临时脚本文件后执行，保留完整 shell 语义。
-    //
-    // 为什么 heredoc 也走临时脚本？
-    //   execSync(command, { shell }) 内部等价于 spawn(shell, ['-c', command])，
-    //   即把整个命令塞进一行 -c 参数。heredoc 的多行体（含 import/export 等代码）
-    //   在 -c 引号嵌套下必然断裂（无论 bash/cmd 均如此）。
-    //   因此只要命令含 \n，一律写临时脚本——这是唯一可靠的多行传递方式。
+    // ── spawn 执行器（异步 + 增量 + 中止）──
+    const runSpawn = (cmd, args, spawnOpts) => new Promise((resolve) => {
+      if (shouldAbort && shouldAbort()) { resolve({ code: null, killed: true, output: '' }); return; }
+      let child;
+      let manuallyKilled = false;
+      try {
+        child = spawn(cmd, args, { ...spawnOpts, timeout: STEP_TIMEOUT_MS });
+      } catch (spawnErr) {
+        resolve({ code: null, killed: false, error: spawnErr.message, output: '' });
+        return;
+      }
+      const acc = { out: '', err: '' };
+      const onData = (buf, stream) => {
+        const s = buf.toString('utf8');
+        if (stream === 'stdout') acc.out += s; else acc.err += s;
+        if (onChunk) { try { onChunk(s, stream); } catch { /* 忽略渲染层异常 */ } }
+      };
+      if (child.stdout) child.stdout.on('data', (d) => onData(d, 'stdout'));
+      if (child.stderr) child.stderr.on('data', (d) => onData(d, 'stderr'));
+      child.on('error', (e) => { acc.err += `\n[spawn error] ${e.message}`; });
+      const watch = setInterval(() => {
+        if (shouldAbort && shouldAbort() && child && !child.killed) {
+          manuallyKilled = true;
+          try { child.kill('SIGKILL'); } catch { /* ignore */ }
+        }
+      }, 200);
+      if (signal && typeof signal.addEventListener === 'function') {
+        signal.addEventListener('abort', () => {
+          manuallyKilled = true;
+          try { child.kill('SIGKILL'); } catch { /* ignore */ }
+        }, { once: true });
+      }
+      child.on('close', (code, sig) => {
+        clearInterval(watch);
+        // spawn timeout 默认发 SIGTERM（killed=true, 非手动）；abort 用 SIGKILL（manuallyKilled）
+        const killed = manuallyKilled || sig === 'SIGKILL';
+        const timedOut = !manuallyKilled && sig === 'SIGTERM';
+        const output = `${acc.out}${acc.err ? `\n${acc.err}` : ''}`.slice(0, 5000);
+        resolve({ code, killed, timedOut, output });
+      });
+    });
+
+    // 安全读取临时脚本内容（失败时回传）；finally 才 unlink，catch 时仍可读
+    const safeReadTmpScript = (f) => { try { return f ? fs.readFileSync(f, 'utf8') : ''; } catch { return ''; } };
+
+    // 把 spawn 结果（非 0 退出）转成与旧 execSync catch 一致的失败对象
+    const buildExecError = (code, output, { isMultiline, tmpFile }) => {
+      const failedScript = isMultiline ? safeReadTmpScript(tmpFile) : '';
+      return {
+        status: 'error',
+        output: [
+          `命令执行失败（exit code ${code ?? '?'}，shell=${shell}${isMultiline ? ', via-temp-script' : ''}）`,
+          `cwd: ${effectiveCwd}`,
+          `命令: ${action.slice(0, 300)}`,
+          output ? `输出:\n${output.slice(0, 2000)}` : null,
+          failedScript ? `脚本内容:\n${failedScript.slice(0, 3000)}` : null,
+        ].filter(Boolean).join('\n'),
+      };
+    };
+
     const isMultiline = action.includes('\n');
     let tmpFile = null;
     let out;
-    // 安全读取临时脚本内容（失败时回传给 LLM/CLI Agent 自我修正；finally 里才 unlink，catch 时仍可读）
-    const safeReadTmpScript = (f) => { try { return f ? fs.readFileSync(f, 'utf8') : ''; } catch { return ''; } };
 
-    // ── heredoc 文件写入：直接用 Node.js fs API 写入（绕过 cat 依赖）──
-    // LLM 生成的 `cat > file << 'EOF' ... EOF` 模式在最小化 Git 环境中
-    // 可能因缺 coreutils（cat/mkdir）而 exit code 127。
-    // 检测到此模式时，直接用 fs.writeFileSync 写文件，零外部命令依赖。
-    //
-    // 匹配: cat > path/to/file << 'DELIM'\ncontent\nDELIM     （标准多行格式）
-    //       cat > "path/to/file" << "DELIM"contentDELIM        （LLM 单行输出格式，无换行）
-    // LLM（尤其是 flash 模型）经常将 heredoc 内容紧贴在分隔符后，不换行
+    // ── heredoc 文件写入：Node.js 原生 fs（绕过 cat 依赖，同旧逻辑）──
     const heredocWriteMatch = action.match(
       /^cat\s+>\s*['"]?([^'"\s]+)['"]?\s*<<\s*['"]?(\w+)['"]?\s*([\s\S]*?)\s*\2\s*$/
     );
     if (heredocWriteMatch) {
       const heredocTarget = heredocWriteMatch[1].trim();
       const heredocContent = heredocWriteMatch[3];
-      // 跳过 /dev/null 等特殊路径
       if (heredocTarget && !heredocTarget.startsWith('/dev/') && heredocTarget !== 'NUL') {
         const targetFullPath = path.resolve(effectiveCwd, heredocTarget);
         const targetDir = path.dirname(targetFullPath);
@@ -559,27 +598,16 @@ function execStepDirectly(step, cwd) {
           return { status: 'done', output: `已写入 ${heredocTarget}（${size} bytes）` };
         } catch (writeErr) {
           console.warn('[execStepDirectly] Node.js 文件写入失败，回退到 shell 执行:', writeErr.message);
-          // 不 return，继续走下面的 shell 执行路径作为兜底
         }
       }
     }
 
-    // ── 文件写入预检：自动创建目标文件的父目录 ──
-    // LLM 生成的 plan 经常遗漏「写文件前先 mkdir -p」的步骤，
-    // 导致 cat > path/to/file.ts 因父目录不存在而 exit code 1。
-    // 此处作为执行层安全网，检测到文件写入命令时自动 mkdir -p。
-    //
-    // 匹配模式：
-    //   cat > "file" << 'EOF'    cat > file << EOF
-    //   echo "..." > file        tee file
-    //   cp source dest           mv source dest
+    // ── 文件写入预检：自动创建目标文件的父目录（同旧逻辑）──
     const fileWriteMatch = action.match(/(?:cat|echo|tee|cp|mv)\s+(?:['"]?[^>'"`\s]+['"]?\s*)*(?:>|>>)\s*['"]?([^'"\s]+)['"]?/i)
       || action.match(/cat\s+['"]?([^'"\s]+)['"]?\s*<<\s*/i);
     if (fileWriteMatch && fileWriteMatch[1]) {
       let targetPath = fileWriteMatch[1].trim();
-      // 去掉可能的行号后缀（heredoc 后续内容干扰）
       targetPath = targetPath.split(/\s/)[0];
-      // 跳过 /dev/null 等特殊路径
       if (targetPath && !targetPath.startsWith('/dev/') && targetPath !== 'NUL') {
         const targetFullPath = path.resolve(effectiveCwd, targetPath);
         const targetDir = path.dirname(targetFullPath);
@@ -597,25 +625,20 @@ function execStepDirectly(step, cwd) {
 
     try {
       if (isMultiline) {
-        // 多行命令：写入临时脚本执行，避免换行被当命令分隔符
-        //
-        // 关键实现细节：
-        //   用 execFileSync(shell, [tmpFile], opts) 而非 execSync(cmdStr, {shell:true})
-        //   原因：
-        //   ① shell:true 会先经 cmd.exe 中转 → 路径引号嵌套易乱（WSL bash 不认 C:/ 路径）
-        //   ② execSync 只接受字符串命令，传数组会导致输出被静默吞掉
-        //   ③ execFileSync 是 Node.js 官方推荐的「执行文件 + 参数数组」API，
-        //      路径不经中间 shell 解析，Git Bash / WSL bash / PowerShell 均可正确处理
         if (shell === 'cmd.exe') {
           // 无 bash 可用 → PowerShell 执行 .ps1
           tmpFile = path.join(os.tmpdir(), `hesi-step-${Date.now()}-${Math.random().toString(36).slice(2, 6)}.ps1`);
           fs.writeFileSync(tmpFile, action, 'utf8');
           console.log('[execStepDirectly] 多行命令已写入 PowerShell 临时脚本:', tmpFile);
-          out = execFileSync('powershell.exe', [
+          const r = await runSpawn('powershell.exe', [
             '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', tmpFile,
           ], execOpts);
+          if (r.timedOut) return { status: 'error', output: `命令执行超时（超过 ${STEP_TIMEOUT_MS}ms）\n命令: ${action.slice(0, 200)}\n${r.output.slice(0, 1000)}` };
+          if (r.killed) return { status: 'aborted', output: `执行已被取消（用户断开）\n命令: ${action.slice(0, 200)}\n${r.output.slice(0, 1000)}` };
+          if (r.error) return { status: 'error', output: `命令启动失败: ${r.error}` };
+          if (r.code !== 0) return buildExecError(r.code, r.output, { isMultiline, tmpFile });
+          out = r.output;
         } else if (isWsl) {
-          // WSL bash：通过 cmd.exe 中转 + /mnt/... 路径（WSL bash 不是真正的 .exe，不能直接 spawn）
           tmpFile = path.join(os.tmpdir(), `hesi-step-${Date.now()}-${Math.random().toString(36).slice(2, 6)}.sh`);
           fs.writeFileSync(tmpFile, action, 'utf8');
           const wslScript = maybeConvertToWslPath(shell, tmpFile);
@@ -635,15 +658,17 @@ function execStepDirectly(step, cwd) {
             };
           }
           console.log('[execStepDirectly] WSL 多行临时脚本:', tmpFile, '→', wslScript);
-          console.log('[execStepDirectly] 执行方式: cmd.exe /c bash', wslScript);
-          out = execSync('cmd.exe', ['/c', 'bash', wslScript], execOpts);
+          const r = await runSpawn('cmd.exe', ['/c', 'bash', wslScript], execOpts);
+          if (r.timedOut) return { status: 'error', output: `命令执行超时（超过 ${STEP_TIMEOUT_MS}ms）\n命令: ${action.slice(0, 200)}\n${r.output.slice(0, 1000)}` };
+          if (r.killed) return { status: 'aborted', output: `执行已被取消（用户断开）\n命令: ${action.slice(0, 200)}\n${r.output.slice(0, 1000)}` };
+          if (r.error) return { status: 'error', output: `命令启动失败: ${r.error}` };
+          if (r.code !== 0) return buildExecError(r.code, r.output, { isMultiline, tmpFile });
+          out = r.output;
         } else {
-          // 真实 Git Bash / MSYS2 等：直接 execFileSync
+          // 真实 Git Bash / MSYS2 等：直接 spawn 临时脚本
           tmpFile = path.join(os.tmpdir(), `hesi-step-${Date.now()}-${Math.random().toString(36).slice(2, 6)}.sh`);
           fs.writeFileSync(tmpFile, action, 'utf8');
           console.log('[execStepDirectly] 多行命令已写入临时脚本:', tmpFile);
-          // 执行前语法预检：捕获未闭合引号/heredoc 等纯语法错误，避免带副作用命令半执行，
-          // 并把完整脚本回传给 LLM/CLI Agent 供其自我修正（而非只看到「Command failed」）。
           try {
             execFileSync(shell, ['-n', tmpFile], { ...execOpts, stdio: ['ignore', 'ignore', 'pipe'] });
           } catch (syntaxErr) {
@@ -658,58 +683,55 @@ function execStepDirectly(step, cwd) {
               ].join('\n'),
             };
           }
-          console.log('[execStepDirectly] 执行方式: execFileSync(', shell, ',', tmpFile, ')');
-          out = execFileSync(shell, [tmpFile], execOpts);
+          console.log('[execStepDirectly] 执行方式: spawn(', shell, ',', tmpFile, ')');
+          const r = await runSpawn(shell, [tmpFile], execOpts);
+          if (r.timedOut) return { status: 'error', output: `命令执行超时（超过 ${STEP_TIMEOUT_MS}ms）\n命令: ${action.slice(0, 200)}\n${r.output.slice(0, 1000)}` };
+          if (r.killed) return { status: 'aborted', output: `执行已被取消（用户断开）\n命令: ${action.slice(0, 200)}\n${r.output.slice(0, 1000)}` };
+          if (r.error) return { status: 'error', output: `命令启动失败: ${r.error}` };
+          if (r.code !== 0) return buildExecError(r.code, r.output, { isMultiline, tmpFile });
+          out = r.output;
         }
       } else {
         // 单行命令直执
         if (shell === 'cmd.exe') {
           const finalAction = rewriteForWindows(action, shell);
-          out = execSync(finalAction, { ...execOpts, shell });
+          const r = await runSpawn(finalAction, [], { ...execOpts, shell: 'cmd.exe' });
+          if (r.timedOut) return { status: 'error', output: `命令执行超时（超过 ${STEP_TIMEOUT_MS}ms）\n命令: ${action.slice(0, 200)}\n${r.output.slice(0, 1000)}` };
+          if (r.killed) return { status: 'aborted', output: `执行已被取消（用户断开）\n命令: ${action.slice(0, 200)}\n${r.output.slice(0, 1000)}` };
+          if (r.error) return { status: 'error', output: `命令启动失败: ${r.error}` };
+          if (r.code !== 0) return buildExecError(r.code, r.output, { isMultiline, tmpFile });
+          out = r.output;
         } else if (isWsl) {
-          // WSL bash：写入临时脚本 + cmd.exe 中转执行
-          // （不能直接 spawn WSL bash → ENOENT；cmd.exe /c bash -c 有引号嵌套问题）
           tmpFile = path.join(os.tmpdir(), `hesi-step-${Date.now()}-${Math.random().toString(36).slice(2, 6)}.sh`);
-          fs.writeFileSync(tmpFile, action + '\n', 'utf8');
+          fs.writeFileSync(tmpFile, `${action}\n`, 'utf8');
           const wslScript = maybeConvertToWslPath(shell, tmpFile);
           console.log('[execStepDirectly] WSL 单行→临时脚本:', tmpFile, '→', wslScript);
-          out = execSync('cmd.exe', ['/c', 'bash', wslScript], execOpts);
+          const r = await runSpawn('cmd.exe', ['/c', 'bash', wslScript], execOpts);
+          if (r.timedOut) return { status: 'error', output: `命令执行超时（超过 ${STEP_TIMEOUT_MS}ms）\n命令: ${action.slice(0, 200)}\n${r.output.slice(0, 1000)}` };
+          if (r.killed) return { status: 'aborted', output: `执行已被取消（用户断开）\n命令: ${action.slice(0, 200)}\n${r.output.slice(0, 1000)}` };
+          if (r.error) return { status: 'error', output: `命令启动失败: ${r.error}` };
+          if (r.code !== 0) return buildExecError(r.code, r.output, { isMultiline, tmpFile });
+          out = r.output;
         } else {
-          // 真实 bash/sh：正常 execSync
-          out = execSync(`set -e; ${action}`, { ...execOpts, shell });
+          // 真实 bash/sh：正常 spawn（shell 选项走 set -e）
+          const r = await runSpawn(`set -e; ${action}`, [], { ...execOpts, shell });
+          if (r.timedOut) return { status: 'error', output: `命令执行超时（超过 ${STEP_TIMEOUT_MS}ms）\n命令: ${action.slice(0, 200)}\n${r.output.slice(0, 1000)}` };
+          if (r.killed) return { status: 'aborted', output: `执行已被取消（用户断开）\n命令: ${action.slice(0, 200)}\n${r.output.slice(0, 1000)}` };
+          if (r.error) return { status: 'error', output: `命令启动失败: ${r.error}` };
+          if (r.code !== 0) return buildExecError(r.code, r.output, { isMultiline, tmpFile });
+          out = r.output;
         }
       }
-    } catch (execErr) {
-      // 失败时把 stdout 也带回调用方（CLI Agent 依赖输出内容自我修正）。
-      // execSync/execFileSync 抛错时，Error 对象上带 .stdout/.stderr（encoding=utf8 时为字符串）。
-      // 之前只带 stderr —— 很多脚本（如 node test.js）把诊断信息打到 stdout，
-      // 出错时 CLI Agent 只看到「Command failed: …」一行，无法定位原因 → 无法继续闭环。
-      const errStdout = String(execErr.stdout || '').trim();
-      const errStderr = String(execErr.stderr || '').trim();
-      const failedScript = isMultiline ? safeReadTmpScript(tmpFile) : '';
-      return {
-        status: 'error',
-        output: [
-          `命令执行失败（exit code ${execErr.status || '?'}，shell=${shell}${isMultiline ? ', via-temp-script' : ''}）`,
-          `cwd: ${effectiveCwd}`,
-          `命令: ${action.slice(0, 300)}`,
-          errStdout ? `stdout: ${errStdout.slice(0, 2000)}` : null,
-          errStderr ? `stderr: ${errStderr.slice(0, 1000)}` : null,
-          failedScript ? `脚本内容:\n${failedScript.slice(0, 3000)}` : null,
-          execErr.message,
-        ].filter(Boolean).join('\n'),
-      };
     } finally {
       // 清理临时脚本
-      if (tmpFile) {
-        try { fs.unlinkSync(tmpFile); } catch { /* ignore */ }
-      }
+      if (tmpFile) { try { fs.unlinkSync(tmpFile); } catch { /* ignore */ } }
     }
     return { status: 'done', output: String(out).slice(0, 5000) };
   } catch (e) {
     return { status: 'error', output: `直执异常: ${e.message}` };
   }
 }
+
 
 /**
  * 判断任务是否应走「直执模式」（绕过 agentPool）。
@@ -1317,7 +1339,14 @@ async function runOneAttempt(plan, ctx) {
       };
     } else if (shouldExecDirectly(task, step)) {
       // 轨道 A：直执模式 — action 是 shell 命令，绕过 agentPool
-      exec = execStepDirectly(step, cwd);
+      // P3：改用 spawn 异步执行 + 增量推流（onChunk→broadcastFn step_chunk）+ 断开即杀（shouldAbort/signal）
+      exec = await execStepDirectly(step, cwd, {
+        onChunk: typeof opts.broadcastFn === 'function'
+          ? (chunk, stream) => opts.broadcastFn({ type: 'step_chunk', stepId: task.id, stream, chunk })
+          : undefined,
+        shouldAbort: typeof opts.shouldAbort === 'function' ? opts.shouldAbort : undefined,
+        signal: opts.signal,
+      });
     } else {
       // 轨道 B：Agent 型步骤（自然语言指令）
       // useAi / hasLLM / runtime / stepAgent 已在上方安全检查处计算，直接复用
@@ -1338,6 +1367,12 @@ async function runOneAttempt(plan, ctx) {
     ev.status = exec.status === 'completed' ? 'done' : exec.status;
     ev.output = exec.output || '';
 
+    // P3：命令执行被用户取消（断开连接）→ 标记 aborted，不再当 error 回滚
+    if (exec.status === 'aborted' || (typeof opts.shouldAbort === 'function' && opts.shouldAbort())) {
+      ev.status = 'aborted';
+      ev.reason = '用户取消（断开连接）';
+    }
+
     // 连续重复熔断
     const loop = budget.checkLoop(`${task.id}:${ev.status}`);
     if (!loop.ok) {
@@ -1348,6 +1383,9 @@ async function runOneAttempt(plan, ctx) {
     results.push(ev);
     await onStep(ev);
 
+    // P3：用户取消（断开连接）→ 立即中止后续步骤，不做错误回滚
+    if (ev.status === 'aborted') break;
+
     // 失败 → 回滚到本步快照（仅撤销本步改动）
     if (ev.status === 'failed' || ev.status === 'error') {
       if (haveGit && snapSha) {
@@ -1355,7 +1393,7 @@ async function runOneAttempt(plan, ctx) {
       }
       if (!step.on_fail || step.on_fail === 'stop') break;
     }
-    if (['loop', 'budget', 'timeout'].includes(ev.status)) break;
+    if (['loop', 'budget', 'timeout', 'aborted'].includes(ev.status)) break;
   }
 
   // 闭环：最终快照 + 切回原分支（保留 auto 分支供审计）

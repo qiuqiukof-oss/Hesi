@@ -191,6 +191,11 @@ function createRouter(opts = {}) {
     // 必须与 execId 同段声明——下方讨论分支即引用（同一 handler 作用域内 const TDZ，
     // 见上方 execId 注释记录过的同类陷阱）。
     const emit = createWsEmitter(opts.broadcastFn, execId);
+    // P3：客户端断开（响应连接关闭）即取消执行——驱动 execStepDirectly 的 shouldAbort/signal
+    // 真杀子进程（决策①「断开即取消」在命令路径生效）。必须用 res 'close' + writableEnded 守卫：
+    // req 'close' 在请求体接收完毕即触发（Node 语义=请求完成），会导致每次执行被提前 abort。
+    const execAbort = new AbortController();
+    res.on('close', () => { if (!res.writableEnded) { try { execAbort.abort(); } catch { /* ignore */ } } });
     let discussionSummary = null;
     let discussionTranscript = '';
     const discussBeforePlan = !!body.discussBeforePlan;
@@ -353,6 +358,9 @@ function createRouter(opts = {}) {
         // 否则 run-plan.js 读到的 opts.broadcastFn 永远为 undefined（原硬编码 undefined 导致过程黑盒）。
         // chat 管线发的是 { type, ... } 对象形态，用适配器桥接到 emit(type, data)。
         broadcastFn: emitAsBroadcastFn(emit),
+        // P3：断连即取消——把响应断开信号透传给执行核心（execStepDirectly 据此 SIGKILL 子进程）
+        shouldAbort: () => execAbort.signal.aborted,
+        signal: execAbort.signal,
       });
       // ③ RAG 快照回流（成功/失败均沉淀，失败不影响主流程；M1 增强：传计时+执行Agent）
       const endedAt = Date.now();
@@ -365,7 +373,8 @@ function createRouter(opts = {}) {
       } catch { /* RAG 回流失败不影响主流程 */ }
       const p = pendingApprovals.get(execId);
       if (p) { clearTimeout(p.timer); pendingApprovals.delete(execId); }
-      return res.json({ ok: result.ok, execId, ...result });
+      if (!res.writableEnded) return res.json({ ok: result.ok, execId, ...result });
+      return; // 客户端已断开（执行中被取消），不再回写
     } catch (e) {
       const p = pendingApprovals.get(execId);
       if (p) { clearTimeout(p.timer); pendingApprovals.delete(execId); }
