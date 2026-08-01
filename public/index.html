@@ -20,7 +20,6 @@
   <link rel="stylesheet" href="/css/toast.css" />
   <link rel="stylesheet" href="/css/modal.css" />
   <link rel="stylesheet" href="/css/roundtable-view.css" />
-  <link rel="stylesheet" href="/css/plan-drawer.css" />
   <link rel="stylesheet" href="/css/plan-chat.css" />
   <link rel="stylesheet" href="/css/workflow.css" />
   <link rel="stylesheet" href="/css/orchestrator.css" />
@@ -217,7 +216,6 @@
             <button id="chat-export-btn" class="chat-action-btn" title="导出聊天记录">📥</button>
             <button id="chat-blackboard-btn" class="chat-action-btn" title="多 Agent 黑板面板">🗂️</button>
             <button id="chat-roundtable-btn" class="chat-action-btn" title="围炉圆桌 · 多 Agent 可视化讨论">🍵</button>
-            <button id="chat-plan-btn" class="chat-action-btn" title="全自动 Plan 执行器">📋</button>
             <button id="chat-memory-btn" class="chat-action-btn" title="记忆（用户画像 / 已记住的事实）">🧠</button>
             <button id="chat-savings-btn" class="chat-action-btn savings" title="本会话暂无节省记录">
               <span class="savings-ring" aria-hidden="true">
@@ -1059,18 +1057,6 @@
     <div class="toast" id="toast"></div>
   </div>
 
-  <!-- ====== 全自动 Plan 执行器：右侧伸缩抽屉（仿 #mahjong-embed 圆桌抽屉）====== -->
-  <!-- Plan = chat 的一种能力：引擎复用 Q.ChatAPI 同源 LLM 设置，本抽屉仅作渲染容器 -->
-  <div id="plan-embed" class="hidden">
-    <div class="drawer-resize-handle" data-drawer="plan-embed" title="拖拽调整宽度"></div>
-    <div class="plan-embed-bar">
-      <span class="plan-embed-title">📋 全自动 Plan 执行器</span>
-      <button id="plan-embed-close" class="chat-action-btn" title="收起面板">✕</button>
-    </div>
-    <div class="plan-embed-body">
-      <!-- 内容由 plan-drawer.js 首次打开时渲染 -->
-    </div>
-  </div>
 
 </body>
 </html>

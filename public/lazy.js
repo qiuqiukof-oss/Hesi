@@ -23,7 +23,6 @@ import './right-panel.js';   // RightPanel → dashboard/charts sidebar
 // ── Phase 2: 围炉圆桌（多 Agent 可视化协作，作为 AI讨论 的一种视图，进 lazy 防主包膨胀）──
 import './components/roundtable-skins.js'; // RoundtableSkins → 皮肤注册表(SKINS/applySkin)，被 roundtable-view.js 依赖
 import './components/roundtable-view.js';   // RoundTableView → 圆桌视图渲染器（引擎复用 Q.ChatAPI，容器 #mahjong-embed）
-import './components/plan-drawer.js';        // PlanDrawer → 全自动 Plan 执行器侧边抽屉渲染器（复用 Q.ChatAPI 同源 LLM 设置，容器 #plan-embed）
 
 // ── Dashboard panel — system status, CLI stats, runtime overview ──
 import './dashboard.js';     // Dashboard → system dashboard tab

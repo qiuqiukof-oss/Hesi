@@ -140,7 +140,7 @@ class ChatPanel extends HTMLElement {
     this.exportBtn = document.getElementById('chat-export-btn');
     this.blackboardBtn = document.getElementById('chat-blackboard-btn');
     this.roundtableBtn = document.getElementById('chat-roundtable-btn');
-    this.planBtn = document.getElementById('chat-plan-btn');
+    this.planBtn = null; // P7：抽屉已移除
     this.savingsBtn = document.getElementById('chat-savings-btn');
     this.contextBtn = document.getElementById('chat-context-btn'); // P0.6 占用率圆环
     this.resizeHandle = document.getElementById('chat-resize-handle');
@@ -357,9 +357,6 @@ class ChatPanel extends HTMLElement {
     }
     if (this.roundtableBtn) {
       this.roundtableBtn.addEventListener('click', () => this.toggleMahjongPanel(undefined, 'hearth'));
-      if (this.planBtn) {
-        this.planBtn.addEventListener('click', () => this.togglePlanPanel());
-      }
     }
     // ── Drag resize via resize handle ──
     if (this.resizeHandle) {
