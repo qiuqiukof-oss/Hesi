@@ -647,13 +647,20 @@ function execStepDirectly(step, cwd) {
         }
       }
     } catch (execErr) {
+      // 失败时把 stdout 也带回调用方（CLI Agent 依赖输出内容自我修正）。
+      // execSync/execFileSync 抛错时，Error 对象上带 .stdout/.stderr（encoding=utf8 时为字符串）。
+      // 之前只带 stderr —— 很多脚本（如 node test.js）把诊断信息打到 stdout，
+      // 出错时 CLI Agent 只看到「Command failed: …」一行，无法定位原因 → 无法继续闭环。
+      const errStdout = String(execErr.stdout || '').trim();
+      const errStderr = String(execErr.stderr || '').trim();
       return {
         status: 'error',
         output: [
           `命令执行失败（exit code ${execErr.status || '?'}，shell=${shell}${isMultiline ? ', via-temp-script' : ''}）`,
           `cwd: ${effectiveCwd}`,
           `命令: ${action.slice(0, 300)}`,
-          String(execErr.stderr || '').slice(0, 500) ? `stderr: ${String(execErr.stderr || '').slice(0, 500)}` : null,
+          errStdout ? `stdout: ${errStdout.slice(0, 2000)}` : null,
+          errStderr ? `stderr: ${errStderr.slice(0, 1000)}` : null,
           execErr.message,
         ].filter(Boolean).join('\n'),
       };
