@@ -214,3 +214,66 @@
   margin-top: var(--space-1);
   min-height: 18px;
 }
+
+/* ── 错误气泡（P4-3）── */
+.plan-error-bubble {
+  border-left: 3px solid var(--danger, #dc2626);
+  padding: var(--space-3);
+}
+
+.plan-error-text {
+  font-size: 13px;
+  color: var(--text-primary);
+  margin-bottom: var(--space-2);
+  word-break: break-word;
+}
+
+.plan-error-stack {
+  margin-top: var(--space-1);
+}
+
+.plan-error-stack > summary {
+  font-size: 12px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  user-select: none;
+}
+
+.plan-error-stack > summary:hover { color: var(--text-primary); }
+
+.plan-error-stack pre {
+  margin-top: var(--space-1);
+  padding: var(--space-2);
+  max-height: 200px;
+  overflow: auto;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 1.4;
+  color: var(--danger);
+  background: var(--bg-ground);
+  border-radius: var(--radius-sm);
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+/* ── 步骤内堆栈展开（P4-3）── */
+.plan-step-stack > summary {
+  font-size: 11px;
+  color: var(--danger);
+  cursor: pointer;
+  user-select: none;
+}
+
+.plan-step-stack pre {
+  margin-top: var(--space-1);
+  padding: var(--space-1);
+  max-height: 160px;
+  overflow: auto;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-secondary);
+  background: var(--bg-ground);
+  border-radius: var(--radius-sm);
+  white-space: pre-wrap;
+  word-break: break-all;
+}

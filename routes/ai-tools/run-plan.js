@@ -728,7 +728,7 @@ async function execStepDirectly(step, cwd, opts = {}) {
     }
     return { status: 'done', output: String(out).slice(0, 5000) };
   } catch (e) {
-    return { status: 'error', output: `直执异常: ${e.message}` };
+    return { status: 'error', output: `直执异常: ${e.message}`, stack: e.stack || null };
   }
 }
 
@@ -754,7 +754,7 @@ async function runSingleTask(wf, task) {
   try {
     startJson = JSON.parse(await wf.start(`plan-step-${task.id}`, [task], { maxConcurrency: 1 }));
   } catch (e) {
-    return { status: 'error', output: `workflow start 异常: ${e.message}` };
+    return { status: 'error', output: `workflow start 异常: ${e.message}`, stack: e.stack || null };
   }
   if (!startJson.ok) return { status: 'error', output: startJson.error || 'start failed' };
   const wfId = startJson.workflowId;
@@ -825,7 +825,7 @@ async function runStepViaChatLLM(task, step, plan, runtime, extra = {}) {
     }
     return { status: 'done', output };
   } catch (e) {
-    return { status: 'error', output: `AI 助手执行异常: ${e.message}` };
+    return { status: 'error', output: `AI 助手执行异常: ${e.message}`, stack: e.stack || null };
   }
 }
 
@@ -1359,6 +1359,7 @@ async function runOneAttempt(plan, ctx) {
     }
     ev.status = exec.status === 'completed' ? 'done' : exec.status;
     ev.output = exec.output || '';
+    ev.stack = exec.stack || null;
 
     // P3：命令执行被用户取消（断开连接）→ 标记 aborted，不再当 error 回滚
     if (exec.status === 'aborted' || (typeof opts.shouldAbort === 'function' && opts.shouldAbort())) {

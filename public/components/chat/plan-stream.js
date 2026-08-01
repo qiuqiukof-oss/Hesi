@@ -69,6 +69,21 @@ export const planStreamMixin = {
       return;
     }
 
+    if (t === 'error') {
+      this._renderErrorBubble(evt);
+      this.scrollToBottom();
+      if (this._planCard) this._finishPlanCard({ ok: false, status: 'error' }, true);
+      return;
+    }
+
+    if (t === 'cancelled') {
+      if (this._planCard) {
+        this._planNote('⏹ ' + (evt.reason || '客户端断开'), 'warn');
+        this._finishPlanCard({ ok: false, status: 'cancelled' }, true);
+      }
+      return;
+    }
+
     if (!this._planCard) return; // 未开卡（异常序）→ 忽略，避免脏 DOM
 
     if (t === 'status') {
@@ -86,12 +101,6 @@ export const planStreamMixin = {
       this._setPlanStatus(evt.message || '');
     } else if (t === 'done') {
       this._finishPlanCard(evt);
-    } else if (t === 'cancelled') {
-      this._planNote(`⏹ 已取消（${evt.reason || '客户端断开'}）`, 'warn');
-      this._finishPlanCard({ ok: false, status: 'cancelled' }, true);
-    } else if (t === 'error') {
-      this._planNote(`❌ ${evt.message || '自动执行出错'}`, 'error');
-      this._finishPlanCard({ ok: false, status: 'error' }, true);
     }
     this.scrollToBottom();
   },
@@ -242,9 +251,24 @@ export const planStreamMixin = {
       const pre = this._ensureStepOutput(row.li);
       pre.textContent = ev.output;
       if (ev.outputTruncated) {
-        const det = pre.closest('details');
-        const sum = det && det.querySelector('summary');
-        if (sum) sum.textContent = `输出（已截断，原长 ${ev.outputFullLength} 字符）`;
+      const det = pre.closest('details');
+      const sum = det && det.querySelector('summary');
+      if (sum) sum.textContent = `输出（已截断，原长 ${ev.outputFullLength} 字符）`;
+      }
+    }
+    if (typeof ev.stack === 'string' && ev.stack.trim()) {
+      const li = row.li;
+      let stackDet = li.querySelector('details.plan-step-stack');
+      if (!stackDet) {
+        stackDet = document.createElement('details');
+        stackDet.className = 'plan-step-output plan-step-stack';
+        const sum = document.createElement('summary');
+        sum.textContent = '📋 查看堆栈';
+        stackDet.appendChild(sum);
+        const pre = document.createElement('pre');
+        pre.textContent = ev.stack.slice(0, 2000);
+        stackDet.appendChild(pre);
+        li.appendChild(stackDet);
       }
     }
     this._planLiveEl = null;
@@ -335,6 +359,24 @@ export const planStreamMixin = {
       btns.forEach((b) => { b.disabled = true; });
     }
     this._planApprovalEl = null;
+  },
+
+  /** P4-3：渲染红色错误气泡到主对话线程（可展开堆栈）。 */
+  _renderErrorBubble(evt) {
+    if (!this.msgsEl) return;
+    const msg = evt.message || '自动执行出错';
+    const stack = typeof evt.stack === 'string' && evt.stack.trim() ? evt.stack : null;
+    const div = document.createElement('div');
+    div.className = 'chat-message plan-message plan-error-msg';
+    div.innerHTML =
+      '<div class="msg-avatar plan-avatar" style="background:#dc2626">❌</div>' +
+      '<div class="msg-content">' +
+      '<div class="msg-sender plan-sender">自动执行 · 错误</div>' +
+      '<div class="msg-bubble plan-bubble plan-error-bubble">' +
+      '<div class="plan-error-text">' + this._escapeHtml(msg) + '</div>' +
+      (stack ? '<details class="plan-error-stack"><summary>📋 查看堆栈</summary><pre>' + this._escapeHtml(stack.slice(0, 2000)) + '</pre></details>' : '') +
+      '</div></div>';
+    this.msgsEl.appendChild(div);
   },
 
   /** P4-2：POST /api/plan/<execId>/approve|reject，状态由 approval-resolved 事件统一更新。 */

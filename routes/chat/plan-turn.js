@@ -205,7 +205,7 @@ async function runPlanTurn(res, p = {}) {
   } catch (err) {
     // 异常不吞：保留 message，stack 落服务端日志便于归因
     console.error('[runPlanTurn] 执行异常:', err && err.stack ? err.stack : err);
-    emit('error', { message: (err && err.message) || '自动执行出错', phase: 'execute' });
+    emit('error', { message: (err && err.message) || '自动执行出错', stack: (err && err.stack) || null, phase: 'execute' });
   } finally {
     stopHeartbeat();
     watcher.dispose();
