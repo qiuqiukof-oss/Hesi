@@ -85,7 +85,7 @@ test('runPlan 全流程（mock workflow + mock roundtable + git 仓库）→ don
   });
   assert.equal(res.ok, true);
   assert.equal(res.status, 'done');
-  assert.match(res.branch, /^auto-/);
+  assert.equal(res.branch, null); // P4-1：取消 auto 分支，runPlan 全程留用户当前分支
   assert.equal(res.steps.length, 2);
   assert.ok(res.steps.every((s) => s.status === 'done'));
   assert.equal(res.reflection.stepsDone, 2);

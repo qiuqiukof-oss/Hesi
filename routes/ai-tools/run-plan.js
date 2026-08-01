@@ -9,7 +9,7 @@
 //
 // 把通过 gate 的 plan 真正跑起来：
 //   1. gatePlan 闸门（决策①）                 —— 不可机器验证即拒收
-//   2. openPlanBranch 开 auto-<id> 分支         —— 爆震半径容器
+//   2. 非破坏性快照（git stash create 悬空 commit） —— 爆震半径容器
 //   3. 逐步：
 //        a. budget.tickRound()                 —— 经济/轮数预算
 //        b. checkInterception()                —— #34 scope/forbidden 真实前置拦截
@@ -17,7 +17,7 @@
 //        d. checkpoint 步 → resolveCheckpoint  —— 决策② 圆桌推导验收（roundtableFn 注入）
 //        e. workflowManager 单步执行 + 轮询     —— 复用现有 DAG 引擎
 //        f. 失败 → rollbackTo(本步快照)         —— 仅撤销本步改动
-//   4. 闭环结束 closeBranch（保留 auto 分支供审计）
+//   4. 闭环结束（最终快照，无分支切换）
 //   5. runAcceptance() 跑验收命令              —— 机器可验证闭环
 //   6. reflectPlan() → done/partial/diverged   —— #36 反思残差
 //
@@ -29,7 +29,7 @@ const { execFileSync } = require('child_process');
 const { gatePlan, resolveCheckpoint } = require('./plan-contract');
 const { planToWorkflowTasks, inScope, isForbidden } = require('./plan-to-workflow');
 const { PlanBudget } = require('../../lib/plan-budget');
-const { openPlanBranch, snapshotStep, rollbackTo, closeBranch, isRepo } = require('../../lib/plan-git');
+const { snapshotStep, rollbackTo, isRepo } = require('../../lib/plan-git');
 const { revisePlan: defaultRevisePlan } = require('./plan-from-nl');
 // ── 复用 AI 助手已调好的 LLM 工具环（不重新实现）──
 // nonStreamingChat = QCLI_TOOLS + executeToolCall + 3min 熔断 + pruneToolContext
@@ -1192,16 +1192,9 @@ async function runPlan(plan, opts = {}) {
 async function runOneAttempt(plan, ctx) {
   const { cwd, wf, roundtableFn, onStep, dryRun, runAcc, opts } = ctx;
   const haveGit = !!cwd && isRepo(cwd);
-  let branch = null;
+  const branch = null; // P4-1：取消 auto 分支，runPlan 全程留在用户当前分支；branch 仅保留返回字段兼容
   const interceptEnabled = !!(plan.runtimeIntercept || (opts && opts.runtimeIntercept) || process.env.HESI_PLAN_RUNTIME_INTERCEPT === '1');
   const evalCmd = interceptEnabled ? makeEvalCmd() : null;
-  if (haveGit) {
-    try {
-      branch = openPlanBranch(cwd);
-    } catch {
-      branch = null; // 降级：无快照
-    }
-  }
 
   const budget = new PlanBudget(opts.budget || plan.budget || {});
   // 关键修复（球总定位）：外部 CLI 执行 Agent 的 id 只进了 executorAgentId（用于轨道派发判断），
@@ -1396,10 +1389,9 @@ async function runOneAttempt(plan, ctx) {
     if (['loop', 'budget', 'timeout', 'aborted'].includes(ev.status)) break;
   }
 
-  // 闭环：最终快照 + 切回原分支（保留 auto 分支供审计）
+  // 闭环：最终快照（stash create，悬空审计锚点，不切分支、不动工作树）
   if (haveGit) {
     try { snapshotStep(cwd, 'plan: final', plan.scope_paths); } catch { /* 忽略 */ }
-    try { closeBranch(cwd); } catch { /* 忽略 */ }
   }
 
   // 验收（机器可验证闭环）

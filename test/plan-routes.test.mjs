@@ -74,7 +74,7 @@ test('POST /api/plan/execute 全流程 → done', async () => {
     assert.equal(res.status, 200);
     assert.equal(data.ok, true);
     assert.equal(data.status, 'done');
-    assert.match(data.branch, /^auto-/);
+    assert.equal(data.branch, null); // P4-1：取消 auto 分支，runPlan 全程留用户当前分支
     assert.ok(data.steps.every((s) => s.status === 'done'));
   } finally {
     srv.close();
