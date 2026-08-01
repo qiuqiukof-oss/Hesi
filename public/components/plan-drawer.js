@@ -84,6 +84,21 @@ const PlanDrawer = {
           </div>
           <label>执行 Agent<select id="plan-exec-agent" title="步骤默认执行方；默认 AI 助手（内置 LLM 管线），可选外部 CLI agent"></select></label>
         </div>
+        <div class="plan-check-row" id="plan-discuss-row">
+          <input type="checkbox" id="plan-discuss-before" />
+          <span>先讨论再生成 Plan（下方所选伙伴会先进行圆桌讨论）</span>
+        </div>
+        <div class="adv-grid plan-discuss-opts disabled" id="plan-discuss-opts">
+          <label>讨论模式
+            <select id="plan-discuss-mode">
+              <option value="auto" selected>auto（自动继续）</option>
+              <option value="confirm">confirm（结束后等我确认 10 分钟）</option>
+            </select>
+          </label>
+          <label>最多讨论轮数
+            <input id="plan-discuss-turns" type="number" min="1" max="8" value="4" />
+          </label>
+        </div>
       </details>
       <div class="plan-actions">
         <button id="plan-load-sample" class="btn">载入示例</button>
@@ -136,6 +151,8 @@ const PlanDrawer = {
     this._loadExecAgentOptions(body);
     // 讨论伙伴多选（M3）
     this._loadPartnerOptions(body);
+    // 讨论开关：默认 auto 模式，避免 confirm 挂起 HTTP 导致 UI 卡死
+    this._wireDiscussToggle(body);
     // LLM 字段持久化（与「设置 → AI」同 key：qcli-ai-*）
     this._wireLLMPersist(body);
     // 审批闸 WS
@@ -181,6 +198,30 @@ const PlanDrawer = {
     }).catch(() => {
       this._setStatus('复制失败，请手动选择文本复制', 'warn');
     });
+  },
+
+  /** 讨论开关：勾选后才把 discussBeforePlan 等字段打进 /api/plan/execute */
+  _wireDiscussToggle(body) {
+    const cb = body.querySelector('#plan-discuss-before');
+    const opts = body.querySelector('#plan-discuss-opts');
+    const mode = body.querySelector('#plan-discuss-mode');
+    const turns = body.querySelector('#plan-discuss-turns');
+    if (!cb || !opts) return;
+    const apply = () => {
+      const on = cb.checked;
+      opts.classList.toggle('disabled', !on);
+      if (on) {
+        // 默认 UI 用 auto，避免 confirm 模式挂起 HTTP 10 分钟让新手困惑
+        if (!mode.value) mode.value = 'auto';
+        safeStorage.set('qcli-plan-discuss-before', '1');
+      } else {
+        safeStorage.set('qcli-plan-discuss-before', '0');
+      }
+    };
+    cb.addEventListener('change', apply);
+    // 恢复上次状态
+    cb.checked = safeStorage.get('qcli-plan-discuss-before') === '1';
+    apply();
   },
 
   /** 执行 Agent 下拉：合并 /api/clis(agent) + /api/agents(installed) + ⭐收藏 */
@@ -232,7 +273,7 @@ const PlanDrawer = {
     }).catch(() => { /* 静默：仅保留默认项 */ });
   },
 
-  /** 讨论伙伴多选（M3）：复用 PartnerStore 共享状态（聊天面板/Plan 页同步）；抽屉无「先讨论」开关，常显 */
+  /** 讨论伙伴多选（M3）：复用 PartnerStore 共享状态（聊天面板/Plan 页同步） */
   _loadPartnerOptions(body) {
     const PS = window.PartnerStore;
     const btn = body.querySelector('#plan-drawer-partner-btn');
@@ -434,6 +475,14 @@ const PlanDrawer = {
       if (dd) {
         payload.partners = Array.from(dd.querySelectorAll('input[type="checkbox"]:checked'))
           .map((cb) => cb.dataset.id).filter(Boolean);
+      }
+      // 讨论开关（M3）：勾选后才发送 discussBeforePlan，默认 auto 模式避免 confirm 挂起
+      const discussBefore = body.querySelector('#plan-discuss-before')?.checked;
+      if (discussBefore) {
+        payload.discussBeforePlan = true;
+        payload.discussMode = body.querySelector('#plan-discuss-mode')?.value || 'auto';
+        const turns = Number(body.querySelector('#plan-discuss-turns')?.value || 4);
+        payload.discussMaxTurns = Number.isFinite(turns) && turns > 0 ? Math.min(turns, 8) : 4;
       }
       const ea = body.querySelector('#plan-exec-agent').value.trim();
       if (ea) payload.agentId = ea; // 'ai' 或外部 CLI agent id
