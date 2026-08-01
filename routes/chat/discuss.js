@@ -270,12 +270,23 @@ async function runCliTurn({ partner, persona, protocol }, question, transcript, 
   };
 
   const res = await attempt();
-  // 可选：启动成功但无产出（典型为瞬态限流）时重试一次（HESI_AGENT_RETRY_ON_EMPTY=1 开启，默认关闭以免拉长耗时）
+  // 可选：启动成功但无产出（典型为瞬态限流/不可达，opencode 重试耗尽后静默退出 → 秒跳过）时多重试，
+  // 用退避间隔扛过间歇性 429 窗口。HESI_AGENT_RETRY_ON_EMPTY=1 开启（默认关闭以免拉长耗时）；
+  // HESI_AGENT_RETRY_MAX 总尝试次数（默认 3）；HESI_AGENT_RETRY_BACKOFF_MS 退避（默认 15000）。
+  // 注意：start-failed（配置/注册表错误）不重试；仅对「启动成功却无内容」做退避重试。
   if (res.ok && !res.full && process.env.HESI_AGENT_RETRY_ON_EMPTY === '1') {
-    onToken(`\n\n（↻ CLI Agent「${partner}」本轮无产出，重试一次…）`);
-    const retry = await attempt();
-    if (retry.full) return retry.full;
-    res.terminal = retry.terminal || res.terminal; // 重试仍空：沿用其终止原因判定
+    const maxAttempts = Math.max(1, Number(process.env.HESI_AGENT_RETRY_MAX) || 3);
+    let last = res;
+    let attemptNo = 1;
+    while (!last.full && attemptNo < maxAttempts) {
+      attemptNo++;
+      const backoff = Number(process.env.HESI_AGENT_RETRY_BACKOFF_MS) || 15000;
+      onToken(`\n\n（↻ CLI Agent「${partner}」第 ${attemptNo}/${maxAttempts} 次重试，等待 ${Math.round(backoff / 1000)}s 避开限流窗口…）`);
+      await new Promise((r) => setTimeout(r, backoff));
+      last = await attempt();
+      if (last.full) return last.full;
+    }
+    if (!last.full) res.terminal = last.terminal || res.terminal; // 重试仍空：沿用末次终止原因
   }
 
   if (!res.full) {
