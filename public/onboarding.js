@@ -112,7 +112,7 @@ import { getSeen, setSeen } from './onboarding-state.js';
       highlight: true,
       prefer: 'up',
       align: 'start',
-      offset: { x: 0, y: -288 },
+      offset: { x: -5, y: -200 },
     },
     {
       target: 'chat-attach-btn',
