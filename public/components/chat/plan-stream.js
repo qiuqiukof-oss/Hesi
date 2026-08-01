@@ -57,6 +57,11 @@ export const planStreamMixin = {
       return;
     }
 
+    if (t === 'phase' || t === 'phase_done') {
+      if (evt.label) this._setPlanStatus(evt.label);
+      return;
+    }
+
     if (t === 'await-approval') {
       this._renderApprovalBubble(evt.step);
       this.scrollToBottom();

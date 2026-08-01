@@ -280,7 +280,7 @@ function createRouter(opts = {}) {
   // Response: SSE stream of tokens
   // ──────────────────────────────────────────────
   router.post('/chat', async (req, res) => {
-    const { messages, model, apiKey: clientKey, provider: clientProvider, baseUrl: clientBaseUrl, disableTools, terminalContext, terminalContextChanged, discuss, partner, partners, maxTurns, sessionId, category, verifyMode, takenOver, persona, role, customInstructions, language, memoryEnabled, permissions, personas, protocol, planMode, plan: presetPlan, agentId: planAgentId, autoReplan, maxRetries } = req.body;
+    const { messages, model, apiKey: clientKey, provider: clientProvider, baseUrl: clientBaseUrl, disableTools, terminalContext, terminalContextChanged, discuss, partner, partners, discussBeforePlan, maxTurns, sessionId, category, verifyMode, takenOver, persona, role, customInstructions, language, memoryEnabled, permissions, personas, protocol, planMode, plan: presetPlan, agentId: planAgentId, autoReplan, maxRetries } = req.body;
     // Phase 2：把 sessionId 挂到请求上，供流式路径里的 executeToolCall 透传到 /tools/write-file 做副作用快照。
     req._hesiSessionId = sessionId || '';
     // 分类 Chips（两级小功能）：当前对话模式 → 注入 [当前模式] 系统提示段 + Skill 检索加权
@@ -291,10 +291,12 @@ function createRouter(opts = {}) {
       return res.status(400).json({ error: 'messages array is required' });
     }
 
-    // ── 自动执行模式（P2）：把这轮说的话拆成 Plan 并真执行，步骤过程以 SSE 实时可见 ──
-    // 与 AI 讨论并列的第三种回合；两者同时勾选时讨论优先（讨论是「先谈」，执行是「后做」）。
+    // ── 自动执行模式（P2/P6）：把这轮说的话拆成 Plan 并真执行 ──
+    // P6 协作工作流：如果同时选了 CLI Agent 伙伴 → 执行前先多 Agent 讨论，讨论结论注入 Plan 生成器
     if (planMode && !discuss) {
       const userText = (messages[messages.length - 1]?.content || '').toString();
+      const partnerList = Array.isArray(partners) && partners.length ? partners.slice() : [];
+      const doDiscussFirst = !!(discussBeforePlan) || partnerList.length > 0; // 有伙伴则默认启用协作
       try {
         await runPlanTurn(res, {
           objective: userText,
@@ -307,6 +309,8 @@ function createRouter(opts = {}) {
           permissions,
           autoReplan,
           maxRetries,
+          discussBeforePlan: doDiscussFirst,
+          discussionPartners: partnerList,
         });
       } catch (err) {
         if (!res.headersSent) res.status(500).json({ error: err.message });

@@ -11,6 +11,7 @@
 //   普通聊天  → streamOpenAIWithTools / streamAnthropicWithTools
 //   AI 讨论   → runDiscussion（圆桌）
 //   自动执行  → runPlanTurn（本模块）
+//   协作工作流 → runPlanTurn(discussBeforePlan=true) 带 discussPartners（P6）
 //
 // 复用而非重造：
 //   · 计划生成沿用 plan-from-nl.generatePlanFromObjective
@@ -39,6 +40,7 @@ const { generatePlanFromObjective, revisePlan } = require('../ai-tools/plan-from
 const { normalizeStepEvent, emitAsBroadcastFn } = require('../ai-tools/plan-emitter');
 const { registerApproval } = require('../../lib/plan-approval');
 const { workflowManager } = require('../ai-tools/workflow-manager');
+const { runRoundtable } = require('./discuss');
 const { sinkPlanToIndex } = require('../ai-tools/plan-rag-sink');
 const { sse, openSseStream, startHeartbeat, watchDisconnect } = require('./sse-util');
 
@@ -101,6 +103,9 @@ function summarizePlan(plan, execId) {
  * @param {object} [p.workflowManager]
  * @param {Function} [p.generatePlanFn] 注入计划生成器（默认 plan-from-nl.generatePlanFromObjective）；
  *   与 run-plan 的 revisePlanFn 同风格，便于测试覆盖「生成阶段断开」等分支。
+ * @param {boolean} [p.discussBeforePlan]  执行前先与 discussionPartners 多 Agent 圆桌讨论（P6 协作工作流）
+ * @param {string[]} [p.discussionPartners] 讨论伙伴（CLI Agent id 数组），讨论结论注入 Plan 生成器
+ * @param {object} [p.budget]              预算约束
  * @returns {Promise<void>}
  */
 async function runPlanTurn(res, p = {}) {
@@ -128,13 +133,77 @@ async function runPlanTurn(res, p = {}) {
   let result = null;
   const startedAt = Date.now();
 
+  // ── P6 协作工作流：讨论伙伴 ──
+  const discussPartners = (Array.isArray(p.discussionPartners) && p.discussionPartners.length)
+    ? p.discussionPartners.slice() : [];
+  const discussBeforePlan = !!(p.discussBeforePlan) && discussPartners.length > 0 && !presetPlan;
+  let discussionSummary = null;
+
+  // checkpoint 讨论 factory：执行阶段遇到 checkpoint 步时由 runPlan 回调，
+  // 复用同一组伙伴进行局部讨论，产出结论注入后续步骤。
+  const makeCheckpointDiscuss = () => {
+    if (!discussPartners.length) return null;
+    return async (question) => {
+      emit('phase', { phase: 'discuss', label: '💬 检查点讨论…' });
+      try {
+        const out = await runRoundtable({
+          message: question,
+          partners: discussPartners,
+          maxTurns: 2,
+          apiKey: runtime.apiKey,
+          provider: runtime.provider,
+          baseUrl: runtime.baseUrl,
+          model: runtime.model,
+          budget: p.budget,
+          onEvent: (type, payload) => {
+            if (type === 'error') emit('discussion-error', payload || {});
+            else emit(`discuss-${type}`, payload || {});
+          },
+          shouldAbort: () => watcher.isAborted(),
+        });
+        return (out && out.summary) || '';
+      } catch { return ''; }
+    };
+  };
+
   try {
+    // ── 0. 协作工作流：前置多 Agent 讨论 ──
+    if (discussBeforePlan) {
+      emit('phase', { phase: 'discuss', label: '💬 AI 助手 + CLI Agents 讨论中…' });
+      try {
+        const dr = await runRoundtable({
+          message: objective,
+          partners: discussPartners,
+          maxTurns: p.maxTurns || 4,
+          apiKey: runtime.apiKey,
+          provider: runtime.provider,
+          baseUrl: runtime.baseUrl,
+          model: runtime.model,
+          budget: p.budget,
+          onEvent: (type, payload) => {
+            if (type === 'error') emit('discussion-error', payload || {});
+            else emit(`discuss-${type}`, payload || {});
+          },
+          shouldAbort: () => watcher.isAborted(),
+        });
+        discussionSummary = (dr && dr.summary) ? dr.summary : '';
+        emit('phase', { phase: 'discuss_done', label: '✅ 讨论完成，方案制定中…' });
+      } catch (de) {
+        emit('discussion-error', { message: de.message });
+        discussionSummary = null;
+      }
+      if (watcher.isAborted()) {
+        emit('cancelled', { execId, phase: 'discuss', reason: '客户端断开' });
+        return;
+      }
+    }
+
     // ── 1. 自然语言 → Plan ──
     if (!plan) {
       emit('status', { message: '正在把目标拆解成可执行步骤…' });
       const genFn = typeof p.generatePlanFn === 'function' ? p.generatePlanFn : generatePlanFromObjective;
       try {
-        plan = await genFn(objective, runtime);
+        plan = await genFn(objective, runtime, { discussionContext: discussionSummary || undefined });
       } catch (e) {
         emit('error', { message: e.message || '计划生成失败', code: e.code || 'GEN_FAILED', phase: 'generate' });
         return;
@@ -179,6 +248,8 @@ async function runPlanTurn(res, p = {}) {
       runtimeIntercept: !!(plan.runtimeIntercept || fullAuto || process.env.HESI_PLAN_RUNTIME_INTERCEPT === '1'),
       // 轨道 B（AI 管线）步骤的 token/status/tool_call 实时事件桥接到同一 SSE 通道
       broadcastFn: emitAsBroadcastFn(emit),
+      // P6：checkpoint 步自动触发讨论（复用同一组伙伴）
+      roundtableFn: makeCheckpointDiscuss(),
     });
 
     // ── 4. RAG 回流（失败不影响主流程）──
@@ -201,6 +272,8 @@ async function runPlanTurn(res, p = {}) {
       reflection: (result && result.reflection) || null,
       attempts: (result && result.attempts) || null,
       durationMs: Date.now() - startedAt,
+      discussed: !!discussionSummary,
+      discussionSummary: discussionSummary || '',
     });
   } catch (err) {
     // 异常不吞：保留 message，stack 落服务端日志便于归因
