@@ -145,13 +145,29 @@ test('_pathTokens 排除 2>/dev/null 等标准错误重定向', () => {
 
 test('_pathTokens 保留绝对路径，排除相对路径和重定向', () => {
   // 相对路径（裸路径 / ./ ../）不再保留——天然在 cwd 内不存在越界风险
-  const tokens = _pathTokens('cp src/index.js dist/index.js /tmp/out 2>/dev/null');
+  const tokens = _pathTokens('cp src/index.js dist/index.js /etc/passwd 2>/dev/null');
   assert.ok(!tokens.includes('src/index.js'), '裸相对路径 src/index.js 应排除');
   assert.ok(!tokens.includes('dist/index.js'), '裸相对路径 dist/index.js 应排除');
-  // 绝对路径仍保留
-  assert.ok(tokens.includes('/tmp/out'), '绝对路径 /tmp/out 应保留');
+  // 越界绝对路径仍保留
+  assert.ok(tokens.includes('/etc/passwd'), '绝对路径 /etc/passwd 应保留');
   // 重定向仍排除
   assert.ok(!tokens.includes('2>/dev/null'), '不应包含 2>/dev/null');
+});
+
+// 系统路径豁免（isSystemPath）：临时目录写文件、调用系统命令都不是 scope 越界
+test('_pathTokens 豁免系统临时目录与系统命令目录', () => {
+  assert.deepEqual(_pathTokens('cp a.txt /tmp/out'), [], '/tmp 是系统临时工作区，应豁免');
+  assert.deepEqual(_pathTokens('cp a.txt /var/tmp/out'), [], '/var/tmp 同样豁免');
+  assert.deepEqual(_pathTokens('/usr/bin/git status'), [], '调用系统命令不是文件越界');
+  assert.deepEqual(_pathTokens('/bin/ls -la'), []);
+});
+
+// 安全回归：豁免不能被 ../ 穿越绕过，否则 /tmp 前缀就成了任意路径通行证
+test('_pathTokens 系统路径豁免不被目录穿越绕过', () => {
+  const t = _pathTokens('cat /tmp/../etc/passwd');
+  assert.ok(t.length > 0, '/tmp/../etc/passwd 归一化后落在 /etc，必须被判为越界');
+  const t2 = _pathTokens('cat /usr/bin/../../etc/shadow');
+  assert.ok(t2.length > 0, '系统命令目录同样不得被穿越绕过');
 });
 
 test('_pathTokens 排除 /dev/null 系统设备路径', () => {

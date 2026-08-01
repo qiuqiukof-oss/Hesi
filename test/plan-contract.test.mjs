@@ -67,30 +67,39 @@ test('决策②：无 roundtableFn → 严格退回需人补 acceptance', async 
   assert.ok(r.reason.includes('acceptance'));
 });
 
-test('决策②：roundtable 首轮即推导成功 → 通过，记录轮数', async () => {
+// 契约（现行）：一次「多轮圆桌」调用（maxTurns=rounds），而不是 rounds 次单轮调用。
+// 一次多轮更易收敛出 verify，且单次失败即快速回退，不再空转烧资源。
+test('决策②：一次多轮圆桌推导成功 → 通过，rounds 作为轮数预算传下去', async () => {
   const step = { id: 's2', goal: 'g', action: 'a' };
+  let calls = 0;
+  let passedRounds = null;
   const r = await resolveCheckpoint(machinePlan(), step, {
     rounds: 3,
-    roundtableFn: async () => ({ kind: 'command', command: 'npm run lint', expect: '0 error' }),
-  });
-  assert.strictEqual(r.ok, true);
-  assert.strictEqual(r.usedRoundtable, true);
-  assert.strictEqual(r.roundsUsed, 1);
-  assert.ok(r.derivedVerify && r.derivedVerify.kind === 'command');
-});
-
-test('决策②：roundtable 第 2 轮成功', async () => {
-  const step = { id: 's2', goal: 'g', action: 'a' };
-  let n = 0;
-  const r = await resolveCheckpoint(machinePlan(), step, {
-    rounds: 3,
-    roundtableFn: async () => {
-      n++;
-      return n < 2 ? null : { kind: 'script', command: 'node check.js' };
+    roundtableFn: async (arg) => {
+      calls++;
+      passedRounds = arg.rounds;
+      return { kind: 'command', command: 'npm run lint', expect: '0 error' };
     },
   });
   assert.strictEqual(r.ok, true);
-  assert.strictEqual(r.roundsUsed, 2);
+  assert.strictEqual(r.usedRoundtable, true);
+  assert.strictEqual(calls, 1, '只应发起一次多轮圆桌，而非逐轮重试');
+  assert.strictEqual(passedRounds, 3, '轮数预算应整体交给圆桌');
+  assert.ok(r.derivedVerify && r.derivedVerify.kind === 'command');
+});
+
+// 契约（现行）：command 与 expect 必须同时具备——缺 expect 则机器无从判定成功，
+// 等同不可验证，必须退回人工补 acceptance，绝不放行。
+test('决策②：圆桌产出缺 expect → 视为不可验证，退回需人补 acceptance', async () => {
+  const step = { id: 's2', goal: 'g', action: 'a' };
+  const r = await resolveCheckpoint(machinePlan(), step, {
+    rounds: 3,
+    roundtableFn: async () => ({ kind: 'script', command: 'node check.js' }), // 无 expect
+  });
+  assert.strictEqual(r.ok, false);
+  assert.strictEqual(r.needsAcceptance, true);
+  assert.strictEqual(r.fellBack, true);
+  assert.ok(r.reason.includes('expect'), `退回原因应点明缺 expect，实际：${r.reason}`);
 });
 
 test('决策②：roundtable 始终 null → 耗尽轮数退回需人补', async () => {
