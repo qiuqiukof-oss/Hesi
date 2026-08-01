@@ -123,6 +123,80 @@ function extractJson(text) {
 }
 
 /**
+ * 判断模型输出是否「疑似被 max_tokens 截断」（JSON 不完整）。
+ * 已能 JSON.parse 的视为完整；否则用括号配平 + 结尾字符粗判。
+ * 仅用于决定是否触发续写，误判代价低（续写不成功仍会走原 repair 路径）。
+ */
+function looksTruncated(text) {
+  if (!text || typeof text !== 'string') return false;
+  const t = text.trim();
+  if (!t.includes('{') && !t.includes('[')) return false;
+  try { JSON.parse(t); return false; } catch { /* 继续判断 */ }
+  const opens = (t.match(/\{/g) || []).length + (t.match(/\[/g) || []).length;
+  const closes = (t.match(/\}/g) || []).length + (t.match(/\]/g) || []).length;
+  if (opens > closes) return true;          // 开括号多于闭括号 → 一定没闭合
+  if (!/[}\]]\s*$/.test(t)) return true;     // 不以闭括号结尾 → 多半断在中间
+  return false;
+}
+
+/** 清理模型续写输出里的 ```json 围栏与首尾空白。 */
+function _cleanContinuation(cont) {
+  let s = String(cont || '').trim();
+  s = s.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim();
+  return s;
+}
+
+/**
+ * 把「被截断的 partial」与「模型续写的 remainder」合并：
+ * - 若续写本身是一个完整 JSON（模型重启式输出），优先直接用续写。
+ * - 否则把 remainder 追加到 partial 末尾。
+ */
+function _mergePartial(partial, cont) {
+  const c = _cleanContinuation(cont);
+  if (!c) return partial;
+  if (c.startsWith('{') || c.startsWith('[')) {
+    const asFull = extractJson(c);
+    if (asFull) return c; // 模型输出了完整 JSON，直接用
+  }
+  return partial + '\n' + c;
+}
+
+/** 构造「从中断处继续输出剩余 JSON」的续写提示（无状态，靠尾部片段提供上下文）。 */
+function buildContinuePrompt(partial) {
+  const tail = String(partial || '').slice(-3500); // 取末尾片段，避免输入超限
+  return [
+    '你刚才生成的 JSON 被输出长度限制截断了。下面是已被截断的尾部内容：',
+    '```json',
+    tail,
+    '```',
+    '请从中断处【继续】输出剩余的 JSON 内容（只输出剩余部分，不要重复上面已出现的内容，也不要添加任何解释文字），并确保整个结构最终以 } 闭合。',
+  ].join('\n');
+}
+
+/**
+ * 调用 LLM 生成 JSON，并带「截断感知续写」：
+ * 若首轮响应被 max_tokens 截断（JSON 不完整），自动请求模型从中断处继续，
+ * 最多重试 maxContinuations 次，避免复杂 plan 因硬上限被砍断而整轮报废。
+ * @returns {Promise<{raw:string, plan:object|null, continued:boolean}>}
+ */
+async function completePlanJson(system, user, runtime, { maxContinuations = 3 } = {}) {
+  const { apiKey, provider, model, baseUrl } = runtime || {};
+  let raw = await complete(system, user, { apiKey, provider, model, baseUrl });
+  let plan = extractJson(raw);
+  if (plan) return { raw, plan, continued: false };
+  if (!looksTruncated(raw)) return { raw, plan: null, continued: false };
+  console.warn('[PlanGen] 首轮响应疑似被截断，启用续写（最多 %d 轮）', maxContinuations);
+  for (let i = 0; i < maxContinuations; i++) {
+    const cont = await complete(buildContinuePrompt(raw), '', { apiKey, provider, model, baseUrl });
+    raw = _mergePartial(raw, cont);
+    plan = extractJson(raw);
+    console.warn('[PlanGen] 续写第 %d 轮：提取 %s', i + 1, plan ? '成功' : '失败');
+    if (plan) return { raw, plan, continued: true };
+  }
+  return { raw, plan: null, continued: true };
+}
+
+/**
  * 结构修复（sanitize）：把 LLM 返回的「形状近似但内部畸形」的 plan 修正为合法形状。
  *
  * 轻量模型（flash 等）常见问题：
@@ -290,9 +364,10 @@ async function generatePlanFromObjective(text, runtime = {}, opts = {}) {
     const dc = String(discussionContext).slice(0, 6000);
     userMsg += `\n\n【多角色讨论结论（仅供参考，最终 Plan 必须对齐上方原始目标并满足机器可验证）】\n${dc}\n\n请吸收上述角色观点，产出结构化、可机器验证的 Plan JSON。`;
   }
-  let raw;
+  let raw, plan, continued = false;
   try {
-    raw = await complete(SYSTEM_PROMPT, userMsg, { apiKey, provider, model, baseUrl });
+    const gen = await completePlanJson(SYSTEM_PROMPT, userMsg, { apiKey, provider, model, baseUrl });
+    raw = gen.raw; plan = gen.plan; continued = gen.continued;
   } catch (e) {
     // 结构化 LLM 错误 → 透传具体原因，帮助用户定位问题
     if (e instanceof LLMError) {
@@ -317,6 +392,7 @@ async function generatePlanFromObjective(text, runtime = {}, opts = {}) {
   // ── 诊断日志：输出 LLM 原始响应（关键！用于排查模型返回格式问题）──
   console.log('[PlanGen] LLM 原始响应长度:', String(raw || '').length);
   console.log('[PlanGen] LLM 原始响应前 800 字符:', String(raw || '').slice(0, 800));
+  console.log('[PlanGen] 截断续写触发:', continued ? '是' : '否');
   if (!raw) {
     const e = new Error(
       '无法从自然语言生成 plan：模型返回空响应。请检查模型名称是否正确，或尝试切换模型。'
@@ -324,7 +400,7 @@ async function generatePlanFromObjective(text, runtime = {}, opts = {}) {
     e.code = 'GEN_EMPTY';
     throw e;
   }
-  let plan = extractJson(raw);
+  // plan 可能已由 completePlanJson 的续写路径提取成功；此处仅作诊断日志前的占位
   // ── 诊断日志：JSON 抽取结果 ──
   console.log('[PlanGen] extractJson 结果:', plan ? '成功（object）' : '失败（null）');
   if (plan) {
@@ -520,9 +596,10 @@ async function revisePlan(prevPlan, prevResult, runtime = {}, failureContext) {
     '',
     '请产出修订后的 Plan JSON。',
   ].filter(Boolean).join('\n');
-  let raw;
+  let raw, plan;
   try {
-    raw = await complete(SYSTEM_REVISE, userMsg, { apiKey, provider, model, baseUrl });
+    const gen = await completePlanJson(SYSTEM_REVISE, userMsg, { apiKey, provider, model, baseUrl });
+    raw = gen.raw; plan = gen.plan;
   } catch (e) {
     if (e instanceof LLMError) {
       const ne = new Error(`无法修订 plan: ${e.message}`);
@@ -533,7 +610,6 @@ async function revisePlan(prevPlan, prevResult, runtime = {}, failureContext) {
     throw e;
   }
   if (!raw) return null;
-  let plan = extractJson(raw);
   if (!plan) return null;
   let v = validatePlan(plan);
   if (!v.ok) {
