@@ -1,6 +1,6 @@
 <p align="center">
-  <strong>Hesi（合思）— 浏览器里的多 Agent 圆桌讨论平台</strong><br>
-  <em>让多个 AI Agent 围一桌，多轮辩论你的代码 / 终端 / ALL任务</em>
+  <strong>Hesi（合思）v0.7.0 — 全自动多 Agent 协作工作流</strong><br>
+  <em>AI 讨论 → 制定方案 → AI 讨论审查 → 实施 → AI 讨论审核 → 报告 · 一条聊天消息全自动跑完</em>
 </p>
 
 <p align="center">
@@ -8,9 +8,6 @@
   <a href="https://github.com/qiuqiukof-oss/Hesi/releases"><img src="https://img.shields.io/github/v/release/qiuqiukof-oss/Hesi?color=blue" alt="Release"></a>
   <a href="https://github.com/qiuqiukof-oss/Hesi/stargazers"><img src="https://img.shields.io/github/stars/qiuqiukof-oss/Hesi?style=flat&color=yellow" alt="Stars"></a>
   <a href="https://nodejs.org/en/"><img src="https://img.shields.io/badge/node-%3E%3D18.0.0-brightgreen" alt="Node Version"></a>
- <img width="2549" height="1191" alt="a6d1bd8740c54c5bae68892be82b5011" src="https://github.com/user-attachments/assets/aceabec4-a18e-41a6-9262-fc6886e9d710" />
-
-
 </p>
 
 <p align="center">
@@ -20,7 +17,7 @@
 </p>
 
 <p align="center">
-  <b>把浏览器变成你的 AI 协作中枢</b> — 选一个议题，让 AI 助手与 opencode / codex / aider 等 CLI Agent 围桌辩论、互相质疑、收敛方案。
+  <b>v0.7 核心：同时勾选 💬 AI讨论 + ⚡ 自动执行 → 多 Agent 先讨论再实施方案，</b>从目标输入到交付报告一条 SSE 流跑通，所有结果沉淀在聊天框中。
 </p>
 
 ---
@@ -38,11 +35,12 @@
 | 你想… | 怎么做 |
 |------|--------|
 | 🖥️ **先看效果**（无需安装） | [▶ 在线体验圆桌 Demo](https://qiuqiukof-oss.github.io/Hesi/) |
-| 💻 **零安装试用**（推荐新手） | 下载 [v0.4.1 桌面托盘版](https://github.com/qiuqiukof-oss/Hesi/releases/tag/v0.4.1)，解压后双击 `tray.bat`（Windows）/ `./tray.sh`（macOS/Linux），浏览器自动打开 `http://127.0.0.1:4264` |
+| 💻 **零安装试用**（推荐新手） | 下载 [v0.7.0 桌面托盘版](https://github.com/qiuqiukof-oss/Hesi/releases/tag/v0.7.0)，解压后双击 `tray.bat`（Windows）/ `./tray.sh`（macOS/Linux），��览器自动打开 `http://127.0.0.1:4264` |
 | 🛠️ **从源码运行**（开发者） | `git clone` → `npm install` → `npm run build` → `npm start`，打开 `http://127.0.0.1:4264` |
-| 🤖 **让 AI Agent 围桌讨论** | 在「设置」里填入 `OPENAI_API_KEY` 或 `ANTHROPIC_API_KEY`，回到聊天框点「AI 讨论」，选 2–4 个 CLI Agent，输入议题 |
+| 🤖 **多 Agent 围桌讨论** | 在「设置」里填入 LLM API Key → 聊天框勾选 💬 AI讨论 → 选 1–4 个 CLI Agent（opencode / codex / aider） → 输入议题 |
+| ⚡ **全自动协作工作流** | 同时勾选 💬 AI讨论 + ⚡ 自动执行 → 选 CLI Agent 伙伴 + 设定讨论轮数 → 输入目标 → AI 自动完成「讨论→方案→实施→审核→报告」全流程 |
 
-> 💡 首次打开不知道干什么？试试：**点「AI 讨论」→ 选 opencode + aider → 输入「帮我设计这个项目的日志模块」**，看它们怎么辩论。
+> 💡 **v0.7 推荐试法**：同时勾选 💬+⚡，选 opencode 作为伙伴，输入「在 p4-chat-test 目录创建一个 hello.txt 写 Hello Hesi v0.7.0，验证文件存在且内容正确」。观察五阶段如何在聊天框实时推进。
 
 📖 **完整新手指南**：[docs/getting-started.md](./docs/getting-started.md) ｜ 🧑‍💻 **贡献者指南**：[CONTRIBUTING.md](./CONTRIBUTING.md)
 
@@ -50,8 +48,10 @@
 
 ## ✨ 为什么选择 Hesi
 
-- 🤝 **多 Agent 圆桌协作** — AI 助手与 opencode / codex / aider 等 CLI Agent 多轮辩论，互相质疑、补充、收敛方案，不再是单打独斗。
-- 🛡️ **无头执行，互不串台** — CLI Agent 在后台无头运行，输出为干净纯文本；与你的交互终端彻底解耦，体验干净不打架。
+- 🤝 **全自动协作工作流（v0.7）** — 同时勾选 💬+⚡，AI 助手+CLI Agent 自动跑完「讨论→方案制定→方案审查→实施→审核→报告」六阶段，一条聊天消息闭环交付。
+- 💬 **多 Agent 圆桌讨论** — AI 助手与 opencode / codex / aider 等 CLI Agent 多轮辩论，互相质疑、补充、收敛方案，讨论结论自动注入 Plan 生成器。
+- ⚡ **NL→Plan 自动执行** — 自然语言输入直接拆解为可执行步骤，逐步运行、实时流式输出；断开即取消、审批对话化、错误栈可展开。
+- 🛡️ **git 保护（stash 快照）** — Plan 执行不切分支、不污染工作树、不丢失未跟踪文件；git stash create 悬空 commit 快照，随时可回滚。
 - 🔒 **本地优先，可审计** — 所有会话、记忆、命令日志本地落盘；MIT 开源，自托管，开箱默认仅监听本机回环。
 
 ---
@@ -145,9 +145,21 @@
 
 > 隐私：所有记忆均在 `data/memory/` 本地，不外接任何云；`facts.json` / `profile.md` 用户可手动编辑或删除。
 
-### 🤝 AI 助手 × CLI Agent 协作讨论（圆桌）
+### 🤝 AI 助手 × CLI Agent 协作工作流（v0.7 核心）
 
-> 本功能是 Hesi 的核心协作场景：让「AI 助手」与一个或多个「CLI Agent（如 opencode）」就同一问题展开**多轮讨论**，互相质疑、补充、细化方案。
+> **同时勾选 💬 AI讨论 + ⚡ 自动执行**，多 Agent 先讨论再实施方案，一条 SSE 流跑通全流程。
+
+- **六阶段自动推进**：① 💬 目标分析讨论（N 轮） → ② 📋 方案生成（讨论结论注入） → ③ 💬 方案审查讨论 → ④ ⚡ 逐步实施（checkpoint 步自动触发局部讨论） → ⑤ 💬 结果审核讨论（仅失败时） → ⑥ ✅ 报告
+- **讨论轮数可配** — 前端控件设置讨论轮次，控制推理深度与 token 消耗
+- **审批对话化** — 需人工审批的步骤以聊天气泡形式内联展示（✅通过/⛔驳回），无需跳出聊天界面
+- **断开即取消** — 页面关闭/刷新时自动终止执行子进程（`AbortController` → `child.kill('SIGKILL')`），不残留僵尸进程
+- **错误栈可展开** — 步骤失败时红色气泡嵌入堆栈查看（`<details>` 可折叠）
+- **输出自动落盘** — 每步结果写入 `data/plan-outputs/<execId>-<stepId>.log`，可审计可回溯
+- **总结保留** — 每轮讨论后产出结构化结论，以 📋 气泡形式嵌入聊天卡片
+
+### 🤝 AI 助手 × CLI Agent 圆桌讨论（独立模式）
+
+> 仅勾选 💬 AI讨论时，为经典的多 Agent 辩论场景。
 
 - **多选讨论伙伴** — 在聊天面板点「讨论」按钮，从已发现的 CLI Agent 中多选（最多 4 个）作为讨论对象
 - **多轮迭代** — 支持配置讨论轮次（rounds），AI 助手与 Agent 交替发言，逐轮收敛
@@ -261,11 +273,15 @@ npm run mcp            # 独立启动 MCP 服务
 
 | 变量 | 默认值 | 说明 |
 |------|--------|------|
-| `PORT` | `3001` | HTTP 服务端口 |
+| `PORT` | `4264` | HTTP 服务端口 |
 | `HOST` | `loopback` | 监听地址；设为 `0.0.0.0` 会打印高危警告 |
 | `OPENAI_API_KEY` / `ANTHROPIC_API_KEY` | — | 各 LLM 提供商 Key（可选） |
 | `STABILITY_API_KEY` / `BING_SEARCH_API_KEY` / `TAVILY_API_KEY` | — | 图像/搜索 Key（可选） |
 | `PANDOC_PATH` | — | Pandoc 路径（可选，文档转换） |
+| `HESI_LLM_BASE_URL` | — | 本地 LLM Base URL（覆盖 OpenAI 兼容端点） |
+| `HESI_PLAN_OUTPUT_DIR` | `data/plan-outputs` | 协作工作流输出落盘目录 |
+| `HESI_PLAN_RAG_SINK` | `0` | 设为 `1` 开启 Plan 执行结果 RAG 回流 |
+| `HESI_PLAN_MAX_RETRIES` | `2` | 自动重试上限 |
 | `QCLI_ACCESS_TOKEN` | `""` | 访问令牌；设置后所有敏感 `/api` 与 WebSocket 需鉴权（loopback 默认豁免） |
 | `QCLI_TOKEN_REQUIRE_LOOPBACK` | `""` | 设为 `1` 时即使本机回环也强制令牌 |
 | `QCLI_CORS_ORIGINS` | `""` | 逗号分隔的跨域白名单 |
@@ -320,11 +336,13 @@ Linux  ：在终端运行 ./tray.sh
 │   ├── digital-employee-worker.js # 数字员工任务执行器（复用 agentPool，真实跑任务）
 │   └── context-store.js    # 共享上下文存储
 ├── routes/                # RESTful API 路由
-│   ├── chat/              # AI 聊天 + discuss（AI × CLI Agent 圆桌）
-│   ├── ai-tools/          # Agent 池（agent-pool.js）+ 同步委派（builtin/agent.js）
+│   ├── chat/              # AI 聊天 + plan-turn（协作工作流编排）+ discuss（圆桌讨论）
+│   ├── ai-tools/          # run-plan（双轨执行器）/ plan-from-nl（NL→Plan 生成器）/ plan-emitter（事件桥接）
 │   ├── clis.js / agents.js # CLI / Agent 发现（含 category，支撑收藏夹同步）
 │   └── ...                # 其余路由
 ├── lib/
+│   ├── plan-git.js         # git stash 快照 + 回滚（不建分支、不污染工作树）
+│   ├── plan-approval.js    # 共享审批登记表（对话式审批闸）
 │   ├── cli-headless.js     # headless Agent 描述表（opencode/claude/codex/aider，均 stdin 注入）
 │   ├── asset-hash.js       # bundle.js/lazy-bundle.js 内容哈希（?v= 缓存击穿）
 │   ├── terminal-clean.js   # TUI 转义清洗（CSI/OSC/裸 ESC 流式清洗）
@@ -339,52 +357,31 @@ Linux  ：在终端运行 ./tray.sh
 └── node/                  # 便携 Node.js 运行时（离线包用）
 ```
 
-## 🔭 架构愿景：全自动多 Agent 执行闭环（Architecture Vision）
+## 🔭 架构：全自动多 Agent 执行闭环（v0.7 已落地）
 
-> ⚠️ **设计方向 · Phase 0 待实施** — 以下内容目前处于架构设计与讨论阶段，**尚未在已发布版本中落地**。
-> 它记录 Hesi 独特的「多 Agent 协作中枢 + 本地执行 + 结构化治理」思路与落地路径，不是现成功能清单。
+Hesi v0.7 已将「多 Agent 协作中枢 + 本地执行 + 结构化治理」的架构愿景落地为可用功能。核心闭环：
 
-我们的差异点不在"比单 Agent 编码工具更能写代码"，而在**协作与治理**：让多个 AI 围桌辩论推演出可审计的方案，再在本地安全地逐步执行、反思、重规划。
-
-```mermaid
-flowchart TD
-    S[Scheduler 调度器<br/>读结果触发下一步 / 重规划]
-    P[规划 Planner<br/>圆桌多 Agent 推演 → plan.md]
-    E[执行 Executor<br/>plan → workflow DAG 逐步执行]
-    R[反思 Re-Planner<br/>读结果 → 改图 / 回滚]
-    T[信任边界 Trust Boundary<br/>快照点 · 权限分级 · 预算熔断]
-
-    P -->|产出结构化 plan| E
-    E -->|采集执行结果| R
-    R -->|重规划 / 回滚| P
-    S -.驱动.-> P
-    S -.驱动.-> E
-    S -.驱动.-> R
-    P --> T
-    E --> T
-    R --> T
+```
+💬 AI 讨论（圆桌，多 Agent 辩论）
+  → 📋 方案生成（讨论结论注入 NL→Plan 转换器）
+  → 💬 方案审查讨论（JSON 方案回喂给伙伴审查）
+  → ⚡ 实施（双轨执行：命令直执 + AI 管线，checkpoint 触发二次讨论）
+  → 💬 结果审核（仅失败/异常时触发）
+  → ✅ 报告（验收结论 + 输出落盘 + RAG 回流）
 ```
 
-### 为什么独特（Why Hesi is different）
+### 已落地
 
-- 🤝 **圆桌多视角审视** — 多 Agent 辩论互相质疑，比单 Agent 长程 ReAct 更不易钻牛角尖（对标 Codex / Claude Code 的单 Agent 编码循环）。
-- 📝 **结构化可审计 Plan** — 方案收敛为带 frontmatter 的 `plan.md`，人能直接 `cat` 看懂、可 diff、可回溯，而非埋在对话历史里。
-- 💾 **git 快照可恢复** — 每个不可逆操作前自动提交快照，出事可精准回滚；本地优先、数据不出本机。
-- 🛡️ **显式错误分类 + 预算熔断** — 瞬态错误重试、契约错误挂起、连续重复触发 `TOOL_LOOP_GUARD` 熔断，比"跑到 token 耗尽撞墙"更可控、可审计。
-
-### 落地路径（Roadmap）— 复用而非重建
-
-Hesi 已有 60–70% 底座，无需从零造：
-
-| 愿景角色 | Hesi 现有底座 | 仍需新建 |
-|---------|--------------|---------|
-| Planner（多轮推演） | `routes/chat/discuss.js` 圆桌讨论 | 收敛为结构化 `plan.md` |
-| Executor（跑命令/改文件） | `routes/ai-tools/workflow-manager.js` DAG 引擎（`dependsOn`/重试/失败策略） | plan→DAG 转换器 |
-| 经济终止 / 循环熔断 | `TOOL_LOOP_GUARD`（连续重复守卫，默认 15） | 提为全局预算守卫 |
-| Plan 协议 | 你 `.workbuddy/<topic>-plan.md` 约定 | frontmatter 标准化 |
-| 调度器 Scheduler | 无（唯一需新建的常驻件） | 轻量轮询脚本 |
-
-> 详见项目内设计文档：`.workbuddy/全自动-架构思考.md`（含无 HITL 三盲区、12 维度考量、过度设计预警）。
+| 组件 | 位置 | 说明 |
+|------|------|------|
+| 圆桌讨论引擎 | `routes/chat/discuss.js` | AI 助手 + CLI Agent 多轮辩论 |
+| Plan 生成器 | `routes/ai-tools/plan-from-nl.js` | NL→结构化 Plan JSON，讨论结论可注入 |
+| 双轨执行器 | `routes/ai-tools/run-plan.js` | spawn 流式执行（命令）+ AI 管线（工具调用） |
+| 协作编排器 | `routes/chat/plan-turn.js` | 六阶段自动推进：讨论→方案→审查→实施→审核→报告 |
+| 审批闸 | `lib/plan-approval.js` | 共享登记表，对话内联气泡（通过/驳回） |
+| git 快照 | `lib/plan-git.js` | stash create 悬空 commit，不建分支、不污染工作树 |
+| 输出落盘 | `routes/ai-tools/run-plan.js` | `data/plan-outputs/` → `.log` + `.json` 摘要 |
+| 流式通道 | SSE + plan-stream.js | `step_chunk` 实时输出、`phase` 阶段头、`collab_summary` 讨论结论
 
 ---
 
@@ -409,18 +406,12 @@ Hesi 已有 60–70% 底座，无需从零造：
 
 ## 测试
 
-回归套件位于 `plans/`（纯 Node 脚本，无需框架）：
-
 ```bash
-node plans/verify-terminal-clean.js          # 终端转义清洗（9 项）
-node plans/test-discuss.js                  # 讨论协调器模块契约回归（7 项：加载/导出/形状/异步/arity/缓存）
-node plans/test-stability-regression.js     # 稳定性回归（37 项：工具中断/限流/流完结/环检测）
-```
+# 全量 Plan 测试（139 用例）
+node --test test/plan-git.test.mjs test/run-plan.test.mjs test/plan-routes.test.mjs test/plan-turn.test.mjs test/plan-approval.test.mjs test/plan-output.test.mjs test/exec-step-stream.test.mjs test/plan-agent-selection.test.mjs test/run-plan-retry.test.mjs test/plan-inflight-dedup.test.mjs
 
-语法与结构检查：
-
-```bash
-npm run check:server    # 全部服务端模块 node --check 语法检查
+# 语法与结构检查
+npm run check:server    # 全部服务端模块 node --check
 npm run lint            # ESLint
 ```
 
