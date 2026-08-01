@@ -109,13 +109,13 @@ const RoundTableView = {
   resolveSkin() {
     try {
       const stored = getStore().get('qcli-roundtable-skin', 'hearth');
-      if (stored && SKINS[stored]) return stored;
+      if (stored && _skins()[stored]) return stored;
     } catch { /* ignore */ }
     return 'hearth';
   },
 
   setSkin(id) {
-    if (!SKINS[id]) return;
+    if (!_skins()[id]) return;
     this.skin = id;
     this.skinObj = getSkin(id);
     applySkin(this.rt, id);
@@ -842,7 +842,7 @@ const RoundTableView = {
     const el = document.getElementById('mahjong-embed');
     if (!el) return;
     el.classList.remove('hidden');
-    if (skin && SKINS[skin]) this.setSkin(skin);
+    if (skin && _skins()[skin]) this.setSkin(skin);
     if (!this._stateLoaded) { this._stateLoaded = true; this.fetchState(); }
   },
   close() {

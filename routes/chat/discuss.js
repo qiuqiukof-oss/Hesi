@@ -50,7 +50,8 @@ const AI_SYSTEM_PROMPT = `你正在参与一场与另一个 CLI AI 编程助手�
  * @param {{question:string, transcript?:string, round:number, persona?:{name?:string,role?:string,viewpoint?:string}, protocol?:string}} opts
  * @returns {string}
  */
-function buildCliTask({ question, transcript, round, persona, protocol }) {
+function buildCliTask({ question, transcript, round, persona, protocol, cwd }) {
+  const cwdNote = cwd ? `\n【当前工作目录】${cwd}\n请在讨论开始前先执行: cd "${cwd}"` : '';
   let header = '';
   if (persona && (persona.name || persona.role || persona.viewpoint)) {
     const name = persona.name || 'CLI Agent';
@@ -199,14 +200,14 @@ function compactTranscriptForCli(transcript) {
 }
 
 // 跑一轮 CLI Agent 发言：每次新开 session（task 含完整记录），轮询到完成
-async function runCliTurn({ partner, persona, protocol }, question, transcript, round, onToken, shouldAbort) {
+async function runCliTurn({ partner, persona, protocol }, question, transcript, round, onToken, shouldAbort, cwd) {
   // 单次尝试：启动 CLI Agent 并轮询其输出，返回 { full, terminal, ok }。
   // terminal 记录终止原因（done/error/timeout/cancelled/aborted/silence-timeout/start-failed/callback），
   // 供上层给出明确的失败说明，避免「启动横幅后静默跳过」这类无信息表现。
   const attempt = async () => {
     // 早期轮次压缩摘要 + 最近 2 轮逐字（HESI_CLI_DIGEST=0 关闭压缩，恢复完整记录）
     const forCli = process.env.HESI_CLI_DIGEST === '0' ? transcript : compactTranscriptForCli(transcript);
-    const task = buildCliTask({ question, transcript: forCli, round, persona, protocol });
+    const task = buildCliTask({ question, transcript: forCli, round, persona, protocol, cwd });
     const started = JSON.parse(await agentPool.start(partner, task, '', null));
     if (!started.ok) {
       return { full: `（无法启动 CLI Agent「${partner}」：${started.error}）`, terminal: 'start-failed', ok: false };
@@ -412,7 +413,7 @@ function tokenSet(text) {
 // 纯圆桌函数（无 SSE 依赖）：供 runDiscussion（SSE 包装）与 plan 的 resolveCheckpoint 复用。
 // 通过 onEvent(type, payload) 发射事件，shouldAbort() 用于中断检测。
 // budget: { maxTokens?, maxMinutes? }（0/缺省 = 不限）——接入 plan.budget 的成本守卫（优化方向.md 第 5 步）。
-async function runRoundtable({ message, partner, partners, maxTurns = 6, apiKey, provider, baseUrl, model, takenOver = {}, personas, protocol, transcript, budget, summaryPrompt, onEvent, shouldAbort }) {
+async function runRoundtable({ message, partner, partners, maxTurns = 6, apiKey, provider, baseUrl, model, takenOver = {}, personas, protocol, transcript, budget, summaryPrompt, cwd, onEvent, shouldAbort }) {
   const cfg = resolveConfig({ apiKey, provider, baseUrl, model });
   if (!cfg.key) {
     onEvent?.('error', { message: '未配置 API Key（OPENAI/ANTHROPIC），无法运行 AI 讨论。' });
@@ -516,7 +517,7 @@ async function runRoundtable({ message, partner, partners, maxTurns = 6, apiKey,
         const cliText = await runCliTurn(
           { partner: p, persona: Array.isArray(personas) ? personas[agents.indexOf(p)] : undefined, protocol },
           question, transcriptLines.join('\n'), round,
-          (tk) => onEvent?.('token', { content: tk }), () => aborted());
+          (tk) => onEvent?.('token', { content: tk }), () => aborted(), cwd);
         onEvent?.('discuss_end', { speaker: 'cli' });
         if (cliText) { transcriptLines.push(`【第${round}轮 · ${labelOf(p)}】\n${cliText}`); cliOutputChars += cliText.length; }
       }
@@ -560,7 +561,7 @@ async function runRoundtable({ message, partner, partners, maxTurns = 6, apiKey,
   return { summary: '', transcript: transcriptLines.join('\n'), stats, cleanFinish };
 }
 
-async function runDiscussion(res, { message, partner, partners, maxTurns = 6, apiKey, provider, baseUrl, model, takenOver = {}, personas, protocol }) {
+async function runDiscussion(res, { message, partner, partners, maxTurns = 6, apiKey, provider, baseUrl, model, takenOver = {}, personas, protocol, cwd }) {
   const cfg = resolveConfig({ apiKey, provider, baseUrl, model });
   if (!cfg.key) {
     sse(res, { type: 'error', message: '未配置 API Key（OPENAI/ANTHROPIC），无法运行 AI 讨论。' });
@@ -586,7 +587,7 @@ async function runDiscussion(res, { message, partner, partners, maxTurns = 6, ap
   const onEvent = (type, payload) => sse(res, { type, ...payload });
 
   try {
-    const { cleanFinish } = await runRoundtable({ message, partner, partners, maxTurns, apiKey, provider, baseUrl, model, takenOver, onEvent, shouldAbort: () => watcher.isAborted() });
+    const { cleanFinish } = await runRoundtable({ message, partner, partners, maxTurns, apiKey, provider, baseUrl, model, takenOver, cwd, onEvent, shouldAbort: () => watcher.isAborted() });
     sse(res, { type: 'status', message: cleanFinish ? '✅ 讨论完成' : '⏹ 讨论已停止' });
   } catch (err) {
     sse(res, { type: 'error', message: err.message || '讨论执行出错' });

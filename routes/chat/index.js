@@ -346,6 +346,7 @@ function createRouter(opts = {}) {
           model,
           personas: Array.isArray(personas) ? personas : undefined,
           protocol: protocol || undefined,
+          cwd: process.cwd(),
         });
       } catch (err) {
         if (!res.headersSent) {

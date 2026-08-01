@@ -44,7 +44,8 @@ function hexToRgba(hex, a) {
  *  - tileAnim: 是否启用「出牌」动画（仅 mahjong）
  *  - css: 该肤专属样式（applySkin 注入 <style id="rt-skin-style">；切肤先移除旧 style）
  */
-export const SKINS = {
+// ESM 代码分割时模块可能被复制到不同 chunk，全局单例避免 SKINS 空对象
+const SKINS = window.__hesiSkins = window.__hesiSkins || {
   hearth: {
     id: 'hearth',
     label: '🔥 围炉',
