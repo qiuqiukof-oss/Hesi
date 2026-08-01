@@ -67,7 +67,10 @@ function abortDelegate(requestId) { _agentAborted = true; killDelegatePTY(reques
  * @param {Function} [broadcastFn] - 用于实时推送输出的事件广播
  * @returns {Promise<string>} Agent 输出
  */
-function executeAgent(agentId, task, context, timeout = 120000, broadcastFn, role, requestId) {
+function executeAgent(agentId, task, context, timeout = 120000, broadcastFn, role, requestId, cwd) {
+  // cwd 兜底：未显式传时用服务启动目录（项目根），与「真实点击 CLI Agent」的 getWorkspace() 一致。
+  // 之前未传 → createHeadlessExec 回落 HOME/USERPROFILE（用户目录），CLI Agent 在错误目录工作。
+  if (!cwd) cwd = process.cwd();
   _agentAborted = false; // 每次委派独立，避免上一次中断标志污染本次
   let aborted = false;
   const abortFn = () => { aborted = true; };
@@ -148,6 +151,7 @@ function executeAgent(agentId, task, context, timeout = 120000, broadcastFn, rol
     const pty = createHeadlessExec(agentEntry, prompt, {
       cols: 120,
       rows: 80,
+      cwd: cwd || undefined,
       onData: (data) => {
         if (timedOut || aborted) return;
         outputChunks.push(data);

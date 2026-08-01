@@ -50,8 +50,7 @@ const AI_SYSTEM_PROMPT = `你正在参与一场与另一个 CLI AI 编程助手�
  * @param {{question:string, transcript?:string, round:number, persona?:{name?:string,role?:string,viewpoint?:string}, protocol?:string}} opts
  * @returns {string}
  */
-function buildCliTask({ question, transcript, round, persona, protocol, cwd }) {
-  const cwdNote = cwd ? `\n【当前工作目录】${cwd}\n请在讨论开始前先执行: cd "${cwd}"` : '';
+function buildCliTask({ question, transcript, round, persona, protocol }) {
   let header = '';
   if (persona && (persona.name || persona.role || persona.viewpoint)) {
     const name = persona.name || 'CLI Agent';
@@ -207,8 +206,10 @@ async function runCliTurn({ partner, persona, protocol }, question, transcript, 
   const attempt = async () => {
     // 早期轮次压缩摘要 + 最近 2 轮逐字（HESI_CLI_DIGEST=0 关闭压缩，恢复完整记录）
     const forCli = process.env.HESI_CLI_DIGEST === '0' ? transcript : compactTranscriptForCli(transcript);
-    const task = buildCliTask({ question, transcript: forCli, round, persona, protocol, cwd });
-    const started = JSON.parse(await agentPool.start(partner, task, '', null));
+    const task = buildCliTask({ question, transcript: forCli, round, persona, protocol });
+    // cwd 真实传给 agentPool.start → createHeadlessExec 的 opts.cwd（进程真实 chdir 到项目目录）。
+    // 不再在 prompt 里写 cd 文字（LLM 不保证执行，实测无效）。
+    const started = JSON.parse(await agentPool.start(partner, task, '', null, undefined, cwd));
     if (!started.ok) {
       return { full: `（无法启动 CLI Agent「${partner}」：${started.error}）`, terminal: 'start-failed', ok: false };
     }

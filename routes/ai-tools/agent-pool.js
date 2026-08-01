@@ -62,7 +62,7 @@ class AgentPoolManager {
    * @param {Function} [broadcastFn] - 实时输出广播
    * @returns {Promise<string>} 会话信息 JSON（含 sessionId）
    */
-  async start(agentId, task, context, broadcastFn, role) {
+  async start(agentId, task, context, broadcastFn, role, cwd) {
     // 在 try 外声明，确保 catch 中清理逻辑可安全引用（早期错误时为 null）
     let sessionId = null;
     try {
@@ -161,9 +161,12 @@ class AgentPoolManager {
       const prompt = promptParts.join('\n');
 
       // 创建 headless 执行（优先非 TTY 模式，避免 TUI 渲染污染讨论；无 descriptor 时回退 PTY）
+      // cwd：传入则真实 chdir 到该目录（与「真实点击 CLI Agent」一致的运行位置）；
+      // 不传时 createHeadlessExec 默认回落 HOME/USERPROFILE（用户目录，非项目目录）。
       const pty = createHeadlessExec(agentEntry, prompt, {
         cols: 120,
         rows: 40,
+        cwd: cwd || undefined,
         onData: (data) => {
           if (session.status === 'done' || session.status === 'error' ||
               session.status === 'cancelled' || session.status === 'timeout') return;
