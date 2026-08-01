@@ -529,6 +529,8 @@ function execStepDirectly(step, cwd) {
     const isMultiline = action.includes('\n');
     let tmpFile = null;
     let out;
+    // 安全读取临时脚本内容（失败时回传给 LLM/CLI Agent 自我修正；finally 里才 unlink，catch 时仍可读）
+    const safeReadTmpScript = (f) => { try { return f ? fs.readFileSync(f, 'utf8') : ''; } catch { return ''; } };
 
     // ── heredoc 文件写入：直接用 Node.js fs API 写入（绕过 cat 依赖）──
     // LLM 生成的 `cat > file << 'EOF' ... EOF` 模式在最小化 Git 环境中
@@ -617,6 +619,21 @@ function execStepDirectly(step, cwd) {
           tmpFile = path.join(os.tmpdir(), `hesi-step-${Date.now()}-${Math.random().toString(36).slice(2, 6)}.sh`);
           fs.writeFileSync(tmpFile, action, 'utf8');
           const wslScript = maybeConvertToWslPath(shell, tmpFile);
+          // WSL 语法预检（同真实 bash 分支）
+          try {
+            execSync('cmd.exe', ['/c', 'bash', '-n', wslScript], { ...execOpts, stdio: ['ignore', 'ignore', 'pipe'] });
+          } catch (syntaxErr) {
+            const scriptContent = safeReadTmpScript(tmpFile);
+            return {
+              status: 'error',
+              output: [
+                `Shell 脚本语法预检失败（WSL bash -n）：${String(syntaxErr.stderr || syntaxErr.message).trim().slice(0, 500)}`,
+                `脚本路径: ${tmpFile}`,
+                `脚本内容:\n${scriptContent.slice(0, 3000)}`,
+                `建议：检查单引号/双引号与 heredoc 定界符是否配对闭合。`,
+              ].join('\n'),
+            };
+          }
           console.log('[execStepDirectly] WSL 多行临时脚本:', tmpFile, '→', wslScript);
           console.log('[execStepDirectly] 执行方式: cmd.exe /c bash', wslScript);
           out = execSync('cmd.exe', ['/c', 'bash', wslScript], execOpts);
@@ -625,6 +642,22 @@ function execStepDirectly(step, cwd) {
           tmpFile = path.join(os.tmpdir(), `hesi-step-${Date.now()}-${Math.random().toString(36).slice(2, 6)}.sh`);
           fs.writeFileSync(tmpFile, action, 'utf8');
           console.log('[execStepDirectly] 多行命令已写入临时脚本:', tmpFile);
+          // 执行前语法预检：捕获未闭合引号/heredoc 等纯语法错误，避免带副作用命令半执行，
+          // 并把完整脚本回传给 LLM/CLI Agent 供其自我修正（而非只看到「Command failed」）。
+          try {
+            execFileSync(shell, ['-n', tmpFile], { ...execOpts, stdio: ['ignore', 'ignore', 'pipe'] });
+          } catch (syntaxErr) {
+            const scriptContent = safeReadTmpScript(tmpFile);
+            return {
+              status: 'error',
+              output: [
+                `Shell 脚本语法预检失败（${shell} -n）：${String(syntaxErr.stderr || syntaxErr.message).trim().slice(0, 500)}`,
+                `脚本路径: ${tmpFile}`,
+                `脚本内容:\n${scriptContent.slice(0, 3000)}`,
+                `建议：检查单引号/双引号与 heredoc 定界符是否配对闭合。`,
+              ].join('\n'),
+            };
+          }
           console.log('[execStepDirectly] 执行方式: execFileSync(', shell, ',', tmpFile, ')');
           out = execFileSync(shell, [tmpFile], execOpts);
         }
@@ -653,6 +686,7 @@ function execStepDirectly(step, cwd) {
       // 出错时 CLI Agent 只看到「Command failed: …」一行，无法定位原因 → 无法继续闭环。
       const errStdout = String(execErr.stdout || '').trim();
       const errStderr = String(execErr.stderr || '').trim();
+      const failedScript = isMultiline ? safeReadTmpScript(tmpFile) : '';
       return {
         status: 'error',
         output: [
@@ -661,6 +695,7 @@ function execStepDirectly(step, cwd) {
           `命令: ${action.slice(0, 300)}`,
           errStdout ? `stdout: ${errStdout.slice(0, 2000)}` : null,
           errStderr ? `stderr: ${errStderr.slice(0, 1000)}` : null,
+          failedScript ? `脚本内容:\n${failedScript.slice(0, 3000)}` : null,
           execErr.message,
         ].filter(Boolean).join('\n'),
       };
