@@ -62,6 +62,13 @@ export const planStreamMixin = {
       return;
     }
 
+    if (t === 'collab_summary') {
+      const title = evt.title || '📋 讨论结论';
+      const text = evt.text || '';
+      if (text) this._planNote(`${title}\n${text}`, 'info');
+      return;
+    }
+
     if (t === 'await-approval') {
       this._renderApprovalBubble(evt.step);
       this.scrollToBottom();

@@ -208,6 +208,7 @@ async function runPlanTurn(res, p = {}) {
         '💬 AI 讨论中（第1轮：目标分析）…',
         p.maxTurns || 4
       );
+      if (discussionSummary) emit('collab_summary', { phase: 1, title: '📋 目标分析结论', text: discussionSummary.slice(0, 800) });
       emit('phase', { phase: 'plan', label: discussionSummary ? '✅ 讨论完成，方案制定中…' : '⚠️ 讨论未产出结论，直接制定方案…' });
       if (watcher.isAborted()) {
         emit('cancelled', { execId, phase: 'discuss', reason: '客户端断开' });
@@ -237,11 +238,12 @@ async function runPlanTurn(res, p = {}) {
 
     // ── 1.5 协作工作流：方案审查讨论 ──
     if (discussBeforePlan) {
-      await doDiscuss(
+      const reviewSummary = await doDiscuss(
         `请审查以下执行方案是否合理、是否有遗漏或错误步骤。\n方案：${JSON.stringify(summarizePlan(plan, execId))}`,
         '💬 AI 讨论中（第2轮：方案审查）…',
         2
       );
+      if (reviewSummary) emit('collab_summary', { phase: 2, title: '📋 方案审查结论', text: reviewSummary.slice(0, 800) });
       if (watcher.isAborted()) {
         emit('cancelled', { execId, phase: 'review_plan', reason: '客户端断开' });
         return;
@@ -302,6 +304,7 @@ async function runPlanTurn(res, p = {}) {
         '💬 AI 讨论中（第3轮：结果审核）…',
         2
       );
+      if (reviewConclusion) emit('collab_summary', { phase: 3, title: '📋 审核结论', text: reviewConclusion.slice(0, 800) });
     }
 
     emit('done', {
