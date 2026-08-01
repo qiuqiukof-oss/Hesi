@@ -31,7 +31,7 @@ const { streamOpenAICore } = require('./stream-openai');
 const { streamAnthropicCore } = require('./stream-anthropic');
 
 // CLI Agent 单次轮询总预算（防止某 agent 卡死把讨论拖垮）
-const AGENT_TURN_TIMEOUT_MS = 180_000;
+const AGENT_TURN_TIMEOUT_MS = 600_000;  // 单轮 CLI 发言最长等待（默认 10 分钟），可被 HESI_AGENT_TURN_TIMEOUT_MS 覆盖
 const AGENT_POLL_INTERVAL_MS = 1000;
 
 // ── 角色设定 ──
@@ -214,15 +214,15 @@ async function runCliTurn({ partner, persona, protocol }, question, transcript, 
       return { full: `（无法启动 CLI Agent「${partner}」：${started.error}）`, terminal: 'start-failed', ok: false };
     }
     const sid = started.sessionId;
-    const deadline = Date.now() + AGENT_TURN_TIMEOUT_MS;
-    // 静默检测阈值（环境变量可覆盖；默认 60s 告警 / 140s 提前收尾，均在 180s 总预算内）。
-    // 用于对抗「CLI Agent 启动后遇 provider 错误（如限流）只写自身日志、不退出也不吐错」的静默挂死。
+    const deadline = Date.now() + (Number(process.env.HESI_AGENT_TURN_TIMEOUT_MS) || AGENT_TURN_TIMEOUT_MS);
+    // 静默检测阈值（环境变量可覆盖；默认 60s 提示一次）。
+    // 注意：仅作「状态提示」，绝不因无 token 输出而 cancel 活着的进程——
+    // opencode 调研代码（读/grep/跑命令）期间本就无回答 token，进程仍存活（status=running）。
+    // 是否结束的唯一权威信号是 poll() 返回的 status（done/error/timeout/cancelled），见下方四态分支。
     const silenceWarnMs = Number(process.env.HESI_AGENT_SILENCE_WARN_MS) || 60000;
-    const silenceAbortMs = Number(process.env.HESI_AGENT_SILENCE_ABORT_MS) || 140000;
     let full = '';
     let lastDelta = '';
     let lastOutputAt = Date.now();
-    let warned = false;
     // 流式清洗器：跨多次 poll 的增量 delta 缓存被边界切断的转义序列，
     // 确保喂给 AI 与聊天气泡的都是纯净文本（同 PTY 层一致强度，外加 \r）。
     const cleaner = createStreamCleaner();
@@ -237,20 +237,17 @@ async function runCliTurn({ partner, persona, protocol }, question, transcript, 
           // 仅推送新增增量，避免重复；增量先清洗终端协议字节再上屏/喂给 AI
           const addedRaw = delta.startsWith(lastDelta) ? delta.slice(lastDelta.length) : delta;
           const added = cleaner(addedRaw).replace(/\r/g, '');
-          if (added) { full += added; onToken(added); lastOutputAt = Date.now(); warned = false; }
+          if (added) { full += added; onToken(added); lastOutputAt = Date.now(); }
           // lastDelta 保留「原始」delta 用于去重比对，避免清洗改变长度后误判重复/漏推
           lastDelta = delta;
         }
-        // 静默检测：自启动/上次输出起长时间无新内容 → 上屏告警，提示可能限流/不可达
+        // 静默检测：仅「状态提示」，绝不 abort 活着的进程。
+        // 进程存活（running/starting）时即使长时间无 token，也只周期性（每 silenceWarnMs）上屏「正在调研」；
+        // 进程退出（done/error）由下方四态分支收尾。真 429 静默退出会落 done 且 full 空 → 走「无产出」分支。
         const silentFor = Date.now() - lastOutputAt;
-        if (!warned && silentFor >= silenceWarnMs) {
-          warned = true;
-          onToken(`\n\n（⏳ CLI Agent「${partner}」已 ${Math.round(silentFor / 1000)}s 无新输出，可能模型限流/不可达，详见该 Agent 自身日志。）`);
-        }
-        if (silentFor >= silenceAbortMs) {
-          terminal = 'silence-timeout';
-          onToken(`\n\n（⏱ CLI Agent「${partner}」静默 ${Math.round(silentFor / 1000)}s 无输出，提前结束本轮。）`);
-          break;
+        if (silentFor >= silenceWarnMs && (r.status === 'running' || r.status === 'starting')) {
+          onToken(`\n\n（🔍 CLI Agent「${partner}」正在调研代码/生成中…已等待 ${Math.round(silentFor / 1000)}s，请稍候）`);
+          lastOutputAt = Date.now(); // 重置计时，使提示每 silenceWarnMs 出现一次，避免刷屏
         }
         // 四态终止：done/error 外补齐 timeout/cancelled（原仅 break 在 done|error，会漏判致空轮询到 180s）
         if (r.status === 'done' || r.status === 'error' || r.status === 'timeout' || r.status === 'cancelled') {

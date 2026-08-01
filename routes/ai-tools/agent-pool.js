@@ -26,7 +26,7 @@ const MAX_POOL_SIZE = 10;         // 最大 session 数（含已完成）
 const MAX_OUTPUT_PER_SESSION = 1_000_000;  // 每 session 最大 1MB
 const DONE_SESSION_TTL_MS = 5 * 60 * 1000;  // 已完成 session 保留 5 分钟
 const CLEANUP_INTERVAL_MS = 60_000;          // 清理周期 1 分钟
-const DEFAULT_SESSION_TIMEOUT = 300_000;     // 默认单次 session 超时 5 分钟
+const DEFAULT_SESSION_TIMEOUT = Number(process.env.HESI_AGENT_SESSION_TIMEOUT) || 600_000;  // 单次 session 超时（默认 10 分钟，真挂死兜底 kill）；须 ≥ HESI_AGENT_TURN_TIMEOUT_MS
 // 最大并发活跃 Agent 由 agent-concurrency.js 的全局配额统一管理（同步委派 + 异步池合计 ${MAX_GLOBAL_AGENTS} 个）
 
 // ── Session ID 生成 ──
