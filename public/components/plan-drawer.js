@@ -111,12 +111,16 @@ const PlanDrawer = {
     const statusLabel = { done: '✅', partial: '⚠️', diverged: '↗', error: '❌', rejected: '🚫', cancelled: '⏹' };
     let html = '';
     for (const it of items) {
-      const st = statusLabel[it.status] || '•';
-      const title = esc(it.title || it.objective || '(无标题)');
-      const ts = it.created_at ? new Date(it.created_at).toLocaleString() : '';
-      html += `<div class="plan-history-item" data-id="${esc(it.exec_id || '')}">
+      const m = it.meta || {};
+      const status = m.status || '';
+      const st = statusLabel[status] || '•';
+      const title = esc(it.title || '(无标题)');
+      const ts = m.startedAt ? new Date(m.startedAt).toLocaleString() : '';
+      const stepCount = (m.plan && Array.isArray(m.plan.steps)) ? m.plan.steps.length : 0;
+      const agentId = m.agentId || 'ai';
+      html += `<div class="plan-history-item" data-id="${esc(it.ref || '')}">
         <div class="plan-history-meta">${st} <strong>${title}</strong><span class="plan-history-time">${esc(ts)}</span></div>
-        <div class="plan-history-detail">状态：${esc(it.status || '?')} · 步骤：${it.step_count || 0} · Agent：${esc(it.agent_id || 'ai')}</div>
+        <div class="plan-history-detail">状态：${esc(status || '?')} · 步骤：${stepCount} · Agent：${esc(agentId)}</div>
       </div>`;
     }
     list.innerHTML = html;
