@@ -16,7 +16,7 @@
 
 const express = require('express');
 const crypto = require('crypto');
-const { runPlan, parseVerifyFromSummary } = require('./run-plan');
+const { runPlan, parseVerifyFromSummary, readPlanState } = require('./run-plan');
 const { workflowManager } = require('./workflow-manager');
 const { runRoundtable } = require('../chat/discuss');
 const { generatePlanFromObjective, revisePlan } = require('./plan-from-nl');
@@ -377,6 +377,13 @@ function createRouter(opts = {}) {
       return res.status(404).json({ ok: false, error: '无待审批项（已结束或超时）' });
     }
     res.json({ ok: true });
+  });
+
+  // P0-2：断点续跑——状态查询 + 轻量引导
+  router.get('/:execId/state', (req, res) => {
+    const state = readPlanState(req.params.execId);
+    if (!state) return res.json({ ok: false, error: '无可恢复的执行状态' });
+    res.json({ ok: true, state });
   });
 
   // 审批闸：人工驳回
