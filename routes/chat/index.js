@@ -291,9 +291,12 @@ function createRouter(opts = {}) {
       return res.status(400).json({ error: 'messages array is required' });
     }
 
-    // ── 自动执行模式（P2/P6）：把这轮说的话拆成 Plan 并真执行 ──
-    // P6 协作工作流：如果同时选了 CLI Agent 伙伴 → 执行前先多 Agent 讨论，讨论结论注入 Plan 生成器
-    if (planMode && !discuss) {
+    // ── 自动执行模式（P2/P6）──
+    // P6 协作工作流：有 CLI Agent 伙伴时 → 自动先多 Agent 讨论再执行（讨论结论注入 Plan 生成器）
+    // 否则 → 独立自动执行（无讨论）
+    // 注：planMode 优先级高于纯 discuss——勾选「AI 讨论」+「自动执行」时走协作流，
+    // 不再排斥；纯讨论走下方 else if
+    if (planMode) {
       const userText = (messages[messages.length - 1]?.content || '').toString();
       const partnerList = Array.isArray(partners) && partners.length ? partners.slice() : [];
       const doDiscussFirst = !!(discussBeforePlan) || partnerList.length > 0; // 有伙伴则默认启用协作
@@ -319,8 +322,8 @@ function createRouter(opts = {}) {
       return;
     }
 
-    // ── AI 讨论模式：AI 助手 ↔ 一个或多个 CLI Agent 按回合交替（圆桌），过程以 SSE 实时可见 ──
-    if (discuss) {
+    // ── AI 讨论模式（纯讨论，不执行） ──
+    else if (discuss) {
       const userText = (messages[messages.length - 1]?.content || '').toString();
       // 多选兼容单选：partners（数组）优先，回退到单 partner
       const partnerList = Array.isArray(partners) && partners.length

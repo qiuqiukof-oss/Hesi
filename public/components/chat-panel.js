@@ -736,7 +736,8 @@ class ChatPanel extends HTMLElement {
         this._ttsStreamed = false;
 
         // 自动执行回合标记（onDone/onError 分流；讨论优先时不生效，与后端一致）
-        this._planTurnActive = !!this._planEnabled && !this._discussEnabled;
+        // P6：允许同时勾选讨论和自动执行→协作工作流（讨论→方案→实施）
+        this._planTurnActive = !!this._planEnabled;
 
         api.sendMessage({
           messages: msgs,
