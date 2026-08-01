@@ -25,6 +25,7 @@ import {
   applyOverrides,
 } from './agent-avatars.js';
 import { SKINS, applySkin, getSkin } from './roundtable-skins.js';
+const _skins = () => window.__hesiSkins || SKINS;
 
 /** @type {any} */
 const Q = window.QCLI = window.QCLI || {};

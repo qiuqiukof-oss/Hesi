@@ -186,6 +186,7 @@ async function runPlanTurn(res, p = {}) {
             apiKey: runtime.apiKey, provider: runtime.provider,
             baseUrl: runtime.baseUrl, model: runtime.model,
             budget: p.budget,
+            cwd: p.cwd || process.cwd(),
             // P6 fix: 讨论事件直写 SSE（不加 plan_ 前缀），与 runDiscussion 同构
             onEvent: (type, payload) => sse(res, { type, ...(payload || {}) }),
             shouldAbort: () => watcher.isAborted(),

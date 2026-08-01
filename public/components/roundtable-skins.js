@@ -107,6 +107,8 @@ const SKINS = window.__hesiSkins = window.__hesiSkins || {
   },
 };
 
+export { SKINS };
+
 /** 取皮肤（缺省回落 hearth）。 */
 export function getSkin(name) {
   return SKINS[name] || SKINS.hearth;
