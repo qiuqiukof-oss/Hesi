@@ -1140,7 +1140,10 @@ async function runOneAttempt(plan, ctx) {
   }
 
   const budget = new PlanBudget(opts.budget || plan.budget || {});
-  const tasks = planToWorkflowTasks(plan, { defaultAgentId: opts && opts.defaultAgentId });
+  // 关键修复（球总定位）：外部 CLI 执行 Agent 的 id 只进了 executorAgentId（用于轨道派发判断），
+  // 却没被注入 task.agentId，导致 runSingleTask→agentPool.start(undefined) 找不到 Agent。
+  // 这里把 executorAgentId 作为 defaultAgentId 的兜底注入；step.agentId 仍优先。'ai' 时无副作用（轨道 B 不消费 task.agentId）。
+  const tasks = planToWorkflowTasks(plan, { defaultAgentId: (opts && (opts.defaultAgentId || opts.executorAgentId)) || undefined });
   const results = [];
   const rounds = (plan.budget && plan.budget.maxRounds) || 3;
 
@@ -1280,7 +1283,7 @@ async function runOneAttempt(plan, ctx) {
         // 默认（圆桌式）：复用 AI 助手 LLM 工具环——AI 助手为本地推理方，
         // 通过已调好的 nonStreamingChat（QCLI_TOOLS+executeToolCall+熔断）完成步骤。
         exec = await runStepViaChatLLM(task, step, plan, runtime, {
-          broadcastFn: undefined,
+          broadcastFn: (opts && opts.broadcastFn) || null,
           sessionId: opts && opts.execId,
         });
       } else if (stepAgent && stepAgent !== 'ai' && wf) {

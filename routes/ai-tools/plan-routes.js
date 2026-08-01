@@ -336,6 +336,9 @@ function createRouter(opts = {}) {
         // 执行默认 Agent：前端可自选（body.agentId）；未选则圆桌式默认 'ai'
         // （AI 助手 LLM 工具环，不重新实现）。
         executorAgentId,
+        // 步骤执行（轨道 B / runStepViaChatLLM）实时广播：复用与讨论相同的 broadcast 通道，
+        // 否则 run-plan.js 读到的 opts.broadcastFn 永远为 undefined（原硬编码 undefined 导致过程黑盒）。
+        broadcastFn: broadcast,
       });
       // ③ RAG 快照回流（成功/失败均沉淀，失败不影响主流程；M1 增强：传计时+执行Agent）
       const endedAt = Date.now();
