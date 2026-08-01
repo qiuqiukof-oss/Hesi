@@ -90,6 +90,22 @@ function normalizeVerify(o) {
   };
 }
 
+/**
+ * 判断路径 token 是否属于系统临时目录。
+ * /tmp、/var/tmp 与 os.tmpdir() 是操作系统的临时工作区，写入其中的临时文件
+ * 不属于 scope 越界（与 /dev/null 同类豁免）。统一反斜杠后比较，兼容 Windows。
+ * @param {string} t 路径 token
+ * @returns {boolean}
+ */
+function isSystemTempPath(t) {
+  let norm = String(t || '').replace(/\\/g, '/');
+  // 归一化消除 ../ 等穿越片段：避免 /tmp/../etc/passwd 被误判为临时目录而豁免拦截（目录穿越绕过）
+  try { norm = require('path').posix.normalize(norm); } catch { /* 保持原样 */ }
+  if (/^\/tmp(\/|$)/.test(norm) || /^\/var\/tmp(\/|$)/.test(norm)) return true;
+  const tmp = require('os').tmpdir().replace(/\\/g, '/').replace(/\/+$/, '');
+  return !!tmp && (norm === tmp || norm.startsWith(tmp + '/'));
+}
+
 /** 抽出文本里疑似文件路径的 token（含 '/'，用于 scope 校验）；排除 shell 重定向、相对路径与 HTTP URL 路径 */
 function _pathTokens(text) {
   if (!text) return [];
@@ -126,6 +142,8 @@ function _pathTokens(text) {
     if (!/^[\\/]/.test(t) && !/^[A-Za-z]:[\\/]/.test(t)) continue;
     // 排除 /dev/null 等系统设备
     if (/^\/dev\/(null|stdout|stderr)$/.test(t)) continue;
+    // 排除系统临时目录（/tmp、/var/tmp、os.tmpdir()）—— 临时文件写入不构成 scope 越界
+    if (isSystemTempPath(t)) continue;
     result.push(t);
   }
   return result;

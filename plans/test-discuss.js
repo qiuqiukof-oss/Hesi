@@ -15,12 +15,17 @@
 // not silently break its export shape, so this script guards the contract:
 //   1. module loads without throwing (its deps resolve)
 //   2. exports an object
-//   3. exports exactly the documented public surface { runDiscussion, runRoundtable }
+//   3. exports exactly the documented public surface (sorted key set below)
 //   4. `runDiscussion` is a function
 //   5. `runDiscussion` is async (AsyncFunction)
 //   6. `runDiscussion` arity === 2 (res, options)
 //   7. `runRoundtable` is a function / async (pure reuse entry, single arg)
 //   8. re-require returns the same cached export object
+//
+// Public surface (v0.6.x +): the 3 original exports (runDiscussion /
+// runRoundtable / normalizeTranscript) plus the plan-executor & CLI-digest
+// helpers (splitTranscriptRounds / buildAnthropicDiscussBlocks /
+// buildCliTask / compactTranscriptForCli / budgetExceeded / usageFields).
 //
 // It intentionally does NOT run a live discussion — that needs an LLM, the
 // agent pool, and an SSE stream. Behavioural coverage belongs in integration
@@ -41,8 +46,18 @@ const mod = require('../routes/chat/discuss');
 
 check('module loads without throwing', () => { assert.ok(mod); });
 check('exports an object', () => { assert.strictEqual(typeof mod, 'object'); });
-check('exports exactly { runDiscussion, runRoundtable, normalizeTranscript }', () => {
-  assert.deepStrictEqual(Object.keys(mod).sort(), ['normalizeTranscript', 'runDiscussion', 'runRoundtable']);
+check('exports exactly the documented public surface (9 exports)', () => {
+  assert.deepStrictEqual(Object.keys(mod).sort(), [
+    'budgetExceeded',
+    'buildAnthropicDiscussBlocks',
+    'buildCliTask',
+    'compactTranscriptForCli',
+    'normalizeTranscript',
+    'runDiscussion',
+    'runRoundtable',
+    'splitTranscriptRounds',
+    'usageFields',
+  ]);
 });
 check('runDiscussion is a function', () => {
   assert.strictEqual(typeof mod.runDiscussion, 'function');

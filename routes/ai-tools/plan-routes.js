@@ -42,28 +42,90 @@ function resolveExecutorAgentId(body) {
 const pendingApprovals = new Map();
 const APPROVAL_TIMEOUT_MS = 30 * 60 * 1000; // 30min 无操作 → 视为驳回
 
+// checkpoint 专用汇总指令：要求 LLM 直接产出「机器可自动验证」的验收 JSON
+//（而非自然语言结论），使 parseVerifyFromSummary 能从中抽取出 {kind,command,expect}。
+// 与 plan-contract._buildCheckpointQuestion 的返回契约对齐（含 "若无法机器验证返回 null"）。
+const CHECKPOINT_SUMMARY_PROMPT = `你是这场「AI 助手 ↔ CLI Agent」协作讨论的**收敛裁判**。
+请基于完整讨论记录，为【用户原问题】推导一个「机器可自动验证」的验收标准。
+
+【用户原问题】
+{QUESTION}
+
+【完整讨论记录】
+{TRANSCRIPT}
+
+要求：
+1. 只输出一个 JSON 对象，不要任何解释、前言或 markdown 代码块围栏：
+   { "kind": "command"|"script"|"http", "command": "可执行的命令", "expect": "期望结果关键字" }
+2. kind 必须是 command / script / http 之一（机器可自动执行验证；不要 manual）。
+3. 若讨论确实无法推导出机器可验证的标准，只输出 JSON：null`;
+
 /**
  * 用 discuss.runRoundtable 包装出 resolveCheckpoint 需要的 roundtableFn。
  * @param {object} runtime  { apiKey, provider, baseUrl, model, partner, partners }
  * @param {object} [budget] plan.budget（{ maxTokens?, maxMinutes? }）→ 透传进 runRoundtable 循环守卫
+ * @param {{ execId?: string, broadcast?: (data:object)=>void }} [ctx] 注入 WS 广播上下文：
+ *   - execId   与本次 /execute 关联，让前端能把 checkpoint 讨论事件渲染到对应舞台
+ *   - broadcast 把 runRoundtable 的讨论事件（status/token/discuss_*）转发为 plan:discuss-*，
+ *               错误事件统一为 plan:discussion-error（前端 _onDiscussionEvent 已监听该分支）
  */
-function buildRoundtableFn(runtime, budget) {
+function buildRoundtableFn(runtime, budget, ctx) {
+  const execId = ctx && ctx.execId ? ctx.execId : '';
+  const broadcast = ctx && typeof ctx.broadcast === 'function' ? ctx.broadcast : null;
+  // 事件转发：错误统一 plan:discussion-error；其余沿用 plan:discuss-${type} 前缀
+  //（前端 _onDiscussionEvent 按该前缀 + execId 匹配渲染，见 plan-drawer.js:590-592）。
+  const forward = (type, payload) => {
+    if (!broadcast) return;
+    if (type === 'error') {
+      broadcast({ type: 'plan:discussion-error', execId, ...(payload || {}) });
+    } else {
+      broadcast({ type: `plan:discuss-${type}`, execId, ...(payload || {}) });
+    }
+  };
   return async function roundtableFn({ question, transcript, rounds }) {
+    const maxTurns = rounds || 3;
+    // 快速失败①：无 API Key → 立即返回 null，避免 resolveCheckpoint 空转
+    if (!runtime.apiKey && !process.env.OPENAI_API_KEY && !process.env.ANTHROPIC_API_KEY) {
+      forward('error', { message: '未配置 API Key（OPENAI/ANTHROPIC），无法运行 checkpoint 圆桌讨论，退回需人补充 acceptance' });
+      return null;
+    }
+    // 快速失败②：本地 LLM 不可达（如 LM Studio 未启动 / 地址错）→ 先验连通性，
+    // 避免 runRoundtable 内部多轮空转再 fellBack。仅网络错误 / 超时 / 5xx 视为不可达。
+    if (runtime.baseUrl) {
+      const ctrl = new AbortController();
+      const pt = setTimeout(() => ctrl.abort(), 4000);
+      let unreachable = false, reason = '';
+      try {
+        const probeUrl = `${String(runtime.baseUrl).replace(/\/+$/, '')}/models`;
+        const pr = await fetch(probeUrl, { signal: ctrl.signal, method: 'GET' });
+        if (pr.status >= 500) { unreachable = true; reason = `HTTP ${pr.status}`; }
+      } catch (pe) { unreachable = true; reason = pe.message; }
+      finally { clearTimeout(pt); }
+      if (unreachable) {
+        forward('error', { message: `LLM 服务不可达（${runtime.baseUrl}）：${reason}；无法运行 checkpoint 圆桌讨论，退回需人补充 acceptance` });
+        return null;
+      }
+    }
+    // 后端显式打开执行阶段（非 M3 前置）的 checkpoint 圆桌舞台，让前端可见讨论过程
+    if (broadcast) broadcast({ type: 'plan:discussion-start', execId, partners: Array.isArray(runtime.partners) ? runtime.partners : [], maxTurns, mode: 'checkpoint' });
     try {
       const out = await runRoundtable({
         message: question,
         partner: runtime.partner,
         partners: Array.isArray(runtime.partners) ? runtime.partners : [],
-        maxTurns: rounds || 3,
+        maxTurns,
         apiKey: runtime.apiKey,
         provider: runtime.provider,
         baseUrl: runtime.baseUrl,
         model: runtime.model,
         transcript: transcript || '',
         budget,
-        onEvent: null,
+        summaryPrompt: CHECKPOINT_SUMMARY_PROMPT,
+        onEvent: forward,
         shouldAbort: null,
       });
+      // 把推导出的验收结论回显到舞台（checkpoint 场景的 summary 即 verify 推导结论）
+      if (broadcast && out && out.summary) broadcast({ type: 'plan:discussion-result', execId, summary: out.summary, cleanFinish: !!out.cleanFinish });
       return parseVerifyFromSummary(out && out.summary);
     } catch {
       return null; // 圆桌失败 → 交给 resolveCheckpoint 兜底回决策①
@@ -174,7 +236,12 @@ function createRouter(opts = {}) {
               baseUrl: runtime.baseUrl,
               model: runtime.model,
               budget: body.budget,
-              onEvent: (type, payload) => broadcast({ type: `plan:discuss-${type}`, execId, ...(payload || {}) }),
+              onEvent: (type, payload) => {
+                // 错误事件统一为 plan:discussion-error（前端 _onDiscussionEvent 监听该分支）；
+                // 其余事件沿用 plan:discuss-${type} 前缀（status/token/discuss_start 等）。
+                if (type === 'error') broadcast({ type: 'plan:discussion-error', execId, ...(payload || {}) });
+                else broadcast({ type: `plan:discuss-${type}`, execId, ...(payload || {}) });
+              },
               shouldAbort: () => false,
             });
             discussionSummary = (out && out.summary) ? out.summary : '';
@@ -256,7 +323,7 @@ function createRouter(opts = {}) {
       const result = await runPlan(plan, {
         cwd,
         workflowManager: wf,
-        roundtableFn: buildRoundtableFn(runtime, plan && plan.budget),
+        roundtableFn: buildRoundtableFn(runtime, plan && plan.budget, { execId, broadcast }),
         execId,
         requestApproval,
         // 个性化「权限设置」下钻（来自前端 localStorage）

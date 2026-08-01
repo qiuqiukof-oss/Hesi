@@ -292,12 +292,14 @@ function generateFallbackSummary(question, transcript) {
 
 // 汇总
 const MAX_SUMMARY_TRANSCRIPT_CHARS = 24000; // 汇总 prompt 预算上限（留空间给 system + user message）
-async function runSummary({ p, key, url, m }, question, transcript, onToken, onUsage, shouldAbort) {
+async function runSummary({ p, key, url, m }, question, transcript, onToken, onUsage, shouldAbort, summaryPrompt) {
   // 截断过长讨论记录，防止撑爆模型上下文导致静默失败
   const sliced = transcript.length > MAX_SUMMARY_TRANSCRIPT_CHARS
     ? `${transcript.slice(0, MAX_SUMMARY_TRANSCRIPT_CHARS)  }\n\n…（记录已截断，仅展示前 ${  Math.round(MAX_SUMMARY_TRANSCRIPT_CHARS / 1000)  }K 字符）`
     : transcript;
-  const sysText = SUMMARY_SYSTEM_PROMPT.replace('{QUESTION}', question).replace('{TRANSCRIPT}', sliced);
+  // 允许调用方注入自定义汇总指令（如 checkpoint 场景要求产出 verify JSON）；
+  // 缺省用通用 SUMMARY_SYSTEM_PROMPT（自然语言结论）。
+  const sysText = (summaryPrompt || SUMMARY_SYSTEM_PROMPT).replace('{QUESTION}', question).replace('{TRANSCRIPT}', sliced);
   const collect = (tk) => { onToken(tk); };
   if (p === 'anthropic') {
     return (await streamAnthropicCore(url, key, m, sysText,
@@ -331,7 +333,7 @@ function normalizeTranscript(transcript) {
 // 纯圆桌函数（无 SSE 依赖）：供 runDiscussion（SSE 包装）与 plan 的 resolveCheckpoint 复用。
 // 通过 onEvent(type, payload) 发射事件，shouldAbort() 用于中断检测。
 // budget: { maxTokens?, maxMinutes? }（0/缺省 = 不限）——接入 plan.budget 的成本守卫（优化方向.md 第 5 步）。
-async function runRoundtable({ message, partner, partners, maxTurns = 6, apiKey, provider, baseUrl, model, takenOver = {}, personas, protocol, transcript, budget, onEvent, shouldAbort }) {
+async function runRoundtable({ message, partner, partners, maxTurns = 6, apiKey, provider, baseUrl, model, takenOver = {}, personas, protocol, transcript, budget, summaryPrompt, onEvent, shouldAbort }) {
   const cfg = resolveConfig({ apiKey, provider, baseUrl, model });
   if (!cfg.key) {
     onEvent?.('error', { message: '未配置 API Key（OPENAI/ANTHROPIC），无法运行 AI 讨论。' });
@@ -442,7 +444,7 @@ async function runRoundtable({ message, partner, partners, maxTurns = 6, apiKey,
       onEvent?.('discuss_start', { speaker: 'summary', label: '📋 结论汇总', round: maxTurns + 1 });
       let summaryText = '';
       try {
-        summaryText = await runSummary(cfg, question, transcriptLines.join('\n'), (tk) => onEvent?.('token', { content: tk }), recordAi, () => aborted());
+        summaryText = await runSummary(cfg, question, transcriptLines.join('\n'), (tk) => onEvent?.('token', { content: tk }), recordAi, () => aborted(), summaryPrompt);
       } catch (sumErr) {
         console.error('[discuss] 汇总生成失败:', sumErr.message);
         summaryText = generateFallbackSummary(question, transcriptLines.join('\n'));

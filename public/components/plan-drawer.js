@@ -717,6 +717,17 @@ const PlanDrawer = {
   _onDiscussionEvent(type, msg) {
     const stage = this.root.querySelector('#plan-discussion-stage');
     if (!stage) return;
+    // 执行阶段（非 M3 前置讨论）的 checkpoint 圆桌：后端只发 plan:discuss-* 更新事件、
+    // 不发 plan:discussion-start，这里兜底——只要收到任意讨论事件且舞台还藏着，就显示出来。
+    // （M3 前置讨论已在点击「执行」时通过 _showDiscussionStage 显示，不会走到此分支。）
+    if (stage.classList.contains('hidden')
+      && (type.startsWith('plan:discuss') || type.startsWith('plan:discussion'))) {
+      this._showDiscussionStage({
+        partners: msg.partners,
+        maxTurns: msg.maxTurns || 3,
+        mode: msg.mode || 'auto',
+      });
+    }
     switch (type) {
       case 'plan:discussion-start': {
         stage.classList.remove('hidden');

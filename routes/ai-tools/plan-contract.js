@@ -95,25 +95,27 @@ async function resolveCheckpoint(plan, step, opts = {}) {
   }
   const question = _buildCheckpointQuestion(plan, step);
   const transcript = opts.transcript || '';
-  for (let r = 1; r <= rounds; r++) {
-    let out = null;
-    try {
-      out = await opts.roundtableFn({ question, transcript, rounds: 1 });
-    } catch {
-      out = null;
-    }
-    if (out && out.kind && AUTO_VERIFY_KINDS.includes(out.kind) && (out.command || out.expect)) {
-      return { ok: true, usedRoundtable: true, roundsUsed: r, derivedVerify: out };
-    }
+  // 一次多轮圆桌（maxTurns=rounds）远比「3 次单轮」更易收敛出 verify；
+  // 单次调用失败（网络/超时）即快速回退，不再空转多轮烧资源。
+  let out = null;
+  try {
+    out = await opts.roundtableFn({ question, transcript, rounds });
+  } catch {
+    out = null;
   }
-  // 耗尽轮数仍不可验证 → 兜底回决策①
+  // 契约对齐 CHECKPOINT_SUMMARY_PROMPT：command 与 expect 必须同时具备，
+  // 否则 derived verify 缺期望关键字，机器无法判定成功。
+  if (out && out.kind && AUTO_VERIFY_KINDS.includes(out.kind) && out.command && out.expect) {
+    return { ok: true, usedRoundtable: true, roundsUsed: rounds, derivedVerify: out };
+  }
+  // 无法推导机器可验证标准 → 兜底回决策①
   return {
     ok: false,
     needsAcceptance: true,
     fellBack: true,
     usedRoundtable: true,
     roundsUsed: rounds,
-    reason: `roundtable 经 ${rounds} 轮仍无法推导机器可验证标准，退回需人补充 acceptance`,
+    reason: `roundtable（${rounds} 轮）仍无法推导「command+expect」机器可验证标准，退回需人补充 acceptance`,
   };
 }
 
