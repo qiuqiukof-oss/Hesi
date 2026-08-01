@@ -110,9 +110,9 @@ import { getSeen, setSeen } from './onboarding-state.js';
       title: '🤖 接入你的大模型（必做）',
       text: 'Hesi 的所有 AI 能力都依赖一个大模型。点这个 🤖 打开「AI 设置」：<br>• 云端：选 OpenAI / Anthropic，粘贴 API Key；<br>• 本地：选「OpenAI 兼容」，Base URL 填 http://localhost:11434/v1（Ollama），Key 留空；<br>• 或设环境变量 OPENAI_API_KEY / ANTHROPIC_API_KEY，连界面都不用填。<br>Key 只存在本机，绝不外传。',
       highlight: true,
-      prefer: 'down',
+      prefer: 'up',
       align: 'start',
-      offset: { x: 0, y: 12 },
+      offset: { x: 0, y: -288 },
     },
     {
       target: 'chat-attach-btn',
