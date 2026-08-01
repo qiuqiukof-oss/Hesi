@@ -26,11 +26,38 @@
 // ============================================================
 
 const { execFileSync } = require('child_process');
+const path = require('path');
+const fs = require('fs');
 const { gatePlan, resolveCheckpoint } = require('./plan-contract');
 const { planToWorkflowTasks, inScope, isForbidden } = require('./plan-to-workflow');
 const { PlanBudget } = require('../../lib/plan-budget');
 const { snapshotStep, rollbackTo, isRepo } = require('../../lib/plan-git');
 const { revisePlan: defaultRevisePlan } = require('./plan-from-nl');
+
+// ── P4-4：步骤/结果输出落盘 ──
+function resolvePlanOutputDir() {
+  if (process.env.HESI_PLAN_OUTPUT_DIR) return path.resolve(process.env.HESI_PLAN_OUTPUT_DIR);
+  return path.join(process.cwd(), 'data', 'plan-outputs');
+}
+function ensureDir(dir) { if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true }); }
+function writeStepOutput(execId, stepId, output, stack) {
+  if (!execId || !stepId) return;
+  try {
+    const d = resolvePlanOutputDir();
+    ensureDir(d);
+    const content = String(output || '') + (stack ? '\n\n---\nStack:\n' + stack : '');
+    fs.writeFileSync(path.join(d, `${execId}-${stepId}.log`), content, 'utf8');
+  } catch { /* 写盘失败不影响主流程 */ }
+}
+function writePlanSummary(execId, plan, result) {
+  if (!execId) return;
+  try {
+    const d = resolvePlanOutputDir();
+    ensureDir(d);
+    fs.writeFileSync(path.join(d, `${execId}-plan.json`), JSON.stringify(plan, null, 2), 'utf8');
+    fs.writeFileSync(path.join(d, `${execId}-result.json`), JSON.stringify(result, null, 2), 'utf8');
+  } catch { /* ignore */ }
+}
 // ── 复用 AI 助手已调好的 LLM 工具环（不重新实现）──
 // nonStreamingChat = QCLI_TOOLS + executeToolCall + 3min 熔断 + pruneToolContext
 // （与 /api/chat/tools、MCP ai_chat 同一套，踩坑调试好的核心）。
@@ -1175,8 +1202,7 @@ async function runPlan(plan, opts = {}) {
     finalStatus = 'rejected';
     finalReason = '自动重试未产生新方案（连续修订无进展），已停止以避免死循环';
   }
-  return {
-    // 保持原语义：done / partial 视为 ok=true；仅当 autoReplan 修订失败被明确升级为 rejected 时 ok=false
+  const finalResult = {
     ok: finalStatus === 'done' || (finalStatus === 'partial' && !reviseFailed),
     status: finalStatus,
     reason: finalReason,
@@ -1186,6 +1212,9 @@ async function runPlan(plan, opts = {}) {
     attempts,
     revised: attempts.length > 1,
   };
+  // P4-4：最终结果落盘（execId 来自 opts）
+  writePlanSummary((opts && opts.execId) || null, plan, finalResult);
+  return finalResult;
 }
 
 // ── 单次尝试：开分支 → 逐步执行 → 验收 → 反思 ──
@@ -1361,6 +1390,9 @@ async function runOneAttempt(plan, ctx) {
     ev.output = exec.output || '';
     ev.stack = exec.stack || null;
 
+    // P4-4：步骤输出落盘（execId 为流程级 ID，stepId 为步骤级 id）
+    writeStepOutput((opts && opts.execId) || null, task.id, ev.output, ev.stack);
+
     // P3：命令执行被用户取消（断开连接）→ 标记 aborted，不再当 error 回滚
     if (exec.status === 'aborted' || (typeof opts.shouldAbort === 'function' && opts.shouldAbort())) {
       ev.status = 'aborted';
@@ -1459,4 +1491,5 @@ module.exports = {
   resolveProjectRelativePath,
   pickErrorLines,
   summarizeAttemptReason,
+  _forTest: { resolvePlanOutputDir, writeStepOutput, writePlanSummary },
 };

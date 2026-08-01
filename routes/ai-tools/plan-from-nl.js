@@ -41,6 +41,7 @@ const SYSTEM_PROMPT = [
   '- acceptance 优先用 command/script/http 让机器自动验收；确实只能人判时才用 manual。',
   '- steps 的 id 必须唯一；goal/action 必填且具体。',
   '- 尽量给出可由命令行验证的 acceptance（如 grep/node/构建命令），便于全自动闭环自动判定。',
+  '- **所有产出的文件路径必须落在 scope_paths 范围内**：汇总报告/日志/测试结果等文件不要写到 scope_paths 之外的目录（比如不要写到盘符根目录）。',
   '- budget 给宽松上限（如 maxRounds=步数*4，maxMinutes=步数*8）。',
   '',
   '【命令兼容性要求（重要）】',
