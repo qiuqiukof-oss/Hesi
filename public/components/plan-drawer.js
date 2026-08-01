@@ -537,6 +537,18 @@ const PlanDrawer = {
       const ea = body.querySelector('#plan-exec-agent').value.trim();
       if (ea) payload.agentId = ea; // 'ai' 或外部 CLI agent id
 
+      // 执行器选了外部 CLI agent 时，自动并入讨论伙伴：避免「只设了执行器、漏勾讨论伙伴下拉」
+      // 导致该 CLI agent 只跑步骤、却不进圆桌讨论（表现为「讨论没与 CLI agent 沟通」）。
+      // 'ai' 不并入（AI 助手不是可勾选的 CLI 伙伴）；已勾选则不重复添加。
+      if (ea && ea !== 'ai' && (!Array.isArray(payload.partners) || !payload.partners.includes(ea))) {
+        payload.partners = Array.isArray(payload.partners) ? payload.partners : [];
+        payload.partners.push(ea);
+        if (dd) {
+          const cb = dd.querySelector(`input[type="checkbox"][data-id="${ea}"]`);
+          if (cb) { cb.checked = true; }
+        }
+      }
+
       // 个性化权限下钻（与 plan.html 同源）
       const permsRaw = safeStorage.get('qcli-permissions', null);
       if (permsRaw) { try { const p = JSON.parse(permsRaw); if (p && typeof p === 'object') payload.permissions = p; } catch { /* ignore */ } }
