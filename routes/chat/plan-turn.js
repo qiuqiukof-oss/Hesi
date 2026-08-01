@@ -27,8 +27,9 @@
 //      broadcastFn 桥接后同样实时可见。轨道 A 命令型步骤在 P3 前是「执行完
 //      一次性回输出」的兜底形态。
 //
-// 审批闸（P4 前的安全姿态）：对话模式暂无审批 UI，遇到需人工审批的步骤
-//   **明确驳回并说明原因**，绝不静默自动放行。
+// 审批闸（P4-2 对话式）：chat SSE 路径现在通过共享登记表挂起等待，
+//   前端在 chat 线程渲染内联审批气泡（Approve/Reject 按钮），
+//   不再自动驳回。
 // ============================================================
 'use strict';
 
@@ -36,6 +37,7 @@ const crypto = require('crypto');
 const { runPlan } = require('../ai-tools/run-plan');
 const { generatePlanFromObjective, revisePlan } = require('../ai-tools/plan-from-nl');
 const { normalizeStepEvent, emitAsBroadcastFn } = require('../ai-tools/plan-emitter');
+const { registerApproval } = require('../../lib/plan-approval');
 const { workflowManager } = require('../ai-tools/workflow-manager');
 const { sinkPlanToIndex } = require('../ai-tools/plan-rag-sink');
 const { sse, openSseStream, startHeartbeat, watchDisconnect } = require('./sse-util');
@@ -157,6 +159,8 @@ async function runPlanTurn(res, p = {}) {
         : (Number(process.env.HESI_PLAN_MAX_RETRIES) || (autoReplan ? 2 : 0)));
     const maxRetries = Math.min(_mr, 5);
 
+    const approvalTimeoutMs = Number(process.env.HESI_PLAN_APPROVAL_TIMEOUT) || 30 * 60 * 1000;
+
     // ── 3. 执行（事件实时流出）──
     result = await runPlan(plan, {
       cwd,
@@ -165,11 +169,8 @@ async function runPlanTurn(res, p = {}) {
       onStep: (ev) => { emit('step', normalizeStepEvent(ev)); },
       // 决策①：断开即取消——步骤边界检查
       shouldAbort: () => watcher.isAborted(),
-      // P4 前的安全姿态：对话模式没有审批 UI，需审批的步骤明确驳回而非静默放行
-      requestApproval: async (info) => {
-        emit('approval_required', { step: info });
-        return false;
-      },
+      // P4-2：审批闸对话式——通过共享登记表挂起等待，不再自动驳回
+      requestApproval: (info) => registerApproval(execId, info, approvalTimeoutMs, emit),
       permissions: perms,
       plannerRuntime: runtime,
       revisePlanFn: revisePlan,

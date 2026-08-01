@@ -24,6 +24,7 @@ const { sinkPlanToIndex, sinkRoundtableToIndex, roundtableStableRef } = require(
 const { recallPlans, recallRoundtables, listPlans, deletePlan, clearPlans } = require('./plan-rag-recall');
 const { getPreset } = require('./roundtable-presets');
 const { createWsEmitter, emitAsBroadcastFn, normalizeStepEvent } = require('./plan-emitter');
+const { registerApproval, resolveApproval, cancelApproval } = require('../../lib/plan-approval');
 
 /**
  * 解析 Plan 执行默认 Agent（可自选 / 圆桌式默认）。
@@ -39,9 +40,7 @@ function resolveExecutorAgentId(body) {
   return 'ai';
 }
 
-// 审批闸：execId -> { resolve, timer }
-const pendingApprovals = new Map();
-const APPROVAL_TIMEOUT_MS = 30 * 60 * 1000; // 30min 无操作 → 视为驳回
+const APPROVAL_TIMEOUT_MS = 30 * 60 * 1000; // 30min 无操作 → 视为驳回（共享登记表超时由 lib/plan-approval 管理）
 
 // checkpoint 专用汇总指令：要求 LLM 直接产出「机器可自动验证」的验收 JSON
 //（而非自然语言结论），使 parseVerifyFromSummary 能从中抽取出 {kind,command,expect}。
@@ -308,16 +307,8 @@ function createRouter(opts = {}) {
       (Number.isFinite(planApprovalTimeoutMs) && planApprovalTimeoutMs > 0 && planApprovalTimeoutMs) ||
       factoryApprovalTimeoutMs;
     const executorAgentId = resolveExecutorAgentId(body);
-    // 审批闸：等待人工决议（超时兜底→驳回）
-    const requestApproval = (reqInfo) => new Promise((resolve) => {
-      const timer = setTimeout(() => {
-        pendingApprovals.delete(execId);
-        emit('approval-resolved', { approved: false, timedOut: true });
-        resolve(false);
-      }, approvalTimeoutMs);
-      pendingApprovals.set(execId, { resolve, timer });
-      emit('await-approval', { step: reqInfo });
-    });
+    // 审批闸：登记到共享表，等待人工决议（超时兜底→驳回）
+    const requestApproval = (reqInfo) => registerApproval(execId, reqInfo, approvalTimeoutMs, emit);
     try {
       // ② 反思重规划环 / ④ 运行时拦截开关（仅当显式开启或 fullAuto 时激活，默认关闭避免回归）
       const perms = (body.permissions && typeof body.permissions === 'object') ? body.permissions : null;
@@ -371,36 +362,28 @@ function createRouter(opts = {}) {
           discussionTranscript: process.env.HESI_PLAN_RAG_SINK_DISCUSSION !== '0' ? discussionTranscript : '',
         });
       } catch { /* RAG 回流失败不影响主流程 */ }
-      const p = pendingApprovals.get(execId);
-      if (p) { clearTimeout(p.timer); pendingApprovals.delete(execId); }
+      cancelApproval(execId);
       if (!res.writableEnded) return res.json({ ok: result.ok, execId, ...result });
       return; // 客户端已断开（执行中被取消），不再回写
     } catch (e) {
-      const p = pendingApprovals.get(execId);
-      if (p) { clearTimeout(p.timer); pendingApprovals.delete(execId); }
+      cancelApproval(execId);
       return res.status(500).json({ ok: false, error: e.message });
     }
   });
 
-  // 审批闸：人工通过
+  // 审批闸：人工通过（P4-2 共享登记表，WS emit 由 resolveApproval 内置）
   router.post('/:execId/approve', (req, res) => {
-    const p = pendingApprovals.get(req.params.execId);
-    if (!p) return res.status(404).json({ ok: false, error: '无待审批项（已结束或超时）' });
-    clearTimeout(p.timer);
-    pendingApprovals.delete(req.params.execId);
-    broadcast({ type: 'plan:approval-resolved', execId: req.params.execId, approved: true });
-    p.resolve(true);
+    if (!resolveApproval(req.params.execId, true)) {
+      return res.status(404).json({ ok: false, error: '无待审批项（已结束或超时）' });
+    }
     res.json({ ok: true });
   });
 
   // 审批闸：人工驳回
   router.post('/:execId/reject', (req, res) => {
-    const p = pendingApprovals.get(req.params.execId);
-    if (!p) return res.status(404).json({ ok: false, error: '无待审批项（已结束或超时）' });
-    clearTimeout(p.timer);
-    pendingApprovals.delete(req.params.execId);
-    broadcast({ type: 'plan:approval-resolved', execId: req.params.execId, approved: false });
-    p.resolve(false);
+    if (!resolveApproval(req.params.execId, false)) {
+      return res.status(404).json({ ok: false, error: '无待审批项（已结束或超时）' });
+    }
     res.json({ ok: true });
   });
 

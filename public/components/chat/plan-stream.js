@@ -57,6 +57,18 @@ export const planStreamMixin = {
       return;
     }
 
+    if (t === 'await-approval') {
+      this._renderApprovalBubble(evt.step);
+      this.scrollToBottom();
+      return;
+    }
+
+    if (t === 'approval-resolved') {
+      this._updateApprovalBubble(evt);
+      this.scrollToBottom();
+      return;
+    }
+
     if (!this._planCard) return; // 未开卡（异常序）→ 忽略，避免脏 DOM
 
     if (t === 'status') {
@@ -72,9 +84,6 @@ export const planStreamMixin = {
       this._appendPlanLive(evt.content || '');
     } else if (t === 'chat_status') {
       this._setPlanStatus(evt.message || '');
-    } else if (t === 'approval_required') {
-      const id = evt.step && evt.step.id;
-      this._planNote(`🔒 步骤「${(evt.step && evt.step.goal) || id || '?'}」需要人工审批；对话模式暂不支持审批闸，已停止执行。可改用 Plan 面板执行。`, 'warn');
     } else if (t === 'done') {
       this._finishPlanCard(evt);
     } else if (t === 'cancelled') {
@@ -284,6 +293,64 @@ export const planStreamMixin = {
     p.className = `plan-note plan-note-${kind || 'info'}`;
     p.textContent = text;
     card.notes.appendChild(p);
+  },
+
+  /** P4-2：渲染审批闸内联对话气泡（Approve/Reject 按钮）。 */
+  _renderApprovalBubble(step) {
+    if (!step || !this.msgsEl) return;
+    const execId = step.execId || '';
+    const goal = (step.goal || step.id || '').slice(0, 200);
+    const action = typeof step.action === 'string' ? step.action.slice(0, 300) : '';
+    const risk = step.risk ? ('⚠️ 风险：' + step.risk) : '';
+
+    const div = document.createElement('div');
+    div.className = 'chat-message plan-message plan-approval';
+    div.innerHTML =
+      '<div class="msg-avatar plan-avatar" style="background:#f59e0b">🔒</div>' +
+      '<div class="msg-content"><div class="msg-sender plan-sender">审批闸 · 需人工确认</div>' +
+      '<div class="msg-bubble plan-bubble plan-approval-bubble">' +
+      '<div class="plan-approval-goal">' + this._escapeHtml(goal) + '</div>' +
+      (action ? '<code class="plan-approval-action">' + this._escapeHtml(action) + '</code>' : '') +
+      (risk ? '<div class="plan-approval-risk">' + this._escapeHtml(risk) + '</div>' : '') +
+      '<div class="plan-approval-btns">' +
+      '<button class="plan-ag-approve btn btn-primary btn-sm" type="button">✅ 通过并执行</button>' +
+      '<button class="plan-ag-reject btn btn-sm" type="button">⛔ 驳回并中止</button></div>' +
+      '<div class="plan-approval-status"></div></div></div>';
+    const bubble = div.querySelector('.plan-approval-bubble');
+    div.querySelector('.plan-ag-approve').addEventListener('click', () => this._resolveApproval(execId, 'approve', bubble));
+    div.querySelector('.plan-ag-reject').addEventListener('click', () => this._resolveApproval(execId, 'reject', bubble));
+    this.msgsEl.appendChild(div);
+    this._planApprovalEl = div;
+  },
+
+  /** P4-2：收到 approval-resolved 后更新气泡状态。 */
+  _updateApprovalBubble(evt) {
+    const el = this._planApprovalEl;
+    if (!el) return;
+    const status = el.querySelector('.plan-approval-status');
+    if (status) {
+      status.textContent = evt.timedOut ? '⏱ 超时（视为驳回），已中止'
+        : (evt.approved === true ? '✅ 已通过，继续执行…' : '🚫 已驳回，已中止');
+      const btns = el.querySelectorAll('button');
+      btns.forEach((b) => { b.disabled = true; });
+    }
+    this._planApprovalEl = null;
+  },
+
+  /** P4-2：POST /api/plan/<execId>/approve|reject，状态由 approval-resolved 事件统一更新。 */
+  async _resolveApproval(execId, kind, bubble) {
+    const btns = bubble && bubble.querySelectorAll('button');
+    if (btns) btns.forEach((b) => { b.disabled = true; });
+    try {
+      await fetch('/api/plan/' + encodeURIComponent(execId) + '/' + kind, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+      });
+    } catch { /* 网络异常由 approval-resolved 事件覆盖，这里仅禁按钮 */ }
+  },
+
+  _escapeHtml(str) {
+    if (!str) return '';
+    return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   },
 
   /** 收尾：写终态、落盘到消息历史（供刷新后回看）。 */

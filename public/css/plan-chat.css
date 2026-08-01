@@ -167,3 +167,50 @@
 
 .plan-note-warn { color: var(--warning); }
 .plan-note-error { color: var(--danger); }
+
+/* ── 审批闸内联对话气泡（P4-2）── */
+.plan-approval-bubble {
+  border-left: 3px solid var(--warning, #f59e0b);
+  padding: var(--space-3);
+}
+
+.plan-approval-goal {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: var(--space-2);
+}
+
+.plan-approval-action {
+  display: block;
+  margin-bottom: var(--space-2);
+  padding: var(--space-2);
+  font-size: 12px;
+  background: var(--bg-ground);
+  border-radius: var(--radius-sm);
+  white-space: pre-wrap;
+  word-break: break-all;
+  max-height: 120px;
+  overflow: auto;
+}
+
+.plan-approval-risk {
+  font-size: 12px;
+  color: var(--warning);
+  margin-bottom: var(--space-2);
+}
+
+.plan-approval-btns {
+  display: flex;
+  gap: var(--space-2);
+  margin-bottom: var(--space-1);
+}
+
+.plan-approval-btns button { flex: 1; }
+
+.plan-approval-status {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-top: var(--space-1);
+  min-height: 18px;
+}
