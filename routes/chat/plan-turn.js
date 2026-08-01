@@ -186,10 +186,8 @@ async function runPlanTurn(res, p = {}) {
             apiKey: runtime.apiKey, provider: runtime.provider,
             baseUrl: runtime.baseUrl, model: runtime.model,
             budget: p.budget,
-            onEvent: (type, payload) => {
-              if (type === 'error') emit('discussion-error', payload || {});
-              else emit(`discuss-${type}`, payload || {});
-            },
+            // P6 fix: 讨论事件直写 SSE（不加 plan_ 前缀），与 runDiscussion 同构
+            onEvent: (type, payload) => sse(res, { type, ...(payload || {}) }),
             shouldAbort: () => watcher.isAborted(),
           }),
           new Promise((_, reject) => setTimeout(() => reject(new Error(`讨论超时（${Math.round(DISCUSS_TIMEOUT_MS / 1000)}s）`)), DISCUSS_TIMEOUT_MS)),
