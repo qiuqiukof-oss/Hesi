@@ -202,47 +202,91 @@ function compactTranscriptForCli(transcript) {
 
 // 跑一轮 CLI Agent 发言：每次新开 session（task 含完整记录），轮询到完成
 async function runCliTurn({ partner, persona, protocol }, question, transcript, round, onToken, shouldAbort) {
-  // 早期轮次压缩摘要 + 最近 2 轮逐字（HESI_CLI_DIGEST=0 关闭压缩，恢复完整记录）
-  const forCli = process.env.HESI_CLI_DIGEST === '0' ? transcript : compactTranscriptForCli(transcript);
-  const task = buildCliTask({ question, transcript: forCli, round, persona, protocol });
-  const started = JSON.parse(await agentPool.start(partner, task, '', null));
-  if (!started.ok) {
-    onToken(`（无法启动 CLI Agent「${partner}」：${started.error}）`);
-    return `（无法启动 CLI Agent「${partner}」：${started.error}）`;
-  }
-  const sid = started.sessionId;
-  const deadline = Date.now() + AGENT_TURN_TIMEOUT_MS;
-  let full = '';
-  let lastDelta = '';
-  // 流式清洗器：跨多次 poll 的增量 delta 缓存被边界切断的转义序列，
-  // 确保喂给 AI 与聊天气泡的都是纯净文本（同 PTY 层一致强度，外加 \r）。
-  const cleaner = createStreamCleaner();
-  try {
-    while (Date.now() < deadline) {
-      if (shouldAbort && shouldAbort()) break;
-      const r = JSON.parse(await agentPool.poll(sid));
-      if (!r.ok) { onToken(`（轮询失败：${r.error}）`); break; }
-      const delta = r.output || '';
-      if (delta && delta !== lastDelta) {
-        // 仅推送新增增量，避免重复；增量先清洗终端协议字节再上屏/喂给 AI
-        const addedRaw = delta.startsWith(lastDelta) ? delta.slice(lastDelta.length) : delta;
-        const added = cleaner(addedRaw).replace(/\r/g, '');
-        if (added) { full += added; onToken(added); }
-        // lastDelta 保留「原始」delta 用于去重比对，避免清洗改变长度后误判重复/漏推
-        lastDelta = delta;
-      }
-      if (r.status === 'done' || r.status === 'error') break;
-      if (r.pendingCallbackCount > 0) {
-        // CLI Agent 通过 <cliq:ask> 反向提问：把问题交给 AI（下一轮自然会看到）
-        onToken(`\n\n> CLI Agent 反问：${(r.pendingCallbacks || []).map(c => c.question).join('; ')}`);
-        break;
-      }
-      await new Promise(r => setTimeout(r, AGENT_POLL_INTERVAL_MS));
+  // 单次尝试：启动 CLI Agent 并轮询其输出，返回 { full, terminal, ok }。
+  // terminal 记录终止原因（done/error/timeout/cancelled/aborted/silence-timeout/start-failed/callback），
+  // 供上层给出明确的失败说明，避免「启动横幅后静默跳过」这类无信息表现。
+  const attempt = async () => {
+    // 早期轮次压缩摘要 + 最近 2 轮逐字（HESI_CLI_DIGEST=0 关闭压缩，恢复完整记录）
+    const forCli = process.env.HESI_CLI_DIGEST === '0' ? transcript : compactTranscriptForCli(transcript);
+    const task = buildCliTask({ question, transcript: forCli, round, persona, protocol });
+    const started = JSON.parse(await agentPool.start(partner, task, '', null));
+    if (!started.ok) {
+      return { full: `（无法启动 CLI Agent「${partner}」：${started.error}）`, terminal: 'start-failed', ok: false };
     }
-  } finally {
-    try { await agentPool.cancel(sid); } catch { /* ignore */ }
+    const sid = started.sessionId;
+    const deadline = Date.now() + AGENT_TURN_TIMEOUT_MS;
+    // 静默检测阈值（环境变量可覆盖；默认 60s 告警 / 140s 提前收尾，均在 180s 总预算内）。
+    // 用于对抗「CLI Agent 启动后遇 provider 错误（如限流）只写自身日志、不退出也不吐错」的静默挂死。
+    const silenceWarnMs = Number(process.env.HESI_AGENT_SILENCE_WARN_MS) || 60000;
+    const silenceAbortMs = Number(process.env.HESI_AGENT_SILENCE_ABORT_MS) || 140000;
+    let full = '';
+    let lastDelta = '';
+    let lastOutputAt = Date.now();
+    let warned = false;
+    // 流式清洗器：跨多次 poll 的增量 delta 缓存被边界切断的转义序列，
+    // 确保喂给 AI 与聊天气泡的都是纯净文本（同 PTY 层一致强度，外加 \r）。
+    const cleaner = createStreamCleaner();
+    let terminal = null;
+    try {
+      while (Date.now() < deadline) {
+        if (shouldAbort && shouldAbort()) { terminal = 'aborted'; break; }
+        const r = JSON.parse(await agentPool.poll(sid));
+        if (!r.ok) { onToken(`（轮询失败：${r.error}）`); terminal = 'error'; break; }
+        const delta = r.output || '';
+        if (delta && delta !== lastDelta) {
+          // 仅推送新增增量，避免重复；增量先清洗终端协议字节再上屏/喂给 AI
+          const addedRaw = delta.startsWith(lastDelta) ? delta.slice(lastDelta.length) : delta;
+          const added = cleaner(addedRaw).replace(/\r/g, '');
+          if (added) { full += added; onToken(added); lastOutputAt = Date.now(); warned = false; }
+          // lastDelta 保留「原始」delta 用于去重比对，避免清洗改变长度后误判重复/漏推
+          lastDelta = delta;
+        }
+        // 静默检测：自启动/上次输出起长时间无新内容 → 上屏告警，提示可能限流/不可达
+        const silentFor = Date.now() - lastOutputAt;
+        if (!warned && silentFor >= silenceWarnMs) {
+          warned = true;
+          onToken(`\n\n（⏳ CLI Agent「${partner}」已 ${Math.round(silentFor / 1000)}s 无新输出，可能模型限流/不可达，详见该 Agent 自身日志。）`);
+        }
+        if (silentFor >= silenceAbortMs) {
+          terminal = 'silence-timeout';
+          onToken(`\n\n（⏱ CLI Agent「${partner}」静默 ${Math.round(silentFor / 1000)}s 无输出，提前结束本轮。）`);
+          break;
+        }
+        // 四态终止：done/error 外补齐 timeout/cancelled（原仅 break 在 done|error，会漏判致空轮询到 180s）
+        if (r.status === 'done' || r.status === 'error' || r.status === 'timeout' || r.status === 'cancelled') {
+          terminal = r.status; break;
+        }
+        if (r.pendingCallbackCount > 0) {
+          // CLI Agent 通过 <cliq:ask> 反向提问：把问题交给 AI（下一轮自然会看到）
+          onToken(`\n\n> CLI Agent 反问：${(r.pendingCallbacks || []).map(c => c.question).join('; ')}`);
+          terminal = 'callback'; break;
+        }
+        await new Promise(r => setTimeout(r, AGENT_POLL_INTERVAL_MS));
+      }
+    } finally {
+      try { await agentPool.cancel(sid); } catch { /* ignore */ }
+    }
+    return { full: full.trim(), terminal, ok: true };
+  };
+
+  const res = await attempt();
+  // 可选：启动成功但无产出（典型为瞬态限流）时重试一次（HESI_AGENT_RETRY_ON_EMPTY=1 开启，默认关闭以免拉长耗时）
+  if (res.ok && !res.full && process.env.HESI_AGENT_RETRY_ON_EMPTY === '1') {
+    onToken(`\n\n（↻ CLI Agent「${partner}」本轮无产出，重试一次…）`);
+    const retry = await attempt();
+    if (retry.full) return retry.full;
+    res.terminal = retry.terminal || res.terminal; // 重试仍空：沿用其终止原因判定
   }
-  return full.trim() || '（CLI Agent 未产出内容）';
+
+  if (!res.full) {
+    const t = res.terminal;
+    if (t === 'start-failed') return res.full; // 消息内已说明原因
+    if (t === 'error') return `（CLI Agent「${partner}」执行出错，未产出内容。可能模型限流或不可达，详见该 Agent 自身日志。）`;
+    if (t === 'timeout' || t === 'silence-timeout') return `（CLI Agent「${partner}」超时/静默无响应，未产出内容。）`;
+    if (t === 'cancelled' || t === 'aborted') return `（CLI Agent「${partner}」已被取消。）`;
+    return `（CLI Agent「${partner}」未产出内容——可能模型限流/不可达，详见该 Agent 自身日志。）`;
+  }
+  return res.full;
 }
 
 // 人工接管席位：把用户提交的文本作为该席位的发言，逐片流式上屏（与 CLI 发言一致的气泡体验）。
