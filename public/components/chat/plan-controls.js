@@ -12,8 +12,7 @@
 // 与「🤝 AI 讨论」并列的第二个输入框开关，走完全相同的装配范式：
 //   checkbox → this._planEnabled → 发送时透传 planMode:true → 后端分流。
 //
-// 互斥：两者同时勾选语义不清（讨论是「先谈」、执行是「后做」），
-//       故 UI 层直接互斥，勾一个自动松开另一个，避免用户困惑。
+// P6：不再互斥——同时勾选 AI 讨论+选伙伴+自动执行 → 协作工作流（讨论→方案→实施）。
 // ============================================================
 'use strict';
 
@@ -25,7 +24,6 @@ export const planControlsMixin = {
     const toggle = document.getElementById('plan-toggle');
     const controls = document.getElementById('plan-controls');
     const agentSel = document.getElementById('plan-agent');
-    const discussToggle = document.getElementById('discuss-toggle');
     if (!toggle || !controls || !agentSel) return;
 
     const sync = () => {
@@ -35,24 +33,9 @@ export const planControlsMixin = {
     };
 
     toggle.addEventListener('change', () => {
-      // 互斥：开「自动执行」→ 关「AI 讨论」
-      if (toggle.checked && discussToggle && discussToggle.checked) {
-        discussToggle.checked = false;
-        discussToggle.dispatchEvent(new Event('change'));
-      }
       sync();
     });
     agentSel.addEventListener('change', sync);
-
-    // 反向互斥：开「AI 讨论」→ 关「自动执行」
-    if (discussToggle) {
-      discussToggle.addEventListener('change', () => {
-        if (discussToggle.checked && toggle.checked) {
-          toggle.checked = false;
-          sync();
-        }
-      });
-    }
 
     // 执行方下拉：'ai'（默认，复用 AI 助手工具环）+ 已安装的外部 CLI Agent。
     // PartnerStore 与讨论控件同源，可能尚未就绪 → 同款 30ms 短轮询（最多 5s）。
