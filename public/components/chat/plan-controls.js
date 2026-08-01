@@ -30,6 +30,9 @@ export const planControlsMixin = {
       this._planEnabled = !!toggle.checked;
       this._planAgentId = agentSel.value || 'ai';
       controls.style.display = this._planEnabled ? 'flex' : 'none';
+      // P6：同时勾选 AI 讨论→显示协作提示
+      const hint = document.getElementById('plan-collab-hint');
+      if (hint) hint.style.display = (this._planEnabled && this._discussEnabled) ? 'block' : 'none';
     };
 
     toggle.addEventListener('change', () => {

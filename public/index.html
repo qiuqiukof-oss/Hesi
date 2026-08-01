@@ -265,7 +265,7 @@
               </select>
             </div>
             <span class="discuss-sep" aria-hidden="true"></span>
-            <label class="discuss-switch plan-switch" id="plan-switch" title="开启后，你这句话会被拆解成可执行步骤并真实执行；每步的状态与输出实时可见（与 AI 讨论互斥）">
+            <label class="discuss-switch plan-switch" id="plan-switch" title="开启后自动拆解目标为可执行步骤并真实执行；同时勾选 AI 讨论→协作工作流（讨论→方案→实施）">
               <input type="checkbox" id="plan-toggle" />
               <span class="discuss-switch-label">⚡ 自动执行</span>
             </label>
@@ -274,6 +274,9 @@
                 <option value="ai" selected>AI 助手执行</option>
               </select>
               <span class="plan-hint">会真实改动本机文件 · 关闭页面即取消</span>
+            </div>
+            <div id="plan-collab-hint" class="plan-hint" style="display:none;margin-top:2px;">
+              💡 同时勾选 AI 讨论时自动启用协作工作流：AI 助手+CLI Agent 先讨论再执行。目标越明确（做什么 + 验收标准），讨论越快收敛。
             </div>
           </div>
           <div id="chat-attachments" class="chat-attachments"></div>
