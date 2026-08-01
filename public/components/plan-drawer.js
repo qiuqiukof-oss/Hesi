@@ -568,8 +568,12 @@ const PlanDrawer = {
       this._renderReflection(data.reflection);
       this._renderSteps(data.steps);
       this._hideGate();
+      // 执行已结束（无论成功/失败/驳回），关闭实时讨论舞台，避免 M3/checkpoint
+      // 讨论舞台卡在「讨论进行中…」而执行结果已经 done 的状态不同步。
+      this._hideDiscussionStage();
     } catch (e) {
       this._setStatus('网络/执行异常：' + e.message, 'error');
+      this._hideDiscussionStage();
     } finally {
       body.querySelector('#plan-execute').disabled = false;
     }
