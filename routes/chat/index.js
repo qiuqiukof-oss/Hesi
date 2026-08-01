@@ -311,6 +311,7 @@ function createRouter(opts = {}) {
           maxRetries,
           discussBeforePlan: doDiscussFirst,
           discussionPartners: partnerList,
+          maxTurns: maxTurns || 4,
         });
       } catch (err) {
         if (!res.headersSent) res.status(500).json({ error: err.message });
