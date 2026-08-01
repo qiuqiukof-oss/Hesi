@@ -507,7 +507,9 @@ const PlanDrawer = {
         list.innerHTML = `<div class="pd-hist-err">${esc(data.error || '加载失败')}</div>`;
         return;
       }
-      const items = data.items || [];
+      // 方案 A：历史列表只渲染 plan（搜索端点现返回 {items,plans,roundtables}，
+      // 圆桌条目 shape 不同、当前无对应 UI，须排除避免渲染垃圾；roundtables 留待后续 UI）。
+      const items = data.plans || data.items || [];
       if (!items.length) {
         list.innerHTML = '<div class="pd-hist-empty">暂无历史 Plan 记录。执行 Plan 后会自动沉淀到这里。</div>';
         return;
