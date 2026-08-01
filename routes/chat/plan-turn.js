@@ -111,6 +111,8 @@ function summarizePlan(plan, execId) {
 async function runPlanTurn(res, p = {}) {
   const objective = typeof p.objective === 'string' ? p.objective.trim() : '';
   const presetPlan = p.plan && typeof p.plan === 'object' ? p.plan : null;
+  console.log('[runPlanTurn] 入口 objective=%s discussBeforePlan=%s partners=%d',
+    objective.slice(0, 60), !!p.discussBeforePlan, (Array.isArray(p.discussionPartners) ? p.discussionPartners.length : 0));
   if (!objective && !presetPlan) {
     return res.status(400).json({ error: '自动执行模式需要一段目标描述' });
   }
@@ -128,6 +130,7 @@ async function runPlanTurn(res, p = {}) {
   const watcher = watchDisconnect(res);
 
   emit('start', { execId, objective });
+  console.log('[runPlanTurn] SSE opened, execId=%s', execId);
 
   let plan = presetPlan;
   let result = null;
@@ -137,6 +140,7 @@ async function runPlanTurn(res, p = {}) {
   const discussPartners = (Array.isArray(p.discussionPartners) && p.discussionPartners.length)
     ? p.discussionPartners.slice() : [];
   const discussBeforePlan = !!(p.discussBeforePlan) && discussPartners.length > 0 && !presetPlan;
+  console.log('[runPlanTurn] discussBeforePlan=%s partners=%s', discussBeforePlan, discussPartners);
   let discussionSummary = null;
 
   // checkpoint 讨论 factory：执行阶段遇到 checkpoint 步时由 runPlan 回调，

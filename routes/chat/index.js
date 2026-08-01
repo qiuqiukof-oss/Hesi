@@ -297,6 +297,7 @@ function createRouter(opts = {}) {
     // 注：planMode 优先级高于纯 discuss——勾选「AI 讨论」+「自动执行」时走协作流，
     // 不再排斥；纯讨论走下方 else if
     if (planMode) {
+      console.log('[chat] planMode branch, discuss=%s partners=%d doDiscuss=%s', discuss, (Array.isArray(partners) ? partners.length : 0), !!(discussBeforePlan) || (Array.isArray(partners) && partners.length > 0));
       const userText = (messages[messages.length - 1]?.content || '').toString();
       const partnerList = Array.isArray(partners) && partners.length ? partners.slice() : [];
       const doDiscussFirst = !!(discussBeforePlan) || partnerList.length > 0; // 有伙伴则默认启用协作
