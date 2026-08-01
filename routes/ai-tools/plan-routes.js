@@ -23,6 +23,7 @@ const { generatePlanFromObjective, revisePlan } = require('./plan-from-nl');
 const { sinkPlanToIndex, sinkRoundtableToIndex, roundtableStableRef } = require('./plan-rag-sink');
 const { recallPlans, recallRoundtables, listPlans, deletePlan, clearPlans } = require('./plan-rag-recall');
 const { getPreset } = require('./roundtable-presets');
+const { createWsEmitter, emitAsBroadcastFn, normalizeStepEvent } = require('./plan-emitter');
 
 /**
  * 解析 Plan 执行默认 Agent（可自选 / 圆桌式默认）。
@@ -64,22 +65,22 @@ const CHECKPOINT_SUMMARY_PROMPT = `你是这场「AI 助手 ↔ CLI Agent」协�
  * 用 discuss.runRoundtable 包装出 resolveCheckpoint 需要的 roundtableFn。
  * @param {object} runtime  { apiKey, provider, baseUrl, model, partner, partners }
  * @param {object} [budget] plan.budget（{ maxTokens?, maxMinutes? }）→ 透传进 runRoundtable 循环守卫
- * @param {{ execId?: string, broadcast?: (data:object)=>void }} [ctx] 注入 WS 广播上下文：
- *   - execId   与本次 /execute 关联，让前端能把 checkpoint 讨论事件渲染到对应舞台
- *   - broadcast 把 runRoundtable 的讨论事件（status/token/discuss_*）转发为 plan:discuss-*，
- *               错误事件统一为 plan:discussion-error（前端 _onDiscussionEvent 已监听该分支）
+ * @param {{ execId?: string, emit?: (type:string, data?:object)=>void }} [ctx] 注入事件通道：
+ *   - execId 与本次 /execute 关联，让前端能把 checkpoint 讨论事件渲染到对应舞台
+ *   - emit   把 runRoundtable 的讨论事件（status/token/discuss_*）转发为 discuss-*，
+ *            错误事件统一为 discussion-error（投递层加 plan: 前缀，
+ *            前端 _onDiscussionEvent 已监听该分支）
  */
 function buildRoundtableFn(runtime, budget, ctx) {
-  const execId = ctx && ctx.execId ? ctx.execId : '';
-  const broadcast = ctx && typeof ctx.broadcast === 'function' ? ctx.broadcast : null;
-  // 事件转发：错误统一 plan:discussion-error；其余沿用 plan:discuss-${type} 前缀
-  //（前端 _onDiscussionEvent 按该前缀 + execId 匹配渲染，见 plan-drawer.js:590-592）。
+  const emit = ctx && typeof ctx.emit === 'function' ? ctx.emit : null;
+  // 事件转发：错误统一 discussion-error；其余沿用 discuss-${type} 前缀
+  //（前端 _onDiscussionEvent 按 plan:discuss- 前缀 + execId 匹配渲染，见 plan-drawer.js:590-592）。
   const forward = (type, payload) => {
-    if (!broadcast) return;
+    if (!emit) return;
     if (type === 'error') {
-      broadcast({ type: 'plan:discussion-error', execId, ...(payload || {}) });
+      emit('discussion-error', payload || {});
     } else {
-      broadcast({ type: `plan:discuss-${type}`, execId, ...(payload || {}) });
+      emit(`discuss-${type}`, payload || {});
     }
   };
   return async function roundtableFn({ question, transcript, rounds }) {
@@ -107,7 +108,7 @@ function buildRoundtableFn(runtime, budget, ctx) {
       }
     }
     // 后端显式打开执行阶段（非 M3 前置）的 checkpoint 圆桌舞台，让前端可见讨论过程
-    if (broadcast) broadcast({ type: 'plan:discussion-start', execId, partners: Array.isArray(runtime.partners) ? runtime.partners : [], maxTurns, mode: 'checkpoint' });
+    if (emit) emit('discussion-start', { partners: Array.isArray(runtime.partners) ? runtime.partners : [], maxTurns, mode: 'checkpoint' });
     try {
       const out = await runRoundtable({
         message: question,
@@ -125,7 +126,7 @@ function buildRoundtableFn(runtime, budget, ctx) {
         shouldAbort: null,
       });
       // 把推导出的验收结论回显到舞台（checkpoint 场景的 summary 即 verify 推导结论）
-      if (broadcast && out && out.summary) broadcast({ type: 'plan:discussion-result', execId, summary: out.summary, cleanFinish: !!out.cleanFinish });
+      if (emit && out && out.summary) emit('discussion-result', { summary: out.summary, cleanFinish: !!out.cleanFinish });
       return parseVerifyFromSummary(out && out.summary);
     } catch {
       return null; // 圆桌失败 → 交给 resolveCheckpoint 兜底回决策①
@@ -141,6 +142,9 @@ function createRouter(opts = {}) {
   const router = express.Router();
   const cwd = opts.cwd || process.cwd();
   const wf = opts.workflowManager || workflowManager;
+  // 控制端点专用广播（approve / reject / discuss-confirm / cancel / 确认超时）：
+  // 这些是独立 HTTP 端点，execId 来自 URL 参数而非某次执行上下文，故不走 emit 通道。
+  // 执行核心（/execute 内）一律用 createWsEmitter 产出的 emit，见下方。
   const broadcast = (data) => { try { if (opts.broadcastFn) opts.broadcastFn(data); } catch { /* ignore */ } };
   // 前置讨论确认闸（M3）：discussMode==='confirm' 时，讨论结束后挂起 HTTP 等待用户确认，
   // 复用与审批闸相同的「挂起 HTTP + WS 广播 + 超时兜底」范式（超时默认自动继续，方案 P-B6）。
@@ -183,6 +187,10 @@ function createRouter(opts = {}) {
     const execId = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(providedExecId)
       ? providedExecId
       : crypto.randomUUID();
+    // 事件通道：执行核心只调 emit(type, data)，本路由注入 WS 广播投递（向后兼容旧抽屉）。
+    // 必须与 execId 同段声明——下方讨论分支即引用（同一 handler 作用域内 const TDZ，
+    // 见上方 execId 注释记录过的同类陷阱）。
+    const emit = createWsEmitter(opts.broadcastFn, execId);
     let discussionSummary = null;
     let discussionTranscript = '';
     const discussBeforePlan = !!body.discussBeforePlan;
@@ -224,7 +232,7 @@ function createRouter(opts = {}) {
       if (!shared) {
         shared = (async () => {
           try {
-            broadcast({ type: 'plan:discussion-start', execId, objective });
+            emit('discussion-start', { objective });
             const out = await runRoundtable({
               message: objective,
               partners: discussPartners,
@@ -237,21 +245,21 @@ function createRouter(opts = {}) {
               model: runtime.model,
               budget: body.budget,
               onEvent: (type, payload) => {
-                // 错误事件统一为 plan:discussion-error（前端 _onDiscussionEvent 监听该分支）；
-                // 其余事件沿用 plan:discuss-${type} 前缀（status/token/discuss_start 等）。
-                if (type === 'error') broadcast({ type: 'plan:discussion-error', execId, ...(payload || {}) });
-                else broadcast({ type: `plan:discuss-${type}`, execId, ...(payload || {}) });
+                // 错误事件统一为 discussion-error（前端 _onDiscussionEvent 监听 plan:discussion-error）；
+                // 其余事件沿用 discuss-${type} 前缀（status/token/discuss_start 等）。
+                if (type === 'error') emit('discussion-error', payload || {});
+                else emit(`discuss-${type}`, payload || {});
               },
               shouldAbort: () => false,
             });
             discussionSummary = (out && out.summary) ? out.summary : '';
             discussionTranscript = (out && out.transcript) ? out.transcript : '';
             sinkRoundtable(discussionSummary, discussionTranscript);
-            broadcast({ type: 'plan:discussion-result', execId, summary: discussionSummary, cleanFinish: !!(out && out.cleanFinish) });
+            emit('discussion-result', { summary: discussionSummary, cleanFinish: !!(out && out.cleanFinish) });
             return { summary: discussionSummary, transcript: discussionTranscript };
           } catch (de) {
             // 讨论失败/无 Key/无 Partner → 降级直接生成（方案 B6）
-            broadcast({ type: 'plan:discussion-error', execId, message: de.message });
+            emit('discussion-error', { message: de.message });
             discussionSummary = null;
             discussionTranscript = '';
             return { summary: '', transcript: '' };
@@ -261,7 +269,7 @@ function createRouter(opts = {}) {
         shared.finally(() => { if (inFlightRoundtables.get(rtRef) === shared) inFlightRoundtables.delete(rtRef); }).catch(() => {});
       } else {
         // 复用进行中讨论：同目标并发请求共享结果（不重复广播 start，避免前端重复气泡）
-        broadcast({ type: 'plan:discussion-shared', execId, objective });
+        emit('discussion-shared', { objective });
         const reused = await shared;
         discussionSummary = reused && reused.summary ? reused.summary : '';
         discussionTranscript = reused && reused.transcript ? reused.transcript : '';
@@ -270,7 +278,7 @@ function createRouter(opts = {}) {
       if (discussMode === 'confirm' && discussionSummary) {
         const confirmed = await waitDiscussionConfirm(execId);
         if (!confirmed) {
-          broadcast({ type: 'plan:discussion-cancelled', execId });
+          emit('discussion-cancelled', {});
           return res.json({ ok: false, execId, status: 'discussion-cancelled', error: '已取消：讨论后未确认执行' });
         }
       }
@@ -299,11 +307,11 @@ function createRouter(opts = {}) {
     const requestApproval = (reqInfo) => new Promise((resolve) => {
       const timer = setTimeout(() => {
         pendingApprovals.delete(execId);
-        broadcast({ type: 'plan:approval-resolved', execId, approved: false, timedOut: true });
+        emit('approval-resolved', { approved: false, timedOut: true });
         resolve(false);
       }, approvalTimeoutMs);
       pendingApprovals.set(execId, { resolve, timer });
-      broadcast({ type: 'plan:await-approval', execId, step: reqInfo });
+      emit('await-approval', { step: reqInfo });
     });
     try {
       // ② 反思重规划环 / ④ 运行时拦截开关（仅当显式开启或 fullAuto 时激活，默认关闭避免回归）
@@ -323,9 +331,14 @@ function createRouter(opts = {}) {
       const result = await runPlan(plan, {
         cwd,
         workflowManager: wf,
-        roundtableFn: buildRoundtableFn(runtime, plan && plan.budget, { execId, broadcast }),
+        roundtableFn: buildRoundtableFn(runtime, plan && plan.budget, { execId, emit }),
         execId,
         requestApproval,
+        // ── 步骤级实时事件（P1 接通）──
+        // runPlan 一直支持 opts.onStep(ev)，但此处从未传入 → 每个步骤的
+        // start/done/error/blocked 全被丢弃，用户只能等 res.json 一次性返回，
+        // 这正是「Plan 是个黑盒」的根源。现接到 emit 通道上。
+        onStep: (ev) => { emit('step', normalizeStepEvent(ev)); },
         // 个性化「权限设置」下钻（来自前端 localStorage）
         permissions: perms,
         // 全自动 Phase 1 接线
@@ -336,9 +349,10 @@ function createRouter(opts = {}) {
         // 执行默认 Agent：前端可自选（body.agentId）；未选则圆桌式默认 'ai'
         // （AI 助手 LLM 工具环，不重新实现）。
         executorAgentId,
-        // 步骤执行（轨道 B / runStepViaChatLLM）实时广播：复用与讨论相同的 broadcast 通道，
+        // 步骤执行（轨道 B / runStepViaChatLLM）实时事件：透传同一 emit 通道，
         // 否则 run-plan.js 读到的 opts.broadcastFn 永远为 undefined（原硬编码 undefined 导致过程黑盒）。
-        broadcastFn: broadcast,
+        // chat 管线发的是 { type, ... } 对象形态，用适配器桥接到 emit(type, data)。
+        broadcastFn: emitAsBroadcastFn(emit),
       });
       // ③ RAG 快照回流（成功/失败均沉淀，失败不影响主流程；M1 增强：传计时+执行Agent）
       const endedAt = Date.now();

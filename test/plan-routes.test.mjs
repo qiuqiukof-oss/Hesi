@@ -262,6 +262,69 @@ test('审批闸：body.approvalTimeoutMs 覆盖默认 30min（per-plan 配置生
   }
 });
 
+// ── P1 事件通道抽象：步骤级实时事件 ──
+// 回归背景：runPlan 一直支持 opts.onStep(ev)，但 plan-routes 调用时从未传入，
+// 每个步骤的 start/done 全被丢弃 —— 用户只能等 res.json 一次性返回（黑盒根源）。
+// 该用例锁死「执行过程必须逐步发出 plan:step 事件」这一契约。
+
+test('P1 事件通道：执行过程逐步发出 plan:step 实时事件', async () => {
+  const dir = tmpRepo();
+  const events = [];
+  const { srv, port } = await startServer(createRouter({
+    cwd: dir,
+    workflowManager: makeWf('completed'),
+    broadcastFn: (d) => events.push(d),
+  }));
+  try {
+    const plan = {
+      objective: 't',
+      acceptance: [{ id: 'a1', kind: 'command', command: 'echo ok', expect: 'ok' }],
+      steps: [
+        { id: 's1', goal: '第一步', action: 'echo one' },
+        { id: 's2', goal: '第二步', action: 'echo two' },
+      ],
+      forbidden: [],
+      scope_paths: [],
+      budget: { maxRounds: 0, maxTokens: 0, maxMinutes: 0 },
+    };
+    const res = await fetch(`http://127.0.0.1:${port}/api/plan/execute`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ plan }),
+    });
+    const data = await res.json();
+    assert.equal(res.status, 200);
+
+    const steps = events.filter((e) => e.type === 'plan:step');
+    assert.ok(steps.length >= 2, `应至少收到 2 条 plan:step，实收 ${steps.length}`);
+    // 每条事件都必须能定位到具体步骤与本次执行
+    for (const ev of steps) {
+      assert.equal(ev.execId, data.execId, 'plan:step 必须带 execId 以关联本次执行');
+      assert.ok(typeof ev.id === 'string' && ev.id, 'plan:step 必须带步骤 id');
+      assert.ok(typeof ev.status === 'string' && ev.status, 'plan:step 必须带 status');
+    }
+    // 事件应覆盖两个步骤，而非只报告最后一步
+    const ids = new Set(steps.map((e) => e.id));
+    assert.ok(ids.has('s1') && ids.has('s2'), `事件应覆盖 s1/s2，实际=${[...ids].join(',')}`);
+  } finally { srv.close(); }
+});
+
+test('P1 事件通道：未注入 broadcastFn 时静默降级，不影响执行', async () => {
+  const dir = tmpRepo();
+  // 不传 broadcastFn → emit 应为 NOOP，执行流程完全不受影响
+  const { srv, port } = await startServer(createRouter({ cwd: dir, workflowManager: makeWf('completed') }));
+  try {
+    const res = await fetch(`http://127.0.0.1:${port}/api/plan/execute`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ plan: goodPlan }),
+    });
+    const data = await res.json();
+    assert.equal(res.status, 200);
+    assert.equal(data.ok, true);
+  } finally { srv.close(); }
+});
+
 // ── ④ 运行时逐工具强制拦截（路由层） ──
 
 test('POST /api/plan/execute runtimeIntercept：危险 action 被拦截', async () => {
