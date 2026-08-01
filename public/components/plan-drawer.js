@@ -140,7 +140,47 @@ const PlanDrawer = {
     this._wireLLMPersist(body);
     // 审批闸 WS
     this._connectWS();
+    // 结果摘要与步骤的复制按钮（事件委托）
+    body.querySelector('#plan-reflection').addEventListener('click', (e) => {
+      const btn = e.target.closest('.copy-ref');
+      if (btn && btn.dataset.copyText) this._copyText(btn.dataset.copyText, btn);
+    });
+    body.querySelector('#plan-steps').addEventListener('click', (e) => {
+      const artifact = e.target.closest('.step-artifact');
+      if (artifact) { this._copyText(artifact.textContent, artifact); return; }
+      const btn = e.target.closest('.step-copy');
+      if (btn && btn.dataset.copyText) this._copyText(btn.dataset.copyText, btn);
+    });
     this.rendered = true;
+  },
+
+  _copyText(text, triggerEl) {
+    const write = async () => {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(text);
+      } else {
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        ta.style.position = 'fixed';
+        ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.select();
+        const ok = document.execCommand('copy');
+        document.body.removeChild(ta);
+        if (!ok) throw new Error('execCommand copy failed');
+      }
+    };
+    write().then(() => {
+      if (triggerEl && triggerEl.tagName === 'BUTTON') {
+        const old = triggerEl.textContent;
+        triggerEl.textContent = '✓';
+        setTimeout(() => { triggerEl.textContent = old; }, 1200);
+      } else {
+        this._setStatus('已复制到剪贴板', 'ok');
+      }
+    }).catch(() => {
+      this._setStatus('复制失败，请手动选择文本复制', 'warn');
+    });
   },
 
   /** 执行 Agent 下拉：合并 /api/clis(agent) + /api/agents(installed) + ⭐收藏 */
@@ -303,14 +343,30 @@ const PlanDrawer = {
     const el = this.root.querySelector('#plan-reflection');
     if (!r) { el.classList.add('hidden'); return; }
     const rate = r.acceptancePassRate == null ? '—' : Math.round(r.acceptancePassRate * 100) + '%';
+    const lines = [
+      '状态: ' + (r.status || '—'),
+      '步完成: ' + (r.stepsDone || 0) + '/' + (r.stepsTotal || 0),
+      '验收通过率: ' + rate,
+      r.budget ? '轮数: ' + (r.budget.rounds || 0) : '',
+      r.reason ? '说明: ' + r.reason : '',
+    ].filter(Boolean).join('\n');
     el.className = 'reflection';
     el.innerHTML =
+      '<button type="button" class="btn btn-ghost copy-ref" title="复制结果摘要" data-copy-text="' + esc(lines) + '">📋 复制摘要</button>' +
       '<div class="ref-card"><span class="ref-k">状态</span><span class="ref-v">' + esc(r.status) + '</span></div>' +
       '<div class="ref-card"><span class="ref-k">步完成</span><span class="ref-v">' + (r.stepsDone || 0) + '/' + (r.stepsTotal || 0) + '</span></div>' +
       '<div class="ref-card"><span class="ref-k">验收通过率</span><span class="ref-v">' + rate + '</span></div>' +
       (r.budget ? '<div class="ref-card"><span class="ref-k">轮数</span><span class="ref-v">' + (r.budget.rounds || 0) + '</span></div>' : '') +
       (r.reason ? '<div class="ref-card ref-full"><span class="ref-k">说明</span><span class="ref-v">' + esc(r.reason) + '</span></div>' : '');
     el.classList.remove('hidden');
+  },
+
+  _highlightArtifacts(text) {
+    // 高亮输出中的产物路径（/tmp/...、/home/...、C:\... 等），并支持点击复制
+    return esc(text).replace(
+      /(\/tmp\/[^\s\"'<>\n]+|\/home\/[^\s\"'<>\n]+|(?:[A-Za-z]:[\\/]|\\\\)[^\s\"'<>\n]+)/g,
+      '<span class="step-artifact" title="点击复制路径">$1</span>'
+    );
   },
 
   _renderSteps(steps) {
@@ -322,12 +378,20 @@ const PlanDrawer = {
       const cp = s.checkpoint
         ? '<div class="step-cp">软断点: ' + (s.checkpoint.ok ? '圆桌推导成功' + (s.checkpoint.usedRoundtable ? '（用圆桌）' : '') : '退回需人补充 acceptance') + '</div>'
         : '';
-      const out = s.output ? '<pre class="step-out">' + esc(s.output.slice(0, 600)) + '</pre>' : '';
+      const copyText = [
+        '步骤 ' + (i + 1) + ': ' + (s.goal || s.id),
+        s.action ? '命令: ' + s.action : '',
+        '状态: ' + (s.status || '?'),
+        s.reason ? '原因: ' + s.reason : '',
+        s.output ? '输出:\n' + s.output : '',
+      ].filter(Boolean).join('\n');
+      const out = s.output ? '<pre class="step-out">' + this._highlightArtifacts(s.output.slice(0, 600)) + '</pre>' : '';
       const snap = s.snapshot ? '<div class="step-snap">快照 ' + esc(s.snapshot.slice(0, 8)) + '</div>' : '';
       div.innerHTML =
         '<div class="step-head"><span class="step-idx">' + (i + 1) + '</span>' +
         '<span class="step-goal">' + esc(s.goal || s.id) + '</span>' +
-        '<span class="step-badge">' + esc(s.status || '?') + '</span></div>' +
+        '<span class="step-badge">' + esc(s.status || '?') + '</span>' +
+        '<button type="button" class="btn btn-ghost step-copy" title="复制步骤" data-copy-text="' + esc(copyText) + '">📋</button></div>' +
         (s.reason ? '<div class="step-reason">' + esc(s.reason) + '</div>' : '') + cp + snap + out;
       wrap.appendChild(div);
     });

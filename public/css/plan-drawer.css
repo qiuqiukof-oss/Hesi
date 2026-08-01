@@ -20,7 +20,11 @@
   box-shadow: -8px 0 40px rgba(0, 0, 0, .35);
   border-left: 1px solid var(--border-default, rgba(255, 255, 255, .08));
   animation: plan-slide-in .22s var(--ease-out, ease-out);
+  /* 覆盖 theme.css 对 html/body 设置的 user-select:none，让抽屉内结果文字可选中复制 */
+  user-select: text;
+  cursor: auto;
 }
+#plan-embed * { user-select: text; }
 #plan-embed.hidden { display: none; }
 @keyframes plan-slide-in {
   from { transform: translateX(100%); opacity: .6; }
@@ -176,6 +180,19 @@
 .plan-embed-body .step-cp { font-size: 12px; opacity: .75; margin-top: 6px; color: var(--text-secondary, #a1a1aa); }
 .plan-embed-body .step-snap { font-size: 11px; opacity: .4; margin-top: 4px; font-family: var(--font-mono, monospace); }
 .plan-embed-body .step-out { margin: 8px 0 0; padding: 10px; background: var(--bg-ground, #0a0a0b); border-radius: var(--radius-md, 6px); font-size: 11.5px; max-height: 180px; overflow: auto; white-space: pre-wrap; font-family: var(--font-mono, ui-monospace, monospace); line-height: 1.5; border: 1px solid var(--border-subtle, rgba(255, 255, 255, .04)); }
+
+/* 复制按钮：小尺寸、位于卡片头部 */
+.plan-embed-body .copy-ref { margin-left: auto; font-size: 12px; padding: 4px 8px; }
+.plan-embed-body .step-copy { font-size: 11px; padding: 2px 6px; margin-left: 4px; opacity: .7; }
+.plan-embed-body .step-copy:hover { opacity: 1; }
+
+/* 产物路径高亮：可点击复制 */
+.plan-embed-body .step-artifact {
+  background: rgba(99, 102, 241, .15); border: 1px solid rgba(99, 102, 241, .35);
+  border-radius: 4px; padding: 0 4px; color: var(--accent, #818cf8);
+  cursor: pointer; font-weight: 500;
+}
+.plan-embed-body .step-artifact:hover { background: rgba(99, 102, 241, .25); }
 
 /* ── 空状态引导卡片 ── */
 .plan-embed-body .empty-hint { padding: 0; }
