@@ -46,6 +46,7 @@ const SYSTEM_PROMPT = [
   '',
   '【命令兼容性要求（重要）】',
   '- **必须使用 POSIX 兼容语法**：执行环境是 bash（Git for Windows / MSYS2 / Linux / macOS），不支持 cmd.exe 专用语法。',
+  '- **绝对禁止 PowerShell / cmd 语法**：不要使用 New-Item、Set-Content、[IO.File]::WriteAllText、Test-Path、Write-Output、Get-ChildItem 等 PowerShell 命令。执行器永远是 bash，与讨论中提到的平台适配无关。',
   '- **写文件前必须先确保父目录存在**：用 `mkdir -p` 创建父目录后再写入文件。示例：mkdir -p src/pages && cat > src/pages/App.tsx << EOF ... EOF',
   '- **优先用简单命令替代 heredoc**：单行内容用 `echo "content" > file.txt`；多行内容才用 heredoc（<< EOF）。',
   '- **避免使用 Windows 路径**：始终使用正斜杠 `/` 作为路径分隔符（bash 兼容）。',

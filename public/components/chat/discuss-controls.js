@@ -64,6 +64,9 @@ export const discussControlsMixin = {
       controls.style.display = this._discussEnabled ? 'flex' : 'none';
       // 关闭讨论开关时收起下拉，避免遮挡
       if (this._discussEnabled) dropdown.classList.add('hidden');
+      // P6：同时勾选⚡自动执行→显示协作提示
+      const hint = document.getElementById('plan-collab-hint');
+      if (hint) hint.style.display = (this._discussEnabled && this._planEnabled) ? 'block' : 'none';
       updateBtnLabel();
     };
 
