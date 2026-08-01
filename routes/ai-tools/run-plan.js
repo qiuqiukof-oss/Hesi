@@ -58,6 +58,47 @@ function writePlanSummary(execId, plan, result) {
     fs.writeFileSync(path.join(d, `${execId}-result.json`), JSON.stringify(result, null, 2), 'utf8');
   } catch { /* ignore */ }
 }
+
+// P4-5（P0-2）：步骤级断点续跑状态
+function _statePath(execId) { return path.join(resolvePlanOutputDir(), `${execId}-state.json`); }
+function writePlanState(execId, state) {
+  if (!execId) return;
+  try {
+    ensureDir(resolvePlanOutputDir());
+    // 原子写：先写 .tmp 再 rename，防止崩溃留下半截文件
+    const target = _statePath(execId);
+    const tmp = target + '.tmp';
+    fs.writeFileSync(tmp, JSON.stringify(state), 'utf8');
+    fs.renameSync(tmp, target);
+  } catch { /* ignore */ }
+}
+function readPlanState(execId) {
+  if (!execId) return null;
+  try { return JSON.parse(fs.readFileSync(_statePath(execId), 'utf8')); } catch { return null; }
+}
+function clearPlanState(execId) {
+  if (!execId) return;
+  try { fs.unlinkSync(_statePath(execId)); } catch { /* ignore */ }
+}
+
+// P1-4：plan-outputs 自动清理（7 天 TTL，保留 plan.json + result.json 摘要）
+function cleanupPlanOutputs(maxAgeMs = 7 * 24 * 3600 * 1000) {
+  try {
+    const d = resolvePlanOutputDir();
+    if (!fs.existsSync(d)) return;
+    const now = Date.now();
+    let removed = 0;
+    for (const f of fs.readdirSync(d)) {
+      if (f.endsWith('.log') || f.endsWith('-state.json') || f.endsWith('.tmp')) {
+        const fp = path.join(d, f);
+        try { if (now - fs.statSync(fp).mtimeMs > maxAgeMs) { fs.unlinkSync(fp); removed++; } } catch { /* skip */ }
+      }
+    }
+    if (removed > 0) console.log(`[plan-outputs] 清理了 ${removed} 个过期文件（TTL=${Math.round(maxAgeMs / 86400000)}天）`);
+  } catch { /* ignore */ }
+}
+// 每 24h 检查一次
+setInterval(cleanupPlanOutputs, 24 * 3600 * 1000).unref();
 // ── 复用 AI 助手已调好的 LLM 工具环（不重新实现）──
 // nonStreamingChat = QCLI_TOOLS + executeToolCall + 3min 熔断 + pruneToolContext
 // （与 /api/chat/tools、MCP ai_chat 同一套，踩坑调试好的核心）。
@@ -1485,6 +1526,11 @@ module.exports = {
   evaluateStepSecurity,
   execStepDirectly,
   shouldExecDirectly,
+  resolvePlanOutputDir,
+  readPlanState,
+  clearPlanState,
+  writePlanState,
+  cleanupPlanOutputs,
   _pathTokens,
   resolveShell,
   rewriteForWindows,

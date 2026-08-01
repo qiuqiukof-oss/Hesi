@@ -313,6 +313,15 @@ function startServer() {
     });
     srv.listen(PORT, host, () => {
       console.log(`Hesi（合思） listening on ${  host  }:${  PORT}`);
+
+      // P1-3：常驻调度器——自动执行 data/pending-plans/ 中的待处理 Plan
+      if (process.env.HESI_SCHEDULER_ENABLED !== '0') {
+        try {
+          const { startScheduler } = require('./lib/scheduler');
+          startScheduler({ cwd: process.cwd() });
+          console.log('[scheduler] 已启用（轮询 data/pending-plans/）');
+        } catch (e) { /* 优雅降级 */ }
+      }
       console.log(`  -> http://${  host  }:${  PORT}`);
       console.log(`  -> WebSocket: ws://${  host  }:${  PORT}`);
       if (isPublicBind(host)) {

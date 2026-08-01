@@ -131,6 +131,33 @@ function listPresets() {
   }));
 }
 
+// P2-6：批判者/红队角色——预设模板（激进审查每个方案的安全与逻辑缺陷）
+PRESETS.push({
+  id: 'safety',
+  name: '红队安全审查',
+  emoji: '🛡️',
+  personas: [
+    { name: '安全审计', role: 'securityReviewer', viewpoint: '以攻击者视角审视每个方案：找注入点、提权路径、数据泄漏、供应链风险。每轮至少提出 2 个具体漏洞或攻击面，并给出修复建议。' },
+    { name: '代码合规', role: 'complianceChecker', viewpoint: '检查方案是否违反安全编码规范、是否有敏感信息硬编码、是否缺少输入校验。用规则编号引用具体违规项。' },
+    { name: '架构审查', role: 'archReviewer', viewpoint: '检查方案对系统整体架构的影响：性能回退、单点故障、状态一致性破坏。给出量化的影响评估（高/中/低）。' },
+  ],
+  protocol: '每轮必须同时呈现：漏洞发现 + 利用路径 + 修复方案 + 严重度评级。达成共识前不得跳过任何一项。',
+});
+
+PRESETS.push({
+  id: 'critic',
+  name: '批判性审视',
+  emoji: '🔍',
+  personas: [
+    { name: '质疑者', role: 'skeptic', viewpoint: '对每轮 AI 助手发言至少提出 2 个质疑：假设是否成立？数据是否充分？边界情况是否覆盖？要求具体反例或实证。' },
+    { name: '纠错者', role: 'factChecker', viewpoint: '逐条核验事实性断言：引用来源、数值计算、逻辑链条。发现错误立刻标注并给出正确值。' },
+  ],
+  protocol: '每轮回复必须包含：① 质疑清单（≥2 条）② 风险等级（高/中/低）③ 替代方案建议。',
+});
+
+// conversationSynthesis 预置（多 Agent 场景特别推荐，从多视角弥补单一 LLM 盲区）
+// 独立审查 preset（如 verify/review）优先选择此模板——专注代码静态审查，不需要方案建议。<｜end▁of▁thinking｜>
+
 /**
  * 取单个模板详情。
  * @param {string} id

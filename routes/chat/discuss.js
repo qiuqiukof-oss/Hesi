@@ -380,6 +380,35 @@ function normalizeTranscript(transcript) {
   return String(transcript).trim();
 }
 
+// P1-5：收敛度分数——程序化指标，不依赖 AI 自判断
+// @param {string[]} roundTexts  每轮 AI 发言文本（截取前 1000 字符）
+// @param {number} convergeRounds  [CONVERGE] 出现的轮次
+// @param {number} totalRounds    实际总轮数
+// @returns {number} 收敛度 ∈ [0, 1]（1=完全收敛，0=严重分歧）
+function computeConvergenceScore(roundTexts, convergeRounds, totalRounds) {
+  if (roundTexts.length < 2) return 0.5; // 单轮无法判断
+  // 1. 轮间文本相似度（Jaccard）
+  let jaccardSum = 0;
+  let pairCount = 0;
+  for (let i = 1; i < roundTexts.length; i++) {
+    const prev = tokenSet(roundTexts[i - 1]);
+    const curr = tokenSet(roundTexts[i]);
+    const intersection = new Set([...prev].filter((w) => curr.has(w)));
+    const union = new Set([...prev, ...curr]);
+    jaccardSum += union.size > 0 ? intersection.size / union.size : 0;
+    pairCount++;
+  }
+  const avgJaccard = pairCount > 0 ? jaccardSum / pairCount : 0;
+  // 2. 分歧比例（无 CONVERGE 的轮次占比）
+  const divergeRatio = totalRounds > 0 ? (totalRounds - convergeRounds) / totalRounds : 0;
+  // 3. 合成：Jaccard 高 + CONVERGE 多 = 收敛好
+  const score = (avgJaccard * 0.6) + ((1 - divergeRatio) * 0.4);
+  return Math.round(Math.min(1, Math.max(0, score)) * 100) / 100;
+}
+function tokenSet(text) {
+  return new Set((text || '').toLowerCase().replace(/[^a-z\u4e00-\u9fff0-9]/g, ' ').split(/\s+/).filter((w) => w.length > 1));
+}
+
 // 纯圆桌函数（无 SSE 依赖）：供 runDiscussion（SSE 包装）与 plan 的 resolveCheckpoint 复用。
 // 通过 onEvent(type, payload) 发射事件，shouldAbort() 用于中断检测。
 // budget: { maxTokens?, maxMinutes? }（0/缺省 = 不限）——接入 plan.budget 的成本守卫（优化方向.md 第 5 步）。
@@ -426,6 +455,10 @@ async function runRoundtable({ message, partner, partners, maxTurns = 6, apiKey,
   let aiCacheReadTokens = 0;
   let cliOutputChars = 0;
   let actualRounds = 0; // 实际执行的轮数（[CONVERGE] 早停 / budget 提前收敛后为真实值，非 maxTurns）
+  // P1-5：收敛度指标
+  /** @type {string[]} */ const roundTexts = [];
+  let convergeRounds = 0; // [CONVERGE] 出现的轮次
+  let flipCount = 0; // 意见翻转次数（前后轮 conclusion 矛盾）
   // 兼容 Anthropic / OpenAI 两套 usage 字段（见 usageFields）
   const recordAi = (u) => {
     const f = usageFields(u);
@@ -449,6 +482,11 @@ async function runRoundtable({ message, partner, partners, maxTurns = 6, apiKey,
       const aiText = await runAiTurn(cfg, question, transcriptLines.join('\n'), (tk) => onEvent?.('token', { content: tk }), recordAi, () => aborted());
       onEvent?.('discuss_end', { speaker: 'ai' });
       if (aiText) transcriptLines.push(`【第${round}轮 · AI 助手】\n${aiText}`);
+      // P1-5：记录本轮文本 + 检测 [CONVERGE]
+      if (aiText) {
+        roundTexts.push(aiText.slice(0, 1000)); // 截取前 1000 字符做相似度
+        if (aiText.includes('[CONVERGE]')) convergeRounds++;
+      }
       if (aborted()) { cleanFinish = false; break; }
 
       // ── budget 守卫（plan.budget.maxTokens / maxMinutes，0 = 不限）──
@@ -507,6 +545,10 @@ async function runRoundtable({ message, partner, partners, maxTurns = 6, apiKey,
       const cacheHitRate = aiInputTokens > 0 ? Math.round((aiCacheReadTokens / aiInputTokens) * 1000) / 1000 : 0;
       // rounds 用实际轮数 actualRounds（修复旧版误报 maxTurns 的统计 bug；[CONVERGE] 早停同样正确）
       const stats = { aiInputTokens, aiOutputTokens, aiCacheReadTokens, cacheHitRate, cliOutputChars, cliEstTokens, agents: agents.length, rounds: actualRounds };
+      // P1-5：收敛度分数
+      if (roundTexts.length >= 2) {
+        stats.convergenceScore = computeConvergenceScore(roundTexts, convergeRounds, actualRounds);
+      }
       onEvent?.('discuss_stats', { stats });
       return { summary: summaryText, transcript: transcriptLines.join('\n'), stats, cleanFinish: true };
     }
