@@ -50,6 +50,7 @@ const SYSTEM_PROMPT = [
   '- **优先用简单命令替代 heredoc**：单行内容用 `echo "content" > file.txt`；多行内容才用 heredoc（<< EOF）。',
   '- **避免使用 Windows 路径**：始终使用正斜杠 `/` 作为路径分隔符（bash 兼容）。',
   '- **不要假设文件已存在**：如果步骤涉及读写特定文件，先用 ls/test 检查或直接创建。',
+  '- **sed 替换内容含 `/` 时改用非 `/` 定界符（如 `#` 或 `|`）**：`sed \'s/pattern/path/\'` 会在 replacement 含 `/tmp/...` 等路径时解析失败（unknown option to s）。正确写法：`sed \'s#pattern#path#\'` 或 `sed "s|echo.*>|echo msg >|"`。',
   '',
   '示例（用户目标：在仓库根 README 顶部加「构建状态」章节）：',
   JSON.stringify({
