@@ -95,13 +95,24 @@ import { getSeen, setSeen } from './onboarding-state.js';
       highlightTarget: 'discuss-switch',  // 高亮框只圈🤝开关本身，不圈整条宽栏
     },
     {
+      target: 'plan-switch',
+      title: '⚡ 自动执行（v0.7 协作工作流）',
+      text: '同时勾选 🤝 AI讨论 + ⚡ 自动执行 = 全自动协作工作流。<br>AI 助手 + CLI Agent 先讨论再制定方案、实施、审核、交付——一条指令从头跑到底。<br>单独勾选 ⚡ 则不走讨论，直接拆解执行。',
+      highlight: true,
+      panel: 'chat',
+      prefer: 'down',
+      align: 'start',
+      offset: { x: -30, y: -90 },
+      highlightTarget: 'plan-switch',
+    },
+    {
       target: 'ai-settings-btn',
       title: '🤖 接入你的大模型（必做）',
       text: 'Hesi 的所有 AI 能力都依赖一个大模型。点这个 🤖 打开「AI 设置」：<br>• 云端：选 OpenAI / Anthropic，粘贴 API Key；<br>• 本地：选「OpenAI 兼容」，Base URL 填 http://localhost:11434/v1（Ollama），Key 留空；<br>• 或设环境变量 OPENAI_API_KEY / ANTHROPIC_API_KEY，连界面都不用填。<br>Key 只存在本机，绝不外传。',
       highlight: true,
-      prefer: 'down',  // 气泡在按钮下方，箭头向上指 🤖
-      align: 'end',    // 右对齐，避免溢出屏幕右缘
-      offset: { x: 0, y: 8 },
+      prefer: 'down',
+      align: 'start',
+      offset: { x: 0, y: 12 },
     },
     {
       target: 'chat-attach-btn',
