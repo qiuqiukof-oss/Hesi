@@ -250,7 +250,9 @@ async function runCliTurn({ partner, persona, protocol }, question, transcript, 
         // 进程退出（done/error）由下方四态分支收尾。真 429 静默退出会落 done 且 full 空 → 走「无产出」分支。
         const silentFor = Date.now() - lastOutputAt;
         if (silentFor >= silenceWarnMs && (r.status === 'running' || r.status === 'starting')) {
-          onToken(`\n\n（🔍 CLI Agent「${partner}」正在调研代码/生成中…已等待 ${Math.round(silentFor / 1000)}s，请稍候）`);
+          // 提示附上优化建议（本地/免费模型调研慢是常态；伙伴×轮数=线性放大等待）
+          const tip = silentFor >= 180000 ? '（等待偏久：可减少伙伴或轮数加速）' : '';
+          onToken(`\n\n（🔍 CLI Agent「${partner}」正在调研代码/生成中…已等待 ${Math.round(silentFor / 1000)}s，请稍候${tip}）`);
           lastOutputAt = Date.now(); // 重置计时，使提示每 silenceWarnMs 出现一次，避免刷屏
         }
         // 四态终止：done/error 外补齐 timeout/cancelled（原仅 break 在 done|error，会漏判致空轮询到 180s）

@@ -1609,6 +1609,11 @@ async function runOneAttempt(plan, ctx) {
       }
       ev.status = 'start'; // 审批通过，继续
       ev.requiresApproval = false;
+      // 体验优化（球总实测反馈）：后台启动类步骤（node xxx &> log & 等）执行期间
+      // 无增量输出，宽限 10-15s 内前端「无反应」——带 notice 让用户知道在干活
+      if (isBackgroundStart(step.action || '')) {
+        ev.notice = '后台启动服务并执行测试（进程放养），输出约 10-15 秒后显示…';
+      }
     }
 
     // 真正执行（双轨：命令型直执 / Agent 型走 workflow / skip 占位符）

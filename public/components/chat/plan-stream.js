@@ -272,6 +272,8 @@ export const planStreamMixin = {
       // 为轨道 B（AI 管线）的实时 token 预留输出区
       this._planLiveEl = this._ensureStepOutput(row.li);
       this._planLiveEl.textContent = '';
+      // 后台启动类步骤：执行期间无增量输出，显示预估提示（避免用户误以为卡住）
+      if (ev.notice) this._planLiveEl.textContent = `⏳ ${ev.notice}`;
       return;
     }
 
