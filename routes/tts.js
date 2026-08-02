@@ -31,7 +31,8 @@ router.post('/synthesize', async (req, res) => {
     res.send(buf);
   } catch (e) {
     console.warn('[TTS] Edge synthesize failed:', e && e.message);
-    res.status(502).json({ error: 'edge_tts_unavailable', detail: e && e.message });
+    const missing = e && /edge-tts-universal 未安装/.test(e.message);
+    res.status(missing ? 503 : 502).json({ error: 'edge_tts_unavailable', detail: e && e.message });
   }
 });
 
@@ -41,7 +42,8 @@ router.get('/voices', async (req, res) => {
     res.json({ voices });
   } catch (e) {
     console.warn('[TTS] list voices failed:', e && e.message);
-    res.status(502).json({ error: 'edge_tts_unavailable', detail: e && e.message });
+    const missing = e && /edge-tts-universal 未安装/.test(e.message);
+    res.status(missing ? 503 : 502).json({ error: 'edge_tts_unavailable', detail: e && e.message });
   }
 });
 
