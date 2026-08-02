@@ -1692,7 +1692,6 @@ class ChatPanel extends HTMLElement {
       const seg = document.createElement('div');
       seg.className = 'stream-text';
       seg.innerHTML = renderMarkdown(compactText);
-      this._trimEmptyNodes(seg);
       const meta = bubbleEl.querySelector('.meta-tools');
       if (meta) {
         meta.after(seg);
@@ -1736,52 +1735,11 @@ class ChatPanel extends HTMLElement {
     return text
       .replace(/\r\n/g, '\n')
       .replace(/^[ \t]*\n+/, '')
-      .replace(/\n[ \t]*\n[ \t]*\n+/g, '\n\n')
+      // ≥3 个空行（4+ 连续换行）压成 1 个空行（2 个换行）；≤2 个空行保留
+      .replace(/\n[ \t]*\n[ \t]*\n[ \t]*\n+/g, '\n\n')
       .replace(/[ \t]+\n/g, '\n')
       .replace(/\s+$/, '');
   }
-
-  /**
-   * 清理渲染后 DOM 中的多余空元素：删除首尾的空白/空行，
-   * 并把中间连续的空元素压成最多一个，避免气泡被撑大。
-   * @param {HTMLElement} root
-   */
-  _trimEmptyNodes(root) {
-    if (!root) return;
-    const isEmpty = (/** @type {Node} */ node) => {
-      if (node.nodeType === Node.TEXT_NODE) return (node.textContent || '').trim() === '';
-      if (node.nodeType !== Node.ELEMENT_NODE) return false;
-      const el = /** @type {HTMLElement} */ (node);
-      const tag = el.tagName;
-      if (tag === 'BR') return true;
-      // 保留功能块与代码块，避免误删
-      const keep = ['inline-tool', 'meta-tools', 'thinking-reasoning', 'md-code-block', 'mermaid'];
-      if (keep.some(c => el.classList.contains(c))) return false;
-      return (el.textContent || '').trim() === '';
-    };
-
-    const children = Array.from(root.childNodes);
-    // 删除首部空元素
-    while (children.length && isEmpty(children[0])) {
-      children.shift().remove();
-    }
-    // 删除尾部空元素
-    while (children.length && isEmpty(children[children.length - 1])) {
-      children.pop().remove();
-    }
-    // 中间连续空元素只保留一个
-    let run = 0;
-    for (let i = root.childNodes.length - 1; i >= 0; i--) {
-      const node = root.childNodes[i];
-      if (isEmpty(node)) {
-        run++;
-        if (run > 1) node.remove();
-      } else {
-        run = 0;
-      }
-    }
-  }
-
 
 }
 

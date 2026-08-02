@@ -711,7 +711,7 @@ body.drawer-resizing {
 .stream-text p:empty,
 .stream-text p:has(br:only-child),
 .stream-text p:has(> br),
-.stream-text br + br,
+.stream-text br + br + br,
 .stream-text p:where(:empty, :has(> br:only-child)) {
   display: none;
 }
