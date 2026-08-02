@@ -711,9 +711,10 @@ When the user asks you to perform a "system self-check" / "全面自检" / "diag
     if (MemoryStore.enabled && sessionId) {
       MemoryStore.commit(sessionId).catch(() => {});
       // 上下文压缩始终执行（属窗口管理，非"生成记忆"）；事实抽取受 memoryEnabled 闸控。
-      MemoryStore.compactIfNeeded(sessionId, { apiKey, provider: clientProvider, model }).catch(() => {});
+      // 显式传 baseUrl：否则 llm-bridge 兜底 env，本地 LLM 用户走 HESI_LLM_BASE_URL。
+      MemoryStore.compactIfNeeded(sessionId, { apiKey, provider: clientProvider, model, baseUrl: clientBaseUrl }).catch(() => {});
       if (memoryEnabled !== false) {
-        MemoryStore.extractFacts(sessionId, { apiKey, provider: clientProvider, model }).catch(() => {});
+        MemoryStore.extractFacts(sessionId, { apiKey, provider: clientProvider, model, baseUrl: clientBaseUrl }).catch(() => {});
       }
     }
 

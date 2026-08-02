@@ -166,6 +166,16 @@ app.get(['/', '/index.html'], (req, res, next) => {
   });
 });
 
+// 独立页（引用 /bundle.js 的）同样注入内容 hash：否则裸 URL 命中 HASHED_BUNDLES
+// 的 immutable 1 年缓存 → 浏览器永不更新 bundle（记忆守卫等修复被缓存挡住）。
+app.get(['/budget.html'], (req, res, next) => {
+  fs.readFile(path.join(PUBLIC_DIR, 'budget.html'), 'utf8', (err, html) => {
+    if (err) return next();
+    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+    res.type('html').send(injectAssetHashes(html, PUBLIC_DIR, HASHED_BUNDLES));
+  });
+});
+
 // Serve static frontend
 // CSS/JS/HTML: no cache; hashed bundles: 1-year immutable; images/fonts/wasm: 7-day immutable
 app.use(express.static(PUBLIC_DIR, {
