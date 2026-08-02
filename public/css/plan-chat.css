@@ -129,6 +129,20 @@
   white-space: nowrap;
 }
 
+/* Plan C：当前工作目录 chip（cwd 跨步延续后可能非项目根） */
+.plan-step-cwd {
+  flex: 0 1 auto;
+  min-width: 0;
+  margin-left: var(--space-1);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-tertiary);
+  opacity: 0.9;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .plan-step-action {
   display: block;
   margin-top: var(--space-1);

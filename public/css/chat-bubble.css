@@ -1,0 +1,168 @@
+/*
+ * Copyright (c) 2026 qiuqiukof-oss
+ * Licensed under the MIT License. See LICENSE for details.
+ */
+
+/* ============================================================
+   对话气泡统一视觉层（P2）
+   ------------------------------------------------------------
+   缘起：用户反馈「只有左边没有右边的气泡，显得不完整」。
+   根因不是没做右对齐（chat.css 早有 row-reverse），而是：
+     ① 用户气泡半透明太弱，浅色主题下几乎没有边界感；
+     ② 五类系统气泡（执行/讨论/汇总/审批/错误）全靠左近满宽，
+        视觉语言还各写各的（有的有色条、有的没有、头像色写死在 JS）；
+     ③ 长命令 <code>/<pre> 撑破气泡。
+
+   本文件只做「跨气泡的统一视觉」，不含任何布局逻辑。
+   落点独立成文件：chat.css 已 50KB，按反臃肿硬指标不再往里塞。
+   加载顺序须在 chat.css / plan-chat.css 之后（见 index.html）。
+   ============================================================ */
+
+/* ── 语义色变量：气泡左侧色条 + 头像底色统一从这里取 ── */
+:root {
+  --bub-ai:      #3b82f6;  /* 🟦 AI 讨论 */
+  --bub-cli:     #22c55e;  /* 🟩 CLI Agent */
+  --bub-sum:     #a855f7;  /* 📋 讨论汇总 */
+  --bub-plan:    #f59e0b;  /* ⚡ 自动执行 */
+  --bub-approve: #f59e0b;  /* 🔒 审批闸 */
+  --bub-danger:  #dc2626;  /* 🔒 强制审批（不可跳过） */
+  --bub-error:   #dc2626;  /* ❌ 错误 */
+  --bub-muted:   #94a3b8;  /* 统计 / 中性 */
+
+  --bub-bar: 4px;                                  /* 系统气泡左侧色条宽度 */
+  --bub-shadow: 0 1px 2px var(--shadow-light, rgba(0, 0, 0, 0.04));
+}
+
+[data-theme='light'] {
+  --bub-ai:      #2563eb;
+  --bub-cli:     #16a34a;
+  --bub-sum:     #9333ea;
+  --bub-plan:    #d97706;
+  --bub-approve: #d97706;
+  --bub-danger:  #dc2626;
+  --bub-error:   #dc2626;
+  --bub-muted:   #64748b;
+}
+
+/* ============================================================
+   1. 宽度节奏：纯对话 85%（沿用），系统气泡放宽到 92%
+   让左右两侧都有内容落点，避免一屏 90% 压在左边
+   ============================================================ */
+.chat-message.plan-message,
+.chat-message.discuss-message {
+  max-width: 92%;
+}
+
+/* ============================================================
+   2. 用户气泡加重 —— 实心渐变 + 描边 + 极轻阴影
+   尖角保持在「右上」：用户头像在右上角（row-reverse），
+   尖角朝向头像才是连贯的（方案文档写的右下角会与头像脱节）。
+   ============================================================ */
+.user-bubble {
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.34), rgba(99, 102, 241, 0.2));
+  border: 1px solid rgba(99, 102, 241, 0.42);
+  box-shadow: var(--bub-shadow);
+}
+
+[data-theme='light'] .user-bubble {
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.16), rgba(99, 102, 241, 0.09));
+  border-color: rgba(99, 102, 241, 0.3);
+  color: var(--text-primary);
+}
+
+/* ── AI 气泡：与用户气泡同一套语法（描边 + 同款阴影），
+      避免「一边像卡片、一边像纯文字」的割裂感 ── */
+.ai-bubble {
+  border: 1px solid var(--border-default);
+  box-shadow: var(--bub-shadow);
+}
+
+/* ============================================================
+   3. 系统气泡统一视觉语言：左侧 var(--bub-bar) 语义色条
+   （原本 discuss 是 3px border-left、plan 是 3px、审批/错误各写各的）
+   ============================================================ */
+.discuss-ai .msg-bubble,
+.discuss-cli .msg-bubble,
+.discuss-summary .msg-bubble,
+.plan-bubble,
+.plan-approval-bubble,
+.plan-error-bubble,
+.discuss-stats .msg-bubble.discuss-stats-bubble {
+  border-left-width: var(--bub-bar);
+  border-left-style: solid;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--bub-shadow);
+}
+
+.discuss-ai .msg-bubble { border-left-color: var(--bub-ai); }
+.discuss-cli .msg-bubble { border-left-color: var(--bub-cli); }
+.discuss-summary .msg-bubble { border-left-color: var(--bub-sum); }
+.plan-bubble { border-left-color: var(--bub-plan); }
+.plan-approval-bubble { border-left-color: var(--bub-approve); }
+.plan-approval-mandatory .plan-approval-bubble { border-left-color: var(--bub-danger); }
+.plan-error-bubble { border-left-color: var(--bub-error); }
+.discuss-stats .msg-bubble.discuss-stats-bubble { border-left-color: var(--bub-muted); }
+
+/* 光暗主题下的色条同步（覆盖 chat.css 里 [data-theme=light] 的旧写死值） */
+[data-theme='light'] .discuss-ai .msg-bubble { border-left-color: var(--bub-ai); }
+[data-theme='light'] .discuss-cli .msg-bubble { border-left-color: var(--bub-cli); }
+[data-theme='light'] .discuss-summary .msg-bubble { border-left-color: var(--bub-sum); }
+
+/* 执行终态色条：完成/失败覆盖默认橙色 */
+.plan-message.plan-ok .plan-bubble { border-left-color: var(--success); }
+.plan-message.plan-fail .plan-bubble { border-left-color: var(--danger); }
+
+/* ============================================================
+   4. 头像统一：语义色由 class 决定，不再由 JS 内联写死
+   （plan-stream.js 原本内联 background:#dc2626 / #f59e0b）
+   ============================================================ */
+.msg-avatar.plan-avatar {
+  color: #fff;
+  font-size: 14px;
+}
+
+.msg-avatar.bub-avatar-warn {
+  background: var(--bub-approve);
+  border-color: var(--bub-approve);
+}
+
+.msg-avatar.bub-avatar-danger {
+  background: var(--bub-danger);
+  border-color: var(--bub-danger);
+}
+
+/* ============================================================
+   5. 长内容不撑破气泡：横向可滚 + 细滚动条
+   ============================================================ */
+.msg-bubble code,
+.msg-bubble pre {
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+.msg-bubble pre::-webkit-scrollbar,
+.msg-bubble code::-webkit-scrollbar {
+  height: 6px;
+  width: 6px;
+}
+
+.msg-bubble pre::-webkit-scrollbar-thumb,
+.msg-bubble code::-webkit-scrollbar-thumb {
+  background: var(--bg-hover);
+  border-radius: 3px;
+}
+
+.msg-bubble pre::-webkit-scrollbar-track,
+.msg-bubble code::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* ============================================================
+   6. 发送方标签配色跟随语义变量（原 chat.css 写死十六进制）
+   ============================================================ */
+.discuss-ai .discuss-sender { color: var(--bub-ai); }
+.discuss-cli .discuss-sender { color: var(--bub-cli); }
+.discuss-summary .discuss-sender { color: var(--bub-sum); }
+[data-theme='light'] .discuss-ai .discuss-sender { color: var(--bub-ai); }
+[data-theme='light'] .discuss-cli .discuss-sender { color: var(--bub-cli); }
+[data-theme='light'] .discuss-summary .discuss-sender { color: var(--bub-sum); }

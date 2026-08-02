@@ -280,8 +280,7 @@ export const planStreamMixin = {
         if (head && !head.querySelector('.plan-step-cwd')) {
           const cwdChip = document.createElement('span');
           cwdChip.className = 'plan-step-cwd';
-          cwdChip.textContent = '📂 ' + ev.cwd;
-          cwdChip.style.cssText = 'margin-left:6px;font-size:11px;color:#64748b;opacity:.85;font-family:monospace;';
+          cwdChip.textContent = `📂 ${ev.cwd}`;
           head.appendChild(cwdChip);
         }
       }
@@ -380,7 +379,7 @@ export const planStreamMixin = {
     const div = document.createElement('div');
     div.className = 'chat-message plan-message plan-approval' + (isMandatory ? ' plan-approval-mandatory' : '');
     div.innerHTML =
-      '<div class="msg-avatar plan-avatar" style="background:' + (isMandatory ? '#dc2626' : '#f59e0b') + '">🔒</div>' +
+      `<div class="msg-avatar plan-avatar ${isMandatory ? 'bub-avatar-danger' : 'bub-avatar-warn'}">🔒</div>` +
       '<div class="msg-content"><div class="msg-sender plan-sender">' +
       (isMandatory ? '审批闸 · 强制人工确认（不可跳过）' : '审批闸 · 需人工确认') + '</div>' +
       '<div class="msg-bubble plan-bubble plan-approval-bubble">' +
@@ -424,7 +423,7 @@ export const planStreamMixin = {
     const div = document.createElement('div');
     div.className = 'chat-message plan-message plan-error-msg';
     div.innerHTML =
-      '<div class="msg-avatar plan-avatar" style="background:#dc2626">❌</div>' +
+      '<div class="msg-avatar plan-avatar bub-avatar-danger">❌</div>' +
       '<div class="msg-content">' +
       '<div class="msg-sender plan-sender">自动执行 · 错误</div>' +
       '<div class="msg-bubble plan-bubble plan-error-bubble">' +
