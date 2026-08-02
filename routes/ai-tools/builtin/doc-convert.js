@@ -11,7 +11,18 @@
 // ============================================================
 const fs = require('fs');
 const path = require('path');
-const { execSync, exec } = require('child_process');
+const { execFile, exec } = require('child_process');
+
+// 异步进程探测：fire-and-forget 风格 execFile 封装，避免同步 execSync 冻结事件循环。
+// 失败/超时时返回 null（调用方按 best-effort 处理）。
+function checkOutput(file, args, opts = {}) {
+  return new Promise((resolve) => {
+    execFile(file, args, { timeout: opts.timeout || 5000, encoding: 'utf8' }, (err, stdout) => {
+      resolve(err ? null : (stdout || ''));
+    });
+  });
+}
+
 const { GENERATED_UPLOADS_DIR } = require('../../../lib/uploads');
 
 const isWin = process.platform === 'win32';
@@ -31,17 +42,14 @@ let _pkgManagerCache = null;
  * 优先读取环境变量 PANDOC_PATH 指定的路径，再尝试 PATH 自动检测。
  * @returns {{ available: boolean, version?: string, path?: string }}
  */
-function detectPandoc() {
+async function detectPandoc() {
   if (_pandocCache) return _pandocCache;
 
   // ── 优先使用 PANDOC_PATH 环境变量 ──
   const envPath = process.env.PANDOC_PATH;
   if (envPath) {
-    try {
-      const result = execSync(`"${envPath}" --version 2>&1`, {
-        timeout: 5000,
-        encoding: 'utf8',
-      });
+    const result = await checkOutput(envPath, ['--version'], { timeout: 5000 });
+    if (result != null) {
       const firstLine = result.split('\n')[0] || '';
       const versionMatch = firstLine.match(/[\d.]+/);
       _pandocCache = {
@@ -51,29 +59,19 @@ function detectPandoc() {
       };
       console.log(`[DocConvert] Using PANDOC_PATH: ${envPath} (v${_pandocCache.version})`);
       return _pandocCache;
-    } catch (err) {
-      console.warn(`[DocConvert] PANDOC_PATH set but not executable: ${envPath} (${err.message}). Falling back to PATH...`);
-      // PANDOC_PATH 无效，回退到 PATH 检测，_pandocCache 保持 null
     }
+    console.warn(`[DocConvert] PANDOC_PATH set but not executable: ${envPath}. Falling back to PATH...`);
   }
 
   // ── 回退：从 PATH 自动检测 ──
-  try {
-    const result = execSync('pandoc --version 2>&1', {
-      timeout: 5000,
-      encoding: 'utf8',
-      env: { ...process.env, PATH: process.env.PATH },
-    });
+  const result = await checkOutput('pandoc', ['--version'], { timeout: 5000 });
+  if (result != null) {
     const firstLine = result.split('\n')[0] || '';
     const versionMatch = firstLine.match(/[\d.]+/);
     // 找到 pandoc 路径（Windows where / Unix which）
     let pandocPath = 'pandoc';
-    try {
-      const whichResult = process.platform === 'win32'
-        ? execSync('where pandoc 2>nul', { timeout: 3000, encoding: 'utf8' }).split('\n')[0].trim()
-        : execSync('which pandoc 2>/dev/null', { timeout: 3000, encoding: 'utf8' }).trim();
-      if (whichResult) pandocPath = whichResult;
-    } catch { /* ignore */ }
+    const whichResult = await checkOutput(isWin ? 'where' : 'which', ['pandoc'], { timeout: 3000 });
+    if (whichResult && whichResult.trim()) pandocPath = whichResult.split('\n')[0].trim();
 
     _pandocCache = {
       available: true,
@@ -81,10 +79,9 @@ function detectPandoc() {
       path: pandocPath,
     };
     return _pandocCache;
-  } catch {
-    _pandocCache = { available: false };
-    return _pandocCache;
   }
+  _pandocCache = { available: false };
+  return _pandocCache;
 }
 
 /**
@@ -163,7 +160,7 @@ function register(registry) {
       }
 
       // ── 检测 pandoc ──
-      const pandoc = detectPandoc();
+      const pandoc = await detectPandoc();
 
       // ── 如果安装了 pandoc，使用 pandoc 转换 ──
       if (pandoc.available) {
@@ -231,7 +228,7 @@ async function convertWithPandoc(inputPath, rawContent, format, title, toc, cust
 
     // 特定格式额外参数
     if (format === 'pdf') {
-      const engineFound = detectPdfEngine();
+      const engineFound = await detectPdfEngine();
       if (engineFound) {
         cmd += ` --pdf-engine=${engineFound}`;
       } else {
@@ -246,7 +243,7 @@ async function convertWithPandoc(inputPath, rawContent, format, title, toc, cust
             });
           });
           if (fs.existsSync(htmlPath)) {
-            return buildResult(format, htmlPath, `⚠️ 未找到 PDF 引擎（如 wkhtmltopdf），已转为 HTML 格式。\n\n要生成 PDF，请安装 wkhtmltopdf：\n- 访问 https://wkhtmltopdf.org/downloads.html\n- 或使用: \`${getPkgManager()} install -g wkhtmltopdf\``);
+            return buildResult(format, htmlPath, `⚠️ 未找到 PDF 引擎（如 wkhtmltopdf），已转为 HTML 格式。\n\n要生成 PDF，请安装 wkhtmltopdf：\n- 访问 https://wkhtmltopdf.org/downloads.html\n- 或使用: \`${await getPkgManager()} install -g wkhtmltopdf\``);
           }
         } catch (e) {
           return `❌ PDF 生成失败：${e.message}\n\n提示：安装 wkhtmltopdf 即可生成 PDF：https://wkhtmltopdf.org/downloads.html`;
@@ -725,15 +722,15 @@ const _NO_ENGINE = Symbol('no_engine');
  * 检测可用的 PDF 引擎（结果缓存）
  * @returns {string|null}
  */
-function detectPdfEngine() {
+async function detectPdfEngine() {
   if (_pdfEngineCache !== undefined) return _pdfEngineCache === _NO_ENGINE ? null : _pdfEngineCache;
   const engines = ['wkhtmltopdf', 'weasyprint', 'prince', 'pdfroff'];
   for (const engine of engines) {
-    try {
-      execSync(`${isWin ? 'where' : 'which'} ${engine} 2>${isWin ? 'nul' : '/dev/null'}`, { timeout: 3000 });
+    const r = await checkOutput(isWin ? 'where' : 'which', [engine], { timeout: 3000 });
+    if (r != null) {
       _pdfEngineCache = engine;
       return engine;
-    } catch { /* not found */ }
+    }
   }
   _pdfEngineCache = _NO_ENGINE;
   return null;
@@ -802,19 +799,11 @@ function getPandocInstallGuide(format, contentPreview) {
 /**
  * 检测包管理器
  */
-function getPkgManager() {
+async function getPkgManager() {
   if (_pkgManagerCache) return _pkgManagerCache;
-  try {
-    execSync('pnpm --version 2>/dev/null', { timeout: 2000 });
-    _pkgManagerCache = 'pnpm';
-  } catch {
-    try {
-      execSync('yarn --version 2>/dev/null', { timeout: 2000 });
-      _pkgManagerCache = 'yarn';
-    } catch {
-      _pkgManagerCache = 'npm';
-    }
-  }
+  if (await checkOutput('pnpm', ['--version'], { timeout: 2000 })) _pkgManagerCache = 'pnpm';
+  else if (await checkOutput('yarn', ['--version'], { timeout: 2000 })) _pkgManagerCache = 'yarn';
+  else _pkgManagerCache = 'npm';
   return _pkgManagerCache;
 }
 
