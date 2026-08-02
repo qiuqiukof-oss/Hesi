@@ -262,6 +262,8 @@ body {
   --shadow-ambient:  rgba(0, 0, 0, 0.06);
   --shadow-light:    rgba(0, 0, 0, 0.04);
   --modal-overlay:   rgba(0, 0, 0, 0.5);
+  /* ── Card shadow (theme-aware; replaces ad-hoc rgba(0,0,0,0.5) box-shadows) ── */
+  --shadow-card:     0 8px 32px rgba(0, 0, 0, 0.5);
 
 }
 
@@ -296,6 +298,8 @@ body {
   --shadow-ambient:  rgba(0, 0, 0, 0.04);
   --shadow-light:    rgba(0, 0, 0, 0.02);
   --modal-overlay:   rgba(0, 0, 0, 0.3);
+  /* ── Card shadow (theme-aware; light theme: soft, low-alpha) ── */
+  --shadow-card:     0 8px 24px rgba(0, 0, 0, 0.10);
 
 }
 

@@ -15,17 +15,14 @@
 // ============================================================
 'use strict';
 
+import { escapeHtml } from '../../escape.js';
+export { escapeHtml };
+
 /** 从文本中提取 mermaid 代码（纯函数） */
 export function extractMermaidCode(text) {
   const regex = /```mermaid\n?([\s\S]*?)```/i;
   const match = text.match(regex);
   return match ? match[1].trim() : null;
-}
-
-/** HTML 转义（纯函数） */
-export function escapeHtml(text) {
-  const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
-  return text.replace(/[&<>"']/g, c => map[c]);
 }
 
 export const mermaidPreviewMixin = {

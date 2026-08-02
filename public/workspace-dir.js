@@ -13,6 +13,7 @@
 // a server-backed folder browser (browsers can't expose absolute
 // paths via native pickers), so the chosen path is real absolute.
 // ============================================================
+import { escapeHtml } from './escape.js';
 (function () {
   const STORAGE_KEY = 'hesi-workspace-dir';
   const Q = window.QCLI || (window.QCLI = {});
@@ -62,11 +63,7 @@
       body: JSON.stringify(body),
     }).then((r) => r.json().then((d) => ({ ok: r.ok, d })));
   }
-  function escapeHtml(s) {
-    return String(s).replace(/[&<>"']/g, (c) => ({
-      '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
-    }[c]));
-  }
+  // escapeHtml 现自 public/escape.js 导入（见文件顶部）
 
   function updateLabels(ws) {
     if (ws) current = ws;

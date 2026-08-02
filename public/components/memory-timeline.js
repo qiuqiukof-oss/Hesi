@@ -13,13 +13,7 @@
 // @ts-check
 'use strict';
 
-/** @param {string} s */
-function escapeHtml(s) {
-  return String(s == null ? '' : s)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;');
-}
+import { escapeHtml } from '../escape.js';
 
 /**
  * 纯函数：从时间轴数据派生统计信息（节点数、压缩点、角色分布、时间跨度）。

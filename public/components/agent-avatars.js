@@ -14,6 +14,8 @@
 // ============================================================
 'use strict';
 
+import { escapeHtml } from '../escape.js';
+
 /**
  * 默认 4 席角色花名册（圆桌 ≥4）。
  * avatar 字段约定：{ type:'svg'|'emoji'|'img', value }
@@ -89,10 +91,6 @@ export const STATUS_META = {
   idle:     { label: '待命',   cls: 'rt-st-idle',     color: '#9aa1a9' },
 };
 
-function escapeHtml(s) {
-  return String(s == null ? '' : s)
-    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-}
 function escapeAttr(s) {
   return String(s == null ? '' : s).replace(/"/g, '&quot;').replace(/</g, '&lt;');
 }

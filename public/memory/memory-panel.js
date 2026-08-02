@@ -11,17 +11,12 @@
 // ============================================================
 'use strict';
 
+import { escapeHtml } from '../escape.js';
+
 /** @typedef {import('../types').QCLI} QCLI */
 /** @type {QCLI} */
 const Q = /** @type {QCLI} */ (window.QCLI || {});
 
-/** @param {string} s */
-function escapeHtml(s) {
-  return String(s == null ? '' : s)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;');
-}
 /** @param {string} s */
 function escapeAttr(s) {
   return String(s == null ? '' : s).replace(/"/g, '&quot;');
