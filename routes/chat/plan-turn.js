@@ -306,21 +306,23 @@ async function runPlanTurn(res, p = {}) {
       return;
     }
 
-    // ── 4. 协作工作流：审核讨论 + 生成报告 ──
-    let reviewConclusion = '';
+    // ── 4. 协作工作流：审核 + 生成报告（阶段分离）──
+    // 方案《终止机制》：DISCUSS→EXECUTE→REPORT 单向不可逆，EXECUTE 失败禁止回讨论。
+    // 终止原因由 runPlan 的确定性收敛信号（stopKind/stopReason，零 LLM）给出，
+    // 比「再开一轮讨论」更可靠、更快、不产生新循环。
     if (discussBeforePlan && result) {
       const status = (result && result.status) || 'unknown';
       // 执行完全成功（done）→ 跳过审核，直接报告（避免对已完成任务展开新讨论）
       if (status === 'done') {
         emit('phase', { phase: 'done', label: '✅ 执行通过，协作完成' });
       } else {
-        const reflection = result && result.reflection ? JSON.stringify(result.reflection) : '';
-        reviewConclusion = await doDiscuss(
-          `执行结果：${status}。请简述原因并给出结论（需简短，不超过一段）。${reflection ? `\n反思：${reflection}` : ''}`,
-          '💬 AI 讨论中（第3轮：审核）…',
-          1
-        );
-        if (reviewConclusion) emit('collab_summary', { phase: 3, title: '📋 审核结论', text: reviewConclusion.slice(0, 800) });
+        const stopKind = (result && result.stopKind) || null;
+        const stopReason = (result && result.stopReason) || '';
+        const stopNote = stopKind
+          ? `收敛判定终止（${stopKind}）：${stopReason || '已停止以避免无限循环'}`
+          : `执行未完成（${status}）${stopReason ? `：${stopReason}` : ''}`;
+        emit('collab_summary', { phase: 3, title: '📋 终止结论', text: stopNote.slice(0, 800) });
+        emit('phase', { phase: 'done', label: `⏹ ${stopNote}` });
       }
     }
 
@@ -336,7 +338,6 @@ async function runPlanTurn(res, p = {}) {
       durationMs: Date.now() - startedAt,
       discussed: !!discussionSummary,
       discussionSummary: discussionSummary || '',
-      reviewConclusion: reviewConclusion || '',
     });
   } catch (err) {
     // 异常不吞：保留 message，stack 落服务端日志便于归因
