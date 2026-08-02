@@ -68,13 +68,13 @@ function renderTeamPanel() {
     '<div style="font-size:18px;font-weight:700;color:var(--text-primary);">', String(team.totalMembers), '</div>',
     '<div style="font-size:10px;color:var(--text-tertiary);">总人数</div></div>',
     '<div style="background:var(--bg-card);padding:8px;border-radius:6px;text-align:center;">',
-    '<div style="font-size:18px;font-weight:700;color:#22c55e;">', String(team.idleCount), '</div>',
+    '<div style="font-size:18px;font-weight:700;color:var(--success);">', String(team.idleCount), '</div>',
     '<div style="font-size:10px;color:var(--text-tertiary);">空闲</div></div>',
     '<div style="background:var(--bg-card);padding:8px;border-radius:6px;text-align:center;">',
-    '<div style="font-size:18px;font-weight:700;color:#3b82f6;">', String(team.workingCount), '</div>',
+    '<div style="font-size:18px;font-weight:700;color:var(--info);">', String(team.workingCount), '</div>',
     '<div style="font-size:10px;color:var(--text-tertiary);">工作中</div></div>',
     '<div style="background:var(--bg-card);padding:8px;border-radius:6px;text-align:center;">',
-    '<div style="font-size:18px;font-weight:700;color:', team.waitingHumanCount > 0 ? '#f59e0b' : 'var(--text-tertiary)', ';">', String(team.waitingHumanCount), '</div>',
+    '<div style="font-size:18px;font-weight:700;color:', team.waitingHumanCount > 0 ? 'var(--warning)' : 'var(--text-tertiary)', ';">', String(team.waitingHumanCount), '</div>',
     '<div style="font-size:10px;color:var(--text-tertiary);">等待人工</div></div>',
     '</div>',
 
@@ -87,7 +87,7 @@ function renderTeamPanel() {
     team.members.length === 0
       ? '<div style="padding:20px;text-align:center;color:var(--text-tertiary);font-size:12px;">暂无已注册的数字员工<br>点击上方按钮注册</div>'
       : team.members.map(function(m) {
-          const statusDot = m.status === 'idle' ? '#22c55e' : (m.status === 'working' ? '#3b82f6' : (m.status === 'waiting_human' ? '#f59e0b' : '#ef4444'));
+          const statusDot = m.status === 'idle' ? 'var(--success)' : (m.status === 'working' ? 'var(--info)' : (m.status === 'waiting_human' ? 'var(--warning)' : 'var(--danger)'));
           const statusText = m.status === 'idle' ? '空闲' : (m.status === 'working' ? '工作中' : (m.status === 'waiting_human' ? '等待人工' : '错误'));
           return [
             '<div class="de-member-item" data-id="', escapeHtml(m.id), '" style="display:flex;align-items:center;padding:10px 12px;background:var(--bg-card);border-radius:8px;margin-bottom:6px;cursor:pointer;transition:all 0.15s;" onmouseover="this.style.background=\'var(--bg-hover)\'" onmouseout="this.style.background=\'var(--bg-card)\'">',
@@ -165,7 +165,7 @@ function showRegisterModal() {
     '<input id="de-agent-input" type="text" value="opencode" placeholder="agentId" style="width:100%;padding:10px;border-radius:8px;border:1px solid var(--border-color);background:var(--bg-card);color:var(--text-primary);font-size:13px;margin-bottom:16px;box-sizing:border-box;">',
     '<div style="display:flex;gap:8px;justify-content:flex-end;">',
     '<button id="de-modal-cancel" style="padding:10px 20px;border-radius:8px;border:1px solid var(--border-color);background:transparent;color:var(--text-primary);cursor:pointer;font-size:13px;">取消</button>',
-    '<button id="de-modal-confirm" style="padding:10px 20px;border-radius:8px;border:none;background:#4f46e5;color:white;cursor:pointer;font-size:13px;font-weight:500;">确认注册</button>',
+    '<button id="de-modal-confirm" style="padding:10px 20px;border-radius:8px;border:none;background:var(--accent);color:white;cursor:pointer;font-size:13px;font-weight:500;">确认注册</button>',
     '</div>',
     '</div>',
   ].join('');
@@ -235,10 +235,10 @@ function showMemberDetail(member) {
     '<div style="font-size:16px;font-weight:600;color:var(--text-primary);">', String(member.stats?.tasksCompleted || 0), '</div>',
     '<div style="font-size:11px;color:var(--text-tertiary);">已完成任务</div></div>',
     '<div style="background:var(--bg-card);padding:10px;border-radius:8px;text-align:center;">',
-    '<div style="font-size:16px;font-weight:600;color:#ef4444;">', String(member.stats?.tasksFailed || 0), '</div>',
+    '<div style="font-size:16px;font-weight:600;color:var(--danger);">', String(member.stats?.tasksFailed || 0), '</div>',
     '<div style="font-size:11px;color:var(--text-tertiary);">失败任务</div></div>',
     '<div style="background:var(--bg-card);padding:10px;border-radius:8px;text-align:center;grid-column:span 2;">',
-    '<div style="font-size:16px;font-weight:600;color:#f59e0b;">', String(member.stats?.humanRequests || 0), '</div>',
+    '<div style="font-size:16px;font-weight:600;color:var(--warning);">', String(member.stats?.humanRequests || 0), '</div>',
     '<div style="font-size:11px;color:var(--text-tertiary);">人机协作请求次数</div></div>',
     '</div>',
     '<div style="font-size:12px;color:var(--text-tertiary);margin-bottom:12px;">',
@@ -246,7 +246,7 @@ function showMemberDetail(member) {
     '</div>',
     '<div style="display:flex;gap:8px;justify-content:flex-end;">',
     '<button id="de-detail-close" style="padding:10px 20px;border-radius:8px;border:1px solid var(--border-color);background:transparent;color:var(--text-primary);cursor:pointer;font-size:13px;">关闭</button>',
-    '<button id="de-detail-unregister" style="padding:10px 20px;border-radius:8px;border:none;background:#ef4444;color:white;cursor:pointer;font-size:13px;font-weight:500;">注销员工</button>',
+    '<button id="de-detail-unregister" style="padding:10px 20px;border-radius:8px;border:none;background:var(--danger);color:white;cursor:pointer;font-size:13px;font-weight:500;">注销员工</button>',
     '</div></div>',
   ].join('');
 
@@ -299,7 +299,7 @@ function showHumanInputDialog(msg) {
     '<textarea id="human-answer-input" placeholder="请输入回复..." style="width:100%;height:100px;padding:12px;border-radius:8px;border:1px solid var(--border-color);background:var(--bg-card);color:var(--text-primary);font-size:13px;resize:vertical;box-sizing:border-box;font-family:inherit;margin-bottom:12px;"></textarea>',
     '<div style="display:flex;gap:8px;justify-content:flex-end;">',
     '<button id="human-input-skip" style="padding:10px 20px;border-radius:8px;border:1px solid var(--border-color);background:transparent;color:var(--text-tertiary);cursor:pointer;font-size:13px;">跳过</button>',
-    '<button id="human-input-submit" style="padding:10px 20px;border-radius:8px;border:none;background:#4f46e5;color:white;cursor:pointer;font-size:13px;font-weight:500;">提交回复</button>',
+    '<button id="human-input-submit" style="padding:10px 20px;border-radius:8px;border:none;background:var(--accent);color:white;cursor:pointer;font-size:13px;font-weight:500;">提交回复</button>',
     '</div></div>',
   ].join('');
 
