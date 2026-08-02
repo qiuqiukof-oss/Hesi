@@ -134,7 +134,7 @@ function listPresets() {
 // P2-6：批判者/红队角色——预设模板（激进审查每个方案的安全与逻辑缺陷）
 PRESETS.push({
   id: 'safety',
-  name: '红队安全审查',
+  title: '红队安全审查',
   emoji: '🛡️',
   personas: [
     { name: '安全审计', role: 'securityReviewer', viewpoint: '以攻击者视角审视每个方案：找注入点、提权路径、数据泄漏、供应链风险。每轮至少提出 2 个具体漏洞或攻击面，并给出修复建议。' },
@@ -146,7 +146,7 @@ PRESETS.push({
 
 PRESETS.push({
   id: 'critic',
-  name: '批判性审视',
+  title: '批判性审视',
   emoji: '🔍',
   personas: [
     { name: '质疑者', role: 'skeptic', viewpoint: '对每轮 AI 助手发言至少提出 2 个质疑：假设是否成立？数据是否充分？边界情况是否覆盖？要求具体反例或实证。' },
