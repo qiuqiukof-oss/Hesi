@@ -805,6 +805,91 @@ body.drawer-resizing {
   word-break: break-word;
 }
 
+/* ── 内联折叠工具块（随流插入在触发句下方，默认折叠）── */
+.inline-tool {
+  margin: 6px 0;
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  background: var(--bg-elevated, rgba(127, 127, 127, 0.06));
+  overflow: hidden;
+  animation: status-fade-in 0.25s ease-out;
+}
+
+.inline-tool .it-header {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  width: 100%;
+  padding: 5px 10px;
+  border: 0;
+  background: transparent;
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: 12px;
+  line-height: 1.5;
+  cursor: pointer;
+  text-align: left;
+}
+
+.inline-tool .it-header:hover {
+  background: var(--bg-overlay, rgba(127, 127, 127, 0.08));
+}
+
+.inline-tool .it-icon { flex: 0 0 auto; }
+
+.inline-tool .it-name {
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+.inline-tool .it-detail {
+  font-size: 10px;
+  line-height: 1.3;
+  color: var(--text-tertiary);
+  font-family: var(--font-mono, ui-monospace, monospace);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 42%;
+}
+
+.inline-tool .it-state {
+  margin-left: auto;
+  color: var(--text-tertiary);
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.inline-tool .it-chevron {
+  color: var(--text-tertiary);
+  font-size: 10px;
+}
+
+.inline-tool.running .it-state {
+  color: var(--accent);
+}
+
+.inline-tool.done { opacity: 0.9; }
+
+.inline-tool .it-body {
+  padding: 0 10px 8px;
+  border-top: 1px solid var(--border-subtle);
+  margin-top: 2px;
+}
+
+.inline-tool .it-body[hidden] { display: none; }
+
+/* 含内联工具块的对话气泡沿用 agentic 风格背景，便于一眼识别「自动调用了工具」 */
+.msg-bubble:has(.inline-tool) {
+  background: var(--bg-overlay);
+  border: 1px solid var(--border-subtle);
+  border-top-left-radius: 4px;
+  padding: 10px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px 8px;
+}
+
 /* 系统状态行（重试/续传/生成回答/超时）更醒目 */
 .thinking-status {
   max-width: 100%;

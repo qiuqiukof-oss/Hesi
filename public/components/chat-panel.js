@@ -765,17 +765,22 @@ class ChatPanel extends HTMLElement {
           // 走 onError 但不 cancel reader，让 plan_error / plan_done 继续到达前端。
           keepStreamOnError: !!this._planEnabled,
           onToolCall: (evt) => {
+            // 普通对话轮：工具调用改为随流内联折叠块（精确落在触发句下方）。
+            // 计划/讨论等独立编排通道仍走旧面板列表，避免改动其专用渲染。
+            const inChat = !this._planTurnActive && !this._discussActive;
             if (evt.type === 'start') {
               for (const n of evt.names || []) {
                 this._activeToolCalls.push({ name: n, durMs: 0, status: 'running' });
-                this._appendToolCallRow(n);
+                if (inChat) this._appendInlineTool(n, fullResponse.length);
+                else this._appendToolCallRow(n);
               }
             } else if (evt.type === 'end') {
               const tc = this._activeToolCalls.find(t => t.name === evt.name && t.status === 'running');
               if (tc) {
                 tc.durMs = evt.durMs ?? 0;
                 tc.status = 'done';
-                this._updateToolCallRow(evt.name, evt.durMs ?? 0, evt.truncated, evt.result);
+                if (inChat) this._updateInlineTool(evt.name, evt.durMs ?? 0, evt.truncated, evt.result);
+                else this._updateToolCallRow(evt.name, evt.durMs ?? 0, evt.truncated, evt.result);
               }
             }
           },
@@ -810,24 +815,23 @@ class ChatPanel extends HTMLElement {
               const bubble = indicator.querySelector('.msg-bubble');
               if (bubble) {
                 // 首个 token 到达：保持 thinking class 不变（整个 agentic 过程
-                // 都在"思考"态），仅追加流式文本容器 + 更新标题为"生成中"
-                let textContainer = bubble.querySelector('.stream-text');
-                if (!textContainer) {
-                  textContainer = document.createElement('div');
-                  textContainer.className = 'stream-text';
-                  bubble.appendChild(textContainer);
-                  // 标题从"深度思考中"切换为"生成回复中"
-                  const titleEl = bubble.querySelector('.thinking-title');
-                  if (titleEl) titleEl.textContent = '📝 生成回复中…';
+                // 都在"思考"态），仅追加流式文本容器 + 更新标题为"生成中"。
+                // 采用「分段流式文本」：每次工具调用会把当前段冻结、在其后插入
+                // 内联折叠工具块，再开新段接后续文字 → 工具记录精确落在触发句下方，
+                // 且不会被整段 innerHTML 重绘覆盖。
+                const seg = this._ensureStreamSeg(bubble);
+                if (seg) {
+                  // 仅渲染当前活跃段对应的「增量文本」（已冻结段不再重绘）
+                  const newText = fullResponse.slice(this._frozenLen);
+                  seg.innerHTML = renderMarkdown(newText) + '<span class="typing-cursor"></span>';
+                  // 渲染 Mermaid 流程图
+                  requestAnimationFrame(() => {
+                    if (window.QCLI?.MermaidRenderer) {
+                      window.QCLI.MermaidRenderer.renderAll();
+                    }
+                  });
+                  this.scrollToBottom();
                 }
-                textContainer.innerHTML = renderMarkdown(fullResponse) + '<span class="typing-cursor"></span>';
-                // 渲染 Mermaid 流程图
-                requestAnimationFrame(() => {
-                  if (window.QCLI?.MermaidRenderer) {
-                    window.QCLI.MermaidRenderer.renderAll();
-                  }
-                });
-                this.scrollToBottom();
               }
             }
           },
@@ -964,22 +968,11 @@ class ChatPanel extends HTMLElement {
                 // 切换 class：思考中 → 完成态
                 bubbleEl.classList.remove('thinking');
                 bubbleEl.classList.add('ai-bubble');
-                // 将用量摘要 + 工具调用摘要追加到流式文本容器末尾
-                // （displayContent = 流式文本 + 用量行 + 工具摘要，而 .stream-text 目前只有流式文本部分）
-                const streamText = bubbleEl.querySelector('.stream-text');
-                if (streamText) {
-                  // 移除 typing-cursor（已完成态不需要）
-                  const cursor = streamText.querySelector('.typing-cursor');
-                  if (cursor) cursor.remove();
-                  // 追加用量行和工具摘要（如果 displayContent 比纯文本多的话）
-                  if (displayContent.length > fullResponse.length) {
-                    const extra = displayContent.slice(fullResponse.length);
-                    const summaryDiv = document.createElement('div');
-                    summaryDiv.className = 'completion-summary';
-                    summaryDiv.innerHTML = renderMarkdown(extra);
-                    streamText.appendChild(summaryDiv);
-                  }
-                }
+                // 完成态：移除各分段流式文本里的 typing-cursor（已完成态不需要）。
+                // 注意：工具调用已随流呈现为内联折叠块（.inline-tool），
+                // 不再把工具/用量摘要作为独立块追加到末尾（消除"输出完留大空白再 dump"）。
+                // displayContent 仍保留一份紧凑工具记录供刷新/历史回溯，但不渲染进实时气泡。
+                bubbleEl.querySelectorAll('.stream-text .typing-cursor').forEach(c => c.remove());
                 indicator.id = ''; // 取消 thinking 标识，避免后续 removeThinking 误删
                 this._clearThinkingTipInterval();
                 // 完成后淡出小贴士，避免占据完成态气泡空间
@@ -1320,16 +1313,13 @@ class ChatPanel extends HTMLElement {
     const body = document.createElement('div');
     body.className = 'thinking-body';
 
-    // 工具调用列表容器（每次工具调用追加一行，完成后更新状态）
+    // 工具调用列表容器（每次工具调用追加一行，完成后更新状态）。
+    // 注意：普通对话轮的工具调用已改为随流内联折叠块（.inline-tool），
+    // 此面板列表仅计划/讨论等独立通道使用；故不再预置占位文字，
+    // 避免普通对话轮里残留"⏳ 等待工具调用…"空提示。
     const listEl = document.createElement('div');
     listEl.className = 'tool-call-list';
     listEl.id = 'tool-call-list';
-
-    // 占位文字：工具列表为空时显示，首个工具到达时移除
-    const placeholder = document.createElement('div');
-    placeholder.className = 'tool-call-placeholder';
-    placeholder.textContent = '⏳ 等待工具调用…';
-    listEl.appendChild(placeholder);
 
     body.appendChild(listEl);
 
@@ -1405,8 +1395,10 @@ class ChatPanel extends HTMLElement {
     div.appendChild(content);
     this.msgsEl.appendChild(div);
 
-    // 重置当前轮的工具调用追踪
+    // 重置当前轮的工具调用追踪 + 分段流式文本状态
     this._activeToolCalls = [];
+    this._streamSegs = [];
+    this._frozenLen = 0;
 
     // 刷新任何在 thinking-indicator 创建前到达的缓冲 Agent 事件
     // 顺序执行微任务让 DOM 先完成渲染，再播放缓冲事件
@@ -1499,6 +1491,98 @@ class ChatPanel extends HTMLElement {
       pre.className = 'tool-preview';
       pre.textContent = result;
       row.appendChild(pre);
+    }
+    this.scrollToBottom();
+  }
+
+  // ── 分段流式文本：支持在工具调用处插入内联折叠块而不被整段 innerHTML 覆盖 ──
+  // 获取/创建当前活跃的分段流式文本容器（始终位于 footer 之前）。
+  // 首个 token 时创建首段，并把标题从"深度思考中"切到"生成回复中"。
+  _ensureStreamSeg(bubble) {
+    if (!bubble) {
+      const indicator = document.getElementById('thinking-indicator');
+      bubble = indicator?.querySelector('.msg-bubble');
+    }
+    if (!bubble) return null;
+    if (this._streamSegs.length === 0) {
+      const seg = document.createElement('div');
+      seg.className = 'stream-text';
+      const footer = bubble.querySelector('.thinking-footer');
+      if (footer) bubble.insertBefore(seg, footer);
+      else bubble.appendChild(seg);
+      this._streamSegs.push(seg);
+      const titleEl = bubble.querySelector('.thinking-title');
+      if (titleEl) titleEl.textContent = '📝 生成回复中…';
+    }
+    return this._streamSegs[this._streamSegs.length - 1];
+  }
+
+  // 工具调用开始：冻结当前文本段（记录已渲染长度），在其后插入内联折叠工具块，
+  // 再开新段接后续文字 → 工具块精确落在触发它的句子下方。
+  _appendInlineTool(name, frozenLen) {
+    const indicator = document.getElementById('thinking-indicator');
+    const bubble = indicator?.querySelector('.msg-bubble');
+    if (!bubble) return;
+    // 冻结已渲染文本长度，后续 token 只渲染增量到新段，不覆盖已落地的内联块
+    this._frozenLen = frozenLen;
+    const active = this._ensureStreamSeg(bubble);
+    if (!active) return;
+    const meta = this._toolMeta(name);
+
+    const block = document.createElement('div');
+    block.className = 'inline-tool running';
+    block.dataset.toolName = name;
+
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'it-header';
+    btn.setAttribute('aria-expanded', 'false');
+    const icon = document.createElement('span'); icon.className = 'it-icon'; icon.textContent = meta.icon;
+    const nm = document.createElement('span'); nm.className = 'it-name'; nm.textContent = meta.label;
+    const detail = document.createElement('span'); detail.className = 'it-detail'; detail.textContent = name;
+    const state = document.createElement('span'); state.className = 'it-state'; state.textContent = '运行中…';
+    const chev = document.createElement('span'); chev.className = 'it-chevron'; chev.textContent = '▸';
+    btn.append(icon, nm, detail, state, chev);
+
+    const body = document.createElement('div');
+    body.className = 'it-body';
+    body.hidden = true;
+
+    block.append(btn, body);
+    active.after(block);
+
+    // 新文本段接在工具块之后，保证「工具 → 后续文字」顺序正确
+    const newSeg = document.createElement('div');
+    newSeg.className = 'stream-text';
+    block.after(newSeg);
+    this._streamSegs.push(newSeg);
+
+    // 默认折叠：点击头展开/收起结果预览
+    btn.addEventListener('click', () => {
+      const open = block.classList.toggle('expanded');
+      btn.setAttribute('aria-expanded', String(open));
+      chev.textContent = open ? '▾' : '▸';
+      body.hidden = !open;
+    });
+    this.scrollToBottom();
+  }
+
+  // 工具调用结束：更新内联块状态 + 追加结果预览（textContent 防 XSS）
+  _updateInlineTool(name, durMs, truncated, result) {
+    const indicator = document.getElementById('thinking-indicator');
+    const bubble = indicator?.querySelector('.msg-bubble');
+    if (!bubble) return;
+    const block = bubble.querySelector(`.inline-tool[data-tool-name="${CSS.escape(name)}"]`);
+    if (!block) return;
+    block.classList.remove('running');
+    block.classList.add('done');
+    const state = block.querySelector('.it-state');
+    if (state) state.textContent = `✓ 完成 · ${durMs}ms${truncated ? '（结果较长已省略）' : ''}`;
+    if (result && !block.querySelector('.tool-preview')) {
+      const pre = document.createElement('pre');
+      pre.className = 'tool-preview';
+      pre.textContent = result;
+      block.querySelector('.it-body').appendChild(pre);
     }
     this.scrollToBottom();
   }
