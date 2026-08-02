@@ -69,6 +69,14 @@ export const planStreamMixin = {
       return;
     }
 
+    // Fix #2: 协作流中讨论阶段业务错误（API Key 缺失/伙伴不可达）单独渲染：
+    // 红色备注 + 不收尾卡片（让后续 plan_error / plan_done 继续走主流程）。
+    if (t === 'discuss_error') {
+      const msg = (evt && evt.message) || '讨论阶段出错';
+      if (this._planCard) this._planNote(`⚠️ 讨论错误：${msg}`, 'warn');
+      return;
+    }
+
     if (t === 'await-approval') {
       if (this._sessionAutoApprove) {
         // 用户已选择「本次会话始终允许」→ 自动通过，不弹气泡

@@ -190,7 +190,16 @@ async function runPlanTurn(res, p = {}) {
             budget: p.budget,
             cwd: p.cwd || process.cwd(),
             // P6 fix: 讨论事件直写 SSE（不加 plan_ 前缀），与 runDiscussion 同构
-            onEvent: (type, payload) => sse(res, { type, ...(payload || {}) }),
+            onEvent: (type, payload) => {
+              // Fix #1: runRoundtable 业务级 error 事件（如"未配置 API Key"）若以裸 `error` 写出，
+              // 会触发 chat-api.js 的 reader.cancel + return 早退 → 后续 plan_* 事件永远到不了前端
+              // → 执行卡片卡在"执行中"（球总实测"停不下来"根因）。改写为 plan_discuss_error 走 plan_ 主通道。
+              if (type === 'error') {
+                sse(res, { type: 'plan_discuss_error', ...(payload || {}) });
+              } else {
+                sse(res, { type, ...(payload || {}) });
+              }
+            },
             shouldAbort: () => watcher.isAborted(),
           }),
           new Promise((_, reject) => setTimeout(() => reject(new Error(`讨论超时（${Math.round(DISCUSS_TIMEOUT_MS / 1000)}s）`)), DISCUSS_TIMEOUT_MS)),

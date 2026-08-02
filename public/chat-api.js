@@ -151,7 +151,7 @@ export const ChatAPI = {
      * @param {boolean} [options.terminalContextChanged] - Whether terminal content has changed since last message
      * @param {AbortSignal} [options.signal] - Optional abort signal
      */
-    async sendMessage({ messages, onToken, onDone, onError, onStatus, onToolCall, onToolLive, onUsage, onAgentMetrics, terminalContext, terminalContextChanged, signal, discuss, partner, partners, maxTurns, onDiscuss, sessionId, category, verifyMode, takenOver, planMode, planAgentId, onPlan }) {
+    async sendMessage({ messages, onToken, onDone, onError, onStatus, onToolCall, onToolLive, onUsage, onAgentMetrics, terminalContext, terminalContextChanged, signal, discuss, partner, partners, maxTurns, onDiscuss, sessionId, category, verifyMode, takenOver, planMode, planAgentId, onPlan, keepStreamOnError }) {
       const apiKey = await this.getApiKey();
       const provider = this.getProvider();
       let model = this.getModel();
@@ -280,6 +280,10 @@ export const ChatAPI = {
                     type: isTimeout ? 'timeout' : (isRateLimit ? 'rate_limit' : 'stream_error'),
                     message: isRateLimit ? errMsg.slice('RATE_LIMIT: '.length) : errMsg,
                   });
+                  // Fix #3: 协作流（planMode）下 error 是业务级事件（如"未配置 API Key"），
+                  // 不应 cancel reader + return —— 后续 plan_error / plan_done 必须继续到达前端，
+                  // 否则执行卡片永远卡在"执行中"（球总实测"停不下来"根因）。
+                  if (keepStreamOnError) return;
                   // Error is final — stop reading stream to prevent double-fire with onDone
                   reader.cancel().catch(() => {});
                   return;
