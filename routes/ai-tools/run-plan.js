@@ -1198,7 +1198,9 @@ async function runPlan(plan, opts = {}) {
     const body = await runOneAttempt(currentPlan, { cwd, wf, roundtableFn, onStep, dryRun, runAcc, skipGate, opts: runOpts });
     lastBody = body;
     const st = body.reflection.status;
-    const terminal = st === 'done' || st === 'rejected';
+    // P1：diverged（需人工审批的 checkpoint / fatal 步骤异常）→ terminal，
+    // 不再自动修订重跑（autoReplan 修不了「等人工介入」的场景）
+    const terminal = st === 'done' || st === 'rejected' || st === 'diverged';
     const failureKind = terminal ? 'terminal' : classifyFailure(body);
     // C5：记录每轮轨迹（轮次 / 状态 / 失败原因），供前端「重试时间线」展示
     attempts.push({
@@ -1261,6 +1263,10 @@ async function runPlan(plan, opts = {}) {
   // 避免前端把「修订异常中断」误显示为 partial（部分成功）误导用户。
   let finalStatus = lastBody.reflection.status;
   let finalReason = undefined;
+  // P1：diverged 终止时给出明确原因（需人工介入），避免 reason 悬空
+  if (finalStatus === 'diverged') {
+    finalReason = lastBody.reflection.reason || '执行偏离预期（diverged），需人工介入';
+  }
   if (reviseFailed && finalStatus !== 'done' && finalStatus !== 'rejected') {
     finalStatus = 'rejected';
     // 区分「LLM 超时/不可达」与「Plan 真的没救」：前者笼统报「无法自动优化」会误导用户
