@@ -1259,7 +1259,27 @@ async function runPlan(plan, opts = {}) {
       status: st,
       kind: failureKind,
       reason: terminal ? '' : summarizeAttemptReason(body).slice(0, 300),
+      // C8 失败指纹：失败步骤的 {命令, 状态, 输出摘要} + 时间——落盘后重启可查失败历史
+      failures: (body.results || []).filter((r) => ['failed', 'error', 'blocked', 'timeout', 'rejected'].includes(r.status))
+        .map((r) => {
+          const step = (currentPlan.steps || []).find((s) => s.id === r.id);
+          return {
+            id: r.id,
+            status: r.status,
+            action: (step && step.action || '').slice(0, 200),
+            output: (r.output || '').slice(0, 200),
+          };
+        }),
+      ts: Date.now(),
     });
+    // C8：每轮把 attempts（含失败指纹）落盘到 state.json——重启后第一步读 state
+    // 就知道「这条命令失败过几次、为什么」，不再从零重蹈失败路径
+    if (opts && opts.execId) {
+      try {
+        const prev = readPlanState(opts.execId) || {};
+        writePlanState(opts.execId, { ...prev, attempts: attempts.slice() });
+      } catch { /* 落盘失败不影响主流程 */ }
+    }
     if (terminal) break;
     // C1：致命性失败（权限/语法/逻辑）→ 重试无意义，直接失败（避免「假装修好」）
     if (failureKind === 'fatal') {
