@@ -633,18 +633,27 @@ body.drawer-resizing {
   display: inline-block;
 }
 
-/* ── 深度思考面板（WorkBuddy 风格：可折叠标题 + 工具调用列表）── */
-.thinking-header {
+/* ── 深度思考面板（WorkBuddy 风格：可折叠工具列表 + 底部实时状态条）── */
+.thinking-header,
+.thinking-footer {
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-bottom: 8px;
   cursor: pointer;
   user-select: none;
   outline: none;
 }
 
-.thinking-header:focus-visible {
+/* 旧版标题在上方；新版状态条固定在气泡底部 */
+.thinking-header {
+  margin-bottom: 8px;
+}
+.thinking-footer {
+  margin-top: 8px;
+}
+
+.thinking-header:focus-visible,
+.thinking-footer:focus-visible {
   box-shadow: 0 0 0 2px var(--accent, #4f8cff);
   border-radius: 4px;
 }

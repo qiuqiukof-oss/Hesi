@@ -919,23 +919,11 @@ class ChatPanel extends HTMLElement {
               this._pendingTerminalLines = null;
             }
             let displayContent = fullResponse;
-            // Append token usage badge
-            if (this._lastUsage) {
-              const u = this._lastUsage;
-              let usageStr = '';
-              // Anthropic format: input_tokens + output_tokens
-              if (u.input_tokens !== undefined) {
-                usageStr = `\n\n— Tokens: ${u.input_tokens}→${u.output_tokens || '?'} (in→out)`;
-              }
-              // OpenAI format: prompt_tokens + completion_tokens + total_tokens
-              if (u.total_tokens !== undefined) {
-                usageStr = `\n\n— Tokens: ${u.total_tokens} total (${u.prompt_tokens || '?'}→${u.completion_tokens || '?'})`;
-              }
-              if (usageStr) {
-                displayContent += usageStr;
-              }
-              this._lastUsage = null;
-            }
+            // 不再在消息末尾追加 "— Tokens: ..." 行。
+            // 会话级 token/缓存/上下文信息已由顶部「提示环」（context-usage /
+            // savings-icon）统一展示，每条消息末尾的用量行显得冗余且干扰阅读。
+            // 若后续需要单轮精确用量，可从 memory timeline 或 hover 详情中查看。
+            this._lastUsage = null;
 
             // ── 工具调用摘要：将本轮工具调用记录追加到最终消息中 ──
             // removeThinking() 会删除包含工具列表的整个 thinking 面板，
@@ -1313,39 +1301,11 @@ class ChatPanel extends HTMLElement {
     sender.textContent = Q.__?.('chat.sender.ai') || 'AI';
     content.appendChild(sender);
 
-    // 深度思考面板：标题 + 工具调用列表 + 系统状态行（WorkBuddy 风格）
+    // 深度思考面板：工具调用列表（上）+ 实时状态行（下，始终可见）
     const bubble = document.createElement('div');
     bubble.className = 'msg-bubble thinking';
 
-    // 标题行（可点击折叠）：动画点 + "深度思考中" + 折叠箭头
-    const header = document.createElement('div');
-    header.className = 'thinking-header';
-    header.setAttribute('role', 'button');
-    header.setAttribute('tabindex', '0');
-    header.title = '点击折叠/展开';
-
-    const dotsContainer = document.createElement('span');
-    dotsContainer.className = 'thinking-dots';
-    for (let i = 0; i < 3; i++) {
-      const dot = document.createElement('span');
-      dot.className = 'thinking-dot';
-      dotsContainer.appendChild(dot);
-    }
-    header.appendChild(dotsContainer);
-
-    const titleEl = document.createElement('span');
-    titleEl.className = 'thinking-title';
-    titleEl.textContent = '🤔 深度思考中…';
-    header.appendChild(titleEl);
-
-    const chevron = document.createElement('span');
-    chevron.className = 'thinking-chevron';
-    chevron.textContent = '▾'; // ▾
-    header.appendChild(chevron);
-
-    bubble.appendChild(header);
-
-    // 折叠主体：工具列表 + 系统状态行
+    // 折叠主体：工具调用列表
     const body = document.createElement('div');
     body.className = 'thinking-body';
 
@@ -1365,22 +1325,51 @@ class ChatPanel extends HTMLElement {
     // 保存列表元素引用，避免多消息并发时 getElementById 命中错误节点
     this._toolCallListEl = listEl;
 
+    bubble.appendChild(body);
+
+    // 底部状态条（可点击折叠工具列表）：动画点 + "深度思考中" + 状态 + 折叠箭头
+    // 放在气泡最下方，流式内容增长时始终可见，避免"不知道是否说完"。
+    const footer = document.createElement('div');
+    footer.className = 'thinking-footer';
+    footer.setAttribute('role', 'button');
+    footer.setAttribute('tabindex', '0');
+    footer.title = '点击折叠/展开';
+
+    const dotsContainer = document.createElement('span');
+    dotsContainer.className = 'thinking-dots';
+    for (let i = 0; i < 3; i++) {
+      const dot = document.createElement('span');
+      dot.className = 'thinking-dot';
+      dotsContainer.appendChild(dot);
+    }
+    footer.appendChild(dotsContainer);
+
+    const titleEl = document.createElement('span');
+    titleEl.className = 'thinking-title';
+    titleEl.textContent = '🤔 深度思考中…';
+    footer.appendChild(titleEl);
+
     // 系统状态行（重试/续传/生成回答/超时 等）
     const statusEl = document.createElement('span');
     statusEl.className = 'thinking-status';
     statusEl.textContent = '';
-    body.appendChild(statusEl);
+    footer.appendChild(statusEl);
 
-    bubble.appendChild(body);
+    const chevron = document.createElement('span');
+    chevron.className = 'thinking-chevron';
+    chevron.textContent = '▾'; // ▾
+    footer.appendChild(chevron);
 
-    // 点击标题折叠/展开主体
+    bubble.appendChild(footer);
+
+    // 点击底部状态条折叠/展开工具列表主体
     const toggle = () => {
       const collapsed = bubble.classList.toggle('collapsed');
       chevron.textContent = collapsed ? '▸' : '▾'; // ▸ / ▾
       this.scrollToBottom();
     };
-    header.addEventListener('click', toggle);
-    header.addEventListener('keydown', (e) => {
+    footer.addEventListener('click', toggle);
+    footer.addEventListener('keydown', (e) => {
       if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(); }
     });
 
