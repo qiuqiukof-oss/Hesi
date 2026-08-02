@@ -872,6 +872,8 @@ class ChatPanel extends HTMLElement {
               this.removeThinking();
               this._endSending();
               if (this.input) this.input.focus();
+              // 指标联动：自动执行结束也刷新缓存命中/上下文占用圆环
+              if (sessionId) this._recordTurnMetrics(sessionId);
               return;
             }
 
@@ -882,6 +884,8 @@ class ChatPanel extends HTMLElement {
               this._discussText = '';
               this._endSending();
               if (this.input) this.input.focus();
+              // 指标联动：讨论结束刷新上下文占用圆环（savings 已由 discuss_stats 更新）
+              if (sessionId) this._recordTurnMetrics(sessionId);
               return;
             }
 

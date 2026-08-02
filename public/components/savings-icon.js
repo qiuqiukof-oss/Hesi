@@ -16,8 +16,8 @@
 'use strict';
 
 /** Ring radius (px) — must match the SVG circle r in the header button. */
-export const RING_RADIUS = 15;
-/** Circumference for r=15 (≈94.25). */
+export const RING_RADIUS = 24;
+/** Circumference for r=24 (≈150.8). */
 export const RING_CIRCUMFERENCE = 2 * Math.PI * RING_RADIUS;
 
 /** Compact number formatter: 1234 -> "1.2k". @param {number} n */

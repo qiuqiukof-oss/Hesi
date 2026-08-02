@@ -91,6 +91,22 @@ export const messageDomMixin = {
       this.msgsEl.appendChild(div);
       this._saveHistory();
       this.scrollToBottom();
+
+      // 讨论模式指标联动：把精确的 cacheRead/消耗计入头部圆环（savings + context）
+      // 此前讨论模式 onDone 提前 return 不调 _recordTurnMetrics → 两个圆环都不更新。
+      const cacheRead = s.aiCacheReadTokens || 0;
+      const used = (s.aiInputTokens || 0) + (s.aiOutputTokens || 0);
+      if (cacheRead > 0 || used > 0) {
+        if (!this._sessionSavings) this._sessionSavings = { saved: 0, used: 0 };
+        this._sessionSavings.saved += cacheRead;
+        this._sessionSavings.used += used;
+        if (typeof this.updateSavingsIcon === 'function') {
+          try { this.updateSavingsIcon(this._sessionId); } catch { /* ignore */ }
+        }
+      }
+      if (typeof this.updateContextUsage === 'function') {
+        try { this.updateContextUsage(this._sessionId); } catch { /* ignore */ }
+      }
     }
   },
 

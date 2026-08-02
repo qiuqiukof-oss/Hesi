@@ -302,8 +302,8 @@ body.drawer-resizing {
   font-variant-numeric: tabular-nums;
 }
 .chat-action-btn.savings .savings-ring {
-  width: 16px;
-  height: 16px;
+  width: 28px;
+  height: 28px;
   display: inline-block;
   flex-shrink: 0;
 }
@@ -315,19 +315,19 @@ body.drawer-resizing {
 .chat-action-btn.savings .savings-bg {
   fill: none;
   stroke: var(--border-default, #e5e7eb);
-  stroke-width: 3;
+  stroke-width: 4;
 }
 .chat-action-btn.savings .savings-fill {
   fill: none;
   stroke: var(--accent, #6366f1);
-  stroke-width: 3;
+  stroke-width: 4;
   stroke-linecap: round;
   transition: stroke-dashoffset 0.4s ease, opacity 0.2s ease;
 }
 .chat-action-btn.savings .savings-pct {
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 600;
-  min-width: 26px;
+  min-width: 32px;
   text-align: left;
 }
 .chat-action-btn.savings.active {
