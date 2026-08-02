@@ -70,8 +70,14 @@ export const planStreamMixin = {
     }
 
     if (t === 'await-approval') {
-      this._renderApprovalBubble(evt.step);
-      this.scrollToBottom();
+      if (this._sessionAutoApprove) {
+        // 用户已选择「本次会话始终允许」→ 自动通过，不弹气泡
+        const execId = (evt.step && evt.step.execId) || '';
+        if (execId) fetch('/api/plan/' + encodeURIComponent(execId) + '/approve', { method: 'POST', headers: { 'Content-Type': 'application/json' } }).catch(() => {});
+      } else {
+        this._renderApprovalBubble(evt.step);
+        this.scrollToBottom();
+      }
       return;
     }
 
@@ -337,7 +343,7 @@ export const planStreamMixin = {
     const execId = step.execId || '';
     const goal = (step.goal || step.id || '').slice(0, 200);
     const action = typeof step.action === 'string' ? step.action.slice(0, 300) : '';
-    const risk = step.risk ? ('⚠️ 风险：' + step.risk) : '';
+    const risk = step.risk ? ('风险：' + step.risk) : '';
 
     const div = document.createElement('div');
     div.className = 'chat-message plan-message plan-approval';
@@ -349,11 +355,13 @@ export const planStreamMixin = {
       (action ? '<code class="plan-approval-action">' + this._escapeHtml(action) + '</code>' : '') +
       (risk ? '<div class="plan-approval-risk">' + this._escapeHtml(risk) + '</div>' : '') +
       '<div class="plan-approval-btns">' +
-      '<button class="plan-ag-approve btn btn-primary btn-sm" type="button">✅ 通过并执行</button>' +
+      '<button class="plan-ag-approve btn btn-primary btn-sm" type="button">✅ 通过</button>' +
+      '<button class="plan-ag-always btn btn-sm" type="button">⚡ 本次会话始终允许</button>' +
       '<button class="plan-ag-reject btn btn-sm" type="button">⛔ 驳回并中止</button></div>' +
       '<div class="plan-approval-status"></div></div></div>';
     const bubble = div.querySelector('.plan-approval-bubble');
     div.querySelector('.plan-ag-approve').addEventListener('click', () => this._resolveApproval(execId, 'approve', bubble));
+    div.querySelector('.plan-ag-always').addEventListener('click', () => { this._sessionAutoApprove = true; this._resolveApproval(execId, 'approve', bubble); });
     div.querySelector('.plan-ag-reject').addEventListener('click', () => this._resolveApproval(execId, 'reject', bubble));
     this.msgsEl.appendChild(div);
     this._planApprovalEl = div;
@@ -366,7 +374,7 @@ export const planStreamMixin = {
     const status = el.querySelector('.plan-approval-status');
     if (status) {
       status.textContent = evt.timedOut ? '⏱ 超时（视为驳回），已中止'
-        : (evt.approved === true ? '✅ 已通过，继续执行…' : '🚫 已驳回，已中止');
+        : (evt.approved === true ? '✅ 已通过，继续执行…' : '🚫 已驳回——当前步骤跳过，后续步骤中止');
       const btns = el.querySelectorAll('button');
       btns.forEach((b) => { b.disabled = true; });
     }
@@ -439,5 +447,7 @@ export const planStreamMixin = {
     this._planStepRows = null;
     this._planLiveEl = null;
     this._planActiveRow = null;
+    this._planApprovalEl = null;
+    this._sessionAutoApprove = false;
   },
 };

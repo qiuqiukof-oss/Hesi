@@ -13,34 +13,62 @@
 /** @typedef {import('./types').QCLI} QCLI */
 
 import { safeStorage, safeSession } from './lib/storage.js';
+import { CryptoStore } from './lib/crypto-store.js';
 import { Personalization } from './app/personalization.js';
 
 const AI_KEY = 'qcli-ai-key';
 
 export const ChatAPI = {
     // ── API Key Management ──
-    // Hesi runs locally on loopback only, so the API key is persisted in
-    // localStorage (survives browser restart) instead of sessionStorage
-    // (cleared on close). A one-time migration lifts any key left in
-    // sessionStorage into localStorage so an already-entered key isn't lost.
+    // Hesi runs locally on loopback only. The API key is encrypted with
+    // Web Crypto (AES-GCM, non-exportable IndexedDB key) before persisting
+    // to localStorage — plaintext only lives in memory for the current tab
+    // session. A one-time migration lifts a legacy plaintext key from
+    // localStorage/sessionStorage, encrypts it, and removes the plaintext copy.
 
-    /** Get stored API key (localStorage, with sessionStorage migration) */
-    getApiKey() {
+    /** Get stored API key (decrypt from localStorage; legacy plaintext migration) */
+    async getApiKey() {
+      const ok = await CryptoStore.ready();
       const fromStorage = safeStorage.get(AI_KEY, '');
-      if (fromStorage) return fromStorage;
+      if (fromStorage) {
+        // Legacy: plaintext key stored before v0.7.x crypto upgrade
+        if (!fromStorage.startsWith('aes:')) {
+          if (ok) {
+            const ct = await CryptoStore.encrypt(fromStorage);
+            safeStorage.set(AI_KEY, 'aes:' + ct);
+          }
+          return fromStorage;
+        }
+        // v0.7+: encrypted key
+        if (ok) return await CryptoStore.decrypt(fromStorage.slice(4));
+        return ''; // crypto unavailable → can't decrypt
+      }
       const fromSession = safeSession.get(AI_KEY, '');
       if (fromSession) {
-        safeStorage.set(AI_KEY, fromSession);
         safeSession.remove(AI_KEY);
+        if (ok) {
+          const ct = await CryptoStore.encrypt(fromSession);
+          safeStorage.set(AI_KEY, 'aes:' + ct);
+        } else {
+          safeStorage.set(AI_KEY, fromSession); // fallback: plaintext
+        }
         return fromSession;
       }
       return '';
     },
 
-    /** Store API key in localStorage (persisted across browser restarts) */
-    setApiKey(key) {
-      safeStorage.set(AI_KEY, key);
+    /** Store API key (encrypt via Web Crypto, persist to localStorage) */
+    async setApiKey(key) {
       safeSession.remove(AI_KEY);
+      if (!key) { safeStorage.remove(AI_KEY); return; }
+      const ok = await CryptoStore.ready();
+      if (ok) {
+        const ct = await CryptoStore.encrypt(key);
+        safeStorage.set(AI_KEY, 'aes:' + ct);
+      } else {
+        // Graceful fallback: plaintext localStorage (browser lacks Web Crypto)
+        safeStorage.set(AI_KEY, key);
+      }
     },
 
     /** Get stored provider */
@@ -99,7 +127,7 @@ export const ChatAPI = {
         }
       } catch (e) { /* ignore */ }
       // Allow local/self-hosted APIs without a key
-      if (!!this.getApiKey()) return true;
+      if (!!(await this.getApiKey())) return true;
       if (!!this.getBaseUrl()) return true;
       return false;
     },
@@ -124,7 +152,7 @@ export const ChatAPI = {
      * @param {AbortSignal} [options.signal] - Optional abort signal
      */
     async sendMessage({ messages, onToken, onDone, onError, onStatus, onToolCall, onToolLive, onUsage, onAgentMetrics, terminalContext, terminalContextChanged, signal, discuss, partner, partners, maxTurns, onDiscuss, sessionId, category, verifyMode, takenOver, planMode, planAgentId, onPlan }) {
-      const apiKey = this.getApiKey();
+      const apiKey = await this.getApiKey();
       const provider = this.getProvider();
       let model = this.getModel();
       if (verifyMode) { const pm = this.getPlanModel(); if (pm) model = pm; }

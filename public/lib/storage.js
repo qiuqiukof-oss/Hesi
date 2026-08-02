@@ -137,15 +137,15 @@ function makeSafeStore(getBackend, label) {
 }
 
 /**
- * Persistent storage (localStorage) — for non-secret preferences.
+ * Persistent storage (localStorage) — for API key (encrypted via CryptoStore)
+ * and non-secret preferences (provider/model/theme/…).
  * @type {ReturnType<typeof makeSafeStore>}
  */
 export const safeStorage = makeSafeStore(() => localStorage, 'local');
 
 /**
- * Per-tab storage (sessionStorage) — for secrets like the AI API key.
- * Cleared automatically when the tab/browser closes, so credentials are not
- * left persisted on disk indefinitely.
+ * Per-tab storage (sessionStorage) — for ephemeral data cleared on tab close.
+ * API key is stored in localStorage (encrypted via CryptoStore), not here.
  * @type {ReturnType<typeof makeSafeStore>}
  */
 export const safeSession = makeSafeStore(() => sessionStorage, 'session');

@@ -1176,6 +1176,11 @@ async function runPlan(plan, opts = {}) {
   let reviseErrMsg = ''; // 修订异常原文，用于区分「LLM 超时」与「Plan 真的没救」
   // C6：同一 runPlan（同 execId）内，首次已审批的步骤在重试时复用审批结论，不再重复弹窗打扰。
   const runOpts = Object.assign({}, opts, { approvedSteps: new Set() });
+  // P0-2：断点续跑——从 state.json 回放审批缓存
+  if (typeof opts.initApprovedStepIds === 'function') {
+    const cachedIds = opts.initApprovedStepIds();
+    if (Array.isArray(cachedIds)) cachedIds.forEach((id) => runOpts.approvedSteps.add(id));
+  }
   for (let attempt = 0; ; attempt++) {
     const body = await runOneAttempt(currentPlan, { cwd, wf, roundtableFn, onStep, dryRun, runAcc, skipGate, opts: runOpts });
     lastBody = body;
@@ -1274,7 +1279,25 @@ async function runOneAttempt(plan, ctx) {
   const results = [];
   const rounds = (plan.budget && plan.budget.maxRounds) || 3;
 
-  for (let i = 0; i < tasks.length; i++) {
+  // P4-5（P0-2）：断点续跑——跳过已完成的步骤
+  let resumeFrom = 0;
+  const _resumeExecId = (opts && opts.execId) || null;
+  if (_resumeExecId) {
+    const _st = readPlanState(_resumeExecId);
+    if (_st && Array.isArray(_st.completedStepIds)) {
+      resumeFrom = _st.completedStepIds.length;
+      // 恢复 budget 余量
+      if (_st.budget && typeof _st.budget.remainingRounds === 'number') {
+        budget.remainingRounds = _st.budget.remainingRounds;
+      }
+      // 恢复审批缓存
+      if (_st.approvalCache && Array.isArray(_st.approvalCache) && opts && typeof opts.initApprovedStepIds === 'function') {
+        opts.initApprovedStepIds(_st.approvalCache);
+      }
+    }
+  }
+
+  for (let i = resumeFrom; i < tasks.length; i++) {
     const task = tasks[i];
     const step = plan.steps[i] || {};
     const ev = { index: i, id: task.id, goal: task.label, status: 'start' };
@@ -1438,6 +1461,19 @@ async function runOneAttempt(plan, ctx) {
     if (exec.status === 'aborted' || (typeof opts.shouldAbort === 'function' && opts.shouldAbort())) {
       ev.status = 'aborted';
       ev.reason = '用户取消（断开连接）';
+    }
+
+    // P4-5（P0-2）：步骤完成后写断点状态（供 resume 跳过已完成步骤）
+    if (ev.status === 'done' || ev.status === 'skipped') {
+      const _sid2 = (opts && opts.execId) || null;
+      if (_sid2) {
+        writePlanState(_sid2, {
+          execId: _sid2,
+          completedStepIds: results.filter((r) => r.status === 'done' || r.status === 'skipped').map((r) => r.id),
+          budget: { remainingRounds: budget.remainingRounds },
+          approvalCache: opts && opts.approvedSteps ? Array.from(opts.approvedSteps) : [],
+        });
+      }
     }
 
     // 连续重复熔断

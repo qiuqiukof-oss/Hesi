@@ -559,9 +559,9 @@ const RoundTableView = {
   },
 
   // ── 引擎：复用 Q.ChatAPI.sendMessage（discuss 模式）──
-  start() {
+  async start() {
     if (this.running) return;
-    const apiKey = (Q.ChatAPI && Q.ChatAPI.getApiKey) ? Q.ChatAPI.getApiKey() : getStore().get('qcli-ai-key', '');
+    const apiKey = (Q.ChatAPI && Q.ChatAPI.getApiKey) ? await Q.ChatAPI.getApiKey() : '';
     if (!apiKey) { this.toast('未配置 API Key（设置 → AI Key）'); return; }
     if (!this.selected.length) { this.toast('请至少选择一个参与 Agent'); return; }
     const topic = this.elTopic.value.trim();
