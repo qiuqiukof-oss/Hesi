@@ -167,7 +167,6 @@
   },
   "devDependencies": {
     "@open-wc/testing": "^5.0.0",
-    "@web/test-runner": "^1.0.0",
     "esbuild": "^0.28.1",
     "eslint": "^10.7.0",
     "globals": "^17.7.0",
