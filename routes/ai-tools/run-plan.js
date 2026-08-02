@@ -1437,6 +1437,19 @@ async function runOneAttempt(plan, ctx) {
       continue;
     }
 
+    // ── 幂等校验（序1/C10）──
+    // resume 恢复时，第一个待重跑的步骤可能已「部分执行」（中断点恰在附近）。
+    // 若命令不可重入（git commit / >> 追加 / INSERT 等），重跑 = 重复副作用 →
+    // 跳过并警告，请人工确认；而非盲目重跑。
+    if (_resumeExecId && i === resumeFrom && resumeFrom > 0 && isNonIdempotentAction(step.action)) {
+      ev.status = 'skipped';
+      ev.reason = '不可重入命令（中断恢复时该步骤可能已部分执行），跳过以避免重复副作用；请人工确认后手动处理';
+      results.push(ev);
+      await onStep(ev);
+      if (!step.on_fail || step.on_fail === 'stop') break;
+      continue;
+    }
+
     // ④ 运行时逐工具强制拦截（接 mcp/security/policy.evaluateAiExec）
     // 注意：仅对「直执模式」（轨道 A）生效——AI 聊天管线（轨道 B）内部已有
     // executeToolCall 工具级安全检查，不需要双重拦截。
@@ -1691,6 +1704,26 @@ function isPossibleCommand(s) {
   if (SHELL_METACHAR.test(s)) return true;
   const base = s.trim().split(/\s+/)[0] || '';
   return KNOWN_BASE.test(base);
+}
+
+// ── 幂等校验（序1/C10）：判断命令是否可重入 ──
+// 目的：断点续跑（resume）时，中断点那一步可能已「部分执行」——若命令不可重入
+// （如 git commit 已提交、>> 已追加），重跑会产生重复副作用。命中不可重入模式 →
+// 跳过并警告，请人工确认，而不是盲目重跑。
+// 策略：只拦「明确不可重入」的模式（保守放行，避免误伤安全命令）。
+const NON_IDEMPOTENT_ACTION_RE = new RegExp([
+  /(^|[;&|]|\|\||&&)\s*git\s+(commit|push|merge|rebase|reset\s+--hard|clean\s+-[a-z]*f)/i, // git 写历史/远程
+  /(^|[;&|]|\|\||&&)\s*(cat|echo|printf)\s+.*(\s|^)>>/i,                                     // 追加写
+  /\bINSERT\s+INTO\b|\bUPDATE\s+\w+\s+SET\b/i,                                                // 数据库写
+  /\bcurl\b.*(-X\s+POST|-d\s)|\b(wget|iwr)\b/i,                                                // 网络 POST（有副作用）
+  /\bnpm\s+publish\b|\bdocker\s+(build|push|tag)\b/i,                                         // 发布/构建
+  /\bgit\s+commit\b/i,
+].map((r) => r.source).join('|'), 'i');
+
+/** @param {string} action @returns {boolean} true=不可重入（重跑有重复副作用风险） */
+function isNonIdempotentAction(action) {
+  if (!action || typeof action !== 'string') return false;
+  return NON_IDEMPOTENT_ACTION_RE.test(action);
 }
 
 function evaluateStepSecurity(step, evalCmd) {
