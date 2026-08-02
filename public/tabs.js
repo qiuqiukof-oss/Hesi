@@ -18,6 +18,7 @@ import { WebglAddon } from '@xterm/addon-webgl';
 import { SearchAddon } from '@xterm/addon-search';
 import { WebLinksAddon } from '@xterm/addon-web-links';
 import { safeStorage } from './lib/storage.js';
+import { buildXtermTheme } from './lib/term-theme.js';
 
 /** @typedef {import('./types').QCLI} QCLI */
 
@@ -99,29 +100,10 @@ export const Tabs = {
         fontSize: 14,
         lineHeight: 1.2,
         letterSpacing: 0,
-        theme: {
-          background: 'rgba(13, 14, 16, 0.85)',
-          foreground: '#e4e4e7',
-          cursor: '#e4e4e7',
-          cursorAccent: '#0d0e10',
-          selection: 'rgba(99,102,241,0.3)',
-          black: '#18181b',
-          red: '#ef4444',
-          green: '#22c55e',
-          yellow: '#eab308',
-          blue: '#6366f1',
-          magenta: '#a78bfa',
-          cyan: '#22d3ee',
-          white: '#e4e4e7',
-          brightBlack: '#71717a',
-          brightRed: '#f87171',
-          brightGreen: '#4ade80',
-          brightYellow: '#facc15',
-          brightBlue: '#818cf8',
-          brightMagenta: '#c4b5fd',
-          brightCyan: '#67e8f9',
-          brightWhite: '#fafafa',
-        },
+        // 配色由当前主题的 --term-* 令牌实时派生（单一事实源，见 lib/term-theme.js）。
+        // 旧实现在此硬编码一份暗色调色板且不读 data-theme，导致亮色主题下
+        // 新建 Tab 仍是黑底 —— 这是「CLI 不跟随主题」的直接病灶。
+        theme: buildXtermTheme(),
         allowTransparency: true,
         scrollback: 5000,
         allowProposedApi: true,
