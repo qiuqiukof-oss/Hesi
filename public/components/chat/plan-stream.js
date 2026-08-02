@@ -77,7 +77,9 @@ export const planStreamMixin = {
       return;
     }
 
-    if (t === 'await-approval') {
+    // ⚠️ 兼容两种写法：后端 sseEventName 把连字符转下划线（await-approval→await_approval），
+    // chat-api 剥 plan_ 前缀后前端拿到的是下划线版；直接发连字符版也保留（双保险）
+    if (t === 'await-approval' || t === 'await_approval') {
       if (this._sessionAutoApprove) {
         // 用户已选择「本次会话始终允许」→ 自动通过，不弹气泡
         const execId = (evt.step && evt.step.execId) || '';
@@ -89,7 +91,7 @@ export const planStreamMixin = {
       return;
     }
 
-    if (t === 'approval-resolved') {
+    if (t === 'approval-resolved' || t === 'approval_resolved') {
       this._updateApprovalBubble(evt);
       this.scrollToBottom();
       return;
