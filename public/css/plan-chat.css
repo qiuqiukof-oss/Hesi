@@ -27,6 +27,29 @@
   align-self: center;
 }
 
+/* ── 🔓 允许完全访问 开关 ── */
+.plan-full-access {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  cursor: pointer;
+  white-space: nowrap;
+  padding: 3px 8px;
+  border-radius: 6px;
+  border: 1px solid var(--border-default);
+  transition: all 0.15s ease;
+}
+.plan-full-access:hover { border-color: var(--accent); }
+.plan-full-access input[type='checkbox'] { margin: 0; cursor: pointer; accent-color: var(--accent); }
+.plan-full-access:has(input:checked) {
+  color: #b91c1c;
+  border-color: #f87171;
+  background: rgba(248, 113, 113, 0.08);
+}
+
 /* ── 执行卡片 ── */
 .plan-message .plan-avatar {
   background: linear-gradient(135deg, var(--warning), var(--accent));

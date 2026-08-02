@@ -275,6 +275,10 @@
               <select id="plan-agent" class="discuss-select" title="执行阶段仅 AI 助手（安全设计：外部 CLI Agent 执行不受运行时拦截约束）">
                 <option value="ai" selected>AI 助手执行</option>
               </select>
+              <label class="plan-full-access" title="开启后本次会话所有步骤直接执行，不再逐个弹审批气泡（危险操作也不确认）。建议仅在自己明确信任目标时开启。">
+                <input type="checkbox" id="plan-full-access" />
+                <span>🔓 允许完全访问</span>
+              </label>
               <span class="plan-hint">会真实改动本机文件 · 关闭页面即取消</span>
             </div>
             <div id="plan-collab-hint" class="plan-hint" style="display:none;margin-top:2px;">

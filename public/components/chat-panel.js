@@ -751,6 +751,7 @@ class ChatPanel extends HTMLElement {
           onDiscuss: (evt) => this._handleDiscussEvent(evt),
           planMode: this._planEnabled,
           planAgentId: this._planAgentId,
+          fullAccess: !!this._planFullAccess,
           onPlan: (evt) => this._handlePlanEvent(evt),
           // Fix #3: 协作流（planMode）下，业务级 error（如"未配置 API Key"）
           // 走 onError 但不 cancel reader，让 plan_error / plan_done 继续到达前端。

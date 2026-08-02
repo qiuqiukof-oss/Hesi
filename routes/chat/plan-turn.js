@@ -122,6 +122,9 @@ async function runPlanTurn(res, p = {}) {
   const runtime = { apiKey: p.apiKey, provider: p.provider, baseUrl: p.baseUrl, model: p.model };
   const executorAgentId = (typeof p.agentId === 'string' && p.agentId.trim()) ? p.agentId.trim() : 'ai';
   const perms = (p.permissions && typeof p.permissions === 'object') ? p.permissions : null;
+  // 🔓 允许完全访问（WorkBuddy 式显式开关）：开启后所有步骤直接执行，不再弹审批气泡。
+  // 用户在「⚡ 自动执行」控件区手动勾选，默认关；关闭时恢复逐个审批。
+  const fullAccess = p.fullAccess === true;
   const execId = crypto.randomUUID();
 
   openSseStream(res);
@@ -275,7 +278,8 @@ async function runPlanTurn(res, p = {}) {
       // 决策①：断开即取消——步骤边界检查
       shouldAbort: () => watcher.isAborted(),
       // P4-2：审批闸对话式——通过共享登记表挂起等待，不再自动驳回
-      requestApproval: (info) => registerApproval(execId, info, approvalTimeoutMs, emit),
+      // 🔓 允许完全访问：fullAccess=true 时直接通过，不挂起、不弹气泡
+      requestApproval: (info) => fullAccess ? Promise.resolve(true) : registerApproval(execId, info, approvalTimeoutMs, emit),
       permissions: perms,
       plannerRuntime: runtime,
       revisePlanFn: revisePlan,

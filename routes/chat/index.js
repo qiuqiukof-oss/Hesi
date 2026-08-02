@@ -280,7 +280,7 @@ function createRouter(opts = {}) {
   // Response: SSE stream of tokens
   // ──────────────────────────────────────────────
   router.post('/chat', async (req, res) => {
-    const { messages, model, apiKey: clientKey, provider: clientProvider, baseUrl: clientBaseUrl, disableTools, terminalContext, terminalContextChanged, discuss, partner, partners, discussBeforePlan, maxTurns, sessionId, category, verifyMode, takenOver, persona, role, customInstructions, language, memoryEnabled, permissions, personas, protocol, planMode, plan: presetPlan, agentId: planAgentId, autoReplan, maxRetries } = req.body;
+    const { messages, model, apiKey: clientKey, provider: clientProvider, baseUrl: clientBaseUrl, disableTools, terminalContext, terminalContextChanged, discuss, partner, partners, discussBeforePlan, maxTurns, sessionId, category, verifyMode, takenOver, persona, role, customInstructions, language, memoryEnabled, permissions, personas, protocol, planMode, plan: presetPlan, agentId: planAgentId, autoReplan, maxRetries, fullAccess } = req.body;
     // Phase 2：把 sessionId 挂到请求上，供流式路径里的 executeToolCall 透传到 /tools/write-file 做副作用快照。
     req._hesiSessionId = sessionId || '';
     // 分类 Chips（两级小功能）：当前对话模式 → 注入 [当前模式] 系统提示段 + Skill 检索加权
@@ -313,6 +313,7 @@ function createRouter(opts = {}) {
           permissions,
           autoReplan,
           maxRetries,
+          fullAccess: fullAccess === true,
           discussBeforePlan: doDiscussFirst,
           discussionPartners: partnerList,
           maxTurns: maxTurns || 4,

@@ -24,11 +24,13 @@ export const planControlsMixin = {
     const toggle = document.getElementById('plan-toggle');
     const controls = document.getElementById('plan-controls');
     const agentSel = document.getElementById('plan-agent');
+    const fullAccess = document.getElementById('plan-full-access');
     if (!toggle || !controls || !agentSel) return;
 
     const sync = () => {
       this._planEnabled = !!toggle.checked;
       this._planAgentId = agentSel.value || 'ai';
+      this._planFullAccess = !!(fullAccess && fullAccess.checked);
       controls.style.display = this._planEnabled ? 'flex' : 'none';
       // P6：同时勾选 AI 讨论→显示协作提示
       const hint = document.getElementById('plan-collab-hint');
@@ -39,6 +41,7 @@ export const planControlsMixin = {
       sync();
     });
     agentSel.addEventListener('change', sync);
+    if (fullAccess) fullAccess.addEventListener('change', sync);
 
     // 执行方锁定为「AI 助手执行」——安全设计（v0.7.0 CLI Agent 隔离）：
     // 外部 CLI Agent 执行时其实际命令不受 Hesi 运行时拦截/审批闸约束（自主执行），
