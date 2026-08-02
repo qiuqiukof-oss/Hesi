@@ -40,6 +40,7 @@ import { sidePanelsMixin } from './chat/side-panels.js';
 import { metricsSavingsMixin } from './chat/metrics-savings.js';
 import { messageDomMixin } from './chat/message-dom.js';
 import { terminalContextMixin } from './chat/terminal-context.js';
+import { nextTip } from './chat/thinking-tips.js';
 
 /** @typedef {import('../types').QCLI} QCLI */
 /** @typedef {{role:string, content:string}} ChatMessage */
@@ -93,6 +94,8 @@ class ChatPanel extends HTMLElement {
     this._terminalContextEnabled = true;
     /** @type {Array<{name:string, durMs:number, status:string}>} */
     this._activeToolCalls = [];
+    /** @type {number|null} */
+    this._thinkingTipInterval = null;
     /** @type {{input_tokens?:number, output_tokens?:number, prompt_tokens?:number, completion_tokens?:number, total_tokens?:number}|null} */
     this._lastUsage = null;
     /** @type {AgentSessionRenderer|null} */
@@ -978,6 +981,14 @@ class ChatPanel extends HTMLElement {
                   }
                 }
                 indicator.id = ''; // 取消 thinking 标识，避免后续 removeThinking 误删
+                this._clearThinkingTipInterval();
+                // 完成后淡出小贴士，避免占据完成态气泡空间
+                const tipEl = bubbleEl.querySelector('.thinking-tip');
+                if (tipEl) {
+                  tipEl.style.transition = 'opacity 0.3s ease';
+                  tipEl.style.opacity = '0';
+                  window.setTimeout(() => { if (tipEl) tipEl.remove(); }, 300);
+                }
                 upgraded = true;
               }
             }
@@ -1355,12 +1366,29 @@ class ChatPanel extends HTMLElement {
     statusEl.textContent = '';
     footer.appendChild(statusEl);
 
+    // 滚动小贴士：生成过程中循环展示，缓解等待焦虑
+    const tipEl = document.createElement('span');
+    tipEl.className = 'thinking-tip';
+    tipEl.textContent = nextTip();
+    footer.appendChild(tipEl);
+
     const chevron = document.createElement('span');
     chevron.className = 'thinking-chevron';
     chevron.textContent = '▾'; // ▾
     footer.appendChild(chevron);
 
     bubble.appendChild(footer);
+
+    // 启动小贴士轮播：4 秒切换一条，带淡入淡出
+    this._clearThinkingTipInterval();
+    this._thinkingTipInterval = window.setInterval(() => {
+      if (!tipEl) return;
+      tipEl.style.opacity = '0';
+      window.setTimeout(() => {
+        tipEl.textContent = nextTip();
+        tipEl.style.opacity = '0.85';
+      }, 300);
+    }, 4000);
 
     // 点击底部状态条折叠/展开工具列表主体
     const toggle = () => {
@@ -1475,7 +1503,16 @@ class ChatPanel extends HTMLElement {
     this.scrollToBottom();
   }
 
+  /** 清理小贴士轮播定时器 */
+  _clearThinkingTipInterval() {
+    if (this._thinkingTipInterval) {
+      window.clearInterval(this._thinkingTipInterval);
+      this._thinkingTipInterval = null;
+    }
+  }
+
   removeThinking() {
+    this._clearThinkingTipInterval();
     const el = document.getElementById('thinking-indicator');
     if (el) el.remove();
     // 清理 Agent 实时会话状态（已重构为由 AgentSessionRenderer 托管）

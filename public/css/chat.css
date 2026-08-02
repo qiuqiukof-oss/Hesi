@@ -637,6 +637,7 @@ body.drawer-resizing {
 .thinking-header,
 .thinking-footer {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 8px;
   cursor: pointer;
@@ -650,6 +651,21 @@ body.drawer-resizing {
 }
 .thinking-footer {
   margin-top: 8px;
+}
+
+/* 小贴士单独占一行，避免把状态条撑得太宽 */
+.thinking-tip {
+  flex: 1 1 100%;
+  font-size: 11px;
+  line-height: 1.4;
+  color: var(--text-tertiary);
+  opacity: 0.85;
+  transition: opacity 0.3s ease;
+  padding-left: 26px; /* 与标题行的动画点对齐 */
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .thinking-header:focus-visible,
