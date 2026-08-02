@@ -73,4 +73,19 @@ import './components/cli-preset-install-panel.js'; // CLIPresetInstall → insta
   }
 })();
 
+// ── 周期A-C.2: 主包瘦身 — 以下重模块从 main.js 迁入懒加载包（非首屏关键路径）──
+import './components/global-search-panel.js'; // GlobalSearch → cross-tab search
+import './components/plugin-manager-panel.js'; // PluginManager → plugin management in right panel
+import './components/rate-limit-panel.js';      // RateLimitPanel → rate limiter stats in right panel
+import './components/diagram-renderer.js';     // DiagramRenderer → unified mermaid/graphviz/plantuml renderer
+import './opc-dashboard.js'; // OPCDashboard → OPC cost/ROI monitoring panel
+import './chart-core.js';    // ChartCore → canvas chart engine
+import './voice-input.js';   // VoiceInput → speech-to-text for terminal
+import './voice-output.js';  // VoiceOutput → text-to-speech for AI responses
+import './workflows.js';     // Workflows → multi-step agent orchestration
+import './orchestrator.js';   // Orchestrator → WorkBuddy-style task board (DAG orchestration)
+import './digital-employees.js'; // DigitalEmployees → role-based employee management
+import './agents.js';        // Agents → AI agent sidebar panel
+import './settings.js';      // Settings → settings UI, env vars
+
 console.log('[Hesi] Lazy bundle loaded (P3 panels included)');
