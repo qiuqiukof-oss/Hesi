@@ -54,6 +54,7 @@ const SYSTEM_PROMPT = [
   '- **不要假设文件已存在**：如果步骤涉及读写特定文件，先用 ls/test 检查或直接创建。',
   '- **sed 替换内容含 `/` 时改用非 `/` 定界符（如 `#` 或 `|`）**：`sed \'s/pattern/path/\'` 会在 replacement 含 `/tmp/...` 等路径时解析失败（unknown option to s）。正确写法：`sed \'s#pattern#path#\'` 或 `sed "s|echo.*>|echo msg >|"`。',
   '- **每个步骤在「独立 shell」中执行，cwd 不会延续到下一步**：步骤 1 里的 `cd /tmp/xxx` 只在该步内有效，步骤 2 的 cwd 仍是项目根（不会继承）。因此涉及项目外目录时：① 每一步都必须自带 `cd <绝对路径> &&` 前缀，或② 直接使用绝对路径（`cat > /tmp/xxx/file.txt`）；③ 不要假设前一步的 `cd` 对后续步骤有效；④ 写文件务必用绝对路径或每步显式 `cd`，否则文件会落到项目根（覆盖重要配置）。',
+  '- **调用脚本必须写「解释器 + 路径」，禁止裸路径**：如果要运行脚本，action 必须写成 `bash <path>` / `node <path>` / `sh <path>`（如 `bash /tmp/jwt-demo-verify/test.sh`），不要只写裸路径（`/tmp/.../test.sh`）。裸路径会被误判为非命令而走低效的 LLM 路径。带参数的脚本同样用 `bash <path> arg1 arg2`。',
   '',
   '示例（用户目标：在仓库根 README 顶部加「构建状态」章节——覆盖已有文件，需审批）：',
   JSON.stringify({

@@ -1958,7 +1958,13 @@ const KNOWN_BASE = /^(rm|dd|mkfs|shutdown|reboot|halt|poweroff|chmod|chown|kill|
 function isPossibleCommand(s) {
   if (!s) return false;
   if (SHELL_METACHAR.test(s)) return true;
-  const base = s.trim().split(/\s+/)[0] || '';
+  const trimmed = s.trim();
+  // ── 可执行脚本路径识别（P3）──
+  // 裸路径如 /tmp/jwt-demo-verify/test.sh、./run.sh、build.ps1 没有 shell 元字符，
+  // 也不命中 KNOWN_BASE → 原逻辑会误判为「自然语言」而走 Track B（LLM 工具循环，
+  // 慢且烧 token，实测 s6 因此卡 279s）。这里显式识别脚本扩展名 → 直接走 Track A 真执行。
+  if (/^\.{0,2}\/?\S+\.(sh|bash|bat|cmd|ps1)(\s|$)/i.test(trimmed)) return true;
+  const base = trimmed.split(/\s+/)[0] || '';
   return KNOWN_BASE.test(base);
 }
 
