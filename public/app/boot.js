@@ -116,6 +116,18 @@ function init() {
       if (modelEl) modelEl.value = savedModel;
       if (planModelEl) planModelEl.value = savedPlanModel;
       if (baseUrlEl) baseUrlEl.value = savedBaseUrl;
+      // L3 (v0.7.5): 按当前 provider+model 决定是否显示「推理强度」开关
+      const rcLabel = document.getElementById('ai-reasoning-label');
+      const rcEl = document.getElementById('ai-reasoning-effort');
+      if (rcLabel && rcEl) {
+        const supported = Q.ReasoningConfig?.supportsReasoning?.(savedProvider, savedModel);
+        if (supported) {
+          rcLabel.classList.remove('hidden');
+          rcEl.value = Q.ReasoningConfig?.getReasoningEffort?.() || 'standard';
+        } else {
+          rcLabel.classList.add('hidden');
+        }
+      }
       if (aiSettingsStatus) { aiSettingsStatus.classList.add('hidden'); aiSettingsStatus.textContent = ''; }
       aiSettingsOverlay.classList.remove('hidden');
     });
@@ -149,6 +161,13 @@ function init() {
       Q.ChatAPI?.setPlanModel?.(planModel);
       Q.ChatAPI?.setBaseUrl?.(baseUrl);
 
+      // L3 (v0.7.5): 若当前模型支持推理强度，持久化用户选择
+      const rcLabel = document.getElementById('ai-reasoning-label');
+      const rcEl = document.getElementById('ai-reasoning-effort');
+      if (rcLabel && rcEl && !rcLabel.classList.contains('hidden')) {
+        Q.ReasoningConfig?.setReasoningEffort?.(rcEl.value);
+      }
+
       if (aiSettingsStatus) {
         aiSettingsStatus.textContent = apiKey
           ? '\u2714 API Key \u5df2\u4fdd\u5b58'
@@ -158,6 +177,26 @@ function init() {
       }
       setTimeout(() => aiSettingsOverlay.classList.add('hidden'), 1500);
     });
+
+    // L3 (v0.7.5): 切换到不同 provider/model 时实时显隐「推理强度」开关
+    const _syncReasoningVisibility = () => {
+      const pEl = document.getElementById('ai-provider');
+      const mEl = document.getElementById('ai-model');
+      const rcLabel = document.getElementById('ai-reasoning-label');
+      const rcEl = document.getElementById('ai-reasoning-effort');
+      if (!pEl || !mEl || !rcLabel || !rcEl) return;
+      const supported = Q.ReasoningConfig?.supportsReasoning?.(pEl.value, mEl.value.trim());
+      if (supported) {
+        rcLabel.classList.remove('hidden');
+        rcEl.value = Q.ReasoningConfig?.getReasoningEffort?.() || 'standard';
+      } else {
+        rcLabel.classList.add('hidden');
+      }
+    };
+    const provEl2 = document.getElementById('ai-provider');
+    const modelEl2 = document.getElementById('ai-model');
+    if (provEl2) provEl2.addEventListener('change', _syncReasoningVisibility);
+    if (modelEl2) modelEl2.addEventListener('input', _syncReasoningVisibility);
   }
 
   // ── Wire up Personalization modal（个性化入口）──

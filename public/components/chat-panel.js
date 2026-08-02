@@ -748,6 +748,8 @@ class ChatPanel extends HTMLElement {
           messages: msgs,
           category: getActiveCategory() || undefined,
           verifyMode: this._verifyMode,
+          // L3 (v0.7.5): 透传持久化的推理强度档位；后端按 provider+model 二次过滤
+          reasoningEffort: (Q.ReasoningConfig?.getReasoningEffort?.() || 'standard'),
           sessionId: sessionId || undefined,
           terminalContext: terminalContext || undefined,
           terminalContextChanged: contextChanged,

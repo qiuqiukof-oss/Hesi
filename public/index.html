@@ -726,6 +726,16 @@
           <small>开启 🔍 核查模式时若已填，将临时用此模型（更强推理）作答，关闭后恢复默认</small>
         </label>
 
+        <label id="ai-reasoning-label" class="hidden">
+          推理强度（仅支持思考的模型）
+          <select id="ai-reasoning-effort" class="modal-select">
+            <option value="off">关（不主动要求思考）</option>
+            <option value="standard">标准（默认）</option>
+            <option value="deep">深度（更强推理，更慢）</option>
+          </select>
+          <small>仅对 DeepSeek-R1 / Qwen3 / o-series / Claude 扩展思考等推理模型生效；其他模型自动隐藏此选项</small>
+        </label>
+
         <div class="modal-actions">
           <button type="button" id="ai-settings-cancel" class="secondary-btn">取消</button>
           <button type="submit" id="ai-settings-save" class="primary-btn">保存</button>

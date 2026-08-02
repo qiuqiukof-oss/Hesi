@@ -37,6 +37,7 @@ const { pruneToolContext } = require('./token-budget');
 const { describeTools } = require('./tool-labels');
 const { killDelegatePTY, abortDelegate } = require('../ai-tools/builtin/agent');
 const { CircuitBreaker } = require('./circuit-breaker');
+const { buildReasoningParams } = require('./reasoning-config'); // L3 (v0.7.5): 推理强度控制
 
 /**
  * M5 (v0.3.1): 轮末结算广播「agent_metrics」。
@@ -73,7 +74,7 @@ function emitAgentMetrics(res, broadcastFn) {
  * @param {Function} [broadcastFn] - WebSocket broadcast for metrics
  * @param {import('express').Request} [req] - Incoming request (for client-disconnect detection)
  */
-async function streamOpenAIWithTools(res, messages, apiKey, model, baseUrl, tools, broadcastFn, req, maxRounds) {
+async function streamOpenAIWithTools(res, messages, apiKey, model, baseUrl, tools, broadcastFn, req, maxRounds, reasoningEffort) {
   const modelName = model || 'gpt-4o-mini';
   const url = buildApiUrl(baseUrl, 'https://api.openai.com/v1', '/chat/completions');
   // 每请求隔离标识：用于限流桶归属（P2-3），避免多会话共享全局单例相互饿死
@@ -155,6 +156,10 @@ async function streamOpenAIWithTools(res, messages, apiKey, model, baseUrl, tool
       body.tools = tools;
       body.tool_choice = 'auto';
     }
+    // L3 (v0.7.5): 推理强度控制 —— 按 provider+model+档位注入原生参数。
+    // 不支持的模型 / standard 档：buildReasoningParams 返回 null，不注入（避免 400）。
+    const _rp = buildReasoningParams('openai', modelName, reasoningEffort, cwManager.maxOutputTokens(modelName));
+    if (_rp) Object.assign(body, _rp);
     let pr;
     let streamAttempt = 0;
     while (true) {

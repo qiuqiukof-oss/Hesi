@@ -35,6 +35,7 @@ const { pruneToolContext } = require('./token-budget');
 const { describeTools } = require('./tool-labels');
 const { killDelegatePTY, abortDelegate } = require('../ai-tools/builtin/agent');
 const { CircuitBreaker } = require('./circuit-breaker');
+const { buildReasoningParams } = require('./reasoning-config'); // L3 (v0.7.5): 推理强度控制
 
 /**
  * M5 (v0.3.1): 轮末结算广播「agent_metrics」。
@@ -350,7 +351,7 @@ async function streamAnthropicCore(baseUrl, apiKey, model, systemText, messages,
  * @param {Function} [broadcastFn] - WebSocket broadcast for metrics
  * @param {import('express').Request} [req] - Incoming request (for client-disconnect detection)
  */
-async function streamAnthropicWithTools(res, messages, apiKey, model, baseUrl, tools, broadcastFn, req, maxRounds) {
+async function streamAnthropicWithTools(res, messages, apiKey, model, baseUrl, tools, broadcastFn, req, maxRounds, reasoningEffort) {
   const modelName = model || 'claude-sonnet-4-20250514';
   // 每请求隔离标识：用于限流桶归属（P2-3）
   const requestId = `chat-${  Date.now().toString(36)  }-${  Math.random().toString(36).slice(2, 8)}`;
@@ -425,6 +426,15 @@ async function streamAnthropicWithTools(res, messages, apiKey, model, baseUrl, t
     };
     if (anthropicTools && !noTools) {
       body.tools = anthropicTools;
+    }
+    // L3 (v0.7.5): 推理强度控制 —— Anthropic 启用 thinking 时：
+    // ① 注入 thinking.budget_tokens；② 禁用并行工具调用（协议约束 R2）。
+    const _rp = buildReasoningParams('anthropic', modelName, reasoningEffort, cwManager.maxOutputTokens(modelName));
+    if (_rp && _rp.thinking) {
+      body.thinking = _rp.thinking;
+      if (body.tools) {
+        body.tools = body.tools.map((t) => ({ ...t, disable_parallel_tool_use: true }));
+      }
     }
     const url = buildApiUrl(baseUrl, 'https://api.anthropic.com/v1', '/messages');
     let pr;

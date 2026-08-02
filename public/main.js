@@ -19,6 +19,7 @@
 // ── Import converted modules in original script order ──
 import './i18n.js';      // i18n → sets Q.__, Q._locale, Q.setLanguage, etc.
 import './state.js';     // State → sets Q.state, Q.dom, Q.$ , etc.
+import './lib/reasoning-config.js'; // L3 (v0.7.5): 推理强度配置 → Q.ReasoningConfig
 import './chat-api.js';  // ChatAPI → sets Q.ChatAPI
 import './toast.js';     // Toast  → sets Q.showToast, Q.showUploadStatus
 import './app-telemetry.js'; // Telemetry → first-paint measure + global UI error boundary

@@ -690,9 +690,9 @@ When the user asks you to perform a "system self-check" / "全面自检" / "diag
       }
       const tools = disableTools ? undefined : QCLI_TOOLS;
       if (provider === 'anthropic') {
-        await streamAnthropicWithTools(res, contextMessages, apiKey, model, clientBaseUrl, tools, sseBroadcast, req, undefined);
+        await streamAnthropicWithTools(res, contextMessages, apiKey, model, clientBaseUrl, tools, sseBroadcast, req, undefined, req.body.reasoningEffort);
       } else {
-        await streamOpenAIWithTools(res, contextMessages, apiKey, model, clientBaseUrl, tools, sseBroadcast, req, undefined);
+        await streamOpenAIWithTools(res, contextMessages, apiKey, model, clientBaseUrl, tools, sseBroadcast, req, undefined, req.body.reasoningEffort);
       }
     } catch (err) {
       // 诊断日志：把真实报错打进服务端，便于定位是 apihub/网络还是本地逻辑。

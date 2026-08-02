@@ -148,11 +148,12 @@ export const ChatAPI = {
      * @param {function(object)} options.onUsage - Called with {input_tokens, output_tokens} or {prompt_tokens, completion_tokens, total_tokens}
      * @param {function(object)} [options.onAgentMetrics] - M5 (v0.3.1): Called once at round end with {cacheReadTokens, cacheCreationTokens, toolCacheHits, experienceHits, skillsInjected}
      * @param {function(string)} [options.onReasoning] - L1 (v0.7.4): Called with each reasoning/thinking chunk (inference models like DeepSeek-R1 / Qwen3 / o-series / Claude extended-thinking)
+     * @param {string} [options.reasoningEffort] - L3 (v0.7.5): 推理强度 'off' | 'standard' | 'deep'，透传给后端按 provider+model 映射为原生参数
      * @param {string} [options.terminalContext] - Current terminal buffer content for AI context
      * @param {boolean} [options.terminalContextChanged] - Whether terminal content has changed since last message
      * @param {AbortSignal} [options.signal] - Optional abort signal
      */
-    async sendMessage({ messages, onToken, onDone, onError, onStatus, onToolCall, onToolLive, onUsage, onAgentMetrics, onReasoning, terminalContext, terminalContextChanged, signal, discuss, partner, partners, maxTurns, onDiscuss, sessionId, category, verifyMode, takenOver, planMode, planAgentId, fullAccess, onPlan, keepStreamOnError }) {
+    async sendMessage({ messages, onToken, onDone, onError, onStatus, onToolCall, onToolLive, onUsage, onAgentMetrics, onReasoning, reasoningEffort, terminalContext, terminalContextChanged, signal, discuss, partner, partners, maxTurns, onDiscuss, sessionId, category, verifyMode, takenOver, planMode, planAgentId, fullAccess, onPlan, keepStreamOnError }) {
       const apiKey = await this.getApiKey();
       const provider = this.getProvider();
       let model = this.getModel();
@@ -190,6 +191,8 @@ export const ChatAPI = {
         }
         if (category) body.category = category;
         if (verifyMode) body.verifyMode = verifyMode;
+        // L3 (v0.7.5): 推理强度档位透传；后端按 provider+model 二次过滤，不支持的模型静默忽略
+        if (reasoningEffort) body.reasoningEffort = reasoningEffort;
 
         // 个性化设置（Persona / Role / Custom Instructions / Memory / Permissions / Language）
         // 与 verifyMode 同源：前端 localStorage → 请求体 → 后端拼系统提示词。
