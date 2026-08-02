@@ -38,6 +38,11 @@
   --border-subtle:  rgba(255, 255, 255, 0.04);
   --border-default: rgba(255, 255, 255, 0.08);
   --border-strong:  rgba(255, 255, 255, 0.12);
+  --border-focus:   var(--accent);
+
+  /* ── Semantic extras (P3 硬编码收敛落点) ── */
+  --bg-inset:       #08080a;   /* 凹陷面：输入框 / 代码块 */
+  --text-on-accent: #ffffff;   /* accent 底色上的文字（随主题 accent 明度调整） */
 
   /* ── Spacing / Radius / Easing / Layout / Fonts ── */
   --space-1: 4px;  --space-2: 8px;
@@ -86,6 +91,71 @@
   --border-subtle:  rgba(0, 0, 0, 0.05);
   --border-default: rgba(0, 0, 0, 0.08);
   --border-strong:  rgba(0, 0, 0, 0.14);
+  --border-focus:   var(--accent);
+
+  /* Semantic extras */
+  --bg-inset:       #ececec;
+  --text-on-accent: #ffffff;
+}
+
+/* ============================================================
+   Terminal palette tokens —— xterm.js ITheme 的唯一事实源
+   ------------------------------------------------------------
+   JS 侧不再持有任何调色板常量；public/lib/term-theme.js 在运行时
+   用 getComputedStyle 读取这些令牌并转换为 xterm 的 ITheme 对象。
+   新增主题时只需在其令牌块内覆写这 21 个变量，终端自动跟随。
+   ============================================================ */
+:root,
+[data-theme="dark"] {
+  --term-bg:             #0d0e10;
+  --term-fg:             #e4e4e7;
+  --term-cursor:         #e4e4e7;
+  --term-cursor-accent:  #0d0e10;
+  --term-selection:      rgba(99, 102, 241, 0.3);
+
+  --term-black:          #18181b;
+  --term-red:            #ef4444;
+  --term-green:          #22c55e;
+  --term-yellow:         #eab308;
+  --term-blue:           #6366f1;
+  --term-magenta:        #a78bfa;
+  --term-cyan:           #22d3ee;
+  --term-white:          #e4e4e7;
+
+  --term-bright-black:   #71717a;
+  --term-bright-red:     #f87171;
+  --term-bright-green:   #4ade80;
+  --term-bright-yellow:  #facc15;
+  --term-bright-blue:    #818cf8;
+  --term-bright-magenta: #c4b5fd;
+  --term-bright-cyan:    #67e8f9;
+  --term-bright-white:   #fafafa;
+}
+
+[data-theme="light"] {
+  --term-bg:             #fafafa;
+  --term-fg:             #18181b;
+  --term-cursor:         #18181b;
+  --term-cursor-accent:  #fafafa;
+  --term-selection:      rgba(99, 102, 241, 0.2);
+
+  --term-black:          #e4e4e7;
+  --term-red:            #dc2626;
+  --term-green:          #16a34a;
+  --term-yellow:         #d97706;
+  --term-blue:           #6366f1;
+  --term-magenta:        #7c3aed;
+  --term-cyan:           #0891b2;
+  --term-white:          #18181b;
+
+  --term-bright-black:   #a1a1aa;
+  --term-bright-red:     #ef4444;
+  --term-bright-green:   #22c55e;
+  --term-bright-yellow:  #eab308;
+  --term-bright-blue:    #818cf8;
+  --term-bright-magenta: #a78bfa;
+  --term-bright-cyan:    #22d3ee;
+  --term-bright-white:   #09090b;
 }
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -528,5 +598,3 @@ body {
 #custom-css-style {
   display: none;
 }
-
-/* ============================================================
