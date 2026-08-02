@@ -443,18 +443,19 @@ function createWSManager({ port = 3001 } = {}) {
           lastServerPingTime = Date.now();
           ws.send(JSON.stringify({ type: 'ping', server: true, t: lastServerPingTime }));
           
-          // 8s 内未收到 pong 响应则计数
+          // 15s 内未收到 pong 响应则计数（放宽：8s→15s——服务端执行同步任务时
+          // 事件循环可能短暂冻结，8s 太紧会误断活跃连接）
           if (serverPongTimer) clearTimeout(serverPongTimer);
           serverPongTimer = setTimeout(() => {
             consecutiveMissedPongs++;
             console.warn('[WS] Pong not received from client (missed:', `${consecutiveMissedPongs  })`);
             
-            if (consecutiveMissedPongs >= 3) {
-              console.warn('[WS] Client unresponsive for 3 heartbeats — forcing close');
+            if (consecutiveMissedPongs >= 5) {
+              console.warn('[WS] Client unresponsive for 5 heartbeats — forcing close');
               consecutiveMissedPongs = 0;
               try { ws.close(); } catch (e) { /* already closed */ }
             }
-          }, 8000);
+          }, 15000);
         }
       }, 15000);
     };

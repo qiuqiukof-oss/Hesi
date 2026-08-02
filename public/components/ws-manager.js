@@ -198,21 +198,23 @@ class WSManager {
         this._lastPingTime = Date.now();
         this.ws.send(JSON.stringify({ type: 'ping', t: this._lastPingTime }));
         
-        // 设置 pong 超时检测（5秒内未收到 pong 认为连接异常）
+        // 设置 pong 超时检测（15秒内未收到 pong 认为连接异常；本地回环网络延迟极低，
+        // 但服务端执行同步任务（验收命令等）时事件循环可能短暂冻结导致 pong 延迟——
+        // 5s 太紧会误杀活跃连接（实测 30s 周期性断连），放宽到 15s）
         this._clearPongTimeout();
         this._pongTimeout = setTimeout(() => {
-          console.warn('[WS] Pong not received within 5s — possible stale connection');
+          console.warn('[WS] Pong not received within 15s — possible stale connection');
           this._consecutiveDrops++;
           
-          // 连续 2 次 pong 超时，主动断开触发重连
-          if (this._consecutiveDrops >= 2) {
-            console.warn('[WS] 2 consecutive pong timeouts — forcing reconnect');
+          // 连续 3 次 pong 超时，主动断开触发重连（放宽：2 次→3 次，容忍偶发忙碌）
+          if (this._consecutiveDrops >= 3) {
+            console.warn('[WS] 3 consecutive pong timeouts — forcing reconnect');
             this._consecutiveDrops = 0;
             if (this.ws) {
               try { this.ws.close(); } catch (e) { /* ignore */ }
             }
           }
-        }, 5000);
+        }, 15000);
       }
     }, 15000); // 从 30s 缩短到 15s
   }
