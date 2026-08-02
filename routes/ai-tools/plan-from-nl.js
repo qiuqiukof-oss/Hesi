@@ -376,6 +376,10 @@ function applyDefaults(plan, objectiveText) {
     maxTokens: Number(b.maxTokens) || 0,
     maxMinutes: Number(b.maxMinutes) || n * 8,
   };
+  // P2：透传 DoD / 任务模式 / 探索型问题（Verifier 与探索型双轨收敛的输入）
+  if (Array.isArray(plan.dod)) out.dod = plan.dod;
+  if (plan.mode === 'exploration') out.mode = 'exploration';
+  if (Array.isArray(plan.questions)) out.questions = plan.questions;
   return out;
 }
 

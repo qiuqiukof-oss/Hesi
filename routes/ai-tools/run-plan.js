@@ -33,6 +33,9 @@ const { gatePlan, resolveCheckpoint } = require('./plan-contract');
 const { planToWorkflowTasks, inScope, isForbidden } = require('./plan-to-workflow');
 const { PlanBudget } = require('../../lib/plan-budget');
 const { ReplanController } = require('../../lib/replan-controller');
+// P2：Verifier 盲审 + 探索型双轨收敛（纯函数，见 lib/verifier.js / lib/exploration-verdict.js）
+const { verifyItem, deltaList } = require('../../lib/verifier');
+const { explorationVerdict } = require('../../lib/exploration-verdict');
 const { snapshotStep, rollbackTo, isRepo } = require('../../lib/plan-git');
 const { revisePlan: defaultRevisePlan } = require('./plan-from-nl');
 
@@ -982,6 +985,46 @@ function runAcceptance(plan, opts = {}) {
   });
 }
 
+// ── P2：DoD（Definition of Done）盲审补充判定 ──
+// plan.dod 存在时对每项做二值判定：
+//   - functional / quality：执行 check 命令取原始输出（与 runAcceptance 同 shell 解析）
+//   - semantic：evidence 路径必须真实存在（fs 检查），否则判缺失
+// 产出 delta list（可机读缺失清单），供 Executor 按单修；有缺失 → 验收不过。
+async function runDodVerification(plan, cwd) {
+  const dod = Array.isArray(plan && plan.dod) ? plan.dod : [];
+  if (dod.length === 0) return null;
+  const outputs = new Map();
+  const normalized = dod.map((d) => {
+    const copy = { ...d };
+    const key = copy.id || copy.check || copy.question || '';
+    if ((copy.type === 'functional' || copy.type === 'quality') && copy.check) {
+      // 执行检查命令（真实输出，与 runAcceptance 同款 shell）
+      try {
+        const { shell } = resolveShell();
+        const isCmd = shell === 'cmd.exe';
+        const out = execFileSync(isCmd ? 'cmd.exe' : shell, isCmd ? ['/c', copy.check] : ['-c', copy.check], {
+          cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'],
+        });
+        outputs.set(key, String(out));
+      } catch (e) {
+        outputs.set(key, (e.stdout || '').toString()); // 非零退出也保留输出，由判定兜底
+      }
+    } else if (copy.type === 'semantic' && copy.evidence) {
+      // semantic：evidence 是断言路径（如 tests/auth.spec.ts:42），取路径部分检查存在性
+      const ev = String(copy.evidence);
+      const p = ev.split(':')[0].trim();
+      copy.evidence = (p && fs.existsSync(path.resolve(cwd, p))) ? ev : null; // 不存在 → null → Verifier 判缺失
+    } else {
+      outputs.set(key, '');
+    }
+    return copy;
+  });
+  // 扁平 dod 包成单 item 交给 Verifier
+  const item = { id: '__dod__', name: 'DoD', dod: normalized };
+  const r = verifyItem(item, { outputs, artifacts: [] });
+  return { delta: deltaList([r]), pass: r.pass };
+}
+
 // ── 反思残差（#36） ──
 
 /**
@@ -1026,6 +1069,13 @@ function reflectPlan(plan, stepResults, budget, acceptance, opts) {
     if (opts && opts.strictAcceptance && status === 'done' && !acceptance.allPass) {
       status = 'partial';
       reason = '步骤全部完成，但机器验收未全部通过（严格模式）';
+    }
+    // P2：确定性判定（DoD 盲审 / 探索型收敛）失败 → 强制 partial（不依赖 strictAcceptance）
+    const deterministicFail = (acceptance.results || []).some((r) =>
+      (r.id === '__dod__' || r.id === '__exploration__') && r.pass !== true);
+    if (deterministicFail && status === 'done') {
+      status = 'partial';
+      reason = '步骤完成，但 DoD 盲审/探索型收敛未通过';
     }
   }
 
@@ -1302,7 +1352,8 @@ async function runPlan(plan, opts = {}) {
   const finalResult = {
     ok: finalStatus === 'done' || (finalStatus === 'partial' && !reviseFailed),
     status: finalStatus,
-    reason: finalReason,
+    // partial 等未走赋值分支的状态：兜底用 reflectPlan 的 reason（如 DoD/探索型缺答原因）
+    reason: finalReason || (lastBody && lastBody.reflection && lastBody.reflection.reason) || null,
     branch: lastBody.branch,
     steps: lastBody.results,
     reflection: lastBody.reflection,
@@ -1580,6 +1631,43 @@ async function runOneAttempt(plan, ctx) {
       acceptance = null;
     }
   }
+
+  // ── P2：探索型任务双轨收敛（mode=exploration → 不跑验收命令，改用「下游可决策」判据）──
+  if (plan && plan.mode === 'exploration' && Array.isArray(plan.questions)) {
+    const ev = explorationVerdict({
+      questions: plan.questions,
+      answers: Array.isArray(plan.answers) ? plan.answers : [],
+      round: 1,
+      maxRounds: (plan.budget && plan.budget.maxRounds) || 0,
+    });
+    acceptance = {
+      results: [{
+        id: '__exploration__',
+        kind: 'manual',
+        pass: ev.v === 'CONVERGED',
+        // CONVERGED → 通过；CONTINUE/ESCALATE → 缺失必需答案（附缺答清单）
+        error: ev.v === 'CONVERGED' ? undefined : `探索型收敛未达成（${ev.v}）：缺 ${(ev.missingRequired || []).length} 个必需问题可溯答案`,
+        output: JSON.stringify({ verdict: ev.v, missing: (ev.missingRequired || []).map((m) => m.text), futureWork: (ev.futureWork || []).map((f) => f.text) }),
+      }],
+      allPass: ev.v === 'CONVERGED',
+    };
+  }
+
+  // ── P2：Verifier 盲审补充——plan.dod 存在时逐项二值判定，有缺失 → 验收不过 ──
+  try {
+    const dodResult = await runDodVerification(plan, cwd || process.cwd());
+    if (dodResult && !dodResult.pass) {
+      if (!acceptance || !Array.isArray(acceptance.results)) acceptance = { results: [], allPass: true };
+      acceptance.results.push({
+        id: '__dod__',
+        kind: 'manual',
+        pass: false,
+        error: `DoD 缺失 ${dodResult.delta.length} 项`,
+        output: JSON.stringify(dodResult.delta).slice(0, 500),
+      });
+      acceptance.allPass = false;
+    }
+  } catch { /* DoD 判定失败不阻断主流程 */ }
 
   const reflection = reflectPlan(plan, results, budget, acceptance);
   return { branch, results, reflection };

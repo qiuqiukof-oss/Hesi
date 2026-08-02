@@ -29,6 +29,13 @@ function emptyPlan() {
     title: '',
     objective: '',
     acceptance: [], // [{ id?, kind, command?, expect?, description? }]
+    // P2：DoD（Definition of Done）——Verifier 盲审判定的三层清单
+    // dod: [{ id, type: 'functional'|'semantic'|'quality', check?, expect?, question?, yes?, evidence?, keyword?, pattern?, thresholdExpr? }]
+    // mode: 'implement'（默认，实施型）| 'exploration'（探索型，走双轨收敛）
+    // questions: 探索型任务的问题清单 [{ id, text, required }]（配合 exploration-verdict.js）
+    dod: [],
+    mode: 'implement',
+    questions: [],
     steps: [], // [{ id, goal, action, type?, verify?, on_fail?, checkpoint?, dependsOn?, requireApproval? }]
     approvalPolicy: 'marked', // 'marked' = 仅 requireApproval 步需审批；'all' = 每步都需审批（P2.6 审批闸）
     allow_external: false,
@@ -119,6 +126,10 @@ function validatePlan(plan) {
  * @returns {boolean}
  */
 function isMachineVerifiable(plan) {
+  // P2：探索型任务——收敛判据 = 「下游可决策」（questions 答满 + 来源可溯），无需 acceptance 命令
+  if (plan && plan.mode === 'exploration' && Array.isArray(plan.questions) && plan.questions.length > 0) return true;
+  // P2：DoD 盲审——含机器可查的 functional/quality 项也算可验证（Verifier 兜底判定）
+  if (plan && Array.isArray(plan.dod) && plan.dod.some((d) => d && ['functional', 'quality'].includes(d.type))) return true;
   const acc = Array.isArray(plan && plan.acceptance) ? plan.acceptance : [];
   if (acc.length === 0) return false;
   return acc.every((a) => a && AUTO_VERIFY_KINDS.includes(a.kind));
