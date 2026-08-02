@@ -596,10 +596,13 @@ async function execStepDirectly(step, cwd, opts = {}) {
     // ── spawn 执行器（异步 + 增量 + 中止）──
     const runSpawn = (cmd, args, spawnOpts) => new Promise((resolve) => {
       if (shouldAbort && shouldAbort()) { resolve({ code: null, killed: true, output: '' }); return; }
+      // backgroundGraceMs：后台启动命令（node xxx &> log &）的宽限——主 shell 退出后
+      // 后台孙进程仍持有管道时 close 永不触发；宽限到点视为「启动成功」放养进程。
+      const { backgroundGraceMs = 0, ...restOpts } = spawnOpts || {};
       let child;
       let manuallyKilled = false;
       try {
-        child = spawn(cmd, args, { ...spawnOpts, timeout: STEP_TIMEOUT_MS });
+        child = spawn(cmd, args, { ...restOpts, timeout: STEP_TIMEOUT_MS });
       } catch (spawnErr) {
         resolve({ code: null, killed: false, error: spawnErr.message, output: '' });
         return;
@@ -613,20 +616,51 @@ async function execStepDirectly(step, cwd, opts = {}) {
       if (child.stdout) child.stdout.on('data', (d) => onData(d, 'stdout'));
       if (child.stderr) child.stderr.on('data', (d) => onData(d, 'stderr'));
       child.on('error', (e) => { acc.err += `\n[spawn error] ${e.message}`; });
+      // 进程树强杀（Windows: taskkill /T；POSIX: 负 pid 杀进程组）
+      const killTree = (pid) => {
+        try {
+          if (process.platform === 'win32') {
+            execFileSync('taskkill', ['/PID', String(pid), '/T', '/F'], { stdio: 'ignore' });
+          } else {
+            try { process.kill(-pid, 'SIGKILL'); } catch { child && child.kill('SIGKILL'); }
+          }
+        } catch { /* 进程可能已退出 */ }
+      };
       const watch = setInterval(() => {
         if (shouldAbort && shouldAbort() && child && !child.killed) {
           manuallyKilled = true;
-          try { child.kill('SIGKILL'); } catch { /* ignore */ }
+          killTree(child.pid);
         }
       }, 200);
       if (signal && typeof signal.addEventListener === 'function') {
         signal.addEventListener('abort', () => {
           manuallyKilled = true;
-          try { child.kill('SIGKILL'); } catch { /* ignore */ }
+          if (child && !child.killed) killTree(child.pid);
         }, { once: true });
       }
-      child.on('close', (code, sig) => {
+      let settled = false;
+      // ⚠️ 兜底：spawn 的 timeout 只杀「直接子进程」——若命令内启动后台进程
+      // （node server.js & 等）且孙进程持有 stdout/stderr 管道，close 事件永不触发，
+      // 步骤会永久 running（球总实测「跑不完」根因）。此处做 Promise 级竞速强制收尾。
+      const forceMs = backgroundGraceMs || (STEP_TIMEOUT_MS + 3000);
+      const forceTimer = setTimeout(() => {
+        if (settled) return;
+        settled = true;
         clearInterval(watch);
+        if (backgroundGraceMs) {
+          // 后台启动模式：shell 已退出但后台进程持有管道 → 视为启动成功，放养进程
+          if (child && !child.killed) { try { child.unref(); } catch { /* ignore */ } }
+          resolve({ code: 0, background: true, killed: false, timedOut: false, output: `${acc.out}${acc.err ? `\n${acc.err}` : ''}`.slice(0, 5000) });
+        } else {
+          if (child && !child.killed) killTree(child.pid);
+          resolve({ code: null, killed: true, timedOut: true, output: `${acc.out}${acc.err ? `\n${acc.err}` : ''}`.slice(0, 5000) });
+        }
+      }, forceMs);
+      child.on('close', (code, sig) => {
+        if (settled) return;
+        settled = true;
+        clearInterval(watch);
+        clearTimeout(forceTimer);
         // spawn timeout 默认发 SIGTERM（killed=true, 非手动）；abort 用 SIGKILL（manuallyKilled）
         const killed = manuallyKilled || sig === 'SIGKILL';
         const timedOut = !manuallyKilled && sig === 'SIGTERM';
@@ -792,12 +826,21 @@ async function execStepDirectly(step, cwd, opts = {}) {
           out = r.output;
         } else {
           // 真实 bash/sh：正常 spawn（shell 选项走 set -e）
-          const r = await runSpawn(`set -e; ${action}`, [], { ...execOpts, shell });
-          if (r.timedOut) return { status: 'error', output: `命令执行超时（超过 ${STEP_TIMEOUT_MS}ms）\n命令: ${action.slice(0, 200)}\n${r.output.slice(0, 1000)}` };
-          if (r.killed) return { status: 'aborted', output: `执行已被取消（用户断开）\n命令: ${action.slice(0, 200)}\n${r.output.slice(0, 1000)}` };
-          if (r.error) return { status: 'error', output: `命令启动失败: ${r.error}` };
-          if (r.code !== 0) return buildExecError(r.code, r.output, { isMultiline, tmpFile });
-          out = r.output;
+          // 后台启动命令（node xxx &> log & 等）→ backgroundGraceMs 宽限：主 shell 退出后
+          // 后台孙进程持有管道导致 close 永不触发，宽限到点视为启动成功放养（根治「跑不完」）
+          const isBg = isBackgroundStart(action);
+          if (isBg) console.log('[execStepDirectly] 后台启动命令 → backgroundGraceMs 宽限模式');
+          const r = await runSpawn(`set -e; ${action}`, [], { ...execOpts, shell, backgroundGraceMs: isBg ? 15000 : 0 });
+          if (r.background) {
+            // 后台启动成功（进程放养中），步骤视为完成
+            out = r.output || '后台进程已启动（detached 放养，输出重定向到命令指定位置）';
+          } else {
+            if (r.timedOut) return { status: 'error', output: `命令执行超时（超过 ${STEP_TIMEOUT_MS}ms）\n命令: ${action.slice(0, 200)}\n${r.output.slice(0, 1000)}` };
+            if (r.killed) return { status: 'aborted', output: `执行已被取消（用户断开）\n命令: ${action.slice(0, 200)}\n${r.output.slice(0, 1000)}` };
+            if (r.error) return { status: 'error', output: `命令启动失败: ${r.error}` };
+            if (r.code !== 0) return buildExecError(r.code, r.output, { isMultiline, tmpFile });
+            out = r.output;
+          }
         }
       }
     } finally {
@@ -1741,6 +1784,17 @@ function isPossibleCommand(s) {
   if (SHELL_METACHAR.test(s)) return true;
   const base = s.trim().split(/\s+/)[0] || '';
   return KNOWN_BASE.test(base);
+}
+
+// ── 后台启动命令检测 ──
+// 目的：识别「启动常驻进程并立即返回」的步骤（node server.js &> log &、xxx & disown、
+// cmd /c start xxx 等）。这类命令的 spawn close 可能因后台孙进程持有管道而永不触发
+// （球总实测「跑不完」根因），需走 backgroundGraceMs 宽限路径：到点视为启动成功、放养进程。
+function isBackgroundStart(action) {
+  const s = String(action || '');
+  if (!s) return false;
+  // &> 重定向 + 后台（node xxx &> log &）／裸 & 后跟 echo $!/disown/cat log／cmd start／行尾 &
+  return /&\s*>|\&\s*echo\s+\$!|&\s*disown\b|&\s*cat\s+\S+\.log\b|(^|[;&|]\s*)start\s+["'\w]|\S+.*&\s*$/.test(s);
 }
 
 // ── 幂等校验（序1/C10）：判断命令是否可重入 ──
