@@ -93,7 +93,7 @@ export const planStreamMixin = {
 
     if (t === 'approval-resolved' || t === 'approval_resolved') {
       this._updateApprovalBubble(evt);
-      this.scrollToBottom();
+      this.scrollToBottomIfNear();
       return;
     }
 
@@ -130,7 +130,7 @@ export const planStreamMixin = {
     } else if (t === 'done') {
       this._finishPlanCard(evt);
     }
-    this.scrollToBottom();
+    this.scrollToBottomIfNear();
   },
 
   // ── DOM 构造 ──
@@ -335,7 +335,7 @@ export const planStreamMixin = {
     pre.textContent += evt.chunk;
     const det = pre.closest('details');
     if (det && !det.open) det.open = true;
-    this.scrollToBottom();
+    this.scrollToBottomIfNear();
   },
 
   _planNote(text, kind) {

@@ -198,4 +198,18 @@ export const messageDomMixin = {
       if (this.msgsEl) this.msgsEl.scrollTop = this.msgsEl.scrollHeight;
     });
   },
+
+  /**
+   * 智能跟随滚动：仅当用户滚动位置「接近底部」时才滚到底（上翻看历史时不打断）。
+   * 用于执行卡片/讨论气泡的增量渲染——用户盯着执行过程时自动跟随，
+   * 用户上翻查历史时保持原位。threshold 为距底部多少 px 内视为「接近」。
+   */
+  scrollToBottomIfNear(threshold = 160) {
+    requestAnimationFrame(() => {
+      if (!this.msgsEl) return;
+      const el = this.msgsEl;
+      const dist = el.scrollHeight - el.scrollTop - el.clientHeight;
+      if (dist < threshold) el.scrollTop = el.scrollHeight;
+    });
+  },
 };
