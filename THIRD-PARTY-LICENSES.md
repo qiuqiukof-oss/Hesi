@@ -58,8 +58,15 @@ Hesi 本体（原创代码）采用 MIT 许可证，版权归 **qiuqiukof-oss** 
 | netease-mail | 内嵌 nodemailer / mailparser / he / iconv-lite / punycode / encoding 源码（`.bundle.js`） | 均为 MIT | ⚠️ 缺 LICENSE/NOTICE，需补齐署名 |
 | dingtalk | 钉钉官方 Python 样例（`skills/`） | Apache-2.0 | ✅ 已正确附带 LICENSE+NOTICE |
 | feishu | 飞书/Lark 官方 Python 样例（`skills/`） | MIT（SPDX 头） | ⚠️ 缺完整 MIT 文本，需补齐 |
-| awesun | `coordinates.py` 含 Oray Inc.「保留所有权利」声明 | 专有（Oray） | ⛔ 疑似未授权拷贝，需获权或替换 |
+| awesun | `skills/scripts/coordinates.py` 含 Oray Inc.「保留所有权利」声明 | 专有（Oray） | ⛔ **已排除出 npm 发行包**（见下），需获权或替换为自研方案方可分发 |
 | tencentads | 运行时依赖外部 `tencentads-cli`（腾讯官方广告 SDK/CLI，未在 deps 声明） | 待确认 | ⚠️ 需确认其许可证与商用合规性 |
+
+> **awesun 发行包排除说明**：`coordinates.py` 携带 Oray Inc.「保留所有权利」声明，属疑似未授权专有拷贝，
+> 在获得 Oray 书面授权或自研替换前**不得再分发**。本项目已通过仓库根 `.npmignore`
+> （`vendor/connectors/awesun/`）配合 `package.json` 的 `files` 白名单，**将该连接器整体排除出 npm 发布包**
+> （`npm pack --dry-run` 验证：awesun 命中 0 文件，其余 61 个连接器照常发布）。
+> 仓库源码中该目录保持原样未删未改（红线：`vendor/**` 不碰不删不提交）。
+> 该连接器标记为**实验性 / 用户自担**：即使用户在本地手动启用，也须自行确保已获 Oray 合法授权，Hesi 不承担其分发或使用权责任。
 
 ### netease-mail 内嵌库许可证（均为 MIT，需随分发署名）
 - **nodemailer** — MIT © 2011-2026 Andris Reinman

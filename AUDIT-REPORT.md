@@ -53,8 +53,8 @@
 
 ## 五、商业化前清单
 
-- [ ] 处置 AGPL 依赖（edge-tts-universal）—— 最关键
-- [ ] 处置 awesun Oray 文件（获权/替换）
+- [ ] 处置 AGPL 依赖（edge-tts-universal）—— 最关键（周期 A 已改惰性 + optionalDependencies，未安装不阻断启动；仍需法务确认分发策略）
+- [x] 处置 awesun Oray 文件（获权/替换）—— 已通过 `.npmignore` + `package.json` files 白名单**将该连接器整体排除出 npm 发行包**（仓库内未删未改，守红线）；获权/自研替换前不得手动启用分发
 - [ ] 补齐 netease-mail / feishu 的 MIT 署名文件
 - [ ] 确认 tencentads-cli 许可证
 - [ ] 由知识产权律师结合目标市场做最终确权
