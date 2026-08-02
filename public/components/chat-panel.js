@@ -1633,6 +1633,42 @@ class ChatPanel extends HTMLElement {
     const tipEl = bubbleEl.querySelector('.thinking-tip');
     if (tipEl) tipEl.remove();
 
+    // ── 完成态：把进行态散落的内联工具卡片合并成一个折叠摘要行 ──
+    // 避免 N 个卡片 header 行 + 段间距撑出大片空白；信息不丢，点开仍可见。
+    const tools = Array.from(bubbleEl.querySelectorAll('.inline-tool'));
+    if (tools.length > 0) {
+      const meta = document.createElement('div');
+      meta.className = 'meta-tools';
+      const summary = document.createElement('button');
+      summary.type = 'button';
+      summary.className = 'mt-summary';
+      const doneCount = () => tools.filter(t => t.classList.contains('done')).length;
+      summary.textContent = `🔧 ${tools.length} 个工具调用 · ${doneCount()}/${tools.length} 完成 ▾`;
+      const detail = document.createElement('div');
+      detail.className = 'mt-detail';
+      detail.hidden = true;
+      // 移动原始节点（保留各自「点击展开结果」的监听），而非克隆
+      tools.forEach(t => detail.appendChild(t));
+      summary.addEventListener('click', () => {
+        detail.hidden = !detail.hidden;
+        summary.textContent = `🔧 ${tools.length} 个工具调用 · ${doneCount()}/${tools.length} 完成 ${detail.hidden ? '▾' : '▴'}`;
+      });
+      meta.append(summary, detail);
+      // 放在正文段之前（气泡顶部），完成态一眼可见
+      const firstStream = bubbleEl.querySelector('.stream-text');
+      if (firstStream) bubbleEl.insertBefore(meta, firstStream);
+      else bubbleEl.appendChild(meta);
+    }
+
+    // ── 完成态：推理块折叠成一行摘要（点击展开看完整推理流）──
+    const reasoning = bubbleEl.querySelector('.thinking-reasoning');
+    if (reasoning) {
+      reasoning.classList.add('collapsed');
+      reasoning.hidden = false;
+      const rHeader = reasoning.querySelector('.tr-header');
+      if (rHeader) rHeader.textContent = '🧠 推理过程（点击展开）';
+    }
+
     // 删除思考专用骨架（它们只服务于进行态 UI）
     bubbleEl.querySelectorAll('.thinking-body, .thinking-footer, .thinking-header')
       .forEach(el => el.remove());

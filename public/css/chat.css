@@ -878,6 +878,38 @@ body.drawer-resizing {
   display: none;
 }
 
+/* ── 完成态：工具调用合并为一个折叠摘要行（替代多个内联卡片 header，消除大空白）── */
+.meta-tools {
+  margin: 2px 0 4px;
+  font-size: 12px;
+}
+.meta-tools .mt-summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 6px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 6px;
+  background: var(--bg-elevated, rgba(127, 127, 127, 0.06));
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: 12px;
+  line-height: 1.4;
+  cursor: pointer;
+}
+.meta-tools .mt-summary:hover {
+  background: var(--bg-overlay, rgba(127, 127, 127, 0.1));
+}
+.meta-tools .mt-detail {
+  margin-top: 3px;
+  padding-left: 6px;
+  border-left: 2px solid var(--border-subtle);
+}
+/* 折叠详情里的工具卡片保持紧凑，避免二次堆叠空隙 */
+.meta-tools .mt-detail .inline-tool {
+  margin: 2px 0;
+}
+
 /* ── 内联折叠工具块（随流插入在触发句下方，默认折叠；WorkBuddy 风格：紧凑卡片）── */
 .inline-tool {
   margin: 2px 0;
