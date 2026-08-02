@@ -13,6 +13,7 @@
 // ============================================================
 
 const crypto = require('crypto');
+const fs = require('fs');
 const { ToolRegistry, LRUCache, ToolResultTruncator, TokenBucketMap, classifyError } = require('../ai-tools');
 const { registerAll } = require('../ai-tools/builtin');
 const experience = require('../../lib/experience/store');
@@ -64,7 +65,17 @@ function cacheKeyOf(name, args) {
       const enc = (args && (args.encoding || 'utf8')) || 'utf8';
       // v0.3.1 A1：offset/limit 分段读取必须进缓存键，否则不同段命中同一缓存
       const seg = args && (args.offset || args.limit) ? `:${args.offset || 0}+${args.limit || 0}` : '';
-      return `read_file:${  _normPath(args && args.path)  }${enc !== 'utf8' ? `:${  enc}` : ''  }${seg}`;
+      // P2.7 fileHash 脏检查：mtime+size 进缓存键——文件在 TTL 内被修改，
+      // stamp 变化 → 缓存自动失效重读（防「缓存与磁盘实际态脱节」）
+      let stamp = '';
+      const p = args && args.path;
+      if (p) {
+        try {
+          const st = fs.statSync(p);
+          stamp = `|${Math.round(st.mtimeMs)}|${st.size}`;
+        } catch { /* 文件不存在/不可读 → 无 stamp（退化为旧 key） */ }
+      }
+      return `read_file:${  _normPath(p)  }${enc !== 'utf8' ? `:${  enc}` : ''  }${seg}${stamp}`;
     }
     case 'web_fetch': {
       const url = (args && args.url) || '';
