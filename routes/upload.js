@@ -28,6 +28,20 @@ const UPLOAD_TTL = 60 * 60 * 1000; // 1 hour
 const MAX_UPLOAD_SIZE = 100 * 1024 * 1024; // 100 MB per file
 const MAX_UPLOAD_FILES = 10;
 
+/**
+ * multer/busboy 默认按 latin1 解码 multipart filename → 中文（UTF-8 字节）乱码
+ * （如「测试文档.txt」→「æµè¯ææ¡£.txt」）。RFC 7578 规定 filename 应为 UTF-8，
+ * 这里做无损转回；仅当字节确为合法 UTF-8 序列时才转换，避免破坏真正的 latin1
+ * 文件名（如西欧字符 é/ü 等本就按 latin1 存储的旧客户端）。
+ * @param {string} name
+ * @returns {string}
+ */
+function decodeUtf8Filename(name) {
+  if (!name || typeof name !== 'string') return name;
+  const utf8 = Buffer.from(name, 'latin1').toString('utf8');
+  return utf8.includes('\uFFFD') ? name : utf8;
+}
+
 if (!fs.existsSync(UPLOAD_DIR)) {
   fs.mkdirSync(UPLOAD_DIR, { recursive: true });
 }
@@ -162,6 +176,9 @@ function createRouter({ uploadLimiter }) {
 
     const uploaded = [];
     for (const file of req.files) {
+      // 中文文件名转回 UTF-8（busboy 按 latin1 解码导致乱码），影响校验与返回 name；
+      // 磁盘文件名仍是 uuid+ext（safeName），不受影响。
+      file.originalname = decodeUtf8Filename(file.originalname);
       // Validate file extension
       if (!isAllowedUploadExt(file.originalname)) {
         // Clean up temp file
