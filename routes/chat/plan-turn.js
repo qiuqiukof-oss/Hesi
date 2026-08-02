@@ -248,19 +248,11 @@ async function runPlanTurn(res, p = {}) {
 
     emit('generated', summarizePlan(plan, execId));
 
-    // ── 1.5 协作工作流：方案审查讨论 ──
-    if (discussBeforePlan) {
-      const reviewSummary = await doDiscuss(
-        `请审查以下执行方案是否合理、是否有遗漏或错误步骤。\n方案：${JSON.stringify(summarizePlan(plan, execId))}`,
-        '💬 AI 讨论中（第2轮：方案审查）…',
-        2
-      );
-      if (reviewSummary) emit('collab_summary', { phase: 2, title: '📋 方案审查结论', text: reviewSummary.slice(0, 800) });
-      if (watcher.isAborted()) {
-        emit('cancelled', { execId, phase: 'review_plan', reason: '客户端断开' });
-        return;
-      }
-    }
+    // ── 1.5（移除）协作工作流：方案审查讨论 ──
+    // 《终止机制》DISCUSS→EXECUTE→REPORT 单向链路：目标分析讨论产出方案即冻结，
+    // 执行前不再启动第 2 段审查讨论（让 AI 自审自己的方案 = 自证循环温床；
+    // 且每次再启动一轮 opencode 23-35s，视觉上就是「又弹新一轮」）。
+    // 执行后的终止结论（第 3 段）保留，未完成项不搁置：stopKind/stopReason + 断点续跑兜底。
 
     // ── 2. 执行参数（与 /api/plan/execute 同源语义，避免两条链路行为漂移）──
     const fullAuto = !!(perms && perms.fullAuto);
