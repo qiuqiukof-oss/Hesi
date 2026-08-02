@@ -207,12 +207,12 @@
 }
 
 /* Dark theme overrides */
-[data-theme="dark"] .rp-browser-url-bar input {
+[data-scheme="dark"] .rp-browser-url-bar input {
   background: var(--bg-elevated, #1e1e2e);
   color: var(--text-primary, #cdd6f4);
   border-color: var(--border-default, #313244);
 }
 
-[data-theme="dark"] .rp-browser-viewport iframe {
+[data-scheme="dark"] .rp-browser-viewport iframe {
   background: #1e1e2e;
 }

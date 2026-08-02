@@ -226,22 +226,22 @@
 }
 
 /* ── Light Theme Overrides ── */
-[data-theme="light"] .mcp-rate-badge {
+[data-scheme="light"] .mcp-rate-badge {
   background: var(--shadow-light);
 }
 
-[data-theme="light"] .mcp-tool-bar-track {
+[data-scheme="light"] .mcp-tool-bar-track {
   background: var(--shadow-ambient);
 }
 
-[data-theme="light"] .mcp-tool-bar-row:hover {
+[data-scheme="light"] .mcp-tool-bar-row:hover {
   background: var(--shadow-light);
 }
 
-[data-theme="light"] .dash-mcp-log {
+[data-scheme="light"] .dash-mcp-log {
   border-top-color: var(--shadow-ambient);
 }
 
-[data-theme="light"] .mcp-log-entry:hover {
+[data-scheme="light"] .mcp-log-entry:hover {
   background: var(--shadow-light);
 }

@@ -105,18 +105,18 @@
 }
 
 /* ── Light Theme ── */
-[data-theme="light"] .alert-item {
+[data-scheme="light"] .alert-item {
   background: #fafafa;
 }
 
-[data-theme="light"] .alert-item:hover {
+[data-scheme="light"] .alert-item:hover {
   background: var(--shadow-light);
 }
 
-[data-theme="light"] .sa-dismiss-all {
+[data-scheme="light"] .sa-dismiss-all {
   border-color: var(--shadow-ambient);
 }
 
-[data-theme="light"] .sa-dismiss-all:hover {
+[data-scheme="light"] .sa-dismiss-all:hover {
   background: var(--shadow-light);
 }

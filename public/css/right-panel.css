@@ -533,12 +533,12 @@
 /* ============================================================
    Light theme adjustments
    ============================================================ */
-[data-theme="light"] #right-panel {
+[data-scheme="light"] #right-panel {
   background: var(--bg-elevated);
   box-shadow: -2px 0 12px var(--shadow-light);
 }
 
-[data-theme="light"] .right-tab.active {
+[data-scheme="light"] .right-tab.active {
   background: linear-gradient(
     180deg,
     var(--accent-glow-4) 0%,

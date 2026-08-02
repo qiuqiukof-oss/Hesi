@@ -94,12 +94,12 @@
   font-size: 14px;
 }
 
-[data-theme="light"] #history-viewer {
+[data-scheme="light"] #history-viewer {
   background: rgba(245, 245, 245, 0.9);
 }
-[data-theme="light"] .history-viewer-content::-webkit-scrollbar-thumb {
+[data-scheme="light"] .history-viewer-content::-webkit-scrollbar-thumb {
   background: rgba(0, 0, 0, 0.2);
 }
-[data-theme="light"] .history-viewer-content::-webkit-scrollbar-thumb:hover {
+[data-scheme="light"] .history-viewer-content::-webkit-scrollbar-thumb:hover {
   background: rgba(0, 0, 0, 0.3);
 }

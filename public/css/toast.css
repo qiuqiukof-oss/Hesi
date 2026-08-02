@@ -150,7 +150,7 @@
 }
 
 /* ── Light theme toast ── */
-[data-theme="light"] .toast {
+[data-scheme="light"] .toast {
   background: rgba(250, 250, 250, 0.92);
   border-color: var(--border-default);
   box-shadow:

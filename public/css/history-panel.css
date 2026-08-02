@@ -30,7 +30,7 @@
   backdrop-filter: blur(12px);
 }
 
-[data-theme="light"] #history-panel-bg {
+[data-scheme="light"] #history-panel-bg {
   background: rgba(245, 245, 245, 0.9);
 }
 
@@ -140,7 +140,7 @@
   backdrop-filter: blur(12px);
 }
 
-[data-theme="light"] #global-search-bg {
+[data-scheme="light"] #global-search-bg {
   background: rgba(245, 245, 245, 0.9);
 }
 

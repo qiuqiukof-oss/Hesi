@@ -292,7 +292,7 @@
   animation: overlay-in 0.2s var(--ease-out);
 }
 
-[data-theme="light"] .bs-editor-overlay {
+[data-scheme="light"] .bs-editor-overlay {
   background: rgba(245, 245, 245, 0.9);
 }
 

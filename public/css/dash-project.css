@@ -213,22 +213,22 @@
    Light Theme Adjustments
    ════════════════════════════════════════════════════════════ */
 
-[data-theme="light"] .dash-project-type-item {
+[data-scheme="light"] .dash-project-type-item {
   background: var(--shadow-light);
 }
 
-[data-theme="light"] .dash-project-type-item:hover {
+[data-scheme="light"] .dash-project-type-item:hover {
   background: var(--shadow-ambient);
 }
 
-[data-theme="light"] .dash-project-kf-item:hover {
+[data-scheme="light"] .dash-project-kf-item:hover {
   background: var(--shadow-light);
 }
 
-[data-theme="light"] .dash-project-refresh-btn {
+[data-scheme="light"] .dash-project-refresh-btn {
   border-color: var(--shadow-ambient);
 }
 
-[data-theme="light"] .dash-timeline-item:hover {
+[data-scheme="light"] .dash-timeline-item:hover {
   background: var(--shadow-light);
 }

@@ -34,7 +34,7 @@
   z-index: -1;
 }
 
-[data-theme="light"] #session-restore-bg {
+[data-scheme="light"] #session-restore-bg {
   background: rgba(245, 245, 245, 0.88);
 }
 

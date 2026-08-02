@@ -374,11 +374,11 @@
 }
 
 /* ── Light theme ── */
-[data-theme="light"] .tab-item.active {
+[data-scheme="light"] .tab-item.active {
   background: var(--bg-surface);
 }
 
-[data-theme="light"] .tab-item.active::after {
+[data-scheme="light"] .tab-item.active::after {
   box-shadow: 0 0 4px rgba(99, 102, 241, 0.2);
 }
 
@@ -400,7 +400,7 @@
     max-width: 30px;
   }
 }
-[data-theme="light"] .tab-item.active::after {
+[data-scheme="light"] .tab-item.active::after {
   box-shadow: 0 0 4px rgba(99, 102, 241, 0.2);
 }
 
@@ -661,22 +661,22 @@
 }
 
 /* Light theme for diagram containers */
-[data-theme="light"] .terminal-mermaid-float {
+[data-scheme="light"] .terminal-mermaid-float {
   background: rgba(250, 250, 250, 0.97);
   border-color: rgba(0, 0, 0, 0.1);
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
 }
 
-[data-theme="light"] .tmf-btn {
+[data-scheme="light"] .tmf-btn {
   color: rgba(0, 0, 0, 0.4);
 }
 
-[data-theme="light"] .tmf-btn:hover {
+[data-scheme="light"] .tmf-btn:hover {
   background: rgba(0, 0, 0, 0.06);
   color: rgba(0, 0, 0, 0.8);
 }
 
-[data-theme="light"] .tmf-header {
+[data-scheme="light"] .tmf-header {
   border-bottom-color: rgba(0, 0, 0, 0.06);
 }
 
@@ -1447,42 +1447,42 @@
 }
 
 /* ── Light theme overrides ── */
-[data-theme="light"] .tts-settings-panel {
+[data-scheme="light"] .tts-settings-panel {
   background: rgba(250, 250, 252, 0.98);
   border-color: var(--border-default);
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
 }
 
-[data-theme="light"] .tts-toggle-slider::before {
+[data-scheme="light"] .tts-toggle-slider::before {
   background: var(--text-tertiary);
 }
 
-[data-theme="light"] .tts-slider-group input[type="range"]::-webkit-slider-thumb {
+[data-scheme="light"] .tts-slider-group input[type="range"]::-webkit-slider-thumb {
   border-color: #fff;
 }
 
-[data-theme="light"] .tts-slider-group input[type="range"]::-moz-range-thumb {
+[data-scheme="light"] .tts-slider-group input[type="range"]::-moz-range-thumb {
   border-color: #fff;
 }
 
-[data-theme="light"] #tts-toggle-btn.tts-enabled {
+[data-scheme="light"] #tts-toggle-btn.tts-enabled {
   color: #16a34a;
   border-color: rgba(22, 163, 74, 0.4);
   background: rgba(22, 163, 74, 0.06);
 }
 
-[data-theme="light"] #tts-toggle-btn.speaking {
+[data-scheme="light"] #tts-toggle-btn.speaking {
   color: #16a34a;
   border-color: #16a34a;
   background: rgba(22, 163, 74, 0.08);
   box-shadow: 0 0 6px rgba(22, 163, 74, 0.2);
 }
 
-[data-theme="light"] .tts-indicator-dot {
+[data-scheme="light"] .tts-indicator-dot {
   background: #16a34a;
 }
 
-[data-theme="light"] #tts-indicator {
+[data-scheme="light"] #tts-indicator {
   color: #16a34a;
 }
 

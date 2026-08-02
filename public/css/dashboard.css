@@ -137,15 +137,15 @@
   background: var(--bg-active);
 }
 
-[data-theme="light"] .dash-proc-toggle {
+[data-scheme="light"] .dash-proc-toggle {
   border-color: rgba(0, 0, 0, 0.1);
 }
 
-[data-theme="light"] .dash-proc-toggle:hover {
+[data-scheme="light"] .dash-proc-toggle:hover {
   background: var(--shadow-light);
 }
 
-[data-theme="light"] .dash-proc-toggle:active {
+[data-scheme="light"] .dash-proc-toggle:active {
   background: var(--shadow-ambient);
 }
 
@@ -584,28 +584,28 @@
 
 
 /* ── Light Theme Overrides for added styles ── */
-[data-theme="light"] .dash-trend-chart-wrap {
+[data-scheme="light"] .dash-trend-chart-wrap {
   background: var(--shadow-light);
 }
 
-[data-theme="light"] .dash-sys-meta {
+[data-scheme="light"] .dash-sys-meta {
   border-top-color: var(--shadow-ambient);
 }
 
-[data-theme="light"] .dash-disk-section {
+[data-scheme="light"] .dash-disk-section {
   border-top-color: var(--shadow-ambient);
 }
 
-[data-theme="light"] .dash-chip-btn {
+[data-scheme="light"] .dash-chip-btn {
   background: var(--shadow-light);
   border-color: var(--shadow-ambient);
 }
 
-[data-theme="light"] .dash-chip-btn:hover {
+[data-scheme="light"] .dash-chip-btn:hover {
   background: var(--shadow-ambient);
 }
 
-[data-theme="light"] .dash-sys-gauge-value {
+[data-scheme="light"] .dash-sys-gauge-value {
   color: #18181b;
 }
 

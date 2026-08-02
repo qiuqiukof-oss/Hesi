@@ -505,19 +505,19 @@
 }
 
 /* Light theme overrides */
-[data-theme="light"] .mt-card {
+[data-scheme="light"] .mt-card {
   background: #fff;
 }
 
-[data-theme="light"] .mt-cat-btn.active {
+[data-scheme="light"] .mt-cat-btn.active {
   color: #fff;
 }
 
-[data-theme="light"] .mt-modal {
+[data-scheme="light"] .mt-modal {
   background: #fff;
 }
 
-[data-theme="light"] .mt-input,
-[data-theme="light"] .mt-textarea {
+[data-scheme="light"] .mt-input,
+[data-scheme="light"] .mt-textarea {
   background: #f8f9fa;
 }

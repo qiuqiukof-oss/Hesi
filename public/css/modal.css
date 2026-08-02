@@ -144,7 +144,7 @@
   background: rgba(24, 24, 27, 0.95);
 }
 
-[data-theme="light"] #command-palette {
+[data-scheme="light"] #command-palette {
   background: rgba(250, 250, 250, 0.97);
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15), 0 0 80px rgba(99, 102, 241, 0.06);
 }
@@ -705,7 +705,7 @@
   border-color: var(--border-strong);
 }
 
-[data-theme="light"] .settings-modal {
+[data-scheme="light"] .settings-modal {
   background: var(--bg-overlay);
 }
 
@@ -715,8 +715,8 @@
    ============================================================ */
 
 /* Native controls follow the active theme (select arrow, dropdown, scrollbar) */
-[data-theme="dark"] .modal { color-scheme: dark; }
-[data-theme="light"] .modal { color-scheme: light; }
+[data-scheme="dark"] .modal { color-scheme: dark; }
+[data-scheme="light"] .modal { color-scheme: light; }
 
 /* Selects & textareas were previously unstyled → theme them like .modal input */
 .modal select,

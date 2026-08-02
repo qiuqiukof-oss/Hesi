@@ -294,39 +294,39 @@
    Light Theme Overrides
    ════════════════════════════════════════════════════════════ */
 
-[data-theme="light"] .dash-process-item {
+[data-scheme="light"] .dash-process-item {
   background: #fafafa;
 }
 
-[data-theme="light"] .dash-process-item:hover {
+[data-scheme="light"] .dash-process-item:hover {
   box-shadow: 0 1px 4px var(--shadow-ambient);
 }
 
-[data-theme="light"] .dash-process-item.active {
+[data-scheme="light"] .dash-process-item.active {
   background: rgba(99, 102, 241, 0.03);
 }
 
-[data-theme="light"] .dash-process-resources {
+[data-scheme="light"] .dash-process-resources {
   border-top-color: var(--shadow-ambient);
 }
 
-[data-theme="light"] .dash-process-resource-track {
+[data-scheme="light"] .dash-process-resource-track {
   background: var(--shadow-ambient);
 }
 
-[data-theme="light"] .dash-process-pid {
+[data-scheme="light"] .dash-process-pid {
   background: var(--shadow-light);
 }
 
-[data-theme="light"] .dash-modal {
+[data-scheme="light"] .dash-modal {
   background: #fafafa;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
 }
 
-[data-theme="light"] .dash-modal-header {
+[data-scheme="light"] .dash-modal-header {
   border-bottom-color: var(--shadow-ambient);
 }
 
-[data-theme="light"] .dash-modal-overlay {
+[data-scheme="light"] .dash-modal-overlay {
   background: rgba(0, 0, 0, 0.25);
 }

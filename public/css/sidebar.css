@@ -440,7 +440,7 @@
   pointer-events: none;
 }
 
-[data-theme="light"] .skeleton-shape::after {
+[data-scheme="light"] .skeleton-shape::after {
   background: linear-gradient(
     90deg,
     transparent 0%,

@@ -30,7 +30,7 @@
   backdrop-filter: blur(12px);
 }
 
-[data-theme="light"] #workspace-overlay-bg {
+[data-scheme="light"] #workspace-overlay-bg {
   background: rgba(245, 245, 245, 0.9);
 }
 

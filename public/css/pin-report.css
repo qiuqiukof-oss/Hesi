@@ -547,11 +547,11 @@
   margin-top: var(--space-1);
 }
 
-[data-theme="light"] #pin-report-overlay {
+[data-scheme="light"] #pin-report-overlay {
   background: rgba(245, 245, 245, 0.9);
 }
 
-[data-theme="light"] .pin-report-card {
+[data-scheme="light"] .pin-report-card {
   background: rgba(0, 0, 0, 0.02);
 }
 

@@ -30,7 +30,7 @@
   backdrop-filter: blur(12px);
 }
 
-[data-theme="light"] #snippet-overlay-bg {
+[data-scheme="light"] #snippet-overlay-bg {
   background: rgba(245, 245, 245, 0.9);
 }
 
