@@ -13,12 +13,20 @@
 //   4. 自定义 innerBg 优先级最高 —— 切主题不丢用户设定的 alpha
 //   5. 多 Tab 场景下**全部**终端被同步（旧实现只同步当前活动的 1 个）
 //   6. 单个终端异常（已 dispose）不影响其余终端
+//   7. 主题探针：能读「非当前生效主题」的令牌，且探针必被清理（无 DOM 泄漏）
 //
 // 注：项目测试环境无 DOM shim，故此处自建最小 stub。
 // ============================================================
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { buildXtermTheme, applyTermThemeToAll, TERM_TOKENS } from '../public/lib/term-theme.js';
+import {
+  buildXtermTheme,
+  buildXtermThemeFor,
+  readThemeTokens,
+  withThemeProbe,
+  applyTermThemeToAll,
+  TERM_TOKENS,
+} from '../public/lib/term-theme.js';
 
 /**
  * 安装最小 DOM stub。
@@ -36,6 +44,41 @@ function stubDom(tokens = {}, storage = {}) {
     setItem: () => {},
     removeItem: () => {},
   });
+}
+
+/**
+ * 安装支持「按 data-theme 分流令牌」的 DOM stub，用于测试主题探针。
+ * @param {Record<string, Record<string,string>>} byTheme 主题 ID → 令牌表
+ * @returns {{children: any[]}} body 引用，可断言探针是否被清理
+ */
+function stubDomWithProbe(byTheme) {
+  const body = {
+    children: /** @type {any[]} */ ([]),
+    appendChild(el) { this.children.push(el); el._parent = this; return el; },
+  };
+  globalThis.document = /** @type {any} */ ({
+    documentElement: { nodeName: 'HTML', _attrs: {} },
+    body,
+    createElement: () => ({
+      _attrs: /** @type {Record<string,string>} */ ({}),
+      style: { cssText: '' },
+      setAttribute(k, v) { this._attrs[k] = v; },
+      remove() {
+        const p = this._parent;
+        if (p) p.children = p.children.filter((c) => c !== this);
+      },
+    }),
+  });
+  globalThis.getComputedStyle = (el) => {
+    const theme = el?._attrs?.['data-theme'];
+    const tokens = byTheme[theme] || {};
+    return /** @type {any} */ ({
+      getPropertyValue: (n) => (Object.prototype.hasOwnProperty.call(tokens, n) ? tokens[n] : ''),
+    });
+  };
+  globalThis.window = /** @type {any} */ ({});
+  globalThis.localStorage = /** @type {any} */ ({ getItem: () => null, setItem: () => {}, removeItem: () => {} });
+  return body;
 }
 
 /** 造一个最小假终端 */
@@ -119,4 +162,40 @@ test('无任何终端时返回 0，不抛错', () => {
   stubDom({});
   globalThis.window.QCLI = {};
   assert.equal(applyTermThemeToAll(), 0);
+});
+
+// ── 主题探针（T4 新增：兼容 getter 与色卡预览的基础设施）──
+
+test('探针可读取「非当前生效主题」的令牌', () => {
+  stubDomWithProbe({
+    dark: { '--term-bg': '#0d0e10', '--term-fg': '#e4e4e7' },
+    light: { '--term-bg': '#fafafa', '--term-fg': '#18181b' },
+  });
+  assert.equal(buildXtermThemeFor('dark').background, '#0d0e10');
+  assert.equal(buildXtermThemeFor('light').background, '#fafafa');
+  assert.equal(buildXtermThemeFor('light').foreground, '#18181b');
+});
+
+test('探针元素用完即销毁，不残留在 DOM 中', () => {
+  const body = stubDomWithProbe({ dark: { '--term-bg': '#000' } });
+  buildXtermThemeFor('dark');
+  assert.equal(body.children.length, 0, '探针必须被移除');
+});
+
+test('回调抛错时探针仍被清理（finally 保证）', () => {
+  const body = stubDomWithProbe({ dark: {} });
+  assert.throws(() => withThemeProbe('dark', () => { throw new Error('boom'); }), /boom/);
+  assert.equal(body.children.length, 0, '异常路径也不能泄漏探针');
+});
+
+test('readThemeTokens 按主题读取任意令牌，缺失返回空串', () => {
+  stubDomWithProbe({ xuan: { '--accent': '#9e3d32', '--bg-ground': '#e3d9c6' } });
+  const got = readThemeTokens('xuan', ['--accent', '--bg-ground', '--not-exist']);
+  assert.deepEqual(got, { '--accent': '#9e3d32', '--bg-ground': '#e3d9c6', '--not-exist': '' });
+});
+
+test('未知主题不抛错，全部回退到兜底值', () => {
+  stubDomWithProbe({ dark: { '--term-bg': '#000' } });
+  const t = buildXtermThemeFor('does-not-exist');
+  assert.equal(t.background, TERM_TOKENS.background[1]);
 });

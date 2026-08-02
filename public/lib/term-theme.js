@@ -106,6 +106,64 @@ export function buildXtermTheme(root) {
 }
 
 /**
+ * 在一个临时探针元素上应用指定主题，读取令牌后立即销毁。
+ *
+ * 用途：读取「非当前生效主题」的令牌值 —— 例如兼容层 Q.DARK_THEME，
+ * 以及主题选择器 UI 的色卡预览（需在不切换主题的前提下拿到各主题配色）。
+ * 可行原因：令牌定义在 [data-theme="x"] 属性选择器上，对任意元素都生效。
+ *
+ * 探针用离屏定位而非 display:none —— 自定义属性虽不受 display 影响，
+ * 但离屏定位对各渲染引擎更稳妥。
+ *
+ * @template T
+ * @param {string} themeId 主题 ID，如 'dark' / 'xuan'
+ * @param {(el: HTMLElement) => T} fn 在探针元素上执行的读取函数
+ * @param {string} [scheme] 可选的明暗基调（data-scheme）
+ * @returns {T}
+ */
+export function withThemeProbe(themeId, fn, scheme) {
+  const el = document.createElement('div');
+  el.setAttribute('data-theme', themeId);
+  if (scheme) el.setAttribute('data-scheme', scheme);
+  el.setAttribute('aria-hidden', 'true');
+  el.style.cssText = 'position:absolute;left:-9999px;top:-9999px;width:0;height:0;pointer-events:none;';
+  const host = document.body || document.documentElement;
+  host.appendChild(el);
+  try {
+    return fn(el);
+  } finally {
+    try { el.remove(); } catch { /* 探针已被外部移除，忽略 */ }
+  }
+}
+
+/**
+ * 构建**指定主题**的 xterm ITheme（不影响当前生效主题）。
+ * @param {string} themeId
+ * @param {string} [scheme]
+ * @returns {Record<string, string>}
+ */
+export function buildXtermThemeFor(themeId, scheme) {
+  return withThemeProbe(themeId, (el) => buildXtermTheme(el), scheme);
+}
+
+/**
+ * 读取**指定主题**下的一组 CSS 令牌值（供色卡预览等使用）。
+ * @param {string} themeId
+ * @param {string[]} names 令牌名数组，如 ['--bg-surface', '--accent']
+ * @param {string} [scheme]
+ * @returns {Record<string, string>} 令牌名 → 值（读不到则为空串）
+ */
+export function readThemeTokens(themeId, names, scheme) {
+  return withThemeProbe(themeId, (el) => {
+    const cs = getComputedStyle(el);
+    /** @type {Record<string, string>} */
+    const out = {};
+    for (const n of names) out[n] = (cs.getPropertyValue(n) || '').trim();
+    return out;
+  }, scheme);
+}
+
+/**
  * 收集当前页面上所有存活的终端实例（去重）。
  * 覆盖多 Tab 场景 —— 旧实现只同步「当前活动的那一个」，其余 Tab 不刷新。
  * @returns {Set<any>}
@@ -148,4 +206,11 @@ export function applyTermThemeToAll(root) {
   return ok;
 }
 
-export default { TERM_TOKENS, buildXtermTheme, applyTermThemeToAll };
+export default {
+  TERM_TOKENS,
+  buildXtermTheme,
+  buildXtermThemeFor,
+  readThemeTokens,
+  withThemeProbe,
+  applyTermThemeToAll,
+};
