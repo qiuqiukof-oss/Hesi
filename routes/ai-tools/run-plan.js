@@ -1498,8 +1498,19 @@ async function runOneAttempt(plan, ctx) {
           sessionId: opts && opts.execId,
         });
       } else if (stepAgent && stepAgent !== 'ai' && wf) {
-        // 显式选中外部 CLI agent → 走旧 agentPool 回退路径
-        exec = await runSingleTask(wf, { ...task, verify: effectiveStep.verify, checkpoint: !!effectiveStep.checkpoint });
+        // 外部 CLI agent 执行：**默认禁用**（v0.7.0 CLI Agent 隔离安全设计）——
+        // opencode 等外部 agent 自主执行，其实际命令不受 Hesi 运行时拦截
+        // （evaluateStepSecurity）/审批闸约束（审批只拦「是否执行此步」，拦不住
+        // agent 内部自主行为），且每步启动 23-35s。
+        // 仅显式设 HESI_PLAN_ALLOW_CLI_EXECUTOR=1 才放行（极端场景兜底开关）。
+        if (process.env.HESI_PLAN_ALLOW_CLI_EXECUTOR === '1') {
+          exec = await runSingleTask(wf, { ...task, verify: effectiveStep.verify, checkpoint: !!effectiveStep.checkpoint });
+        } else {
+          exec = {
+            status: 'skipped',
+            output: '(CLI Agent 执行已禁用：执行阶段仅 AI 助手（安全设计）。如需显式放行设 HESI_PLAN_ALLOW_CLI_EXECUTOR=1)',
+          };
+        }
       } else {
         exec = { status: 'skipped', output: '(no LLM runtime / no workflowManager)' };
       }

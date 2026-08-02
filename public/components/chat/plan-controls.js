@@ -40,32 +40,10 @@ export const planControlsMixin = {
     });
     agentSel.addEventListener('change', sync);
 
-    // 执行方下拉：'ai'（默认，复用 AI 助手工具环）+ 已安装的外部 CLI Agent。
-    // PartnerStore 与讨论控件同源，可能尚未就绪 → 同款 30ms 短轮询（最多 5s）。
-    const fillAgents = () => {
-      const PS = window.PartnerStore;
-      if (!PS || typeof PS.loadPartnerSource !== 'function') return false;
-      PS.loadPartnerSource().then((res) => {
-        const list = (res && res.list) || [];
-        const keep = agentSel.value || 'ai';
-        for (const a of list) {
-          if (agentSel.querySelector(`option[value="${CSS.escape(a.id)}"]`)) continue;
-          const opt = document.createElement('option');
-          opt.value = a.id;
-          opt.textContent = (a.displayName || a.name || a.id) + ' 执行';
-          agentSel.appendChild(opt);
-        }
-        agentSel.value = keep;
-        sync();
-      }).catch(() => { /* 取不到外部 Agent 不影响默认 'ai' 执行 */ });
-      return true;
-    };
-
-    if (!fillAgents()) {
-      const t = setInterval(() => { if (fillAgents()) clearInterval(t); }, 30);
-      setTimeout(() => clearInterval(t), 5000);
-    }
-
+    // 执行方锁定为「AI 助手执行」——安全设计（v0.7.0 CLI Agent 隔离）：
+    // 外部 CLI Agent 执行时其实际命令不受 Hesi 运行时拦截/审批闸约束（自主执行），
+    // 且每步启动 23-35s。执行阶段仅 AI 助手，CLI Agent 只参与讨论。
+    // 不再向下拉填充外部 Agent；后端另有 HESI_PLAN_ALLOW_CLI_EXECUTOR=1 兜底开关。
     sync();
   },
 };

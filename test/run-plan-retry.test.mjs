@@ -15,6 +15,9 @@
 // 说明：命令型步骤（action 像 shell 命令）会被 runPlan 走「直执模式」真正执行，
 // 无法用 mock workflow 注入失败。故本文件用「自然语言 action + 外部 agentId」驱动
 // 轨道B（workflowManager mock）以精确注入每轮每步状态。
+// 注意：run-plan 默认已禁用外部 CLI Agent 执行（安全设计，仅 HESI_PLAN_ALLOW_CLI_EXECUTOR=1
+// 放行）——本测试用外部 agentId 仅作「驱动 mock wf」的手段，非真实 CLI 执行，显式放行。
+process.env.HESI_PLAN_ALLOW_CLI_EXECUTOR = '1';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
