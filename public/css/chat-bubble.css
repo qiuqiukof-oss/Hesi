@@ -166,3 +166,55 @@
 [data-theme='light'] .discuss-ai .discuss-sender { color: var(--bub-ai); }
 [data-theme='light'] .discuss-cli .discuss-sender { color: var(--bub-cli); }
 [data-theme='light'] .discuss-summary .discuss-sender { color: var(--bub-sum); }
+
+/* ============================================================
+   7. 思考 / 处理字幕流光（P2+）
+   ------------------------------------------------------------
+   缘起：球总希望「思考中 / 处理中」这类瞬态字幕有流光扫过，
+        提升观感与高级感；明确不套到流式正文（避免性能/干扰）。
+   做法：复用项目既有的 text-clip 流光手法（同 og-shimmer /
+        ghs-shimmer），仅作用于三类瞬态字幕：
+          · .thinking-title        「🤔 深度思考中…」
+          · .thinking-status       「🔧 正在查询…」（工具/处理中）
+          · .plan-step-state(running)  Plan 步骤「运行中」
+   性能：background-position 动画极轻，且仅作用于极小文本节点；
+        系统开启「减少动态效果」时整体关闭（无障碍合规）。
+   ============================================================ */
+.thinking-title,
+.thinking-status,
+.plan-step-message.running .plan-step-state {
+  background: linear-gradient(
+    100deg,
+    var(--text-tertiary) 30%,
+    var(--accent) 50%,
+    var(--text-tertiary) 70%
+  );
+  background-size: 220% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+  animation: bub-caption-shimmer 2.6s linear infinite;
+}
+
+@keyframes bub-caption-shimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* 无障碍：减少动态效果时还原为普通纯色字，停止扫光 */
+@media (prefers-reduced-motion: reduce) {
+  .thinking-title,
+  .thinking-status {
+    animation: none;
+    background: none;
+    -webkit-text-fill-color: var(--text-tertiary);
+    color: var(--text-tertiary);
+  }
+  .plan-step-message.running .plan-step-state {
+    animation: none;
+    background: none;
+    -webkit-text-fill-color: var(--accent-hover);
+    color: var(--accent-hover);
+  }
+}
