@@ -970,40 +970,16 @@ class ChatPanel extends HTMLElement {
             const aiMsg = { id: this._genId(), role: 'assistant', content: displayContent };
 
             // ── 升级 thinking 面板为最终 ai 气泡（不删除重建）──
-            // 保留同一个 DOM 节点：位置不变、不闪跳，流式过程中实时展示的
-            // 工具列表得以延续到完成态，而不是「面板消失 + 新消息突然出现」。
-            // 仅在此时（而非首个 token 时）切换 class：thinking → ai-bubble。
+            // 保留同一个 DOM 节点：位置不变、不闪跳；同时剥离思考专用骨架
+            // （.thinking-body/.thinking-footer 等），仅保留实际内容与内联工具块，
+            // 避免工具调用结束后遗留大片空白。
             const indicator = document.getElementById('thinking-indicator');
             let upgraded = false;
             if (indicator) {
               const bubbleEl = indicator.querySelector('.msg-bubble');
               if (bubbleEl) {
-                // 更新标题：深度思考中/生成回复中 → ✅ 完成
-                const titleEl = bubbleEl.querySelector('.thinking-title');
-                if (titleEl) titleEl.textContent = '✅ 完成';
-                // 停止动画点
-                const dots = bubbleEl.querySelectorAll('.thinking-dot');
-                dots.forEach(d => { d.style.animation = 'none'; d.style.opacity = '0.4'; });
-                // 折叠箭头改为收起态（面板展开显示完整结果）
-                const chevron = bubbleEl.querySelector('.thinking-chevron');
-                if (chevron) chevron.textContent = '▾';
-                // 切换 class：思考中 → 完成态
-                bubbleEl.classList.remove('thinking');
-                bubbleEl.classList.add('ai-bubble');
-                // 完成态：移除各分段流式文本里的 typing-cursor（已完成态不需要）。
-                // 注意：工具调用已随流呈现为内联折叠块（.inline-tool），
-                // 不再把工具/用量摘要作为独立块追加到末尾（消除"输出完留大空白再 dump"）。
-                // displayContent 仍保留一份紧凑工具记录供刷新/历史回溯，但不渲染进实时气泡。
-                bubbleEl.querySelectorAll('.stream-text .typing-cursor').forEach(c => c.remove());
+                this._finalizeThinkingBubble(bubbleEl);
                 indicator.id = ''; // 取消 thinking 标识，避免后续 removeThinking 误删
-                this._clearThinkingTipInterval();
-                // 完成后淡出小贴士，避免占据完成态气泡空间
-                const tipEl = bubbleEl.querySelector('.thinking-tip');
-                if (tipEl) {
-                  tipEl.style.transition = 'opacity 0.3s ease';
-                  tipEl.style.opacity = '0';
-                  window.setTimeout(() => { if (tipEl) tipEl.remove(); }, 300);
-                }
                 upgraded = true;
               }
             }
@@ -1632,6 +1608,38 @@ class ChatPanel extends HTMLElement {
       block.querySelector('.it-body').appendChild(pre);
     }
     this.scrollToBottom();
+  }
+
+  /**
+   * 完成态：将 thinking 气泡升级为最终 ai 气泡，并剥离思考专用骨架。
+   * 仅保留实际内容（流式文本段、内联工具块、推理折叠块），删除
+   * .thinking-body/.thinking-footer/.thinking-header 等不再需要的结构，
+   * 避免工具调用结束后遗留大片空白。
+   */
+  _finalizeThinkingBubble(bubbleEl) {
+    if (!bubbleEl) return;
+
+    // 停止动画点，避免完成态继续闪烁
+    bubbleEl.querySelectorAll('.thinking-dot').forEach(d => {
+      d.style.animation = 'none';
+      d.style.opacity = '0.4';
+    });
+
+    // 移除流式文本段里的 typing-cursor
+    bubbleEl.querySelectorAll('.stream-text .typing-cursor').forEach(c => c.remove());
+
+    // 清理小贴士轮播并移除 tips 元素
+    this._clearThinkingTipInterval();
+    const tipEl = bubbleEl.querySelector('.thinking-tip');
+    if (tipEl) tipEl.remove();
+
+    // 删除思考专用骨架（它们只服务于进行态 UI）
+    bubbleEl.querySelectorAll('.thinking-body, .thinking-footer, .thinking-header')
+      .forEach(el => el.remove());
+
+    // 切换 class：思考中 → 完成态
+    bubbleEl.classList.remove('thinking');
+    bubbleEl.classList.add('ai-bubble');
   }
 
   /** 清理小贴士轮播定时器 */
