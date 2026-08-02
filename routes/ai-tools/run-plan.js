@@ -1221,7 +1221,9 @@ async function runPlan(plan, opts = {}) {
     const verdict = controller.decide({
       planHash: planStepSig(currentPlan),
       gitDiff: JSON.stringify((lastBody.results || []).map((r) => `${r.id || r.stepId || '?'}:${r.status}`)),
-      acceptanceAllPass: (lastBody.reflection && lastBody.reflection.acceptancePassRate) === 1,
+      // 硬收敛用 reflectPlan 综合判定（steps + acceptance），而非 acceptancePassRate 单值——
+      // 后者在「步骤失败但验收命令恰好通过」时误判 DONE（测试实证）。
+      acceptanceAllPass: lastBody.reflection && lastBody.reflection.status === 'done',
       acceptanceResults: null,
       accHash: Array.isArray(currentPlan.acceptance) && currentPlan.acceptance.length
         ? crypto.createHash('sha256').update(JSON.stringify(currentPlan.acceptance)).digest('hex')
@@ -1281,9 +1283,15 @@ async function runPlan(plan, opts = {}) {
     finalReason = '自动重试未产生新方案（连续修订无进展），已停止以避免死循环';
   }
   // P0：确定性收敛信号终止（STALL/OSCILL/DRIFT/ESCALATE/STALLED）
+  // DONE 是成功信号（防御分支：terminal break 前被 decide 判到）→ 视为 done，不是失败
   if (stopKind && finalStatus !== 'done' && finalStatus !== 'rejected') {
-    finalStatus = stopKind === 'ESCALATE' ? 'rejected' : 'rejected';
-    finalReason = `收敛判定终止（${stopKind}）：${stopReason || '详见报告'}。已停止以避免无限循环。`;
+    if (stopKind === 'DONE') {
+      finalStatus = 'done';
+      finalReason = stopReason || '验收全部通过';
+    } else {
+      finalStatus = 'rejected';
+      finalReason = `收敛判定终止（${stopKind}）：${stopReason || '已停止以避免无限循环'}。`;
+    }
   }
   const finalResult = {
     ok: finalStatus === 'done' || (finalStatus === 'partial' && !reviseFailed),
