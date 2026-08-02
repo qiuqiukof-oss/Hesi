@@ -524,8 +524,10 @@ async function runRoundtable({ message, partner, partners, maxTurns = 6, apiKey,
       }
       if (aborted()) { cleanFinish = false; break; }
 
-      // 早停：AI 表示收敛
-      if (/\[CONVERGE\]/i.test(aiText) && round >= 2) break;
+      // 早停：AI 表示收敛——任何轮次生效（含第 1 轮）。
+      // 位置在本轮所有 CLI 发言之后 → 收敛时本轮 Agent 观点已完整，直接进汇总。
+      // （原 round>=2 门槛会让第 1 轮收敛失效，多跑一轮，实测反直觉）
+      if (/\[CONVERGE\]/i.test(aiText)) break;
     }
 
     if (!aborted()) {
