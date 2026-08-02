@@ -842,8 +842,9 @@ class ChatPanel extends HTMLElement {
                 // 且不会被整段 innerHTML 重绘覆盖。
                 const seg = this._ensureStreamSeg(bubble);
                 if (seg) {
-                  // 仅渲染当前活跃段对应的「增量文本」（已冻结段不再重绘）
-                  const newText = fullResponse.slice(this._frozenLen);
+                  // 仅渲染当前活跃段对应的「增量文本」（已冻结段不再重绘）。
+                  // trim 尾部空白/换行，避免 renderMarkdown 生成空段落撑出大片空白。
+                  const newText = fullResponse.slice(this._frozenLen).replace(/\s+$/g, '');
                   seg.innerHTML = renderMarkdown(newText) + '<span class="typing-cursor"></span>';
                   // 渲染 Mermaid 流程图
                   requestAnimationFrame(() => {

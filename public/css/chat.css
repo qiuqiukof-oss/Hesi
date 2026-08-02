@@ -573,7 +573,7 @@ body.drawer-resizing {
   background: var(--bg-overlay);
   border: 1px solid var(--border-subtle);
   border-top-left-radius: 4px;
-  padding: 10px 14px;
+  padding: 8px 12px;
   min-width: 80px;
 }
 
@@ -583,7 +583,7 @@ body.drawer-resizing {
   background: var(--bg-overlay);
   border: 1px solid var(--border-subtle);
   border-top-left-radius: 4px;
-  padding: 10px 14px;
+  padding: 8px 12px;
 }
 
 /* Animated dots */
@@ -689,11 +689,14 @@ body.drawer-resizing {
 }
 
 /* 流式文本容器：token 到达后追加在工具面板下方（不覆盖工具列表）。
-   多段之间通过相邻选择器控制紧凑间距，避免 flex gap + margin 叠加。 */
+   多段之间通过相邻选择器控制紧凑间距，避免 flex gap + margin 叠加。
+   覆盖外层 .msg-bubble 的 white-space:pre-wrap，防止 markdown 输出里的
+   原始换行符被保留成可见空行。 */
 .stream-text {
   margin: 0;
   padding: 0;
   width: 100%;
+  white-space: normal;
 }
 
 .stream-text + .stream-text,
@@ -702,10 +705,14 @@ body.drawer-resizing {
   margin-top: 2px;
 }
 
-/* 隐藏完全空的分段与空段落，避免模型输出空行时撑出大片空白 */
+/* 隐藏完全空的分段与空段落，避免模型输出空行时撑出大片空白。
+   JS 侧已 trim 尾部空白，这里兜底处理渲染产物里的空元素。 */
 .stream-text:empty,
 .stream-text p:empty,
-.stream-text p:has(br:only-child) {
+.stream-text p:has(br:only-child),
+.stream-text p:has(> br),
+.stream-text br + br,
+.stream-text p:where(:empty, :has(> br:only-child)) {
   display: none;
 }
 
