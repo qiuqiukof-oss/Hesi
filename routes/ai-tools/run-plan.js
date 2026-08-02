@@ -305,6 +305,105 @@ function stepRequiresApproval(plan, step) {
   return false;
 }
 
+/**
+ * Plan B 写入护栏（根治 P0-A：cwd 恒为项目根导致的「误写宿主敏感文件」）。
+ *
+ * 当某步命令把文件写入「宿主项目根下的敏感文件」（.env / 密钥 / 包清单 / Agent 配置等）
+ * 且未在 step 上显式标记 requireApproval 时，判定为「疑似误写」——
+ * 因为 cwd 是项目根，LLM 往往以为自己在 /tmp 切换的目录里。
+ * 返回 { target, basename } 表示命中的敏感写入（须强制审批，不可被 always-allow 跳过）；否则 null。
+ *
+ * @param {object} plan
+ * @param {object} step 含 action / verify
+ * @param {string} [cwd] 工作目录（项目根）
+ */
+// 敏感扩展名：dotenv / 密钥 / 证书
+const SENSITIVE_HOST_RE = /\.(env|local|key|pem|p12|pfx|crt|cer|keystore|pfx)$/i;
+// 敏感文件名（精确匹配，小写）
+const SENSITIVE_HOST_NAMES = new Set([
+  'package.json', 'package-lock.json', 'pnpm-lock.yaml', 'yarn.lock',
+  'agents.md', 'claude.md', 'memory.md', '.gitignore',
+]);
+function detectSensitiveHostWrite(plan, step, cwd) {
+  const candidate = [step.action, step.verify && step.verify.command].filter(Boolean).join(' ');
+  if (!candidate) return null;
+  const baseDir = (cwd || process.cwd()).replace(/\\/g, '/');
+  // 宽松切词：按空白/引号/重定向/管道/分号拆分，覆盖 `>`、`>>`、`cat >`、重定向目标等
+  const rawTokens = candidate.split(/[\s"'|;>&]+/).filter(Boolean);
+  for (const raw of rawTokens) {
+    let t = raw.replace(/^[0-9&]?>+/, '').replace(/^<+/, ''); // 剥离重定向符号
+    t = t.replace(/^["']|["']$/g, ''); // 剥离引号
+    if (!t || /[<>|&;(){}]/.test(t)) continue;
+    if (!/[A-Za-z0-9._\-/\\]/.test(t)) continue;
+    const abs = path.isAbsolute(t) ? t : path.resolve(baseDir, t);
+    const norm = abs.replace(/\\/g, '/');
+    // 仅关心项目根内（含直接落在根目录）的写入
+    if (norm !== baseDir && !norm.startsWith(`${baseDir}/`)) continue;
+    const base = path.basename(norm).toLowerCase();
+    if (SENSITIVE_HOST_NAMES.has(base) || SENSITIVE_HOST_RE.test(base)) {
+      return { target: norm, basename: base };
+    }
+  }
+  // npm init / npm init -y 必然写出 package.json
+  if (/\bnpm\s+init\b/.test(candidate)) {
+    return { target: path.resolve(baseDir, 'package.json').replace(/\\/g, '/'), basename: 'package.json' };
+  }
+  return null;
+}
+
+/**
+ * Plan C：cwd 延续——从步骤命令中解析「顶层无条件 cd」目标，作为后续步骤的 cwd。
+ *
+ * 仅识别：行首 `cd <path>`、或语句分隔符（换行 / && / ;）后的 `cd <path>`。
+ * 跳过：heredoc 块内的 cd（被写入文件的数据）、管道（|）后的 cd（子 shell）、
+ * 控制结构（if/while/for/(/{/function）后的 cd（语义不确定）。
+ * 解析出的目标目录必须真实存在才生效（与 shell 行为一致）；否则不改 cwd。
+ * 解析不确定时返回 null（沿用上一步 cwd）。
+ *
+ * @param {string} action 步骤命令
+ * @param {string} baseCwd 当前 cwd（解析相对路径的基准）
+ * @returns {string|null} 新的 cwd（归一化为正斜杠）或 null
+ */
+function deriveWorkdir(action, baseCwd) {
+  if (!action || typeof action !== 'string') return null;
+  const os = require('os');
+  // 1) 剥离 heredoc 块（内容是被写入文件的数据，其中的 cd 不是切换目录）
+  const stripped = action.replace(/<<\s*['"]?([A-Za-z_][\w-]*)['"]?[\s\S]*?^([ \t]*)\1[ \t]*$/gm, ' ');
+  // 2) 按语句边界切分（换行 / && / ;）。不切 ||（条件 cd 跳过）也不切 |（管道）
+  const statements = stripped.split(/\r?\n|&&|;/);
+  let cwd = baseCwd;
+  let changed = false;
+  for (const raw of statements) {
+    const stmt = raw.trim();
+    if (!stmt) continue;
+    // 仅处理「语句以 cd 开头」的顶层 cd
+    const m = stmt.match(/^cd\s+(?:'([^']+)'|"([^"]+)"|(\S+))/);
+    if (!m) continue;
+    const p = m[1] || m[2] || m[3];
+    if (!p) continue;
+    if (p === '-' || p === '~' || p === '$HOME') continue; // 切换到 home / 上一目录 → 跳过
+    let resolved;
+    if (/^[A-Za-z]:[\\/]/.test(p) || p.startsWith('/')) {
+      // 绝对路径（含 MSYS /tmp、/c/x）
+      if (p === '/tmp' || p.startsWith('/tmp/')) {
+        resolved = path.join(os.tmpdir(), p.slice(4).replace(/^[/\\]+/, ''));
+      } else {
+        const dm = p.match(/^\/([a-zA-Z])\/(.*)$/);
+        if (dm) resolved = path.join(`${dm[1].toUpperCase()}:\\`, dm[2].replace(/\//g, '\\'));
+        else resolved = path.resolve(cwd, p.replace(/^\/+/, '')); // Unix 风格绝对 → 视为项目根相对
+      }
+    } else {
+      resolved = path.resolve(cwd, p);
+    }
+    if (resolved && fs.existsSync(resolved)) {
+      cwd = resolved.replace(/\\/g, '/');
+      changed = true;
+    }
+  }
+  return changed ? cwd : null;
+}
+
+
 // ── 单步工作流执行 + 轮询 ──
 
 const POLL_MS = 1000;
@@ -312,16 +411,21 @@ const STEP_TIMEOUT_MS = 10 * 60 * 1000;
 
 /**
  * 解析当前平台可用的 POSIX 兼容 shell（bash/sh）。
- * Windows 下按优先级探测：
- *   1. PATH 中查找（where/which）
- *   2. 常见安装路径直接探测（Git for Windows / MSYS2 / WSL / Cygwin / PortableGit）
- *   3. 运行时验证（spawn --version）
- *   4. 最终降级 cmd.exe（会自动重写 heredoc 等不兼容语法）
  *
- * @returns {{ shell: string, foundVia?: string }}
+ * Windows 下**不再「首个命中即返回」**，而是对全部候选 bash 做**能力打分择优**：
+ * 收集 PATH（where）+ 环境变量构造的全部候选，逐个探测其可达命令目录下
+ * 关键命令（sleep/chmod/curl/kill 等验收脚本标配）覆盖率，选覆盖率最高者。
+ * 这样可避开 WorkBuddy 内嵌的「精简版 PortableGit（仅 84 命令，缺 sleep/curl/kill）」，
+ * 而优先选用本机完整的 Git for Windows。
+ *
+ * 结果进程级缓存（_resolvedShellCache），避免每步重复探测。
+ *
+ * @returns {{ shell: string, foundVia?: string, missingCmds?: string[] }}
  */
+let _resolvedShellCache = null;
 function resolveShell() {
   if (process.platform !== 'win32') return { shell: '/bin/sh', foundVia: 'posix-default' };
+  if (_resolvedShellCache) return _resolvedShellCache;
 
   const { execSync } = require('child_process');
   const fs = require('fs');
@@ -352,32 +456,53 @@ function resolveShell() {
     env.SystemRoot || env.WINDIR || 'C:\\Windows', 'System32', 'bash.exe'
   );
 
-  // 去重
-  const uniquePaths = [...new Set(REAL_BASH_PATHS)];
+  // 关键命令集：验收脚本（起服务→sleep 等待→curl 冒烟→kill 清理）标配；
+  // 精简版 PortableGit 恰好缺 sleep/chmod/curl/kill，是本次打分的核心区分点
+  const KEY_CMDS = ['sleep', 'chmod', 'curl', 'kill', 'sed', 'awk', 'grep', 'find', 'xargs', 'tar'];
 
-  /** 尝试运行一个 shell 验证其可用性（包括直接 spawn 能力） */
-  function tryShell(shellCmd) {
+  // 给定 bash.exe 路径，返回其可达命令目录（覆盖 Git for Windows 与 PortableGit 两种布局）
+  // 额外纳入 Windows System32（curl 等系统内置命令所在地，bash 运行时 PATH 可达），
+  // 仅用于命令覆盖率统计与缺失报告，不影响打分择优的正确性。
+  function cmdSearchDirs(bashPath) {
+    const bashDir = path.dirname(bashPath);
+    const dirs = [bashDir, path.join(bashDir, '..', 'usr', 'bin')];
+    const sysRoot = env.SystemRoot || env.WINDIR || 'C:\\Windows';
+    if (sysRoot) {
+      dirs.push(path.join(sysRoot, 'System32'));
+      dirs.push(path.join(sysRoot, 'Sysnative'));
+    }
+    return dirs;
+  }
+
+  // 直接 spawn 验证：Node.js 必须能直接 spawn 该路径（排除 WSL 应用执行别名）
+  // 注意：必须走 execFileSync（不经 shell），否则含空格路径（如 C:\Program Files\...）
+  // 会被 cmd.exe /c 按空格拆词 → "C:\Program 不是内部或外部命令"。这正是旧实现
+  // 永远选不到完整 Git for Windows（路径含空格）而退化为精简 PortableGit 的根因。
+  function canSpawn(shellCmd) {
+    if (!existsSync(shellCmd)) return false;
     try {
-      // 1. 基本验证：能执行命令（通过 cmd.exe 中转也行）
-      execSync(`${shellCmd} --version`, { encoding: 'utf8', timeout: 5000, stdio: 'ignore' });
-      // 2. 直接 spawn 验证：Node.js 必须能直接 spawn 该路径（排除 WSL 等别名）
-      if (shellCmd.includes('/') || shellCmd.includes('\\')) {
-        // 绝对路径 → 检查是否为真实文件且可直接 spawn
-        const fs2 = require('fs');
-        if (!fs2.existsSync(shellCmd)) return false;
-        try {
-          const { execSync: es } = require('child_process');
-          // 用数组形式测试直接 spawn（不经过 cmd.exe）
-          es(shellCmd, ['--version'], { encoding: 'utf8', timeout: 3000, stdio: 'ignore' });
-        } catch {
-          console.log(`[resolveShell] ${shellCmd} --version 通过中转但直接 spawn 失败（可能是 WSL 别名），跳过`);
-          return false;
-        }
-      }
+      const { execFileSync } = require('child_process');
+      execFileSync(shellCmd, ['--version'], { encoding: 'utf8', timeout: 3000, stdio: 'ignore' });
       return true;
     } catch {
       return false;
     }
+  }
+
+  // 对单个候选 bash 打分：可 spawn（非 WSL 别名）+ 关键命令覆盖率
+  function scoreShell(bashPath) {
+    if (!canSpawn(bashPath)) return -1;
+    const dirs = cmdSearchDirs(bashPath);
+    let score = 0;
+    for (const cmd of KEY_CMDS) {
+      for (const d of dirs) {
+        if (existsSync(path.join(d, `${cmd}.exe`)) || existsSync(path.join(d, cmd))) {
+          score++;
+          break;
+        }
+      }
+    }
+    return score;
   }
 
   /** 用 where 查找（纯动态，依赖用户 PATH），自动跳过 WSL bash（非真实 .exe） */
@@ -393,51 +518,64 @@ function resolveShell() {
     }
   }
 
-  // 策略 1：PATH 中找 bash → sh（最优先，完全动态）
+  // 收集全部候选（PATH where 全部结果 + env 构造路径），去重保序
+  const candidates = [];
   for (const name of ['bash', 'sh']) {
-    const found = findInPath(name);
-    if (found && existsSync(found)) {
-      if (tryShell(found)) {
-        console.log(`[resolveShell] 找到 ${name}: ${found} (via PATH)`);
-        return { shell: found, foundVia: 'PATH' };
+    try {
+      const out = execSync(`where ${name}`, { encoding: 'utf8', timeout: 3000, stdio: 'pipe' });
+      for (const raw of out.trim().split(/\r?\n/)) {
+        const c = raw.trim();
+        if (c && !isWslBashPath(c)) candidates.push(c);
       }
+    } catch { /* PATH 中无此命令，跳过 */ }
+  }
+  for (const p of REAL_BASH_PATHS) candidates.push(p);
+  const uniqueCandidates = [...new Set(candidates)];
+
+  // 打分择优：严格大于才更新 → 同分保留先出现的候选（REAL_BASH_PATHS 已把完整 Git 放前）
+  let best = null;
+  let bestScore = -1;
+  for (const c of uniqueCandidates) {
+    const s = scoreShell(c);
+    if (s > bestScore) {
+      bestScore = s;
+      best = c;
     }
   }
 
-  // 策略 2：从环境变量动态构造的候选路径逐个探测（无写死盘符，仅真实 bash）
-  for (const p of uniquePaths) {
-    if (existsSync(p)) {
-      if (tryShell(p)) {
-        console.log(`[resolveShell] 找到 bash: ${p} (env-derived path)`);
-        return { shell: p, foundVia: 'env-path', isWsl: false };
-      }
-    }
+  if (best && bestScore >= 0) {
+    const dirs = cmdSearchDirs(best);
+    const missing = KEY_CMDS.filter(
+      (cmd) => !dirs.some((d) => existsSync(path.join(d, `${cmd}.exe`)) || existsSync(path.join(d, cmd)))
+    );
+    console.log(
+      `[resolveShell] 选定 ${best}（关键命令 ${bestScore}/${KEY_CMDS.length}${missing.length ? `，缺失: ${missing.join(',')}` : ''}）`
+    );
+    return (_resolvedShellCache = { shell: best, foundVia: 'scored', missingCmds: missing });
   }
 
-  // 策略 3：纯命令名再试一次（可能 PATH 在不同上下文有差异）
+  // ── 兜底：无可用真实 bash 时，退回 WSL / cmd（保持原行为） ──
+  // 纯命令名再试一次（可能 PATH 在不同上下文有差异）
   for (const name of ['bash', 'sh']) {
-    if (tryShell(name)) {
-      // 验证找到的是否为 WSL bash（通过 where 查看实际路径）
+    if (canSpawn(name)) {
       const where = findInPath(name);
       if (where && isWslBashPath(where)) {
-        console.log(`[resolveShell] ${name} 解析为 WSL bash (${where})，标记为 WSL`);
-        return { shell: name, foundVia: 'bare-name-wsl', isWsl: true };
+        console.log(`[resolveShell] ${name} 解析为 WSL bash (${where})，将通过 cmd.exe 中转`);
+        return (_resolvedShellCache = { shell: name, foundVia: 'bare-name-wsl', isWsl: true });
       }
       console.log(`[resolveShell] 找到 ${name}: via bare name fallback`);
-      return { shell: name, foundVia: 'bare-name', isWsl: false };
+      return (_resolvedShellCache = { shell: name, foundVia: 'bare-name', isWsl: false });
     }
   }
 
-  // 策略 4：WSL bash 兜底（仅当没有真实 bash 可用时）
-  // WSL bash 是「应用执行别名」，不是真正的 .exe，Node.js 直接 spawn 会 ENOENT
-  // 必须通过 cmd.exe 中转执行
+  // WSL bash 兜底（仅当没有真实 bash 可用时，须通过 cmd.exe 中转）
   if (existsSync(WSL_BASH_PATH)) {
     console.log(`[resolveShell] 仅找到 WSL bash: ${WSL_BASH_PATH}（将通过 cmd.exe 中转）`);
-    return { shell: WSL_BASH_PATH, foundVia: 'wsl-fallback', isWsl: true };
+    return (_resolvedShellCache = { shell: WSL_BASH_PATH, foundVia: 'wsl-fallback', isWsl: true });
   }
 
   console.warn('[resolveShell] 未找到 bash/sh，将使用 cmd.exe（heredoc 等语法将被自动重写）');
-  return { shell: 'cmd.exe', foundVia: 'cmd-fallback', isWsl: false };
+  return (_resolvedShellCache = { shell: 'cmd.exe', foundVia: 'cmd-fallback', isWsl: false });
 }
 
 /**
@@ -766,7 +904,8 @@ async function execStepDirectly(step, cwd, opts = {}) {
           out = r.output;
         } else if (isWsl) {
           tmpFile = path.join(os.tmpdir(), `hesi-step-${Date.now()}-${Math.random().toString(36).slice(2, 6)}.sh`);
-          fs.writeFileSync(tmpFile, action, 'utf8');
+          // Plan E：多行临时脚本启用 set -e（与单行一致），避免中间命令失败被掩盖
+          fs.writeFileSync(tmpFile, `set -e\n${action}`, 'utf8');
           const wslScript = maybeConvertToWslPath(shell, tmpFile);
           // WSL 语法预检（同真实 bash 分支）
           try {
@@ -793,7 +932,9 @@ async function execStepDirectly(step, cwd, opts = {}) {
         } else {
           // 真实 Git Bash / MSYS2 等：直接 spawn 临时脚本
           tmpFile = path.join(os.tmpdir(), `hesi-step-${Date.now()}-${Math.random().toString(36).slice(2, 6)}.sh`);
-          fs.writeFileSync(tmpFile, action, 'utf8');
+          // Plan E：多行临时脚本启用 set -e（与单行 `set -e; ${action}` 一致），
+          // 避免中间命令失败（如 chmod 127）被后续成功命令掩盖 → 步骤误判完成
+          fs.writeFileSync(tmpFile, `set -e\n${action}`, 'utf8');
           console.log('[execStepDirectly] 多行命令已写入临时脚本:', tmpFile);
           try {
             execFileSync(shell, ['-n', tmpFile], { ...execOpts, stdio: ['ignore', 'ignore', 'pipe'] });
@@ -829,7 +970,8 @@ async function execStepDirectly(step, cwd, opts = {}) {
           out = r.output;
         } else if (isWsl) {
           tmpFile = path.join(os.tmpdir(), `hesi-step-${Date.now()}-${Math.random().toString(36).slice(2, 6)}.sh`);
-          fs.writeFileSync(tmpFile, `${action}\n`, 'utf8');
+          // Plan E：单行临时脚本同样启用 set -e（WSL 分支经 bash 执行）
+          fs.writeFileSync(tmpFile, `set -e\n${action}\n`, 'utf8');
           const wslScript = maybeConvertToWslPath(shell, tmpFile);
           console.log('[execStepDirectly] WSL 单行→临时脚本:', tmpFile, '→', wslScript);
           const r = await runSpawn('cmd.exe', ['/c', 'bash', wslScript], execOpts);
@@ -1452,7 +1594,8 @@ async function runPlan(plan, opts = {}) {
 
 // ── 单次尝试：开分支 → 逐步执行 → 验收 → 反思 ──
 async function runOneAttempt(plan, ctx) {
-  const { cwd, wf, roundtableFn, onStep, dryRun, runAcc, opts } = ctx;
+  // Plan C：cwd 设为可变——每步执行后若命令含顶层 cd，则作为后续步骤的 cwd 延续
+  let { cwd, wf, roundtableFn, onStep, dryRun, runAcc, opts } = ctx;
   const haveGit = !!cwd && isRepo(cwd);
   const branch = null; // P4-1：取消 auto 分支，runPlan 全程留在用户当前分支；branch 仅保留返回字段兼容
   const interceptEnabled = !!(plan.runtimeIntercept || (opts && opts.runtimeIntercept) || process.env.HESI_PLAN_RUNTIME_INTERCEPT === '1');
@@ -1487,7 +1630,7 @@ async function runOneAttempt(plan, ctx) {
   for (let i = resumeFrom; i < tasks.length; i++) {
     const task = tasks[i];
     const step = plan.steps[i] || {};
-    const ev = { index: i, id: task.id, goal: task.label, status: 'start' };
+    const ev = { index: i, id: task.id, goal: task.label, status: 'start', cwd };
 
     // 人工中止
     if (typeof opts.shouldAbort === 'function' && opts.shouldAbort()) {
@@ -1578,10 +1721,19 @@ async function runOneAttempt(plan, ctx) {
       if (cp.derivedVerify) effectiveStep = { ...step, verify: cp.derivedVerify };
     }
 
-    // 决策③（P2.6 审批闸）：需人工审批的步 → 暂停等待决议
-    if (stepRequiresApproval(plan, step)) {
+    // 决策③（P2.6 审批闸）+ Plan B 宿主敏感写入护栏
+    // 命中「写入宿主项目根敏感文件」且未在 step 上显式标记 requireApproval → 强制审批（不可 always-allow 跳过）
+    const sensitiveWrite = detectSensitiveHostWrite(plan, step, cwd);
+    const mandatoryApproval = !!sensitiveWrite && !stepRequiresApproval(plan, step);
+    if (stepRequiresApproval(plan, step) || mandatoryApproval) {
       ev.status = 'await-approval';
       ev.requiresApproval = true;
+      ev.mandatoryApproval = mandatoryApproval;
+      if (sensitiveWrite) {
+        ev.approvalNotice =
+          `⚠️ 此命令将写入宿主项目根敏感文件 ${sensitiveWrite.target}（执行器 cwd 为项目根，` +
+          `LLM 可能误以为在其它目录）。请确认这是你的本意——误操作会覆盖重要配置或破坏仓库。`;
+      }
       await onStep(ev); // 通知前端出闸门卡片
       let approved = true;
       const approvedSteps = opts && opts.approvedSteps;
@@ -1595,7 +1747,8 @@ async function runOneAttempt(plan, ctx) {
           id: task.id,
           goal: task.label,
           action: step.action,
-          risk: step.risk || null,
+          risk: step.risk || (sensitiveWrite ? `写入宿主项目根敏感文件 ${sensitiveWrite.target}` : null),
+          mandatory: mandatoryApproval,
         });
       }
       if (approved && approvedSteps) approvedSteps.add(task.id);
@@ -1713,6 +1866,10 @@ async function runOneAttempt(plan, ctx) {
 
     results.push(ev);
     await onStep(ev);
+
+    // Plan C：cwd 延续——本步命令中的顶层 cd 作为后续步骤的 cwd（仅目录真实存在时生效）
+    const nextCwd = deriveWorkdir(step.action, cwd);
+    if (nextCwd) cwd = nextCwd;
 
     // P3：用户取消（断开连接）→ 立即中止后续步骤，不做错误回滚
     if (ev.status === 'aborted') break;

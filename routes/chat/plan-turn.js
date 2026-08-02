@@ -279,7 +279,9 @@ async function runPlanTurn(res, p = {}) {
       shouldAbort: () => watcher.isAborted(),
       // P4-2：审批闸对话式——通过共享登记表挂起等待，不再自动驳回
       // 🔓 允许完全访问：fullAccess=true 时直接通过，不挂起、不弹气泡
-      requestApproval: (info) => fullAccess ? Promise.resolve(true) : registerApproval(execId, info, approvalTimeoutMs, emit),
+      // Plan B：但「宿主敏感写入强制审批」(info.mandatory) 不可被 fullAccess 跳过——
+      // 否则 🔓 完全访问 + 误写 .env 会直接覆盖宿主配置（P0-A 事故复现）
+      requestApproval: (info) => (fullAccess && !info.mandatory) ? Promise.resolve(true) : registerApproval(execId, info, approvalTimeoutMs, emit),
       permissions: perms,
       plannerRuntime: runtime,
       revisePlanFn: revisePlan,

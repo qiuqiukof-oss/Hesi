@@ -80,8 +80,10 @@ export const planStreamMixin = {
     // ⚠️ 兼容两种写法：后端 sseEventName 把连字符转下划线（await-approval→await_approval），
     // chat-api 剥 plan_ 前缀后前端拿到的是下划线版；直接发连字符版也保留（双保险）
     if (t === 'await-approval' || t === 'await_approval') {
-      if (this._sessionAutoApprove) {
+      const isMandatory = !!(evt.step && evt.step.mandatoryApproval);
+      if (this._sessionAutoApprove && !isMandatory) {
         // 用户已选择「本次会话始终允许」→ 自动通过，不弹气泡
+        // Plan B：强制审批（宿主敏感写入）即便开了始终允许也必须人工点选，不可自动跳过
         const execId = (evt.step && evt.step.execId) || '';
         if (execId) fetch('/api/plan/' + encodeURIComponent(execId) + '/approve', { method: 'POST', headers: { 'Content-Type': 'application/json' } }).catch(() => {});
       } else {
@@ -272,6 +274,17 @@ export const planStreamMixin = {
       // 为轨道 B（AI 管线）的实时 token 预留输出区
       this._planLiveEl = this._ensureStepOutput(row.li);
       this._planLiveEl.textContent = '';
+      // Plan C：显示当前工作目录（cwd 延续后可能非项目根），让用户看清命令实际落点
+      if (ev.cwd) {
+        const head = row.li.querySelector('.plan-step-head');
+        if (head && !head.querySelector('.plan-step-cwd')) {
+          const cwdChip = document.createElement('span');
+          cwdChip.className = 'plan-step-cwd';
+          cwdChip.textContent = '📂 ' + ev.cwd;
+          cwdChip.style.cssText = 'margin-left:6px;font-size:11px;color:#64748b;opacity:.85;font-family:monospace;';
+          head.appendChild(cwdChip);
+        }
+      }
       // 后台启动类步骤：执行期间无增量输出，显示预估提示（避免用户误以为卡住）
       if (ev.notice) this._planLiveEl.textContent = `⏳ ${ev.notice}`;
       return;
@@ -356,24 +369,34 @@ export const planStreamMixin = {
     const goal = (step.goal || step.id || '').slice(0, 200);
     const action = typeof step.action === 'string' ? step.action.slice(0, 300) : '';
     const risk = step.risk ? ('风险：' + step.risk) : '';
+    const isMandatory = !!step.mandatoryApproval;
+    const notice = step.approvalNotice ? step.approvalNotice : '';
+
+    // Plan B：强制审批（宿主敏感写入）不允许「本次会话始终允许」，必须人工点选
+    const alwaysBtn = isMandatory
+      ? ''
+      : '<button class="plan-ag-always btn btn-sm" type="button">⚡ 本次会话始终允许</button>';
 
     const div = document.createElement('div');
-    div.className = 'chat-message plan-message plan-approval';
+    div.className = 'chat-message plan-message plan-approval' + (isMandatory ? ' plan-approval-mandatory' : '');
     div.innerHTML =
-      '<div class="msg-avatar plan-avatar" style="background:#f59e0b">🔒</div>' +
-      '<div class="msg-content"><div class="msg-sender plan-sender">审批闸 · 需人工确认</div>' +
+      '<div class="msg-avatar plan-avatar" style="background:' + (isMandatory ? '#dc2626' : '#f59e0b') + '">🔒</div>' +
+      '<div class="msg-content"><div class="msg-sender plan-sender">' +
+      (isMandatory ? '审批闸 · 强制人工确认（不可跳过）' : '审批闸 · 需人工确认') + '</div>' +
       '<div class="msg-bubble plan-bubble plan-approval-bubble">' +
       '<div class="plan-approval-goal">' + this._escapeHtml(goal) + '</div>' +
       (action ? '<code class="plan-approval-action">' + this._escapeHtml(action) + '</code>' : '') +
+      (notice ? '<div class="plan-approval-notice">' + this._escapeHtml(notice) + '</div>' : '') +
       (risk ? '<div class="plan-approval-risk">' + this._escapeHtml(risk) + '</div>' : '') +
       '<div class="plan-approval-btns">' +
       '<button class="plan-ag-approve btn btn-primary btn-sm" type="button">✅ 通过</button>' +
-      '<button class="plan-ag-always btn btn-sm" type="button">⚡ 本次会话始终允许</button>' +
+      alwaysBtn +
       '<button class="plan-ag-reject btn btn-sm" type="button">⛔ 驳回并中止</button></div>' +
       '<div class="plan-approval-status"></div></div></div>';
     const bubble = div.querySelector('.plan-approval-bubble');
     div.querySelector('.plan-ag-approve').addEventListener('click', () => this._resolveApproval(execId, 'approve', bubble));
-    div.querySelector('.plan-ag-always').addEventListener('click', () => { this._sessionAutoApprove = true; this._resolveApproval(execId, 'approve', bubble); });
+    const alwaysEl = div.querySelector('.plan-ag-always');
+    if (alwaysEl) alwaysEl.addEventListener('click', () => { this._sessionAutoApprove = true; this._resolveApproval(execId, 'approve', bubble); });
     div.querySelector('.plan-ag-reject').addEventListener('click', () => this._resolveApproval(execId, 'reject', bubble));
     this.msgsEl.appendChild(div);
     this._planApprovalEl = div;
