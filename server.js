@@ -157,7 +157,12 @@ app.get('/xterm/css/xterm.css', (req, res) => {
 // index.html itself stays no-cache so the current hashes are always delivered.
 const PUBLIC_DIR = path.join(__dirname, 'public');
 const { injectAssetHashes } = require('./lib/asset-hash');
-const HASHED_BUNDLES = ['bundle.js', 'lazy-bundle.js'];
+// 注：lazy-chunks/lazy-bundle.js 的 basename 恰为 'lazy-bundle.js'，若列表写
+// basename 会被 basename 匹配命中 → immutable 1 年缓存；但 injectAssetHashes 的
+// 正则只匹配 src="/lazy-bundle.js"（匹配不到 /lazy-chunks/ 路径）→ URL 不带 ?v=hash
+// → 浏览器永用旧 lazy-bundle（皮肤修复等全部失效）。故列表必须用完整相对路径，
+// 使 setHeaders 的 basename 匹配落空 → lazy-chunks/* 走 .js no-cache 分支。
+const HASHED_BUNDLES = ['bundle.js', 'lazy-chunks/lazy-bundle.js'];
 app.get(['/', '/index.html'], (req, res, next) => {
   fs.readFile(path.join(PUBLIC_DIR, 'index.html'), 'utf8', (err, html) => {
     if (err) return next(); // fall through to express.static (e.g. missing file)
