@@ -188,12 +188,15 @@ function isSystemPath(t) {
 /** 抽出文本里疑似文件路径的 token（含 '/'，用于 scope 校验）；排除 shell 重定向、相对路径与 HTTP URL 路径 */
 function _pathTokens(text) {
   if (!text) return [];
-  const tokens = String(text).split(/[\s"'`|;]+/);
+  // P2.8 修复：剥离 heredoc 块（<< 'EOF' ... EOF）——内容是被写入文件的数据/代码，
+  // 其中的字符串字面量（如 app.get('/protected')）不是文件系统路径，不应参与 scope 校验
+  const heredocStripped = String(text).replace(/<<\s*['"]?([A-Za-z_][\w-]*)['"]?[\s\S]*?^([ \t]*)\1[ \t]*$/gm, ' ');
+  const tokens = heredocStripped.split(/[\s"'`|;]+/);
   const REDIR_RE = /^(?:[0-9&]?>+|<?&|>\||<)$/;
   // 合并型重定向：N>/path、>>/path、>/path 等（split 未在 > 处切开）
   const COMBINED_REDIR = new RegExp('^[0-9&]?>+[\\/]|^>>?[\\/]|^<[\\/]');
   // HTTP URL 路由前缀：/api/*、/static/*、/v1/*、/ws/* 等是 Web 端点路径，不是文件系统路径
-  const WEB_ROUTE_RE = /^\/(api|static|assets|public|ws|socket\.io|v\d+|health|status|metrics|ready|live|js|css|img|fonts|media|_next|_nuxt|graphql|rest|rpc|admin|dashboard|auth|login|logout|register|signup|user|users|settings|config|version|docs|help|faq|search|upload|download|export|import|webhook|callback|oauth|token|pay|payment|order|cart|checkout|notification|mail|log|logs|debug|test|tests|dev|staging|prod)(\/|$)/i;
+  const WEB_ROUTE_RE = /^\/(api|static|assets|public|ws|socket\.io|v\d+|health|status|metrics|ready|live|js|css|img|fonts|media|_next|_nuxt|graphql|rest|rpc|admin|dashboard|auth|login|logout|register|signup|user|users|settings|config|version|docs|help|faq|search|upload|download|export|import|webhook|callback|oauth|token|pay|payment|order|cart|checkout|notification|mail|log|logs|debug|test|tests|dev|staging|prod|protected|refresh|verify|me|profile|sessions)(\/|$)/i;
   const result = [];
   let prevWasRedir = false;
   for (const t of tokens) {
