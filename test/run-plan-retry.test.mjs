@@ -133,8 +133,10 @@ test('无进展早停：连续修订结构相同 → 终止并 rejected（防烧
     revisePlanFn: async () => { reviseCalls += 1; return JSON.parse(JSON.stringify(samePlan)); },
   });
   assert.equal(res.status, 'rejected');
-  assert.ok(/无进展/.test(res.reason || ''));
-  assert.equal(reviseCalls, 2);                          // 仅 2 次修订后即早停
+  // P0：无进展早停现由 ReplanController 的 STALL（原地重复）确定性判定承担，语义等价
+  // 且更早停：第 2 轮 decide 即判 STALL，不再发起第 2 次修订（reviseCalls=1）
+  assert.ok(/原地重复|无进展/.test(res.reason || ''));
+  assert.equal(reviseCalls, 1);
   assert.equal(res.attempts.length, 2);
   fs.rmSync(dir, { recursive: true, force: true });
 });

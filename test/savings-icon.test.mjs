@@ -14,7 +14,7 @@ test('no savings -> 0%, dim ring, placeholder title, inactive', () => {
   assert.strictEqual(v.pct, 0);
   assert.strictEqual(v.fillOpacity, '0.25');
   assert.strictEqual(v.active, false);
-  assert.strictEqual(v.title, '本会话暂无节省记录');
+  assert.strictEqual(v.title, '本会话暂无缓存命中记录');
   assert.strictEqual(v.strokeDasharray, RING_CIRCUMFERENCE.toFixed(2));
   // pct 0 => offset == full circumference
   assert.strictEqual(v.strokeDashoffset, RING_CIRCUMFERENCE.toFixed(2));
