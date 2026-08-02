@@ -36,6 +36,8 @@ const { ReplanController } = require('../../lib/replan-controller');
 // P2：Verifier 盲审 + 探索型双轨收敛（纯函数，见 lib/verifier.js / lib/exploration-verdict.js）
 const { verifyItem, deltaList } = require('../../lib/verifier');
 const { explorationVerdict } = require('../../lib/exploration-verdict');
+// C9：命令失败模式看门狗（防死循环物理防线，跨任务共享单例）
+const { sharedWatchdog } = require('../../lib/command-watchdog');
 const { snapshotStep, rollbackTo, isRepo } = require('../../lib/plan-git');
 const { revisePlan: defaultRevisePlan } = require('./plan-from-nl');
 
@@ -1610,6 +1612,18 @@ async function runOneAttempt(plan, ctx) {
     if (exec.status === 'aborted' || (typeof opts.shouldAbort === 'function' && opts.shouldAbort())) {
       ev.status = 'aborted';
       ev.reason = '用户取消（断开连接）';
+    }
+
+    // C9：命令失败模式看门狗——同一命令 10 分钟内失败 ≥3 次 → 升级人工介入（防死循环）
+    if (['failed', 'error', 'timeout', 'blocked'].includes(ev.status) && step.action) {
+      const wd = sharedWatchdog.record(step.action, false);
+      if (wd.escalate) {
+        ev.status = 'blocked';
+        ev.reason = `看门狗：命令「${String(step.action).slice(0, 60)}」${Math.round(wd.windowMs / 60000)} 分钟内失败 ${wd.failCount} 次，自动升级人工介入（疑似死循环）`;
+        ev.watchdogEscalated = true;
+      }
+    } else if (ev.status === 'done' && step.action) {
+      sharedWatchdog.record(step.action, true); // 成功清零（恢复正常信号）
     }
 
     // P4-5（P0-2）：步骤完成后写断点状态（供 resume 跳过已完成步骤）
