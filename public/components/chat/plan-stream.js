@@ -9,35 +9,17 @@
 // 原型 mixin：planStreamMixin，含 _handlePlanEvent。
 // 在 chat-panel.js 经 Object.assign(ChatPanel.prototype, planStreamMixin) 挂回。
 //
-// 与 _handleDiscussEvent 同构：后端 SSE 帧 → 一个常驻「执行卡片」气泡，
-// 计划清单在 generated 时铺开，每个 plan_step 事件就地更新对应行的状态与输出。
+// P1 改造（2026-08-02）：步骤不再挤在一张常驻卡片里就地更新，而是
+// **每步一条独立气泡** append 到消息流（见 ./plan-step-bubble.js），
+// 与讨论/审批气泡共用同一条时间线；本文件的卡片降级为「总览条」：
+// 目标 + i/N 进度 + 折叠的完整计划清单 + 备注。
 //
 // 安全：所有步骤输出一律 textContent 写入 <pre>，不走 markdown 渲染
 //       （命令输出可能含任意字符，不应被解释为 HTML）。
 // ============================================================
 'use strict';
 
-/** 步骤状态 → { icon, label, cls } */
-const STEP_STATE = {
-  pending: { icon: '○', label: '待执行', cls: 'pending' },
-  start: { icon: '⏳', label: '执行中', cls: 'running' },
-  done: { icon: '✅', label: '完成', cls: 'done' },
-  completed: { icon: '✅', label: '完成', cls: 'done' },
-  error: { icon: '❌', label: '失败', cls: 'error' },
-  failed: { icon: '❌', label: '失败', cls: 'error' },
-  blocked: { icon: '⛔', label: '已拦截', cls: 'blocked' },
-  rejected: { icon: '🚫', label: '驳回', cls: 'blocked' },
-  aborted: { icon: '⏹', label: '已中止', cls: 'blocked' },
-  budget: { icon: '⚠️', label: '超预算', cls: 'warn' },
-  loop: { icon: '⚠️', label: '熔断', cls: 'warn' },
-  timeout: { icon: '⚠️', label: '超时', cls: 'warn' },
-  skipped: { icon: '⤼', label: '跳过', cls: 'pending' },
-  'await-approval': { icon: '🔒', label: '待审批', cls: 'warn' },
-};
-
-function stateOf(status) {
-  return STEP_STATE[status] || { icon: '•', label: String(status || ''), cls: 'pending' };
-}
+import { stateOf, isTerminalStatus } from './plan-step-bubble.js';
 
 export const planStreamMixin = {
   /**
@@ -52,6 +34,10 @@ export const planStreamMixin = {
       this.removeThinking();
       this._planCard = this._createPlanCard(evt.objective || '');
       this._planStepRows = new Map();
+      this._planStepBubbles = new Map();
+      this._planStepSeq = 0;
+      this._planTotalSteps = 0;
+      this._planDoneCount = 0;
       this._planText = '';
       this.scrollToBottom();
       return;
@@ -123,7 +109,7 @@ export const planStreamMixin = {
     } else if (t === 'step') {
       this._updatePlanStep(evt);
     } else if (t === 'step_chunk') {
-      // P3：命令型步骤的 stdout/stderr 增量帧，逐块追加到对应步骤输出区（真流式）
+      // P3：命令型步骤的 stdout/stderr 增量帧，逐块追加到对应步骤气泡（真流式）
       this._appendPlanChunk(evt);
     } else if (t === 'chat_token') {
       this._appendPlanLive(evt.content || '');
@@ -135,11 +121,11 @@ export const planStreamMixin = {
     this.scrollToBottomIfNear();
   },
 
-  // ── DOM 构造 ──
+  // ── 总览条（原「执行卡片」瘦身版）──
 
   _createPlanCard(objective) {
     const div = document.createElement('div');
-    div.className = 'chat-message plan-message';
+    div.className = 'chat-message plan-message plan-overview';
 
     const avatar = document.createElement('div');
     avatar.className = 'msg-avatar plan-avatar';
@@ -159,7 +145,7 @@ export const planStreamMixin = {
     content.appendChild(sender);
 
     const bubble = document.createElement('div');
-    bubble.className = 'msg-bubble plan-bubble';
+    bubble.className = 'msg-bubble plan-bubble plan-overview-bubble';
 
     if (objective) {
       const obj = document.createElement('div');
@@ -168,9 +154,31 @@ export const planStreamMixin = {
       bubble.appendChild(obj);
     }
 
+    // 进度条：步骤气泡散落在时间线里，这里给一个常驻的「跑到第几步」锚点
+    const progress = document.createElement('div');
+    progress.className = 'plan-progress';
+    const count = document.createElement('span');
+    count.className = 'plan-progress-count';
+    count.textContent = '0/0';
+    const track = document.createElement('div');
+    track.className = 'plan-progress-track';
+    const fill = document.createElement('i');
+    fill.className = 'plan-progress-fill';
+    track.appendChild(fill);
+    progress.appendChild(count);
+    progress.appendChild(track);
+    bubble.appendChild(progress);
+
+    // 完整计划清单：默认折叠，只作全貌参考；步骤实体在各自气泡里
+    const details = document.createElement('details');
+    details.className = 'plan-list-details';
+    const sum = document.createElement('summary');
+    sum.textContent = '查看完整计划';
+    details.appendChild(sum);
     const list = document.createElement('ol');
     list.className = 'plan-steps';
-    bubble.appendChild(list);
+    details.appendChild(list);
+    bubble.appendChild(details);
 
     const notes = document.createElement('div');
     notes.className = 'plan-notes';
@@ -180,11 +188,22 @@ export const planStreamMixin = {
     div.appendChild(content);
     this.msgsEl.appendChild(div);
 
-    return { root: div, statusEl, bubble, list, notes };
+    return { root: div, statusEl, bubble, list, notes, countEl: count, fillEl: fill, sumEl: sum };
   },
 
   _setPlanStatus(text) {
     if (this._planCard && this._planCard.statusEl) this._planCard.statusEl.textContent = text;
+  },
+
+  /** 刷新总览条的 i/N 与进度条宽度。 */
+  _setPlanProgress() {
+    const card = this._planCard;
+    if (!card) return;
+    const total = this._planTotalSteps || 0;
+    const done = this._planDoneCount || 0;
+    card.countEl.textContent = `${done}/${total || '?'}`;
+    const pct = total > 0 ? Math.min(100, Math.round((done / total) * 100)) : 0;
+    card.fillEl.style.width = `${pct}%`;
   },
 
   _renderPlanSteps(evt) {
@@ -193,6 +212,10 @@ export const planStreamMixin = {
     card.list.innerHTML = '';
     this._planStepRows = new Map();
     const steps = Array.isArray(evt.steps) ? evt.steps : [];
+    this._planTotalSteps = steps.length;
+    this._planDoneCount = 0;
+    card.sumEl.textContent = `查看完整计划（${steps.length} 步）`;
+    this._setPlanProgress();
     this._setPlanStatus(`已拆解 ${steps.length} 步，开始执行…`);
     for (const s of steps) {
       const li = document.createElement('li');
@@ -218,24 +241,16 @@ export const planStreamMixin = {
       head.appendChild(badge);
 
       li.appendChild(head);
-
-      if (s.action) {
-        const act = document.createElement('code');
-        act.className = 'plan-step-action';
-        act.textContent = s.action;
-        li.appendChild(act);
-      }
-
       card.list.appendChild(li);
       this._planStepRows.set(s.id || `#${s.index}`, { li, icon, badge });
       if (typeof s.index === 'number') this._planStepRows.set(`#${s.index}`, { li, icon, badge });
     }
   },
 
-  _updatePlanStep(ev) {
+  /** 同步总览清单里对应那一行（清单是全貌参考，气泡才是实体）。 */
+  _syncPlanRow(key, st, ev) {
     const card = this._planCard;
-    if (!card) return;
-    const key = ev.id || (typeof ev.index === 'number' ? `#${ev.index}` : '');
+    if (!card || !this._planStepRows) return;
     let row = this._planStepRows.get(key);
     // Plan 被 autoReplan 改写过 → 清单里没有这一行，补一条，绝不丢事件
     if (!row) {
@@ -255,7 +270,18 @@ export const planStreamMixin = {
       card.list.appendChild(li);
       row = { li, icon, badge };
       if (key) this._planStepRows.set(key, row);
+      // 计划外新增步骤 → 总数跟着涨，否则进度条会超过 100%
+      this._planTotalSteps = (this._planTotalSteps || 0) + 1;
     }
+    row.li.className = `plan-step ${st.cls}`;
+    row.icon.textContent = st.icon;
+    row.badge.textContent = st.label;
+  },
+
+  _updatePlanStep(ev) {
+    if (!this._planCard) return;
+    const key = this._planStepKey(ev);
+    const st = stateOf(ev.status);
 
     // 闸门驳回是 LLM 生成 plan 最常见的失败模式：必须把「缺什么」说清楚，
     // 否则用户只看到一个「驳回」不知所措。
@@ -263,92 +289,32 @@ export const planStreamMixin = {
       this._planNote(`🚫 计划未通过可验证性闸门，缺少可机器验证的：${ev.missing.join('、')}`, 'warn');
     }
 
-    const st = stateOf(ev.status);
-    row.li.className = `plan-step ${st.cls}`;
-    row.icon.textContent = st.icon;
-    row.badge.textContent = ev.reason ? `${st.label} · ${ev.reason}` : st.label;
+    this._syncPlanRow(key, st, ev);
     this._setPlanStatus(`${st.label}：${ev.goal || key}`);
-    this._planActiveRow = row;
 
     if (ev.status === 'start') {
-      // 为轨道 B（AI 管线）的实时 token 预留输出区
-      this._planLiveEl = this._ensureStepOutput(row.li);
-      this._planLiveEl.textContent = '';
-      // Plan C：显示当前工作目录（cwd 延续后可能非项目根），让用户看清命令实际落点
-      if (ev.cwd) {
-        const head = row.li.querySelector('.plan-step-head');
-        if (head && !head.querySelector('.plan-step-cwd')) {
-          const cwdChip = document.createElement('span');
-          cwdChip.className = 'plan-step-cwd';
-          cwdChip.textContent = `📂 ${ev.cwd}`;
-          head.appendChild(cwdChip);
-        }
-      }
-      // 后台启动类步骤：执行期间无增量输出，显示预估提示（避免用户误以为卡住）
-      if (ev.notice) this._planLiveEl.textContent = `⏳ ${ev.notice}`;
+      this._planStartStepBubble(ev);
+      this.scrollToBottomIfNear();
       return;
     }
 
-    if (typeof ev.output === 'string' && ev.output.trim()) {
-      const pre = this._ensureStepOutput(row.li);
-      pre.textContent = ev.output;
-      if (ev.outputTruncated) {
-      const det = pre.closest('details');
-      const sum = det && det.querySelector('summary');
-      if (sum) sum.textContent = `输出（已截断，原长 ${ev.outputFullLength} 字符）`;
-      }
+    const h = this._planEnsureStepBubble(ev);
+    this._planFinishStepBubble(h, ev);
+    if (isTerminalStatus(ev.status)) {
+      this._planDoneCount = (this._planDoneCount || 0) + 1;
+      this._setPlanProgress();
     }
-    if (typeof ev.stack === 'string' && ev.stack.trim()) {
-      const li = row.li;
-      let stackDet = li.querySelector('details.plan-step-stack');
-      if (!stackDet) {
-        stackDet = document.createElement('details');
-        stackDet.className = 'plan-step-output plan-step-stack';
-        const sum = document.createElement('summary');
-        sum.textContent = '📋 查看堆栈';
-        stackDet.appendChild(sum);
-        const pre = document.createElement('pre');
-        pre.textContent = ev.stack.slice(0, 2000);
-        stackDet.appendChild(pre);
-        li.appendChild(stackDet);
-      }
-    }
-    this._planLiveEl = null;
   },
 
-  _ensureStepOutput(li) {
-    let det = li.querySelector('details.plan-step-output');
-    if (!det) {
-      det = document.createElement('details');
-      det.className = 'plan-step-output';
-      const sum = document.createElement('summary');
-      sum.textContent = '输出';
-      det.appendChild(sum);
-      const pre = document.createElement('pre');
-      det.appendChild(pre);
-      li.appendChild(det);
-    }
-    return det.querySelector('pre');
-  },
-
+  /** 轨道 B（AI 管线）的实时 token → 当前活跃步骤气泡。 */
   _appendPlanLive(text) {
-    if (!this._planLiveEl || !text) return;
-    this._planLiveEl.textContent += text;
-    const det = this._planLiveEl.closest('details');
-    if (det && !det.open) det.open = true;
+    this._planAppendStepChunk({}, text);
   },
 
-  /** P3：命令型步骤的 stdout/stderr 增量帧，逐块追加到对应步骤输出 <pre>。 */
+  /** P3：命令型步骤的 stdout/stderr 增量帧 → 对应步骤气泡。 */
   _appendPlanChunk(evt) {
-    const card = this._planCard;
-    if (!card || !evt || typeof evt.chunk !== 'string' || !evt.chunk) return;
-    const key = evt.stepId || (typeof evt.index === 'number' ? `#${evt.index}` : '');
-    const row = (key && this._planStepRows && this._planStepRows.get(key)) || this._planActiveRow || null;
-    if (!row) return;
-    const pre = this._ensureStepOutput(row.li);
-    pre.textContent += evt.chunk;
-    const det = pre.closest('details');
-    if (det && !det.open) det.open = true;
+    if (!evt || typeof evt.chunk !== 'string' || !evt.chunk) return;
+    this._planAppendStepChunk(evt, evt.chunk);
     this.scrollToBottomIfNear();
   },
 
@@ -479,9 +445,9 @@ export const planStreamMixin = {
 
     this._planCard = null;
     this._planStepRows = null;
-    this._planLiveEl = null;
-    this._planActiveRow = null;
+    this._planDoneCount = 0;
     this._planApprovalEl = null;
     this._sessionAutoApprove = false;
+    this._planResetStepBubbles();
   },
 };

@@ -33,6 +33,7 @@ import { mermaidPreviewMixin } from './chat/mermaid-preview.js';
 import { discussControlsMixin } from './chat/discuss-controls.js';
 import { planControlsMixin } from './chat/plan-controls.js';
 import { planStreamMixin } from './chat/plan-stream.js';
+import { planStepBubbleMixin } from './chat/plan-step-bubble.js';
 import { attachmentsMixin } from './chat/attachments.js';
 import { historySessionMixin } from './chat/history-session.js';
 import { sidePanelsMixin } from './chat/side-panels.js';
@@ -113,9 +114,13 @@ class ChatPanel extends HTMLElement {
     this._planEnabled = false;        // 开关是否打开
     this._planAgentId = 'ai';         // 执行方：'ai' 或外部 CLI agent id
     this._planTurnActive = false;     // 本轮是否为自动执行回合（onDone 分流用）
-    this._planCard = null;            // 当前执行卡片 DOM 句柄
-    this._planStepRows = null;        // stepId -> 行 DOM
-    this._planLiveEl = null;          // 当前步骤实时输出 <pre>
+    this._planCard = null;            // 当前执行总览条 DOM 句柄
+    this._planStepRows = null;        // stepId -> 总览清单行 DOM
+    this._planStepBubbles = null;     // stepId -> 步骤气泡句柄（P1：并入对话时间线）
+    this._planActiveBubble = null;    // 当前活跃步骤气泡（增量输出归属）
+    this._planStepSeq = 0;            // 步骤序号计数（无 index 时兜底）
+    this._planTotalSteps = 0;         // 计划总步数（进度分母）
+    this._planDoneCount = 0;          // 已到终态步数（进度分子）
 
     // ── 多模态附件（对话框发送给 AI 的图片/视频/文本文件）──
     this.pendingAttachments = [];     // 待发送附件（短 URL + 元数据，不含 base64）
@@ -1494,7 +1499,7 @@ class ChatPanel extends HTMLElement {
 }
 
 // ── 原型 mixin 装配（从 chat/ 子模块挂回 ChatPanel.prototype）──
-Object.assign(ChatPanel.prototype, mermaidPreviewMixin, discussControlsMixin, planControlsMixin, planStreamMixin, attachmentsMixin, historySessionMixin, sidePanelsMixin, metricsSavingsMixin, messageDomMixin, terminalContextMixin);
+Object.assign(ChatPanel.prototype, mermaidPreviewMixin, discussControlsMixin, planControlsMixin, planStreamMixin, planStepBubbleMixin, attachmentsMixin, historySessionMixin, sidePanelsMixin, metricsSavingsMixin, messageDomMixin, terminalContextMixin);
 
 customElements.define('chat-panel', ChatPanel);
 

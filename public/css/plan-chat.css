@@ -83,6 +83,100 @@
   word-break: break-word;
 }
 
+/* ============================================================
+   P1 总览条：目标 + i/N 进度 + 折叠的完整计划
+   步骤实体已气泡化（见 .plan-step-message），这里只留全貌与锚点
+   ============================================================ */
+.plan-progress {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: var(--space-2) 0;
+}
+
+.plan-progress-count {
+  flex: 0 0 auto;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-secondary);
+}
+
+.plan-progress-track {
+  flex: 1 1 auto;
+  height: 4px;
+  border-radius: 999px;
+  background: var(--bg-ground);
+  overflow: hidden;
+}
+
+.plan-progress-fill {
+  display: block;
+  width: 0;
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--accent), var(--accent-sub));
+  transition: width 0.3s var(--ease-out);
+}
+
+.plan-message.plan-ok .plan-progress-fill { background: var(--success); }
+.plan-message.plan-fail .plan-progress-fill { background: var(--danger); }
+
+.plan-list-details > summary {
+  cursor: pointer;
+  font-size: 11px;
+  color: var(--text-tertiary);
+  user-select: none;
+}
+
+.plan-list-details > summary:hover { color: var(--text-secondary); }
+.plan-list-details[open] > summary { margin-bottom: var(--space-2); }
+
+/* ============================================================
+   P1 步骤气泡：每步一条独立气泡，按发生顺序落在对话时间线上
+   ============================================================ */
+.plan-step-message .plan-step-avatar {
+  background: var(--bg-hover);
+  border-color: var(--border-default);
+}
+
+.plan-step-state {
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+.plan-step-bubble { padding: var(--space-2) var(--space-3); }
+
+/* 状态 → 左侧色条（复合选择器，稳压 chat-bubble.css 的默认橙色） */
+.plan-step-message.running .plan-step-bubble { border-left-color: var(--accent); }
+.plan-step-message.done .plan-step-bubble { border-left-color: var(--success); }
+.plan-step-message.error .plan-step-bubble { border-left-color: var(--danger); }
+.plan-step-message.blocked .plan-step-bubble,
+.plan-step-message.warn .plan-step-bubble { border-left-color: var(--warning); }
+.plan-step-message.pending .plan-step-bubble { border-left-color: var(--border-strong); }
+
+.plan-step-message.running .plan-step-avatar {
+  background: var(--accent);
+  border-color: var(--accent);
+  animation: plan-step-pulse 1.4s ease-in-out infinite;
+}
+
+.plan-step-message.running .plan-step-state { color: var(--accent-hover); }
+.plan-step-message.done .plan-step-state { color: var(--success); }
+.plan-step-message.error .plan-step-state { color: var(--danger); }
+
+@keyframes plan-step-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.55; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .plan-step-message.running .plan-step-avatar { animation: none; }
+}
+
+/* 气泡内的步骤行不再需要卡片边框（外层气泡已经是容器） */
+.plan-step-bubble .plan-step-head { margin: 0; }
+
 /* ── 步骤清单 ── */
 .plan-steps {
   list-style: none;
