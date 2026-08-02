@@ -691,6 +691,20 @@ async function execStepDirectly(step, cwd, opts = {}) {
     let tmpFile = null;
     let out;
 
+    // ── MSYS 风格路径 → Windows 绝对路径（Node fs 不认 /tmp、/c/ 前缀）──
+    // 例：/tmp/foo → %TEMP%/foo（MSYS /tmp = Windows TEMP，已验证与服务 TMP 一致）；
+    //     /c/foo → C:\foo；其他 /xxx 保持原样（相对路径由 path.resolve 处理）。
+    const msysToWinPath = (p) => {
+      const s = String(p || '').trim();
+      if (!s) return s;
+      if (s === '/tmp' || s.startsWith('/tmp/')) {
+        return path.join(os.tmpdir(), s.slice(4).replace(/^[/\\]+/, ''));
+      }
+      const m = s.match(/^\/([a-zA-Z])\/(.*)$/);
+      if (m) return path.join(`${m[1].toUpperCase()}:\\`, m[2].replace(/\//g, '\\'));
+      return s;
+    };
+
     // ── heredoc 文件写入：Node.js 原生 fs（绕过 cat 依赖，同旧逻辑）──
     const heredocWriteMatch = action.match(
       /^cat\s+>\s*['"]?([^'"\s]+)['"]?\s*<<\s*['"]?(\w+)['"]?\s*([\s\S]*?)\s*\2\s*$/
@@ -699,7 +713,7 @@ async function execStepDirectly(step, cwd, opts = {}) {
       const heredocTarget = heredocWriteMatch[1].trim();
       const heredocContent = heredocWriteMatch[3];
       if (heredocTarget && !heredocTarget.startsWith('/dev/') && heredocTarget !== 'NUL') {
-        const targetFullPath = path.resolve(effectiveCwd, heredocTarget);
+        const targetFullPath = path.resolve(effectiveCwd, msysToWinPath(heredocTarget));
         const targetDir = path.dirname(targetFullPath);
         console.log('[execStepDirectly] heredoc 文件写入（Node.js 原生）:', heredocTarget);
         try {
@@ -721,7 +735,7 @@ async function execStepDirectly(step, cwd, opts = {}) {
       let targetPath = fileWriteMatch[1].trim();
       targetPath = targetPath.split(/\s/)[0];
       if (targetPath && !targetPath.startsWith('/dev/') && targetPath !== 'NUL') {
-        const targetFullPath = path.resolve(effectiveCwd, targetPath);
+        const targetFullPath = path.resolve(effectiveCwd, msysToWinPath(targetPath));
         const targetDir = path.dirname(targetFullPath);
         if (!fs.existsSync(targetDir)) {
           console.log('[execStepDirectly] 自动创建父目录:', targetDir, '(目标文件:', targetPath, ')');
