@@ -134,6 +134,8 @@ export const messageDomMixin = {
     bubble.className = 'msg-bubble ' + (msg.role === 'user' ? 'user-bubble' : 'ai-bubble');
     if (msg.role === 'assistant') {
       bubble.innerHTML = renderMarkdown(msg.content);
+      // 清理历史消息里可能残留的多余空行/空段落
+      if (typeof this._trimEmptyNodes === 'function') this._trimEmptyNodes(bubble);
       // 渲染 Mermaid 流程图
       requestAnimationFrame(() => {
         if (window.QCLI?.MermaidRenderer) {

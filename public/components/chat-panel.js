@@ -949,7 +949,10 @@ class ChatPanel extends HTMLElement {
               this._lastTerminalLines = this._pendingTerminalLines;
               this._pendingTerminalLines = null;
             }
-            let displayContent = fullResponse;
+            // ── 压缩过多空行：模型常输出大段前导/尾随空白或连续空行，
+            // 完成后统一清理为「最多保留一行空行」，避免气泡被撑出大片空白。
+            const cleanContent = this._collapseBlankLines(fullResponse);
+            let displayContent = cleanContent;
             // 不再在消息末尾追加 "— Tokens: ..." 行。
             // 会话级 token/缓存/上下文信息已由顶部「提示环」（context-usage /
             // savings-icon）统一展示，每条消息末尾的用量行显得冗余且干扰阅读。
@@ -980,7 +983,7 @@ class ChatPanel extends HTMLElement {
             if (indicator) {
               const bubbleEl = indicator.querySelector('.msg-bubble');
               if (bubbleEl) {
-                this._finalizeThinkingBubble(bubbleEl);
+                this._finalizeThinkingBubble(bubbleEl, cleanContent);
                 indicator.id = ''; // 取消 thinking 标识，避免后续 removeThinking 误删
                 upgraded = true;
               }
@@ -1617,8 +1620,10 @@ class ChatPanel extends HTMLElement {
    * 仅保留实际内容（流式文本段、内联工具块、推理折叠块），删除
    * .thinking-body/.thinking-footer/.thinking-header 等不再需要的结构，
    * 避免工具调用结束后遗留大片空白。
+   * @param {HTMLElement} bubbleEl
+   * @param {string} [cleanContent] 已压缩空行的最终正文（不含工具摘要后缀）
    */
-  _finalizeThinkingBubble(bubbleEl) {
+  _finalizeThinkingBubble(bubbleEl, cleanContent) {
     if (!bubbleEl) return;
 
     // 停止动画点，避免完成态继续闪烁
@@ -1678,6 +1683,28 @@ class ChatPanel extends HTMLElement {
     // 切换 class：思考中 → 完成态
     bubbleEl.classList.remove('thinking');
     bubbleEl.classList.add('ai-bubble');
+
+    // ── 完成态：用压缩后的正文重新渲染，彻底消除多余空行 ──
+    // 流式过程中逐段渲染会累积空 <br>/空段落；这里一次性重绘为干净内容。
+    const compactText = typeof cleanContent === 'string' ? cleanContent : '';
+    if (compactText !== '') {
+      bubbleEl.querySelectorAll('.stream-text').forEach(s => s.remove());
+      const seg = document.createElement('div');
+      seg.className = 'stream-text';
+      seg.innerHTML = renderMarkdown(compactText);
+      this._trimEmptyNodes(seg);
+      const meta = bubbleEl.querySelector('.meta-tools');
+      if (meta) {
+        meta.after(seg);
+      } else if (reasoning) {
+        bubbleEl.insertBefore(seg, reasoning);
+      } else {
+        bubbleEl.appendChild(seg);
+      }
+      requestAnimationFrame(() => {
+        if (window.QCLI?.MermaidRenderer) window.QCLI.MermaidRenderer.renderAll();
+      });
+    }
   }
 
   /** 清理小贴士轮播定时器 */
@@ -1695,6 +1722,63 @@ class ChatPanel extends HTMLElement {
     // 清理 Agent 实时会话状态（已重构为由 AgentSessionRenderer 托管）
     if (this._agentRenderer && typeof this._agentRenderer.clear === 'function') {
       this._agentRenderer.clear();
+    }
+  }
+
+  /**
+   * 压缩文本中的多余空行：删除前导/尾随空白，
+   * 把 3 个及以上的连续换行压成 2 个（即最多保留一行空行）。
+   * @param {string} text
+   * @returns {string}
+   */
+  _collapseBlankLines(text) {
+    if (!text) return '';
+    return text
+      .replace(/\r\n/g, '\n')
+      .replace(/^[ \t]*\n+/, '')
+      .replace(/\n[ \t]*\n[ \t]*\n+/g, '\n\n')
+      .replace(/[ \t]+\n/g, '\n')
+      .replace(/\s+$/, '');
+  }
+
+  /**
+   * 清理渲染后 DOM 中的多余空元素：删除首尾的空白/空行，
+   * 并把中间连续的空元素压成最多一个，避免气泡被撑大。
+   * @param {HTMLElement} root
+   */
+  _trimEmptyNodes(root) {
+    if (!root) return;
+    const isEmpty = (/** @type {Node} */ node) => {
+      if (node.nodeType === Node.TEXT_NODE) return (node.textContent || '').trim() === '';
+      if (node.nodeType !== Node.ELEMENT_NODE) return false;
+      const el = /** @type {HTMLElement} */ (node);
+      const tag = el.tagName;
+      if (tag === 'BR') return true;
+      // 保留功能块与代码块，避免误删
+      const keep = ['inline-tool', 'meta-tools', 'thinking-reasoning', 'md-code-block', 'mermaid'];
+      if (keep.some(c => el.classList.contains(c))) return false;
+      return (el.textContent || '').trim() === '';
+    };
+
+    const children = Array.from(root.childNodes);
+    // 删除首部空元素
+    while (children.length && isEmpty(children[0])) {
+      children.shift().remove();
+    }
+    // 删除尾部空元素
+    while (children.length && isEmpty(children[children.length - 1])) {
+      children.pop().remove();
+    }
+    // 中间连续空元素只保留一个
+    let run = 0;
+    for (let i = root.childNodes.length - 1; i >= 0; i--) {
+      const node = root.childNodes[i];
+      if (isEmpty(node)) {
+        run++;
+        if (run > 1) node.remove();
+      } else {
+        run = 0;
+      }
     }
   }
 
