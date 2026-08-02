@@ -573,9 +573,6 @@ body.drawer-resizing {
   background: var(--bg-overlay);
   border: 1px solid var(--border-subtle);
   border-top-left-radius: 4px;
-  display: flex;
-  flex-direction: column;   /* 垂直布局：标题→工具列表→状态行 */
-  gap: 6px 8px;
   padding: 10px 14px;
   min-width: 80px;
 }
@@ -587,9 +584,6 @@ body.drawer-resizing {
   border: 1px solid var(--border-subtle);
   border-top-left-radius: 4px;
   padding: 10px 14px;
-  display: flex;
-  flex-direction: column;
-  gap: 6px 8px;
 }
 
 /* Animated dots */
@@ -647,10 +641,10 @@ body.drawer-resizing {
 
 /* 旧版标题在上方；新版状态条固定在气泡底部 */
 .thinking-header {
-  margin-bottom: 8px;
+  margin-bottom: 4px;
 }
 .thinking-footer {
-  margin-top: 8px;
+  margin-top: 4px;
 }
 
 /* 小贴士紧跟在状态文字后面，不单独占一行 */
@@ -686,14 +680,34 @@ body.drawer-resizing {
 
 /* 折叠主体：工具列表 + 系统状态行；折叠时整体隐藏 */
 .thinking-body {
-  display: flex;
-  flex-direction: column;
+  display: block;
 }
 
-/* 流式文本容器：token 到达后追加在工具面板下方（不覆盖工具列表） */
+/* 普通对话轮不往面板列表追加工具项，空列表时直接隐藏 body，避免顶部/中部留空 */
+.thinking-body:has(.tool-call-list:empty) {
+  display: none;
+}
+
+/* 流式文本容器：token 到达后追加在工具面板下方（不覆盖工具列表）。
+   多段之间通过相邻选择器控制紧凑间距，避免 flex gap + margin 叠加。 */
 .stream-text {
-  margin-top: 8px;
+  margin: 0;
+  padding: 0;
   width: 100%;
+}
+
+.stream-text + .stream-text,
+.stream-text + .inline-tool,
+.inline-tool + .stream-text {
+  margin-top: 3px;
+}
+
+/* markdown 段落默认 margin 较大，在流式段内收紧 */
+.stream-text p {
+  margin: 0 0 4px;
+}
+.stream-text p:last-child {
+  margin-bottom: 0;
 }
 
 /* 完成后追加的用量/工具摘要（与流式文本视觉区分） */
@@ -716,7 +730,11 @@ body.drawer-resizing {
   flex-direction: column;
   gap: 5px;
   width: 100%;
-  margin: 2px 0 6px;
+  margin: 2px 0 4px;
+}
+
+.tool-call-list:empty {
+  margin: 0;
 }
 
 /* 空状态占位（工具到达前显示） */
@@ -807,7 +825,7 @@ body.drawer-resizing {
 
 /* ── L1 (v0.7.4): 推理流折叠块（灰色小字、可滚动、默认折叠）── */
 .thinking-reasoning {
-  margin: 8px 0 2px;
+  margin: 4px 0;
   border: 1px solid var(--border-subtle);
   border-radius: 8px;
   background: var(--bg-deep, #0d1117);
@@ -815,11 +833,16 @@ body.drawer-resizing {
   font-size: 12px;
   animation: status-fade-in 0.25s ease-out;
 }
+
+.thinking-reasoning.collapsed {
+  margin-bottom: 0;
+}
+
 .thinking-reasoning .tr-header {
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 5px 10px;
+  padding: 4px 8px;
   cursor: pointer;
   color: var(--text-tertiary);
   user-select: none;
@@ -843,7 +866,7 @@ body.drawer-resizing {
 
 /* ── 内联折叠工具块（随流插入在触发句下方，默认折叠）── */
 .inline-tool {
-  margin: 6px 0;
+  margin: 3px 0;
   border: 1px solid var(--border-subtle);
   border-radius: 8px;
   background: var(--bg-elevated, rgba(127, 127, 127, 0.06));
@@ -854,15 +877,15 @@ body.drawer-resizing {
 .inline-tool .it-header {
   display: flex;
   align-items: center;
-  gap: 7px;
+  gap: 6px;
   width: 100%;
-  padding: 5px 10px;
+  padding: 3px 8px;
   border: 0;
   background: transparent;
   color: var(--text-secondary);
   font: inherit;
   font-size: 12px;
-  line-height: 1.5;
+  line-height: 1.4;
   cursor: pointer;
   text-align: left;
 }
@@ -908,7 +931,7 @@ body.drawer-resizing {
 .inline-tool.done { opacity: 0.9; }
 
 .inline-tool .it-body {
-  padding: 0 10px 8px;
+  padding: 0 8px 6px;
   border-top: 1px solid var(--border-subtle);
   margin-top: 2px;
 }
