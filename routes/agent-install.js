@@ -313,17 +313,21 @@ async function runInstall(agentId, spec, jobId, broadcast) {
       if (code === 0) {
         // 尝试读取真实版本
         let version = spec.pinnedVersion || 'installed';
-        try {
-          const lsArgs = spec.method === 'npm-local'
-            ? ['ls', spec.npmPackage, '--prefix', targetDir, '--json']
-            : ['ls', '-g', spec.npmPackage, '--json'];
-          const out = require('child_process').execSync(`"${cmd}" ${lsArgs.join(' ')}`, { encoding: 'utf8' });
-          const j = JSON.parse(out);
-          const dep = j.dependencies && j.dependencies[spec.npmPackage];
-          if (dep && dep.version) version = dep.version;
-        } catch { /* 版本探测失败则用占位 */ }
-        progress('完成', `安装成功（${version}）`);
-        complete(true, version, null);
+        const lsArgs = spec.method === 'npm-local'
+          ? ['ls', spec.npmPackage, '--prefix', targetDir, '--json']
+          : ['ls', '-g', spec.npmPackage, '--json'];
+        // 异步探测版本（不再阻塞事件循环）；失败则用占位版本
+        execFile(cmd, lsArgs, { encoding: 'utf8' }, (err, out) => {
+          if (!err) {
+            try {
+              const j = JSON.parse(out);
+              const dep = j.dependencies && j.dependencies[spec.npmPackage];
+              if (dep && dep.version) version = dep.version;
+            } catch { /* 版本探测失败则用占位 */ }
+          }
+          progress('完成', `安装成功（${version}）`);
+          complete(true, version, null);
+        });
       } else {
         complete(false, null, `安装进程退出码 ${code}`);
       }
@@ -411,9 +415,10 @@ function createRouter({ broadcastFn } = {}) {
       return res.status(404).json({ error: '没有进行中的安装任务' });
     }
     // 通过 pid 终止子进程（npm 会级联终止其 spawn 的 install 进程）。
+    // taskkill 改为异步 execFile，避免同步调用冻结事件循环（best-effort，忽略结果）。
     if (job.pid) {
       try {
-        if (isWin) require('child_process').execSync(`taskkill /PID ${job.pid} /T /F`);
+        if (isWin) execFile('taskkill', ['/PID', String(job.pid), '/T', '/F'], () => {});
         else process.kill(-job.pid, 'SIGTERM');
       } catch { /* best-effort */ }
     }
