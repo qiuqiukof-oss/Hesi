@@ -29,6 +29,11 @@ function escapeAttr(s) {
 
 function mount() {
   if (document.getElementById('memory-drawer')) return;
+  // 守卫：仅主应用页（index.html 有 🧠 记忆按钮）挂载记忆面板。
+  // 独立页（budget.html / tools.html 等）也加载 bundle.js，若无守卫会无条件
+  // append 记忆面板 DOM 到 body；又因独立页未引 memory-sessions.css，
+  // `.memory-drawer.hidden{display:none}` 失效 → 面板裸显在页面下方。
+  if (!document.getElementById('chat-memory-btn')) return;
 
   const overlay = document.createElement('div');
   overlay.id = 'memory-drawer';
