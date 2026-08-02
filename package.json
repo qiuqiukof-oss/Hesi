@@ -155,6 +155,7 @@
     "watch": "npx esbuild public/main.js --bundle --outfile=public/bundle.js --format=iife --sourcemap --watch &",
     "watch:lazy": "npx esbuild public/lazy.js --bundle --outdir=public/lazy-chunks --format=esm --sourcemap --splitting --entry-names=lazy-bundle --chunk-names=chunk-[hash] --watch",
     "check:server": "node scripts/check-server.mjs",
+    "check:theme": "node scripts/check-theme-tokens.mjs",
     "mcp": "npm run check:server && node mcp-server.js",
     "mcp:dev": "npm run check:server && node --watch mcp-server.js",
     "lint": "eslint .",

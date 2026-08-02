@@ -160,6 +160,263 @@
   --term-bright-white:   #09090b;
 }
 
+/* ============================================================
+   扩展主题 (Beta) —— 静谧 / 宣纸 / 玄夜 / 深空
+   ------------------------------------------------------------
+   架构约定（两个属性各司其职，不要混用）：
+
+     data-theme  ——「取什么颜色」。挂在 <html> 上，决定本文件里
+                    这一整套令牌的取值。每个主题块**自包含全部令牌**，
+                    不依赖 dark/light 块级联：因为 [data-theme="x"] 与
+                    [data-scheme="y"] 特异性相同，靠书写顺序决胜负太脆。
+
+     data-scheme ——「按明还是暗排版」。同样挂在 <html> 上，取值只有
+                    light / dark。其它 CSS 文件里针对亮色的组件级适配
+                    统一写成 [data-scheme="light"]，于是所有亮色主题
+                    （light / quiet / xuan）自动共享同一套适配，
+                    新增亮色主题时无需再抄一遍。
+
+   新增一套主题 = 复制一个块 + 换值 + 在 theme-switcher 的映射表登记。
+   ============================================================ */
+
+/* ── 静谧 quiet（亮）：暖白纸感 + 橄榄灰绿，长时间注视不累 ── */
+[data-theme="quiet"] {
+  --bg-ground:     #eeece7;
+  --bg-surface:    #f4f2ee;
+  --bg-elevated:   #faf9f6;
+  --bg-overlay:    #e8e5df;
+  --bg-hover:      #e2dfd8;
+  --bg-active:     #d5d1c8;
+
+  --text-primary:   #2f2c28;
+  --text-secondary: #5c574f;
+  --text-tertiary:  #8f8a80;
+
+  /* 橄榄灰绿。比初稿 #7d8471 再压深一档：白字落上去要够 4.5:1，
+     浅一点虽好看，但按钮文字会糊（实测 3.88:1，不达标） */
+  --accent:        #69705f;
+  /* 副强调换成淡紫，不再用灰褐：灰褐与橄榄绿 RGB 距离只有 17，
+     两者摆在一起看不出是两种角色 */
+  --accent-sub:    #846a8c;
+  --accent-hover:  #565c4c;
+  --accent-glow:   rgba(105, 112, 95, 0.14);
+
+  --success: #5f7d5a;
+  --warning: #a8813c;
+  --danger:  #a35b4e;
+  --info:    #5b7186;
+
+  --border-subtle:  rgba(47, 44, 40, 0.06);
+  --border-default: rgba(47, 44, 40, 0.10);
+  --border-strong:  rgba(47, 44, 40, 0.16);
+  --border-focus:   var(--accent);
+
+  --bg-inset:       #e6e3dc;
+  --text-on-accent: #ffffff;
+
+  --term-bg:             rgba(244, 242, 238, 0.85);
+  --term-fg:             #2f2c28;
+  --term-cursor:         #7d8471;
+  --term-cursor-accent:  #f4f2ee;
+  --term-selection:      rgba(125, 132, 113, 0.22);
+
+  /* 亮色主题沿用既有 light 的 ANSI 约定：black 取近底色、white 取前景色 */
+  --term-black:          #dcd8d0;
+  --term-red:            #a3524a;
+  --term-green:          #5f7d5a;
+  --term-yellow:         #97742f;
+  --term-blue:           #4f6b8a;
+  --term-magenta:        #7d5f7a;
+  --term-cyan:           #4f7d7a;
+  --term-white:          #2f2c28;
+
+  --term-bright-black:   #9a958a;
+  --term-bright-red:     #bf6a5c;
+  --term-bright-green:   #74946d;
+  --term-bright-yellow:  #b8914a;
+  --term-bright-blue:    #6685a6;
+  --term-bright-magenta: #977694;
+  --term-bright-cyan:    #679694;
+  --term-bright-white:   #1a1815;
+}
+
+/* ── 宣纸 xuan（亮，默认）：绢帛底 + 墨字 + 朱砂点睛 ── */
+[data-theme="xuan"] {
+  --bg-ground:     #e3d9c6;
+  --bg-surface:    #ece4d5;
+  --bg-elevated:   #f4eee1;
+  --bg-overlay:    #ddd2bc;
+  --bg-hover:      #d8ccb4;
+  --bg-active:     #c9baa0;
+
+  --text-primary:   #2b2117;
+  --text-secondary: #5a4a38;
+  --text-tertiary:  #8c7a63;
+
+  --accent:        #9e3d32;   /* 朱砂 */
+  --accent-sub:    #3f6b5f;   /* 石绿 */
+  --accent-hover:  #853127;
+  --accent-glow:   rgba(158, 61, 50, 0.14);
+
+  --success: #4a7a52;
+  /* 藤黄压深成赭黄：亮底上的黄天生对比度低，#b8801f 实测只有 2.71:1 */
+  --warning: #9c6a14;
+  /* 报错改用紫绛。本主题的强调色就是朱砂，若 danger 仍取正红，
+     两者 RGB 距离只有 23 —— 主按钮和删除按钮会长得一模一样 */
+  --danger:  #a82f5c;
+  --info:    #3a5f7d;
+
+  --border-subtle:  rgba(43, 33, 23, 0.07);
+  --border-default: rgba(43, 33, 23, 0.12);
+  --border-strong:  rgba(43, 33, 23, 0.18);
+  --border-focus:   var(--accent);
+
+  --bg-inset:       #d9cdb6;
+  --text-on-accent: #f7f2e8;  /* 米白而非纯白，压住朱砂上的刺眼感 */
+
+  --term-bg:             rgba(236, 228, 213, 0.85);
+  --term-fg:             #2b2117;
+  --term-cursor:         #9e3d32;
+  --term-cursor-accent:  #ece4d5;
+  --term-selection:      rgba(158, 61, 50, 0.18);
+
+  --term-black:          #cdbfa6;
+  --term-red:            #9e3d32;   /* 朱砂 */
+  --term-green:          #4a7a52;   /* 松绿 */
+  --term-yellow:         #9c6a14;   /* 藤黄（压深至可读） */
+  --term-blue:           #3a5f7d;   /* 靛青 */
+  --term-magenta:        #7e4a6b;   /* 紫檀 */
+  --term-cyan:           #3f6b5f;   /* 石绿 */
+  --term-white:          #2b2117;   /* 墨 */
+
+  --term-bright-black:   #9c8d75;
+  --term-bright-red:     #c05244;
+  --term-bright-green:   #5f9468;
+  --term-bright-yellow:  #c28f26;
+  --term-bright-blue:    #4f7a9c;
+  --term-bright-magenta: #9a6086;
+  --term-bright-cyan:    #558a7b;
+  --term-bright-white:   #1a130c;
+}
+
+/* ── 玄夜 xuanye（暗）：夜色底 + 描金 + 朱砂副色 ── */
+[data-theme="xuanye"] {
+  --bg-ground:     #12100d;
+  --bg-surface:    #1a1712;
+  --bg-elevated:   #221e18;
+  --bg-overlay:    #2a251d;
+  --bg-hover:      #332d24;
+  --bg-active:     #453d30;
+
+  --text-primary:   #ede4d3;
+  --text-secondary: #a89b84;
+  --text-tertiary:  #766c5c;
+
+  --accent:        #c8a45c;   /* 描金 */
+  /* 朱砂提亮：原 #9e3d32 在夜色底上只有 2.70:1，看不清 */
+  --accent-sub:    #b8503f;
+  --accent-hover:  #dbb96f;
+  --accent-glow:   rgba(200, 164, 92, 0.16);
+
+  --success: #7a9e5c;
+  --warning: #d9a441;
+  /* 报错色推到偏冷的绛红。金+朱的主题里，副强调本身就是红系，
+     若 danger 还用同一支朱砂（原方案两者色相只差 2°），
+     用户根本分不清「这是强调」还是「这是出错了」 */
+  --danger:  #e0566b;
+  --info:    #6d8fa8;
+
+  --border-subtle:  rgba(237, 228, 211, 0.05);
+  --border-default: rgba(237, 228, 211, 0.09);
+  --border-strong:  rgba(237, 228, 211, 0.14);
+  --border-focus:   var(--accent);
+
+  --bg-inset:       #0d0b08;
+  /* 描金明度高，白字会糊；这里必须反过来用深色字 —— 正是 --text-on-accent 存在的理由 */
+  --text-on-accent: #1a1409;
+
+  --term-bg:             rgba(18, 16, 13, 0.85);
+  --term-fg:             #ede4d3;
+  --term-cursor:         #c8a45c;
+  --term-cursor-accent:  #12100d;
+  --term-selection:      rgba(200, 164, 92, 0.25);
+
+  --term-black:          #2a251d;
+  --term-red:            #c0483a;
+  --term-green:          #7a9e5c;
+  --term-yellow:         #c8a45c;
+  --term-blue:           #6d8fa8;
+  --term-magenta:        #a06a8c;
+  --term-cyan:           #5f9e91;
+  --term-white:          #ede4d3;
+
+  --term-bright-black:   #766c5c;
+  --term-bright-red:     #d9614f;
+  --term-bright-green:   #93b874;
+  --term-bright-yellow:  #dbb96f;
+  --term-bright-blue:    #86a8c0;
+  --term-bright-magenta: #bb84a5;
+  --term-bright-cyan:    #78b8ab;
+  --term-bright-white:   #fdf6e8;
+}
+
+/* ── 深空 cyber（暗）：近黑蓝底 + 青紫霓虹，边框带青色偏光 ── */
+[data-theme="cyber"] {
+  --bg-ground:     #06080f;
+  --bg-surface:    #0b0e18;
+  --bg-elevated:   #111524;
+  --bg-overlay:    #171c2e;
+  --bg-hover:      #1e2438;
+  --bg-active:     #2b3350;
+
+  --text-primary:   #e6f1ff;
+  --text-secondary: #8fa3c4;
+  --text-tertiary:  #5b6b8a;
+
+  --accent:        #00d9ff;
+  --accent-sub:    #b14aff;
+  --accent-hover:  #5ce6ff;
+  --accent-glow:   rgba(0, 217, 255, 0.18);
+
+  --success: #00e5a0;
+  --warning: #ffb020;
+  --danger:  #ff4d6d;
+  --info:    #4d9fff;
+
+  /* 边框带青色偏光而非中性白，是「科技感」最省成本的来源 */
+  --border-subtle:  rgba(0, 217, 255, 0.06);
+  --border-default: rgba(0, 217, 255, 0.12);
+  --border-strong:  rgba(0, 217, 255, 0.20);
+  --border-focus:   var(--accent);
+
+  --bg-inset:       #04050a;
+  --text-on-accent: #041018;  /* 霓虹青明度高，同样要深色字 */
+
+  --term-bg:             rgba(6, 8, 15, 0.85);
+  --term-fg:             #e6f1ff;
+  --term-cursor:         #00d9ff;
+  --term-cursor-accent:  #06080f;
+  --term-selection:      rgba(0, 217, 255, 0.22);
+
+  --term-black:          #171c2e;
+  --term-red:            #ff4d6d;
+  --term-green:          #00e5a0;
+  --term-yellow:         #ffb020;
+  --term-blue:           #4d9fff;
+  --term-magenta:        #b14aff;
+  --term-cyan:           #00d9ff;
+  --term-white:          #e6f1ff;
+
+  --term-bright-black:   #5b6b8a;
+  --term-bright-red:     #ff7d94;
+  --term-bright-green:   #5cffc8;
+  --term-bright-yellow:  #ffc95c;
+  --term-bright-blue:    #85bfff;
+  --term-bright-magenta: #cd85ff;
+  --term-bright-cyan:    #6ee9ff;
+  --term-bright-white:   #ffffff;
+}
+
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 html, body {
@@ -373,6 +630,141 @@ body {
   /* ── Card shadow (theme-aware; light theme: soft, low-alpha) ── */
   --shadow-card:     0 8px 24px rgba(0, 0, 0, 0.10);
 
+}
+
+/* ============================================================
+   扩展主题的 Refinements 令牌（与上方 dark / light 同组）
+   ------------------------------------------------------------
+   不重复定义的三类，它们本身就是 var() 别名，会自动跟随各主题：
+     --border-color / --hover-bg / --bg-primary      （语义别名）
+     --accent-gradient / -warm / -cool               （由 --accent 系推导）
+
+   辉光与语义底色统一用 color-mix 从主色算出，不再手抄 rgba：
+   手抄的话，将来调 --accent 就得同步改 7 处，正是令牌漂移的老路。
+   若浏览器不支持 color-mix，该声明被丢弃、回落到 :root 的默认值，
+   表现为「辉光不跟随主题」的纯观感降级，不会破版。
+   ============================================================ */
+
+/* ── 静谧 quiet ── */
+[data-theme="quiet"] {
+  --accent-warm:   #a8813c;
+  --accent-cool:   #5b7186;
+  --accent-purple: #7d5f7a;
+  --accent-pink:   #a35b74;
+
+  --success-bg: color-mix(in srgb, var(--success) 7%, transparent);
+  --warning-bg: color-mix(in srgb, var(--warning) 7%, transparent);
+  --danger-bg:  color-mix(in srgb, var(--danger)  7%, transparent);
+  --info-bg:    color-mix(in srgb, var(--info)    7%, transparent);
+
+  --bg-elevated-2: #efece6;
+  --bg-overlay-2:  #e5e1d9;
+
+  --accent-glow-2: color-mix(in srgb, var(--accent) 12%, transparent);
+  --accent-glow-3: color-mix(in srgb, var(--accent) 9%,  transparent);
+  --accent-glow-4: color-mix(in srgb, var(--accent) 6%,  transparent);
+  --success-bg-2:  color-mix(in srgb, var(--success) 10%, transparent);
+  --warning-bg-2:  color-mix(in srgb, var(--warning) 10%, transparent);
+  --danger-bg-2:   color-mix(in srgb, var(--danger)  10%, transparent);
+
+  /* 阴影带暖调（取自 --text-primary 色相），比中性黑更贴纸感 */
+  --shadow-umbra:    rgba(47, 44, 40, 0.12);
+  --shadow-penumbra: rgba(47, 44, 40, 0.08);
+  --shadow-ambient:  rgba(47, 44, 40, 0.04);
+  --shadow-light:    rgba(47, 44, 40, 0.02);
+  --modal-overlay:   rgba(47, 44, 40, 0.28);
+  --shadow-card:     0 8px 24px rgba(47, 44, 40, 0.10);
+}
+
+/* ── 宣纸 xuan ── */
+[data-theme="xuan"] {
+  --accent-warm:   #b8801f;
+  --accent-cool:   #3a5f7d;
+  --accent-purple: #7e4a6b;
+  --accent-pink:   #b0526a;
+
+  --success-bg: color-mix(in srgb, var(--success) 8%, transparent);
+  --warning-bg: color-mix(in srgb, var(--warning) 8%, transparent);
+  --danger-bg:  color-mix(in srgb, var(--danger)  8%, transparent);
+  --info-bg:    color-mix(in srgb, var(--info)    8%, transparent);
+
+  --bg-elevated-2: #e0d6c1;
+  --bg-overlay-2:  #d5c9b1;
+
+  --accent-glow-2: color-mix(in srgb, var(--accent) 12%, transparent);
+  --accent-glow-3: color-mix(in srgb, var(--accent) 9%,  transparent);
+  --accent-glow-4: color-mix(in srgb, var(--accent) 6%,  transparent);
+  --success-bg-2:  color-mix(in srgb, var(--success) 11%, transparent);
+  --warning-bg-2:  color-mix(in srgb, var(--warning) 11%, transparent);
+  --danger-bg-2:   color-mix(in srgb, var(--danger)  11%, transparent);
+
+  --shadow-umbra:    rgba(43, 33, 23, 0.13);
+  --shadow-penumbra: rgba(43, 33, 23, 0.09);
+  --shadow-ambient:  rgba(43, 33, 23, 0.05);
+  --shadow-light:    rgba(43, 33, 23, 0.03);
+  --modal-overlay:   rgba(43, 33, 23, 0.32);
+  --shadow-card:     0 8px 24px rgba(43, 33, 23, 0.12);
+}
+
+/* ── 玄夜 xuanye ── */
+[data-theme="xuanye"] {
+  --accent-warm:   #d9a441;
+  --accent-cool:   #5f9e91;
+  --accent-purple: #a06a8c;
+  --accent-pink:   #c07a86;
+
+  --success-bg: color-mix(in srgb, var(--success) 9%, transparent);
+  --warning-bg: color-mix(in srgb, var(--warning) 9%, transparent);
+  --danger-bg:  color-mix(in srgb, var(--danger)  9%, transparent);
+  --info-bg:    color-mix(in srgb, var(--info)    9%, transparent);
+
+  --bg-elevated-2: #282219;
+  --bg-overlay-2:  #302a20;
+
+  --accent-glow-2: color-mix(in srgb, var(--accent) 13%, transparent);
+  --accent-glow-3: color-mix(in srgb, var(--accent) 10%, transparent);
+  --accent-glow-4: color-mix(in srgb, var(--accent) 6%,  transparent);
+  --success-bg-2:  color-mix(in srgb, var(--success) 11%, transparent);
+  --warning-bg-2:  color-mix(in srgb, var(--warning) 11%, transparent);
+  --danger-bg-2:   color-mix(in srgb, var(--danger)  11%, transparent);
+
+  --shadow-umbra:    rgba(0, 0, 0, 0.24);
+  --shadow-penumbra: rgba(0, 0, 0, 0.16);
+  --shadow-ambient:  rgba(0, 0, 0, 0.08);
+  --shadow-light:    rgba(0, 0, 0, 0.05);
+  --modal-overlay:   rgba(8, 6, 4, 0.6);
+  --shadow-card:     0 8px 32px rgba(0, 0, 0, 0.55);
+}
+
+/* ── 深空 cyber ── */
+[data-theme="cyber"] {
+  --accent-warm:   #ffb020;
+  --accent-cool:   #00e5a0;
+  --accent-purple: #b14aff;
+  --accent-pink:   #ff4d9d;
+
+  --success-bg: color-mix(in srgb, var(--success) 9%, transparent);
+  --warning-bg: color-mix(in srgb, var(--warning) 9%, transparent);
+  --danger-bg:  color-mix(in srgb, var(--danger)  9%, transparent);
+  --info-bg:    color-mix(in srgb, var(--info)    9%, transparent);
+
+  --bg-elevated-2: #151a2c;
+  --bg-overlay-2:  #1b2136;
+
+  --accent-glow-2: color-mix(in srgb, var(--accent) 14%, transparent);
+  --accent-glow-3: color-mix(in srgb, var(--accent) 10%, transparent);
+  --accent-glow-4: color-mix(in srgb, var(--accent) 6%,  transparent);
+  --success-bg-2:  color-mix(in srgb, var(--success) 12%, transparent);
+  --warning-bg-2:  color-mix(in srgb, var(--warning) 12%, transparent);
+  --danger-bg-2:   color-mix(in srgb, var(--danger)  12%, transparent);
+
+  --shadow-umbra:    rgba(0, 0, 0, 0.28);
+  --shadow-penumbra: rgba(0, 0, 0, 0.18);
+  --shadow-ambient:  rgba(0, 0, 0, 0.10);
+  --shadow-light:    rgba(0, 0, 0, 0.06);
+  --modal-overlay:   rgba(2, 4, 10, 0.66);
+  /* 卡片多加一道极淡青色描边，科技感的性价比最高的一笔 */
+  --shadow-card:     0 8px 32px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(0, 217, 255, 0.07);
 }
 
 /* ── Active CLI glow enhancement ── */
