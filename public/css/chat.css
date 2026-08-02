@@ -805,6 +805,42 @@ body.drawer-resizing {
   word-break: break-word;
 }
 
+/* ── L1 (v0.7.4): 推理流折叠块（灰色小字、可滚动、默认折叠）── */
+.thinking-reasoning {
+  margin: 8px 0 2px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  background: var(--bg-deep, #0d1117);
+  overflow: hidden;
+  font-size: 12px;
+  animation: status-fade-in 0.25s ease-out;
+}
+.thinking-reasoning .tr-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  cursor: pointer;
+  color: var(--text-tertiary);
+  user-select: none;
+  border-bottom: 1px solid var(--border-subtle);
+}
+.thinking-reasoning.collapsed .tr-header {
+  border-bottom: 0;
+}
+.thinking-reasoning .tr-body {
+  padding: 6px 10px;
+  max-height: 220px;
+  overflow-y: auto;
+  color: var(--text-tertiary);
+  white-space: pre-wrap;
+  word-break: break-word;
+  line-height: 1.5;
+}
+.thinking-reasoning.collapsed .tr-body {
+  display: none;
+}
+
 /* ── 内联折叠工具块（随流插入在触发句下方，默认折叠）── */
 .inline-tool {
   margin: 6px 0;

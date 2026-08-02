@@ -147,11 +147,12 @@ export const ChatAPI = {
      * @param {function(object)} options.onToolLive - Called with agent live events ({ev, agent, data, question, ...}) during long tool runs
      * @param {function(object)} options.onUsage - Called with {input_tokens, output_tokens} or {prompt_tokens, completion_tokens, total_tokens}
      * @param {function(object)} [options.onAgentMetrics] - M5 (v0.3.1): Called once at round end with {cacheReadTokens, cacheCreationTokens, toolCacheHits, experienceHits, skillsInjected}
+     * @param {function(string)} [options.onReasoning] - L1 (v0.7.4): Called with each reasoning/thinking chunk (inference models like DeepSeek-R1 / Qwen3 / o-series / Claude extended-thinking)
      * @param {string} [options.terminalContext] - Current terminal buffer content for AI context
      * @param {boolean} [options.terminalContextChanged] - Whether terminal content has changed since last message
      * @param {AbortSignal} [options.signal] - Optional abort signal
      */
-    async sendMessage({ messages, onToken, onDone, onError, onStatus, onToolCall, onToolLive, onUsage, onAgentMetrics, terminalContext, terminalContextChanged, signal, discuss, partner, partners, maxTurns, onDiscuss, sessionId, category, verifyMode, takenOver, planMode, planAgentId, fullAccess, onPlan, keepStreamOnError }) {
+    async sendMessage({ messages, onToken, onDone, onError, onStatus, onToolCall, onToolLive, onUsage, onAgentMetrics, onReasoning, terminalContext, terminalContextChanged, signal, discuss, partner, partners, maxTurns, onDiscuss, sessionId, category, verifyMode, takenOver, planMode, planAgentId, fullAccess, onPlan, keepStreamOnError }) {
       const apiKey = await this.getApiKey();
       const provider = this.getProvider();
       let model = this.getModel();
@@ -247,6 +248,8 @@ export const ChatAPI = {
                 const parsed = JSON.parse(trimmed.slice(6));
                 if (parsed.type === 'token') {
                   onToken?.(parsed.content);
+                } else if (parsed.type === 'reasoning') {
+                  onReasoning?.(parsed.content);
                 } else if (parsed.type === 'status') {
                   onStatus?.(parsed.message);
                 } else if (parsed.type === 'discuss_start') {

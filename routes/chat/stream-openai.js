@@ -433,6 +433,12 @@ async function parseStreamAndCollectTools(response, res, sink = null) {
     if (sinkOnToken) { sinkOnToken(c); return; }
     if (res) { try { res.write(`data: ${JSON.stringify({ type: 'token', content: c })}\n\n`); } catch {} }
   };
+  // L1 (v0.7.4): 推理模型（DeepSeek-R1 / Qwen3 / o-series）的 reasoning_content 透传。
+  // 按 chunk 推，不攒完；sink 场景（讨论模式）经 onReasoning 外抛，主聊直写 res。
+  const writeReasoning = (c) => {
+    if (sink?.onReasoning) { sink.onReasoning(c); return; }
+    if (res) { try { res.write(`data: ${JSON.stringify({ type: 'reasoning', content: c })}\n\n`); } catch {} }
+  };
   const writeUsage = (u) => {
     if (sinkOnUsage) { sinkOnUsage(u); return; }
     if (res) {
@@ -541,6 +547,11 @@ async function parseStreamAndCollectTools(response, res, sink = null) {
               assistantContent += cleanPart;
               writeToken(cleanPart);
             }
+          }
+
+          // ── L1 (v0.7.4): 推理流透传 ──
+          if (delta.reasoning_content) {
+            writeReasoning(delta.reasoning_content);
           }
 
           // ── Native tool_calls ──

@@ -616,8 +616,8 @@ When the user asks you to perform a "system self-check" / "全面自检" / "diag
     // 配合 A 方案的上下文封顶，几乎不可能再撞 apihub 免费档 429 限流。
     const _lastUser = [...messages].reverse().find(m => m.role === 'user');
     const _lastUserText = (_lastUser?.content || '').toString();
-    const isSelfCheck = /全面自检|整体自检|系统自检|完整自检|self[- ]?check|health[- ]?check|diagnos(?:e|is|tic)|排查|体检/i.test(_lastUserText);
-    const selfCheckMaxRounds = isSelfCheck ? 6 : undefined;
+    // 自检意图不再收紧工具轮次：早期为规避免费档 apihub 429 而加的 6 轮硬帽已移除。
+    // 现运行环境为本地 LLM / 自有 key，429 不再成立；circuit-breaker 仍兜底失控循环。
 
     // Determine provider and API key
     const provider = clientProvider ||
@@ -632,7 +632,7 @@ When the user asks you to perform a "system self-check" / "全面自检" / "diag
       if (clientBaseUrl) {
         const tools = disableTools ? undefined : QCLI_TOOLS;
         try {
-          await streamOpenAIWithTools(res, messages, '', model || 'local-model', clientBaseUrl, tools, broadcastFn, req, selfCheckMaxRounds);
+          await streamOpenAIWithTools(res, messages, '', model || 'local-model', clientBaseUrl, tools, broadcastFn, req, undefined);
           return;
         } catch (_) { /* fall through */ }
       }
@@ -642,7 +642,7 @@ When the user asks you to perform a "system self-check" / "全面自检" / "diag
         const healthResp = await fetch(`${lmStudioBase}/v1/models`, { signal: AbortSignal.timeout(2000) });
         if (healthResp.ok) {
           const tools = disableTools ? undefined : QCLI_TOOLS;
-          await streamOpenAIWithTools(res, messages, '', model || 'local-model', lmStudioBase, tools, broadcastFn, req, selfCheckMaxRounds);
+          await streamOpenAIWithTools(res, messages, '', model || 'local-model', lmStudioBase, tools, broadcastFn, req, undefined);
           return;
         }
       } catch (_) { /* LM Studio not available */ }
@@ -690,9 +690,9 @@ When the user asks you to perform a "system self-check" / "全面自检" / "diag
       }
       const tools = disableTools ? undefined : QCLI_TOOLS;
       if (provider === 'anthropic') {
-        await streamAnthropicWithTools(res, contextMessages, apiKey, model, clientBaseUrl, tools, sseBroadcast, req, selfCheckMaxRounds);
+        await streamAnthropicWithTools(res, contextMessages, apiKey, model, clientBaseUrl, tools, sseBroadcast, req, undefined);
       } else {
-        await streamOpenAIWithTools(res, contextMessages, apiKey, model, clientBaseUrl, tools, sseBroadcast, req, selfCheckMaxRounds);
+        await streamOpenAIWithTools(res, contextMessages, apiKey, model, clientBaseUrl, tools, sseBroadcast, req, undefined);
       }
     } catch (err) {
       // 诊断日志：把真实报错打进服务端，便于定位是 apihub/网络还是本地逻辑。

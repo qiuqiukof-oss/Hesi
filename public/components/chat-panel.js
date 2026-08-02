@@ -784,6 +784,27 @@ class ChatPanel extends HTMLElement {
               }
             }
           },
+          onReasoning: (c) => {
+            // L1 (v0.7.4): 推理流透传渲染。首 chunk 到达时展开灰块并标记"真推理中"。
+            const indicator = document.getElementById('thinking-indicator');
+            if (!indicator) return;
+            const bubble = indicator.querySelector('.msg-bubble');
+            if (!bubble) return;
+            const rEl = bubble.querySelector('.thinking-reasoning');
+            if (!rEl) return;
+            if (!this._reasoningStarted) {
+              this._reasoningStarted = true;
+              rEl.hidden = false;
+              rEl.classList.remove('collapsed');
+              const rHeader = rEl.querySelector('.tr-header');
+              if (rHeader) rHeader.textContent = '🧠 推理过程（点击折叠）';
+              const titleEl = bubble.querySelector('.thinking-title');
+              if (titleEl) titleEl.textContent = '🧠 推理中…';
+            }
+            const body = rEl.querySelector('.tr-body');
+            if (body) body.appendChild(document.createTextNode(c));
+            this.scrollToBottom();
+          },
           onStatus: (msg) => {
             const indicator = document.getElementById('thinking-indicator');
             if (!indicator) return;
@@ -1327,6 +1348,31 @@ class ChatPanel extends HTMLElement {
     this._toolCallListEl = listEl;
 
     bubble.appendChild(body);
+
+    // L1 (v0.7.4): 推理流渲染区（默认折叠、灰色小字、可滚动）。
+    // 首个 reasoning chunk 到达时 unhide 并标记"真推理中"（见 onReasoning handler）。
+    const reasoningEl = document.createElement('div');
+    reasoningEl.className = 'thinking-reasoning collapsed';
+    reasoningEl.hidden = true;
+    const rHeader = document.createElement('div');
+    rHeader.className = 'tr-header';
+    rHeader.setAttribute('role', 'button');
+    rHeader.setAttribute('tabindex', '0');
+    rHeader.textContent = '🧠 推理过程（点击展开）';
+    rHeader.addEventListener('click', () => {
+      reasoningEl.classList.toggle('collapsed');
+      rHeader.textContent = reasoningEl.classList.contains('collapsed')
+        ? '🧠 推理过程（点击展开）'
+        : '🧠 推理过程（点击折叠）';
+    });
+    const rBody = document.createElement('div');
+    rBody.className = 'tr-body';
+    reasoningEl.appendChild(rHeader);
+    reasoningEl.appendChild(rBody);
+    bubble.appendChild(reasoningEl);
+    this._reasoningEl = reasoningEl;
+    this._reasoningBodyEl = rBody;
+    this._reasoningStarted = false;
 
     // 底部状态条（可点击折叠工具列表）：动画点 + "深度思考中" + 状态 + 折叠箭头
     // 放在气泡最下方，流式内容增长时始终可见，避免"不知道是否说完"。

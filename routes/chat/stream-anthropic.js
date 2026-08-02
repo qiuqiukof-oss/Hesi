@@ -96,9 +96,15 @@ async function parseAnthropicStream(response, res, sink = null) {
   const sinkOnToken = sink?.onToken;
   const sinkOnUsage = sink?.onUsage;
   const sinkOnDone = sink?.onDone;
+  const sinkOnReasoning = sink?.onReasoning;
   const writeToken = (c) => {
     if (sinkOnToken) { sinkOnToken(c); return; }
     if (res) { try { res.write(`data: ${JSON.stringify({ type: 'token', content: c })}\n\n`); } catch {} }
+  };
+  // L1 (v0.7.4): Anthropic extended-thinking 的 thinking_delta 透传（仅当上游启用 thinking 时下发）。
+  const writeReasoning = (c) => {
+    if (sinkOnReasoning) { sinkOnReasoning(c); return; }
+    if (res) { try { res.write(`data: ${JSON.stringify({ type: 'reasoning', content: c })}\n\n`); } catch {} }
   };
     const writeUsage = (u) => {
       if (sinkOnUsage) { sinkOnUsage(u); return; }
@@ -203,6 +209,9 @@ async function parseAnthropicStream(response, res, sink = null) {
               }
               assistantContent += text;
               writeToken(text);
+            } else if (delta.type === 'thinking_delta') {
+              // L1 (v0.7.4): 推理过程透传（extended-thinking 开启时）
+              writeReasoning(delta.thinking || '');
             } else if (delta.type === 'input_json_delta') {
               const lastBlock = assistantBlocks[assistantBlocks.length - 1];
               if (lastBlock?.type === 'tool_use') {
