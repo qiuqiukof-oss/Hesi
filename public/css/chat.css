@@ -641,10 +641,10 @@ body.drawer-resizing {
 
 /* 旧版标题在上方；新版状态条固定在气泡底部 */
 .thinking-header {
-  margin-bottom: 4px;
+  margin-bottom: 2px;
 }
 .thinking-footer {
-  margin-top: 4px;
+  margin-top: 2px;
 }
 
 /* 小贴士紧跟在状态文字后面，不单独占一行 */
@@ -699,12 +699,19 @@ body.drawer-resizing {
 .stream-text + .stream-text,
 .stream-text + .inline-tool,
 .inline-tool + .stream-text {
-  margin-top: 3px;
+  margin-top: 2px;
+}
+
+/* 隐藏完全空的分段与空段落，避免模型输出空行时撑出大片空白 */
+.stream-text:empty,
+.stream-text p:empty,
+.stream-text p:has(br:only-child) {
+  display: none;
 }
 
 /* markdown 段落默认 margin 较大，在流式段内收紧 */
 .stream-text p {
-  margin: 0 0 4px;
+  margin: 0 0 2px;
 }
 .stream-text p:last-child {
   margin-bottom: 0;
@@ -728,9 +735,9 @@ body.drawer-resizing {
 .tool-call-list {
   display: flex;
   flex-direction: column;
-  gap: 5px;
+  gap: 3px;
   width: 100%;
-  margin: 2px 0 4px;
+  margin: 1px 0 2px;
 }
 
 .tool-call-list:empty {
@@ -825,9 +832,9 @@ body.drawer-resizing {
 
 /* ── L1 (v0.7.4): 推理流折叠块（灰色小字、可滚动、默认折叠）── */
 .thinking-reasoning {
-  margin: 4px 0;
+  margin: 2px 0;
   border: 1px solid var(--border-subtle);
-  border-radius: 8px;
+  border-radius: 6px;
   background: var(--bg-deep, #0d1117);
   overflow: hidden;
   font-size: 12px;
@@ -864,11 +871,11 @@ body.drawer-resizing {
   display: none;
 }
 
-/* ── 内联折叠工具块（随流插入在触发句下方，默认折叠）── */
+/* ── 内联折叠工具块（随流插入在触发句下方，默认折叠；WorkBuddy 风格：紧凑卡片）── */
 .inline-tool {
-  margin: 3px 0;
+  margin: 2px 0;
   border: 1px solid var(--border-subtle);
-  border-radius: 8px;
+  border-radius: 6px;
   background: var(--bg-elevated, rgba(127, 127, 127, 0.06));
   overflow: hidden;
   animation: status-fade-in 0.25s ease-out;
@@ -879,7 +886,7 @@ body.drawer-resizing {
   align-items: center;
   gap: 6px;
   width: 100%;
-  padding: 3px 8px;
+  padding: 2px 8px;
   border: 0;
   background: transparent;
   color: var(--text-secondary);
@@ -931,22 +938,20 @@ body.drawer-resizing {
 .inline-tool.done { opacity: 0.9; }
 
 .inline-tool .it-body {
-  padding: 0 8px 6px;
+  padding: 0 8px 4px;
   border-top: 1px solid var(--border-subtle);
-  margin-top: 2px;
+  margin-top: 1px;
 }
 
 .inline-tool .it-body[hidden] { display: none; }
 
-/* 含内联工具块的对话气泡沿用 agentic 风格背景，便于一眼识别「自动调用了工具」 */
+/* 含内联工具块的对话气泡沿用 agentic 风格背景，便于一眼识别「自动调用了工具」。
+   注意：此处保持普通 block 布局，禁止 flex gap，避免工具块/文本段之间被撑出大片空白。 */
 .msg-bubble:has(.inline-tool) {
   background: var(--bg-overlay);
   border: 1px solid var(--border-subtle);
   border-top-left-radius: 4px;
-  padding: 10px 14px;
-  display: flex;
-  flex-direction: column;
-  gap: 6px 8px;
+  padding: 8px 12px;
 }
 
 /* 系统状态行（重试/续传/生成回答/超时）更醒目 */
