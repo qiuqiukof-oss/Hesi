@@ -986,6 +986,100 @@ body {
   color: var(--text-primary);
 }
 
+/* Theme Selector Grid (T8) */
+.tc-section-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+}
+.tc-hint {
+  font-size: 9px;
+  color: var(--text-tertiary);
+}
+.theme-selector {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.ts-card {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  background: var(--bg-surface);
+  cursor: pointer;
+  text-align: left;
+  transition: border-color 0.12s, background 0.12s;
+  font-family: var(--font-ui);
+  color: var(--text-primary);
+}
+.ts-card:hover {
+  border-color: var(--accent);
+}
+.ts-card.active {
+  border-color: var(--accent);
+  background: var(--accent-glow);
+}
+.ts-swatch {
+  position: relative;
+  width: 34px;
+  height: 34px;
+  flex: 0 0 auto;
+  border-radius: var(--radius-sm);
+  background: var(--s-ground, #222);
+  border: 1px solid rgba(0, 0, 0, 0.18);
+  overflow: hidden;
+}
+.ts-sw-top {
+  position: absolute;
+  left: 0; right: 0; top: 0;
+  height: 38%;
+  background: var(--s-surface, var(--s-ground));
+}
+.ts-sw-dot {
+  position: absolute;
+  bottom: 4px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+}
+.ts-sw-a { left: 5px; background: var(--s-accent, #888); }
+.ts-sw-b { left: 16px; background: var(--s-accent-sub, var(--s-accent)); }
+.ts-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+.ts-name {
+  font-size: 11px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.ts-desc {
+  font-size: 9px;
+  color: var(--text-tertiary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+.ts-beta {
+  font-size: 8px;
+  line-height: 1;
+  padding: 1px 4px;
+  border-radius: 6px;
+  background: var(--accent-glow);
+  color: var(--accent);
+  border: 1px solid var(--accent);
+  font-weight: 700;
+  letter-spacing: 0.3px;
+}
+
 /* ============================================================
    Custom CSS — Injected from localStorage for user overrides
    ============================================================ */
