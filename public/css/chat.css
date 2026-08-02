@@ -653,19 +653,15 @@ body.drawer-resizing {
   margin-top: 8px;
 }
 
-/* 小贴士单独占一行，避免把状态条撑得太宽 */
+/* 小贴士紧跟在状态文字后面，不单独占一行 */
 .thinking-tip {
-  flex: 1 1 100%;
+  flex: 0 1 auto;
+  margin-left: 8px;
   font-size: 11px;
   line-height: 1.4;
   color: var(--text-tertiary);
-  opacity: 0.85;
+  opacity: 0.75;
   transition: opacity 0.3s ease;
-  padding-left: 26px; /* 与标题行的动画点对齐 */
-  max-width: 100%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .thinking-header:focus-visible,
