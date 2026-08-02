@@ -212,6 +212,32 @@ async function completePlanJson(system, user, runtime, { maxContinuations = 3 } 
  * @param {object} plan LLM 原始输出的 plan
  * @returns {object} 修复后的 plan（原地修改 + 返回）
  */
+
+// ── 确定性危险操作检测（审批闸兜底，不依赖 LLM 自觉）──
+// 审批提示词只要求 LLM 自觉标记 requireApproval，但实测 LLM 对复合命令
+// （如 `if [ -f x ]; then sed -i ...`）会漏标。这里对 action 做 pattern 匹配，
+// 命中即强制 requireApproval:true + risk 描述，保证危险操作必然过审批闸。
+const DANGER_RE = [
+  { re: /(^|[;&|]|\|\||&&)\s*rm\s+-[a-zA-Z]*[rf][a-zA-Z]*/i, risk: '递归/强制删除（rm -r/-f）' },
+  { re: /(^|[;&|])\s*rmdir\s+\/[a-z]\s/i, risk: '递归删除目录（rmdir /s）' },
+  { re: /\b(sed|perl)\s+-i\b|\bsort\s+-o\s+\S+\s+\S+\s*$/i, risk: '原地修改文件（sed/perl -i / sort -o）' },
+  { re: /\b(curl|wget|Invoke-WebRequest|iwr|wget|webclient)\b/i, risk: '网络请求（curl/wget 等）' },
+  { re: /\bgit\s+(push|reset\s+--hard|rebase|filter-branch|clean\s+-[a-z]*f|commit\s+--amend)\b/i, risk: 'git 远程/历史/破坏性操作' },
+  { re: /[>»]\s*(\/etc\/|\/usr\/|System32|SystemRoot|Program\s+Files|C:\\Windows)/i, risk: '写入系统路径' },
+  { re: /\bchmod\s+[0-7]{3,4}\b.*\b(777|666|u\+s)\b|\bsudo\b/i, risk: '权限提升/放开（chmod 777/sudo）' },
+  { re: /\b(mkfs|format)\b/i, risk: '磁盘格式化（mkfs/format）' },
+];
+
+/** @param {{action?:string}} step @returns {string|null} 命中则返回风险描述 */
+function detectDangerApproval(step) {
+  const action = typeof step.action === 'string' ? step.action : '';
+  if (!action) return null;
+  for (const d of DANGER_RE) {
+    if (d.re.test(action)) return d.risk;
+  }
+  return null;
+}
+
 function sanitizePlan(plan) {
   if (!plan || typeof plan !== 'object') return plan;
 
@@ -281,6 +307,14 @@ function sanitizePlan(plan) {
           console.log(`[sanitizePlan] steps[${i}].action 缺失，推断为: "${String(s.action).slice(0, 60)}"`);
         }
         if (!s.type) { s.type = 'command'; changed = true; }
+
+        // ── 确定性危险操作检测：LLM 漏标 requireApproval 时强制补标 ──
+        const danger = detectDangerApproval(s);
+        if (danger) {
+          s.requireApproval = true;
+          s.risk = danger;
+          console.log(`[sanitizePlan] steps[${i}] 命中危险 pattern（${danger}），强制 requireApproval`);
+        }
 
         // ── 检测占位符步骤（LLM 完全没给内容，sanitizePlan 填充的假数据）──
         // 特征：goal 和 action 都是 "步骤 N" 格式，且原始对象几乎没有有效字段
