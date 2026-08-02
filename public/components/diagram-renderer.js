@@ -18,6 +18,8 @@
 // @ts-check
 'use strict';
 
+import { getScheme } from '../lib/theme-registry.js';
+
 /** @typedef {import('../types').QCLI} QCLI */
 /**
  * @typedef {{_initialized:boolean, _theme:string, _pendingNodes:HTMLElement[], _renderTimer:number|null, _themeObserver:MutationObserver|null, _graphvizLoaded:boolean, _graphvizInstance:any, _plantumlLoaded:boolean, _plantumlRender:Function|null}} DiagramRendererState
@@ -126,8 +128,9 @@ const DiagramRenderer = {
   _watchTheme() {
     if (this._themeObserver) return;
     this._themeObserver = new MutationObserver(() => {
-      const theme = document.documentElement.getAttribute('data-theme') || 'dark';
-      const mapped = theme === 'light' ? 'light' : 'dark';
+      // 不再用 data-theme==='light' 判断明暗——xuan 是亮色、cyber 是暗色，
+      // 直接读 data-scheme（由 applyTheme 同步写入）才是可靠的明/暗来源。
+      const mapped = getScheme() === 'dark' ? 'dark' : 'light';
       this.setTheme(mapped);
     });
     this._themeObserver.observe(document.documentElement, {
@@ -414,7 +417,7 @@ const DiagramRenderer = {
       container.appendChild(renderTarget);
 
       const lines = source.split(/\r\n|\r|\n/);
-      const isDark = document.documentElement.getAttribute('data-theme') !== 'light';
+      const isDark = getScheme() === 'dark';
       this._plantumlRender(lines, id, { dark: isDark });
 
       container.setAttribute('data-rendered', 'done');
@@ -592,7 +595,7 @@ const DiagramRenderer = {
     canvas.height = height * scale;
     const ctx = canvas.getContext('2d');
 
-    const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+    const isDark = getScheme() === 'dark';
     ctx.fillStyle = isDark ? '#1a1b1e' : '#ffffff';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     ctx.scale(scale, scale);

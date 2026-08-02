@@ -10,6 +10,7 @@
 'use strict';
 
 import { safeStorage } from './lib/storage.js';
+import { getScheme } from './lib/theme-registry.js';
 
 /** @typedef {import('./types').QCLI} QCLI */
 
@@ -528,7 +529,7 @@ const Q = /** @type {QCLI} */ (window.QCLI = window.QCLI || {});
     // Update theme toggle tooltip
     const themeBtn = document.getElementById('theme-toggle-btn');
     if (themeBtn) {
-      const isDark = document.documentElement.getAttribute('data-theme') !== 'light';
+      const isDark = getScheme() === 'dark';
       themeBtn.title = isDark ? __('theme.dark') : __('theme.light');
     }
 

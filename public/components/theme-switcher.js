@@ -21,6 +21,10 @@
 
 import { safeStorage } from '../lib/storage.js';
 import { buildXtermThemeFor, applyTermThemeToAll } from '../lib/term-theme.js';
+import {
+  getTheme, isValidTheme,
+  resolveToggleTarget, DEFAULT_THEME, DEFAULT_BY_SCHEME,
+} from '../lib/theme-registry.js';
 
 /** @typedef {import('../types').QCLI} QCLI */
 // XTermTheme 类型已随调色板常量一起迁出，现由 lib/term-theme.js 负责构造。
@@ -32,17 +36,25 @@ import { buildXtermThemeFor, applyTermThemeToAll } from '../lib/term-theme.js';
 // Q.DARK_THEME / Q.LIGHT_THEME 仍保留为兼容 getter（见文件末尾 namespace 补丁），
 // 其值由对应主题的令牌实时派生，不再是独立事实源。
 
+/** 记住每个基调下最后用过的主题，切换明暗时可以切回去而不是永远落到默认那套 */
+const LAST_KEY = { light: 'qcli-theme-last-light', dark: 'qcli-theme-last-dark' };
+
 /**
- * Get preferred theme from localStorage or system preference
- * @returns {'dark'|'light'}
+ * 取应当生效的主题 id。
+ *
+ * 旧版本只认 'light' / 'dark'；现在校验放宽到整张注册表，
+ * 且对无法识别的历史值（比如降级回旧版后写入的脏数据）静默回落，
+ * 不让界面卡在「主题不存在 → 令牌全缺 → 白屏」的状态。
+ *
+ * @returns {string} 主题 id
  */
 export function getPreferredTheme() {
   const saved = safeStorage.get('qcli-theme');
-  if (saved === 'light' || saved === 'dark') return saved;
-  if (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) {
-    return 'light';
+  if (isValidTheme(saved)) return /** @type {string} */ (saved);
+  if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+    return DEFAULT_BY_SCHEME.dark;
   }
-  return 'light';  // v0.2.5+: 默认亮色
+  return DEFAULT_THEME;
 }
 
 /**
@@ -57,27 +69,41 @@ function _syncTermTheme() {
 }
 
 /**
- * Apply theme and persist to localStorage
- * @param {'dark'|'light'} theme
+ * Apply theme and persist to localStorage.
+ *
+ * 同时写 data-theme（哪套配色令牌）和 data-scheme（明/暗基调），
+ * 让依赖明暗判断的组件（diagram-renderer / i18n / term-theme 等）
+ * 不再被「xuan 是亮色却被判成暗色」这类问题坑到。
+ *
+ * @param {string} theme 主题 id（见 theme-registry THEMES）
  */
 export function applyTheme(theme) {
   const Q = window.QCLI || {};
-  document.documentElement.setAttribute('data-theme', theme);
+  const entry = getTheme(theme) || getTheme(DEFAULT_THEME);
+  const id = entry.id;
+  const scheme = entry.scheme;
+  document.documentElement.setAttribute('data-theme', id);
+  document.documentElement.setAttribute('data-scheme', scheme);
+  // 记住每个基调下最后用过的主题，切换明暗时可以切回，而不是永远落默认那套
+  safeStorage.set(LAST_KEY[scheme], id);
   if (Q.dom?.themeToggle) {
-    Q.dom.themeToggle.textContent = theme === 'dark' ? '\ud83c\udf19' : '\u2600\ufe0f';
-    Q.dom.themeToggle.title = theme === 'dark' ? '\u5207\u6362\u5230\u4eae\u8272\u4e3b\u9898' : '\u5207\u6362\u5230\u6df1\u8272\u4e3b\u9898';
+    const isDark = scheme === 'dark';
+    Q.dom.themeToggle.textContent = isDark ? '\ud83c\udf19' : '\u2600\ufe0f';
+    Q.dom.themeToggle.title = isDark ? '\u5207\u6362\u5230\u4eae\u8272\u4e3b\u9898' : '\u5207\u6362\u5230\u6df1\u8272\u4e3b\u9898';
   }
   _syncTermTheme();
-  safeStorage.set('qcli-theme', theme);
-  if (Q.state) Q.state.theme = theme;
-  if (Q.uiStore) Q.uiStore.setState({ theme });
+  safeStorage.set('qcli-theme', id);
+  if (Q.state) Q.state.theme = id;
+  if (Q.uiStore) Q.uiStore.setState({ theme: id });
 }
 
-/** Toggle between dark and light theme */
+/** Toggle between light and dark scheme, preserving the last-used theme per scheme */
 export function toggleTheme() {
   const Q = window.QCLI || {};
-  const current = Q.state?.theme || document.documentElement.getAttribute('data-theme') || 'dark';
-  applyTheme(current === 'dark' ? 'light' : 'dark');
+  const current = Q.state?.theme || document.documentElement.getAttribute('data-theme') || DEFAULT_THEME;
+  const targetScheme = getTheme(current)?.scheme === 'dark' ? 'light' : 'dark';
+  const lastInTarget = safeStorage.get(LAST_KEY[targetScheme]);
+  applyTheme(resolveToggleTarget(current, lastInTarget));
 }
 
 // ============================================================
@@ -165,9 +191,10 @@ customElements.define('theme-switcher', ThemeSwitcher);
 // ── Auto-init at import time ──
 // Listen for system theme changes
 if (window.matchMedia) {
-  window.matchMedia('(prefers-color-scheme: light)').addEventListener('change', (e) => {
+  window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
     if (!safeStorage.get('qcli-theme')) {
-      applyTheme(e.matches ? 'light' : 'dark');
+      // 无历史记录时跟随系统：暗色偏好→默认暗色家族(玄夜)，否则默认亮色家族(宣纸)
+      applyTheme(e.matches ? DEFAULT_BY_SCHEME.dark : DEFAULT_BY_SCHEME.light);
     }
   });
 }
