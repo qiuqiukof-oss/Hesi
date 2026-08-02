@@ -1,0 +1,39 @@
+{
+  "item": "backend-service",
+  "itemName": "后端服务 / 数据处理",
+  "dod": [
+    {
+      "type": "functional",
+      "id": "f1",
+      "check": "<run-service-or-test-command>",
+      "expect": "<success-marker>"
+    },
+    {
+      "type": "functional",
+      "id": "f2",
+      "check": "<integration-test-command>",
+      "expect": "PASS"
+    },
+    {
+      "type": "semantic",
+      "id": "s1",
+      "question": "数据写入是否有事务/回滚保护（失败不产生脏数据）？",
+      "yes": true,
+      "evidence": "<source-file>:<line>"
+    },
+    {
+      "type": "semantic",
+      "id": "s2",
+      "question": "错误路径是否显式处理（无未捕获异常冒泡）？",
+      "yes": true,
+      "evidence": "<source-file>:<line>"
+    },
+    {
+      "type": "quality",
+      "id": "q1",
+      "check": "npm run lint && npm test",
+      "pattern": "Tests:\\s*(\\d+).*?coverage:\\s*(\\d+(?:\\.\\d+)?)%",
+      "thresholdExpr": "coverage >= 80"
+    }
+  ]
+}

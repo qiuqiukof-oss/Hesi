@@ -1,0 +1,44 @@
+{
+  "item": "exploration",
+  "itemName": "探索型任务（调研/评估，双轨收敛）",
+  "mode": "exploration",
+  "questions": [
+    {
+      "id": "q1",
+      "text": "目标方案是否满足核心需求？",
+      "required": true
+    },
+    {
+      "id": "q2",
+      "text": "实现成本与风险是否可接受？",
+      "required": true
+    },
+    {
+      "id": "q3",
+      "text": "备选方案对比结论？",
+      "required": false
+    }
+  ],
+  "consumer": {
+    "note": "下游决策者（Planner/人工）拿到 answered 即可开工"
+  },
+  "budget": {
+    "maxRounds": 5
+  },
+  "dod": [
+    {
+      "type": "semantic",
+      "id": "s1",
+      "question": "每个必需问题是否都有带来源（文件/测试/实测）的答案？",
+      "yes": true,
+      "evidence": "<research-note-file>:<section>"
+    },
+    {
+      "type": "semantic",
+      "id": "s2",
+      "question": "结论是否附带「建议 + 置信度 + 开放风险清单」？",
+      "yes": true,
+      "evidence": "<research-note-file>:<section>"
+    }
+  ]
+}
