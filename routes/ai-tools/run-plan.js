@@ -28,9 +28,11 @@
 const { execFileSync } = require('child_process');
 const path = require('path');
 const fs = require('fs');
+const crypto = require('crypto');
 const { gatePlan, resolveCheckpoint } = require('./plan-contract');
 const { planToWorkflowTasks, inScope, isForbidden } = require('./plan-to-workflow');
 const { PlanBudget } = require('../../lib/plan-budget');
+const { ReplanController } = require('../../lib/replan-controller');
 const { snapshotStep, rollbackTo, isRepo } = require('../../lib/plan-git');
 const { revisePlan: defaultRevisePlan } = require('./plan-from-nl');
 
@@ -1161,6 +1163,17 @@ async function runPlan(plan, opts = {}) {
     };
   }
 
+  // ── P0 终止机制：冻结 acceptance + 预算，创建确定性收敛判断器 ──
+  // 原则：执行者不得自判完成、不得改写自己的验收标准。gatePlan 通过后把
+  // acceptance hash 与预算副本冻结，修订产出若篡改 → ESCALATE。
+  const runStartedAt = Date.now();
+  const frozenAccHash = Array.isArray(plan.acceptance) && plan.acceptance.length
+    ? crypto.createHash('sha256').update(JSON.stringify(plan.acceptance)).digest('hex')
+    : null;
+  const controller = new ReplanController({ accHash: frozenAccHash, budgetFrozen: plan.budget || opts.budget || null });
+  let stopKind = null;   // 终止信号（STALL/OSCILL/DRIFT/ESCALATE/STALLED）
+  let stopReason = '';   // 终止原因（供 SSE/报告展示）
+
   // ── ② 反思重规划环：熔断/diverged 时自动修订重跑，上限 maxRetries ──
   const maxRetries = Number.isFinite(Number(opts.maxRetries)) && opts.maxRetries >= 0 ? opts.maxRetries : 0;
   const plannerRuntime = opts.plannerRuntime || null;
@@ -1202,6 +1215,25 @@ async function runPlan(plan, opts = {}) {
       break;
     }
     if (attempt >= maxRetries) break;
+    // P0：确定性收敛判定（零 LLM）——取代「仅靠 maxRetries + 单步签名」的兜底。
+    // 每轮用「plan 签名 + 步骤状态序列（近似地面变化）+ 验收通过率」判定，
+    // 检测 STALL（原地重复）/ OSCILL（A→B→A）/ DRIFT（计划漂移）/ ESCALATE（篡改或预算耗尽）。
+    const verdict = controller.decide({
+      planHash: planStepSig(currentPlan),
+      gitDiff: JSON.stringify((lastBody.results || []).map((r) => `${r.id || r.stepId || '?'}:${r.status}`)),
+      acceptanceAllPass: (lastBody.reflection && lastBody.reflection.acceptancePassRate) === 1,
+      acceptanceResults: null,
+      accHash: Array.isArray(currentPlan.acceptance) && currentPlan.acceptance.length
+        ? crypto.createHash('sha256').update(JSON.stringify(currentPlan.acceptance)).digest('hex')
+        : null,
+      budget: currentPlan.budget || opts.budget,
+      elapsedMs: Date.now() - runStartedAt,
+    });
+    if (verdict.v !== 'CONTINUE') {
+      stopKind = verdict.v;
+      stopReason = verdict.why || '';
+      break;
+    }
     let revised = null;
     try { revised = await reviseFn(currentPlan, body, plannerRuntime, buildFailureContext(body)); }
     catch (e) {
@@ -1248,6 +1280,11 @@ async function runPlan(plan, opts = {}) {
     finalStatus = 'rejected';
     finalReason = '自动重试未产生新方案（连续修订无进展），已停止以避免死循环';
   }
+  // P0：确定性收敛信号终止（STALL/OSCILL/DRIFT/ESCALATE/STALLED）
+  if (stopKind && finalStatus !== 'done' && finalStatus !== 'rejected') {
+    finalStatus = stopKind === 'ESCALATE' ? 'rejected' : 'rejected';
+    finalReason = `收敛判定终止（${stopKind}）：${stopReason || '详见报告'}。已停止以避免无限循环。`;
+  }
   const finalResult = {
     ok: finalStatus === 'done' || (finalStatus === 'partial' && !reviseFailed),
     status: finalStatus,
@@ -1257,6 +1294,9 @@ async function runPlan(plan, opts = {}) {
     reflection: lastBody.reflection,
     attempts,
     revised: attempts.length > 1,
+    // P0：确定性收敛信号（前端可展示终止原因）
+    stopKind: stopKind || null,
+    stopReason: stopReason || null,
   };
   // P4-4：最终结果落盘（execId 来自 opts）
   writePlanSummary((opts && opts.execId) || null, plan, finalResult);
