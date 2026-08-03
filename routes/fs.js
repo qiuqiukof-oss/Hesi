@@ -79,6 +79,29 @@ function isWithinRoots(roots, target) {
  * Create an Express router for filesystem browse endpoints.
  * @returns {express.Router}
  */
+// 在三个 md-* 端点（md-roots / md-list / md-read）共享的用户文案。
+// 写在一个 helper 里，避免散在各处难统一、也便于将来挂 i18n。
+function mdError(code, key, extra) {
+  const base = {
+    'outside-roots': '路径不在白名单范围内',
+    'dir-required': '请填写目录路径',
+    'path-required': '请填写文件路径',
+    'not-found': '路径不存在',
+    'not-dir': '不是目录',
+    'not-file': '不是文件',
+    'only-md': '只能读取 .md 文件',
+    'too-large': '文件过大（最大 4MB）',
+    'absolute-required': '请填写绝对路径',
+  };
+  const msg = base[key] || key;
+  if (key === 'outside-roots') {
+    // 把白名单根列出来，让用户立刻知道能填什么
+    const roots = mdRootPaths();
+    return { error: msg + '。允许的根目录：' + roots.join('、'), code, allowed: roots };
+  }
+  return { error: extra ? `${msg}：${extra}` : msg, code };
+}
+
 function createRouter() {
   const router = express.Router();
 
@@ -152,20 +175,20 @@ function createRouter() {
     const roots = mdRootPaths();
     const dir = req.query.dir;
     if (typeof dir !== 'string' || !dir.trim()) {
-      return res.status(400).json({ error: 'dir required' });
+      return res.status(400).json(mdError('md_list_dir_required', 'dir-required'));
     }
     const abs = path.resolve(dir);
     if (!isWithinRoots(roots, abs)) {
-      return res.status(403).json({ error: 'path outside allowed roots' });
+      return res.status(403).json(mdError('md_list_outside_roots', 'outside-roots'));
     }
     let stat;
     try {
       stat = fs.statSync(abs);
     } catch {
-      return res.status(404).json({ error: `not found: ${abs}` });
+      return res.status(404).json(mdError('md_list_not_found', 'not-found', abs));
     }
     if (!stat.isDirectory()) {
-      return res.status(400).json({ error: `not a directory: ${abs}` });
+      return res.status(400).json(mdError('md_list_not_dir', 'not-dir', abs));
     }
     const inNoteRoot = roots.some((r) => abs === r); // show dotfile subdirs inside note roots
     let entries = [];
@@ -203,26 +226,26 @@ function createRouter() {
     const roots = mdRootPaths();
     const p = req.query.path;
     if (typeof p !== 'string' || !p.trim()) {
-      return res.status(400).json({ error: 'path required' });
+      return res.status(400).json(mdError('md_read_path_required', 'path-required'));
     }
     const abs = path.resolve(p);
     if (!/\.(md|markdown)$/i.test(abs)) {
-      return res.status(400).json({ error: 'only .md files are readable' });
+      return res.status(400).json(mdError('md_read_only_md', 'only-md'));
     }
     if (!isWithinRoots(roots, abs)) {
-      return res.status(403).json({ error: 'path outside allowed roots' });
+      return res.status(403).json(mdError('md_read_outside_roots', 'outside-roots'));
     }
     let stat;
     try {
       stat = fs.statSync(abs);
     } catch {
-      return res.status(404).json({ error: `not found: ${abs}` });
+      return res.status(404).json(mdError('md_read_not_found', 'not-found', abs));
     }
     if (!stat.isFile()) {
-      return res.status(400).json({ error: `not a file: ${abs}` });
+      return res.status(400).json(mdError('md_read_not_file', 'not-file', abs));
     }
     if (stat.size > MAX_MD_BYTES) {
-      return res.status(413).json({ error: 'file too large (max 4MB)' });
+      return res.status(413).json(mdError('md_read_too_large', 'too-large'));
     }
     let content;
     try {
