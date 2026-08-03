@@ -123,7 +123,7 @@
     'use strict';
     // ── 平台静态元数据（与后端 routes/bots/index.js ADAPTERS 对应）──
     var PLATFORMS = [
-      { id: 'qq', icon: '🐧', name: 'QQ 机器人', desc: 'QQ 官方开放平台机器人。AppID + AppSecret 换 access_token，支持群/私聊消息。', status: 'beta', fields: [ { key: 'appId', label: 'AppID', placeholder: '官方开放平台机器人 AppID' }, { key: 'secret', label: 'AppSecret', placeholder: '官方开放平台机器人 AppSecret' } ] },
+      { id: 'qq', icon: '🐧', name: 'QQ 机器人', desc: 'QQ 官方开放平台机器人。手机 QQ 扫码即自动创建/绑定机器人，自动获取 AppID/AppSecret，无需手填。', status: 'beta', mode: 'qq-qrcode', fields: [] },
       { id: 'wecom', icon: '💼', name: '企业微信 bot', desc: '企业微信应用/群机器人 webhook。M2 接入，配置后自动注册回调端点。', status: 'planned', fields: [ { key: 'token', label: 'Token', placeholder: '企微机器人 Token' } ] },
       { id: 'feishu', icon: '🕊️', name: '飞书 bot', desc: '飞书机器人事件订阅（URL 校验 + 消息回调）。M2 接入。', status: 'planned', fields: [ { key: 'appId', label: 'App ID', placeholder: '飞书开放平台 App ID' }, { key: 'appSecret', label: 'App Secret', placeholder: '飞书开放平台 App Secret' } ] },
       { id: 'dingtalk', icon: '🦖', name: '钉钉 bot', desc: '钉钉机器人 webhook + 回调。M3 接入。', status: 'planned', fields: [ { key: 'token', label: 'Token', placeholder: '钉钉机器人 Token' } ] },
@@ -192,8 +192,8 @@
         var actions = '';
         if (p.status === 'planned') {
           actions = '<button class="bt-btn bt-btn-primary" data-act="configure" data-id="' + p.id + '">提前配置</button>';
-        } else if (p.mode === 'qrcode') {
-          // 扫码登录平台（微信）：二维码确认即配置，无密钥表单
+        } else if (p.mode === 'qrcode' || p.mode === 'qq-qrcode') {
+          // 扫码登录平台（微信/QQ）：二维码确认即配置，无密钥表单
           actions = isConfigured
             ? '<button class="bt-btn" data-act="qrcode" data-id="' + p.id + '">🔗 重新扫码</button><button class="bt-btn" data-act="test" data-id="' + p.id + '">🔍 测试</button>'
             : '<button class="bt-btn bt-btn-primary" data-act="qrcode" data-id="' + p.id + '">📱 扫码配置</button>';
@@ -231,12 +231,12 @@
       fieldValues = {};
       $.modalTitle.textContent = '配置 ' + platform.name;
       $.modalDesc.textContent = platform.desc;
-      if (platform.mode === 'qrcode') {
-        // 扫码登录模式（微信）：显示二维码 + 轮询状态，无密钥表单
+      if (platform.mode === 'qrcode' || platform.mode === 'qq-qrcode') {
+        // 扫码登录模式（微信/QQ）：显示二维码 + 轮询状态，无密钥表单
         $.modalFields.innerHTML =
           '<div id="bt-qrcode-wrap" style="text-align:center;padding:8px 0;">' +
             '<div id="bt-qrcode-img" style="font-size:13px;color:var(--text-tertiary);padding:20px 0;">生成二维码中…</div>' +
-            '<div id="bt-qrcode-hint" style="font-size:12px;color:var(--text-tertiary);margin-top:4px;">用微信扫码并确认，完成登录即自动保存</div>' +
+            '<div id="bt-qrcode-hint" style="font-size:12px;color:var(--text-tertiary);margin-top:4px;">' + (platform.mode === 'qq-qrcode' ? '用手机 QQ 扫码并确认，自动创建/绑定机器人并保存凭证' : '用微信扫码并确认，完成登录即自动保存') + '</div>' +
           '</div>';
         $.testResult.style.display = 'none';
         $.testResult.className = 'bt-test-result';
@@ -261,13 +261,51 @@
       if (first) first.focus();
     }
 
-    // ── 扫码登录轮询（微信 iLink Bot）──
+    // ── 扫码登录轮询（微信 iLink / QQ 官方扫码）──
     var qrPollTimer = null;
+    var qrMode = ''; // 'qrcode'=微信  'qq-qrcode'=QQ
     async function startQrPoll() {
       if (qrPollTimer) { clearInterval(qrPollTimer); qrPollTimer = null; }
+      if (!current) return;
+      qrMode = current.mode || 'qrcode';
       var imgEl = document.getElementById('bt-qrcode-img');
       var hintEl = document.getElementById('bt-qrcode-hint');
       try {
+        if (qrMode === 'qq-qrcode') {
+          // QQ：create_bind_task → 二维码 URL（显示）+ taskId/key 轮询
+          const res = await fetchWithTimeout('/api/bots/qq/qrcode', 10000);
+          const data = await res.json();
+          if (!res.ok || !data.ok) throw new Error((data && data.error) || ('HTTP ' + res.status));
+          var taskId = data.taskId, key = data.key;
+          if (data.qrcodeUrl) {
+            imgEl.innerHTML = '<img src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=' + encodeURIComponent(data.qrcodeUrl) + '" style="width:200px;height:200px;border-radius:10px;border:1px solid var(--border-default);" alt="QQ 扫码" />';
+          } else {
+            imgEl.innerHTML = '<div style="font-size:13px;">二维码生成失败</div>';
+            return;
+          }
+          // 每 2s 轮询绑定状态（completed 后后端已自动保存）
+          qrPollTimer = setInterval(async function() {
+            try {
+              const sres = await fetchWithTimeout('/api/bots/qq/qrcode/status?taskId=' + encodeURIComponent(taskId) + '&key=' + encodeURIComponent(key), 6000);
+              const sdata = await sres.json();
+              if (sdata.status === 'completed') {
+                clearInterval(qrPollTimer); qrPollTimer = null;
+                if (hintEl) hintEl.textContent = '✅ ' + (sdata.detail || '绑定成功');
+                if (imgEl) imgEl.innerHTML = '<div style="font-size:30px;padding:50px 0;">✅</div>';
+                toast('QQ 机器人配置成功 ✓');
+                load();
+              } else if (sdata.status === 'expired') {
+                clearInterval(qrPollTimer); qrPollTimer = null;
+                if (hintEl) hintEl.textContent = '⏱ 二维码已过期，点击「重新生成」';
+                if (imgEl) imgEl.innerHTML = '<button class="bt-btn bt-btn-primary" onclick="BotsPlaza.regenQr()">🔄 重新生成二维码</button>';
+              } else if (sdata.error) {
+                if (hintEl) hintEl.textContent = '⚠️ ' + sdata.error;
+              }
+            } catch (e) { /* 单次轮询失败忽略 */ }
+          }, 2000);
+          return;
+        }
+        // 微信 iLink：getQrCode → qrcode 轮询
         const res = await fetchWithTimeout('/api/bots/wechat-bot/qrcode', 10000);
         const data = await res.json();
         if (!res.ok || !data.ok) throw new Error((data && data.error) || ('HTTP ' + res.status));

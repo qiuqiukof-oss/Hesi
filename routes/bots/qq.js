@@ -21,6 +21,104 @@
 
 const { normalizeInbound } = require('./adapter');
 const botConfig = require('../../lib/bot-config');
+const crypto = require('crypto');
+
+// ── QQ 扫码连接协议（零依赖复刻官方 @tencent-connect/qqbot-connector）──
+// 官方流程（2026-08 核验 bot.qq.com「第三方 Agent 接入 QQ 机器人扫码连接 SDK」）：
+//   1. POST https://q.qq.com/lite/create_bind_task  { key: base64(32B 随机) } → { data.task_id }
+//   2. 前端展示二维码：https://q.qq.com/qqbot/openclaw/connect.html?task_id=...&source=...&_wv=2
+//   3. 轮询 POST https://q.qq.com/lite/poll_bind_result  { task_id } → status
+//      0=NONE 1=PENDING 2=COMPLETED 3=EXPIRED；COMPLETED 返回 bot_appid + bot_encrypt_secret
+//   4. bot_encrypt_secret 是 AES-256-GCM 密文（key=step1 的 key，iv=前12B，tag=末16B）
+//      → 解密得 AppSecret
+const QQ_QR_HOST = 'q.qq.com';
+const QQ_BIND_STATUS = { NONE: 0, PENDING: 1, COMPLETED: 2, EXPIRED: 3 };
+
+/** POST JSON 到 QQ 扫码端点。 */
+function qqPost(pathname, body, timeoutMs = 10000) {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+  return fetch(`https://${QQ_QR_HOST}${pathname}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+    body: JSON.stringify(body),
+    signal: ctrl.signal,
+  }).then(async (res) => {
+    clearTimeout(timer);
+    if (!res.ok) throw new Error(`qq: HTTP ${res.status} from ${pathname}`);
+    const data = await res.json();
+    if (data.retcode !== 0) throw new Error(`qq: ${data.msg || 'bind task failed'}`);
+    return data;
+  }).catch((err) => {
+    clearTimeout(timer);
+    throw err;
+  });
+}
+
+/** AES-256-GCM 解密（key=bind key，iv=密文前12B，tag=末16B）。 */
+function decryptSecret(encryptedB64, keyB64) {
+  const key = Buffer.from(keyB64, 'base64');
+  const buf = Buffer.from(encryptedB64, 'base64');
+  const iv = buf.subarray(0, 12);
+  const tag = buf.subarray(buf.length - 16);
+  const data = buf.subarray(12, buf.length - 16);
+  const decipher = crypto.createDecipheriv('aes-256-gcm', key, iv);
+  decipher.setAuthTag(tag);
+  return Buffer.concat([decipher.update(data), decipher.final()]).toString('utf8');
+}
+
+/**
+ * 创建 QQ 扫码绑定任务。
+ * @returns {Promise<{ ok: boolean, taskId?: string, key?: string, qrcodeUrl?: string, error?: string }>}
+ */
+async function createBindTask() {
+  try {
+    const key = crypto.randomBytes(32).toString('base64');
+    const data = await qqPost('/lite/create_bind_task', { key });
+    const taskId = data.data && data.data.task_id;
+    if (!taskId) return { ok: false, error: 'qq: missing task_id' };
+    return {
+      ok: true,
+      taskId,
+      key, // 解密 AppSecret 需要（前端暂存，轮询时带回）
+      // 与官方 SDK buildConnectUrl 一致（source 可自定义展示平台名，默认第三方机器人）
+      qrcodeUrl: `https://${QQ_QR_HOST}/qqbot/openclaw/connect.html?task_id=${encodeURIComponent(taskId)}&source=${encodeURIComponent('hesi')}&_wv=2`,
+    };
+  } catch (err) {
+    return { ok: false, error: (err && err.message) || String(err) };
+  }
+}
+
+/**
+ * 轮询扫码绑定结果。COMPLETED 后用 step1 的 key 解密 AppSecret 并持久化。
+ * @param {string} taskId — createBindTask 返回的 task_id
+ * @param {string} key — createBindTask 返回的 key（AES-GCM 解密用）
+ * @returns {Promise<{ status: 'none'|'pending'|'completed'|'expired'|'error', appId?: string, detail?: string, error?: string }>}
+ */
+async function pollBindResult(taskId, key) {
+  try {
+    const data = await qqPost('/lite/poll_bind_result', { task_id: taskId });
+    const status = Number(data.data && data.data.status);
+    if (status === QQ_BIND_STATUS.COMPLETED) {
+      const appId = String(data.data.bot_appid || '');
+      const encrypted = String(data.data.bot_encrypt_secret || '');
+      if (appId && encrypted && key) {
+        try {
+          const appSecret = decryptSecret(encrypted, key);
+          botConfig.saveConfig('qq', { appId, secret: appSecret });
+          return { status: 'completed', appId, detail: '扫码绑定成功，已保存 AppID/AppSecret' };
+        } catch (decErr) {
+          return { status: 'completed', appId, error: `解密失败：${decErr && decErr.message ? decErr.message : decErr}` };
+        }
+      }
+      return { status: 'completed', appId, error: '缺少凭据字段' };
+    }
+    if (status === QQ_BIND_STATUS.EXPIRED) return { status: 'expired' };
+    return { status: status === QQ_BIND_STATUS.PENDING ? 'pending' : 'none' };
+  } catch (err) {
+    return { status: 'error', error: (err && err.message) || String(err) };
+  }
+}
 
 /** @type {{ token: string, tokenExpireAt: number }} */
 const state = {
@@ -137,4 +235,6 @@ module.exports = {
   verifyWebhook,
   eventToInbound,
   sendMessage,
+  createBindTask,
+  pollBindResult,
 };

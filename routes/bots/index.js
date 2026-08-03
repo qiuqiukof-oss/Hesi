@@ -183,6 +183,29 @@ function createRouter() {
     res.json({ ok: result.status === 'confirmed', ...result });
   });
 
+  // ── QQ 扫码连接（官方 create_bind_task / poll_bind_result）──
+  // GET /api/bots/qq/qrcode → 创建绑定任务（{ taskId, key, qrcodeUrl }）
+  // GET /api/bots/qq/qrcode/status?taskId=...&key=... → 轮询 none/pending/completed/expired
+  router.get('/bots/qq/qrcode', requireToken, async (req, res) => {
+    const entry = ADAPTERS.find(a => a.id === 'qq');
+    if (!entry || typeof entry.adapter.createBindTask !== 'function') {
+      return res.status(400).json({ ok: false, error: 'QQ 适配器未就绪' });
+    }
+    const result = await entry.adapter.createBindTask();
+    res.json(result);
+  });
+
+  router.get('/bots/qq/qrcode/status', requireToken, async (req, res) => {
+    const entry = ADAPTERS.find(a => a.id === 'qq');
+    const taskId = req.query && req.query.taskId;
+    const key = req.query && req.query.key;
+    if (!entry || typeof entry.adapter.pollBindResult !== 'function' || !taskId || !key) {
+      return res.status(400).json({ ok: false, error: 'taskId/key 参数缺失或适配器未就绪' });
+    }
+    const result = await entry.adapter.pollBindResult(String(taskId), String(key));
+    res.json({ ok: result.status === 'completed', ...result });
+  });
+
   return router;
 }
 
