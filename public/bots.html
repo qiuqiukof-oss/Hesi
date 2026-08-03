@@ -206,7 +206,9 @@
           '<div class="bt-card-desc">' + p.desc + '</div>' + meta +
           '<div class="bt-card-actions">' + actions + '</div></div>';
       }).join('');
-      render('<div class="bt-grid-inner">' + html + '</div>');
+      // 直接渲染到 .bt-grid（grid 3 列在它上面）；不能包内层 div——
+      // 内层无 grid 样式会导致卡片被块级包裹、竖排（球总反馈的布局 bug）
+      render(html);
     }
 
     async function load() {
@@ -311,7 +313,9 @@
         if (!res.ok || !data.ok) throw new Error((data && data.error) || ('HTTP ' + res.status));
         var qrcode = data.qrcode;
         if (data.qrcodeUrl) {
-          imgEl.innerHTML = '<img src="' + data.qrcodeUrl + '" style="width:200px;height:200px;border-radius:10px;border:1px solid var(--border-default);" alt="微信扫码" />';
+          // qrcodeUrl 是可打开的网页链接（liteapp.weixin.qq.com/q/...），不是图片——
+          // 用 qrserver 把它渲染成二维码图片供手机微信扫码
+          imgEl.innerHTML = '<img src="https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=' + encodeURIComponent(data.qrcodeUrl) + '" style="width:220px;height:220px;border-radius:10px;border:1px solid var(--border-default);" alt="微信扫码" />';
         } else {
           imgEl.innerHTML = '<div style="font-size:13px;">二维码获取失败</div>';
           return;

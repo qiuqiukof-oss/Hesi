@@ -7,12 +7,17 @@
 // ============================================================
 // WeChat Bot Adapter — 微信 iLink Bot API（扫码登录 + 长轮询）
 //
-// 协议（2026-08 核验，基座 https://ilinkai.weixin.qq.com）：
-//   登录：GET /get_bot_qrcode?bot_type=3 → 二维码
-//         GET /get_qrcode_status?qrcode=... → 轮询 wait→scaned→confirmed
-//         confirmed 后返回 bot_token（Bearer）+ baseurl（可能不同，始终用返回值）
-//   收消息：POST /getupdates（长轮询 ~35s 挂起，get_updates_buf 游标）
-//   发消息：POST /sendmessage（必须回传入站消息的 context_token）
+// 协议（2026-08 核验：wechatbot.dev + 腾讯云实测文章 + corespeed-io 协议文档，
+// 基座 https://ilinkai.weixin.qq.com，注意所有端点带 /ilink/bot/ 前缀）：
+//   登录：GET  /ilink/bot/get_bot_qrcode?bot_type=3
+//             → { qrcode, qrcode_img_content } 其中 qrcode_img_content 是
+//               「可打开的网页链接」（https://liteapp.weixin.qq.com/q/...），
+//               不是图片 URL——需将该链接再生成二维码供用户扫码（官方文章原话）。
+//         GET  /ilink/bot/get_qrcode_status?qrcode=...（头 iLink-App-ClientVersion: 1）
+//             → wait→scaned→confirmed（或 expired/need_verifycode 等）
+//             confirmed 后返回 bot_token（Bearer）+ baseurl（可能不同，始终用返回值）
+//   收消息：POST /ilink/bot/getupdates（长轮询 ~35s 挂起，get_updates_buf 游标）
+//   发消息：POST /ilink/bot/sendmessage（必须回传入站消息的 context_token）
 //   会话过期：errcode:-14 → 需重新扫码（bot_token 失效）
 //
 // 与 QQ 适配器的区别：QQ 是 webhook/官方 token，微信是「扫码 + 长轮询」——
@@ -23,6 +28,8 @@
 const botConfig = require('../../lib/bot-config');
 
 const BASE = 'https://ilinkai.weixin.qq.com';
+// ⚠️ 所有业务端点带 /ilink/bot/ 前缀（v1 实现漏掉导致 404、显示不出二维码）
+const API = `${BASE}/ilink/bot`;
 
 /** 是否已配置（有 botToken 即视为已登录）。 */
 const isConfigured = () => {
@@ -48,17 +55,22 @@ function randomUin() {
 
 /**
  * 获取登录二维码。
+ * qrcodeUrl 是「可打开的网页链接」（liteapp.weixin.qq.com），前端需把它
+ * 再渲染成二维码图片供用户扫码（官方流程：手机微信打开该链接即显示二维码）。
  * @returns {Promise<{ ok: boolean, qrcode?: string, qrcodeUrl?: string, error?: string }>}
  */
 async function getQrCode() {
   try {
-    const res = await fetch(`${BASE}/get_bot_qrcode?bot_type=3`);
+    const res = await fetch(`${API}/get_bot_qrcode?bot_type=3`, {
+      headers: { 'iLink-App-ClientVersion': '1' },
+    });
     if (!res.ok) {
       const t = await res.text().catch(() => '');
       return { ok: false, error: `wechat: get qrcode failed (HTTP ${res.status}) ${t.slice(0, 200)}` };
     }
     const data = await res.json();
-    // 返回 { qrcode, qrcode_img_content }——qrcode 是状态轮询 id，img 是二维码图 URL
+    // { qrcode, qrcode_img_content, ret }——qrcode 是状态轮询 id，
+    // qrcode_img_content 是可打开链接（生成二维码供扫码）
     const qrcode = data.qrcode || '';
     const imgUrl = data.qrcode_img_content || '';
     if (!qrcode) return { ok: false, error: 'wechat: qrcode missing in response' };
@@ -75,7 +87,9 @@ async function getQrCode() {
  */
 async function pollQrStatus(qrcode) {
   try {
-    const res = await fetch(`${BASE}/get_qrcode_status?qrcode=${encodeURIComponent(qrcode)}`);
+    const res = await fetch(`${API}/get_qrcode_status?qrcode=${encodeURIComponent(qrcode)}`, {
+      headers: { 'iLink-App-ClientVersion': '1' },
+    });
     if (!res.ok) {
       const t = await res.text().catch(() => '');
       return { status: 'error', error: `HTTP ${res.status} ${t.slice(0, 200)}` };
@@ -105,11 +119,12 @@ async function pollQrStatus(qrcode) {
 async function getUpdates(getUpdatesBuf = '') {
   const cfg = botConfig.getConfig('wechat-bot');
   if (!cfg.botToken) return { ok: false, error: 'wechat: not configured (扫码登录后才可用)' };
-  const url = cfg.baseurl || BASE;
+  // baseurl 来自扫码确认返回（可能指向 CDN/IDC 域名）；默认走 API 基座
+  const url = (cfg.baseurl || BASE).replace(/\/+$/, '');
   try {
     const ctrl = new AbortController();
     const timer = setTimeout(() => ctrl.abort(), 40000); // 略大于 35s 挂起
-    const res = await fetch(`${url}/getupdates`, {
+    const res = await fetch(`${url}/ilink/bot/getupdates`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -141,9 +156,9 @@ async function getUpdates(getUpdatesBuf = '') {
 async function sendMessage(contextToken, text) {
   const cfg = botConfig.getConfig('wechat-bot');
   if (!cfg.botToken || !contextToken) return { ok: false, error: 'wechat: botToken/contextToken required' };
-  const url = cfg.baseurl || BASE;
+  const url = (cfg.baseurl || BASE).replace(/\/+$/, '');
   try {
-    const res = await fetch(`${url}/sendmessage`, {
+    const res = await fetch(`${url}/ilink/bot/sendmessage`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
