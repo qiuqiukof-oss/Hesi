@@ -190,6 +190,7 @@ const Q = /** @type {QCLI} */ (window.QCLI = window.QCLI || {});
   }
 
   // ── Show inline pin editor ──
+  // 用 fixed 定位挂载到 body，避免被 sidebar / #pinned-list 的 overflow 裁剪
   function showPinEditor(pin, el) {
     // Close any existing editors
     document.querySelectorAll('.pin-editor').forEach(e => e.remove());
@@ -277,7 +278,16 @@ const Q = /** @type {QCLI} */ (window.QCLI = window.QCLI || {});
     editor.appendChild(tagsContainer);
     editor.appendChild(btnRow);
 
-    el.appendChild(editor);
+    // 计算触发元素在视口中的位置，fixed 定位到 body
+    const rect = el.getBoundingClientRect();
+    const desiredWidth = Math.max(220, Math.min(320, rect.width));
+    editor.style.position = 'fixed';
+    editor.style.left = `${Math.max(8, rect.left)}px`;
+    editor.style.top = `${rect.bottom + 4}px`;
+    editor.style.width = `${desiredWidth}px`;
+    editor.style.zIndex = '9999';
+
+    document.body.appendChild(editor);
     titleInput.focus();
     titleInput.select();
 
@@ -286,6 +296,7 @@ const Q = /** @type {QCLI} */ (window.QCLI = window.QCLI || {});
       editor.remove();
       document.removeEventListener('mousedown', onDocClick);
       document.removeEventListener('keydown', onKey);
+      window.removeEventListener('resize', closeEditor);
     }
     function onDocClick(e) {
       if (editor.contains(e.target)) return;
@@ -301,6 +312,7 @@ const Q = /** @type {QCLI} */ (window.QCLI = window.QCLI || {});
     setTimeout(() => {
       document.addEventListener('mousedown', onDocClick);
       document.addEventListener('keydown', onKey);
+      window.addEventListener('resize', closeEditor);
     }, 0);
 
     function renderChips() {
@@ -593,102 +605,12 @@ const Q = /** @type {QCLI} */ (window.QCLI = window.QCLI || {});
   }
 
   // ── Initialise — wire up events ──
+  let _pinReportInited = false;
   function init() {
-    // Enhance pinned section header
-    const header = document.querySelector('.pinned-header');
-    if (header) {
-      // Guard: prevent duplicate header actions if init() runs multiple times
-      if (header.querySelector('.pinned-header-actions')) return;
+    if (_pinReportInited) return;
+    _pinReportInited = true;
 
-      const actions = document.createElement('div');
-      actions.className = 'pinned-header-actions';
-      actions.style.display = 'flex';
-      actions.style.gap = '2px';
-
-      // Sort button
-      const sortBtn = document.createElement('button');
-      sortBtn.className = 'pinned-header-btn';
-      sortBtn.textContent = '⇅';
-      sortBtn.title = 'Sort pins (date/source/title)';
-      attachTip(sortBtn, '切换排序方式：按时间 / 来源 / 标题（循环切换）');
-      sortBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        cycleSort();
-      });
-      actions.appendChild(sortBtn);
-
-      // Merge button
-      const mergeBtn = document.createElement('button');
-      mergeBtn.className = 'pinned-header-btn';
-      mergeBtn.textContent = '⊞';
-      mergeBtn.title = 'Merge mode';
-      attachTip(mergeBtn, '进入合并模式：勾选多条钉住内容，合并成一条报告（便于一次性导出）');
-      mergeBtn.id = 'pin-merge-btn';
-      mergeBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        toggleMergeMode();
-      });
-      actions.appendChild(mergeBtn);
-
-      // Export all button
-      const exportBtn = document.createElement('button');
-      exportBtn.className = 'pinned-header-btn';
-      exportBtn.textContent = '📥';
-      exportBtn.title = 'Export all as Markdown';
-      attachTip(exportBtn, '把所有钉住内容导出为 Markdown（复制到剪贴板，失败则下载 .md 文件）');
-      exportBtn.id = 'pin-export-all-btn';
-      exportBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        exportPinsToMarkdown();
-      });
-      actions.appendChild(exportBtn);
-
-      header.appendChild(actions);
-    }
-
-    // Merge bar (below pinned header)
-    const mergeBar = document.createElement('div');
-    mergeBar.id = 'pin-merge-bar';
-    mergeBar.className = 'pin-merge-bar hidden';
-
-    const mergeCount = document.createElement('span');
-    mergeCount.id = 'pin-merge-count';
-    mergeCount.className = 'pin-merge-count';
-    mergeBar.appendChild(mergeCount);
-
-    const mergeBtn = document.createElement('button');
-    mergeBtn.className = 'pin-merge-action-btn';
-    mergeBtn.textContent = '🔗 Merge';
-    mergeBtn.addEventListener('click', mergeSelectedPins);
-    mergeBar.appendChild(mergeBtn);
-
-    const exportSelBtn = document.createElement('button');
-    exportSelBtn.className = 'pin-merge-action-btn';
-    exportSelBtn.textContent = '📥 Export selected';
-    exportSelBtn.addEventListener('click', exportSelectedToMarkdown);
-    mergeBar.appendChild(exportSelBtn);
-
-    const cancelBtn = document.createElement('button');
-    cancelBtn.className = 'pin-merge-action-btn cancel';
-    cancelBtn.textContent = '✕ Cancel';
-    cancelBtn.addEventListener('click', () => {
-      mergeMode = false;
-      selectedPins.clear();
-      document.querySelectorAll('.pin-checkbox').forEach(cb => {
-        cb.style.display = 'none';
-        cb.checked = false;
-      });
-      mergeBar.classList.add('hidden');
-      updateMergeActions();
-    });
-    mergeBar.appendChild(cancelBtn);
-
-    const section = document.getElementById('pinned-section');
-    if (section) {
-      section.appendChild(mergeBar);
-    }
-
-    // Report panel overlay — close on overlay click
+    // Report panel overlay — bind once regardless of header state
     const overlay = document.getElementById('pin-report-overlay');
     if (overlay) {
       overlay.addEventListener('click', (e) => {
@@ -699,6 +621,133 @@ const Q = /** @type {QCLI} */ (window.QCLI = window.QCLI || {});
     // Close button
     const closeBtn = document.getElementById('pin-report-close');
     if (closeBtn) closeBtn.addEventListener('click', closeReportPanel);
+
+    // Overlay export-all button (self-contained, no dependency on boot.js)
+    const overlayExportBtn = document.getElementById('pin-report-export-btn');
+    if (overlayExportBtn) {
+      overlayExportBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        exportPinsToMarkdown();
+      });
+    }
+
+    // Enhance pinned section header
+    const header = document.querySelector('.pinned-header');
+    if (header) {
+      let actions = header.querySelector('.pinned-header-actions');
+      const createActions = !actions;
+      if (createActions) {
+        actions = document.createElement('div');
+        actions.className = 'pinned-header-actions';
+        actions.style.display = 'flex';
+        actions.style.gap = '2px';
+      }
+
+      // Bind existing report button (from index.html) if present
+      const reportBtn = document.getElementById('pinned-report-btn');
+      if (reportBtn) {
+        reportBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          openReportPanel();
+        });
+        if (!reportBtn.getAttribute('data-tip')) {
+          attachTip(reportBtn, '打开报告面板，查看所有钉住内容');
+        }
+      }
+
+      // Sort button
+      if (!document.getElementById('pin-sort-btn')) {
+        const sortBtn = document.createElement('button');
+        sortBtn.className = 'pinned-header-btn';
+        sortBtn.id = 'pin-sort-btn';
+        sortBtn.textContent = '⇅';
+        sortBtn.title = 'Sort pins (date/source/title)';
+        attachTip(sortBtn, '切换排序方式：按时间 / 来源 / 标题（循环切换）');
+        sortBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          cycleSort();
+        });
+        actions.appendChild(sortBtn);
+      }
+
+      // Merge button
+      if (!document.getElementById('pin-merge-btn')) {
+        const mergeBtn = document.createElement('button');
+        mergeBtn.className = 'pinned-header-btn';
+        mergeBtn.textContent = '⊞';
+        mergeBtn.title = 'Merge mode';
+        attachTip(mergeBtn, '进入合并模式：勾选多条钉住内容，合并成一条报告（便于一次性导出）');
+        mergeBtn.id = 'pin-merge-btn';
+        mergeBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          toggleMergeMode();
+        });
+        actions.appendChild(mergeBtn);
+      }
+
+      // Export all button
+      if (!document.getElementById('pin-export-all-btn')) {
+        const exportBtn = document.createElement('button');
+        exportBtn.className = 'pinned-header-btn';
+        exportBtn.textContent = '📥';
+        exportBtn.title = 'Export all as Markdown';
+        attachTip(exportBtn, '把所有钉住内容导出为 Markdown（复制到剪贴板，失败则下载 .md 文件）');
+        exportBtn.id = 'pin-export-all-btn';
+        exportBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          exportPinsToMarkdown();
+        });
+        actions.appendChild(exportBtn);
+      }
+
+      if (createActions) {
+        header.appendChild(actions);
+      }
+    }
+
+    // Merge bar (below pinned header) — guard duplicates
+    if (!document.getElementById('pin-merge-bar')) {
+      const mergeBar = document.createElement('div');
+      mergeBar.id = 'pin-merge-bar';
+      mergeBar.className = 'pin-merge-bar hidden';
+
+      const mergeCount = document.createElement('span');
+      mergeCount.id = 'pin-merge-count';
+      mergeCount.className = 'pin-merge-count';
+      mergeBar.appendChild(mergeCount);
+
+      const mergeBtn = document.createElement('button');
+      mergeBtn.className = 'pin-merge-action-btn';
+      mergeBtn.textContent = '🔗 Merge';
+      mergeBtn.addEventListener('click', mergeSelectedPins);
+      mergeBar.appendChild(mergeBtn);
+
+      const exportSelBtn = document.createElement('button');
+      exportSelBtn.className = 'pin-merge-action-btn';
+      exportSelBtn.textContent = '📥 Export selected';
+      exportSelBtn.addEventListener('click', exportSelectedToMarkdown);
+      mergeBar.appendChild(exportSelBtn);
+
+      const cancelBtn = document.createElement('button');
+      cancelBtn.className = 'pin-merge-action-btn cancel';
+      cancelBtn.textContent = '✕ Cancel';
+      cancelBtn.addEventListener('click', () => {
+        mergeMode = false;
+        selectedPins.clear();
+        document.querySelectorAll('.pin-checkbox').forEach(cb => {
+          cb.style.display = 'none';
+          cb.checked = false;
+        });
+        mergeBar.classList.add('hidden');
+        updateMergeActions();
+      });
+      mergeBar.appendChild(cancelBtn);
+
+      const section = document.getElementById('pinned-section');
+      if (section) {
+        section.appendChild(mergeBar);
+      }
+    }
   }
 
   function cycleSort() {

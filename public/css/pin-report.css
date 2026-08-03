@@ -259,13 +259,9 @@
   background: rgba(239, 68, 68, 0.1);
 }
 
-/* ── Pin Editor (inline) ── */
+/* ── Pin Editor (body-level fixed, 避免被 sidebar/list overflow 裁剪) ── */
 .pin-editor {
-  position: absolute;
-  left: 4px;
-  right: 4px;
-  top: calc(100% - 2px);
-  z-index: 100;
+  position: fixed;
   padding: 6px;
   background: var(--bg-surface);
   border: 1px solid var(--accent);

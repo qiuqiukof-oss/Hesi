@@ -346,12 +346,7 @@ function init() {
       Q.showToast?.('\u5df2\u6e05\u9664\u6240\u6709\u56fa\u5b9a\u8f93\u51fa', 'info');
     }
   });
-  document.getElementById('pinned-report-btn')?.addEventListener('click', () => {
-    Q.PinReport?.openReportPanel?.();
-  });
-  document.getElementById('pin-report-export-btn')?.addEventListener('click', () => {
-    Q.PinReport?.exportPinsToMarkdown?.();
-  });
+  // Pin report wiring is handled by pin-report.js (lazy bundle) to avoid duplicate bindings.
 
   // ── Wire history panel ──
   const historySearch = document.getElementById('history-search-input');
