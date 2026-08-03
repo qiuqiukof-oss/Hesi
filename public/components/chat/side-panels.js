@@ -100,6 +100,11 @@ export const sidePanelsMixin = {
       e.stopPropagation();
       handle.classList.add('resizing');
       document.body.classList.add('drawer-resizing');
+      // 透明捕获层：拖拽期间盖住整屏（含 iframe），强制 mousemove/mouseup 留在父文档，
+      // 避免鼠标移到黑板/圆桌的 iframe 上被其吞掉 mouseup，导致拖拽“黏住”不结束。
+      const guard = document.createElement('div');
+      guard.style.cssText = 'position:fixed;inset:0;z-index:2147483647;cursor:ew-resize;user-select:none';
+      document.body.appendChild(guard);
       const startX = e.clientX;
       const startW = panel.getBoundingClientRect().width;
       const minW = 360;
@@ -112,6 +117,7 @@ export const sidePanelsMixin = {
       const onUp = () => {
         handle.classList.remove('resizing');
         document.body.classList.remove('drawer-resizing');
+        if (guard.parentNode) guard.parentNode.removeChild(guard);
         document.removeEventListener('mousemove', onMove);
         document.removeEventListener('mouseup', onUp);
         window.removeEventListener('mouseup', onUp);
