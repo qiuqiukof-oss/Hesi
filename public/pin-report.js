@@ -163,6 +163,19 @@ const Q = /** @type {QCLI} */ (window.QCLI = window.QCLI || {});
         }).catch(err => console.warn('[PinReport] clipboard error:', err));
       });
       actions.appendChild(copyBtn);
+      attachTip(copyBtn, '复制这段钉住内容到剪贴板');
+
+      // Send-to-chat button
+      const sendBtn = document.createElement('button');
+      sendBtn.className = 'pin-action-btn';
+      sendBtn.textContent = '↩';
+      sendBtn.title = '发到对话';
+      sendBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        sendPinToChat(pin);
+      });
+      actions.appendChild(sendBtn);
+      attachTip(sendBtn, '把这段钉住内容作为引用填入当前对话输入框（不会自动发送，请检查后按 Enter 发送）');
 
       const delBtn = document.createElement('button');
       delBtn.className = 'pin-action-btn danger';
@@ -173,6 +186,7 @@ const Q = /** @type {QCLI} */ (window.QCLI = window.QCLI || {});
         store.remove(pin.id).then(() => renderPinnedList()).catch(err => console.error('[PinReport] remove failed:', err));
       });
       actions.appendChild(delBtn);
+      attachTip(delBtn, '从钉住列表移除这条');
 
       el.appendChild(actions);
 
@@ -524,6 +538,53 @@ const Q = /** @type {QCLI} */ (window.QCLI = window.QCLI || {});
     }
   }
 
+  // ── Send pinned content into the chat input (引用填入，不自动发送) ──
+  function sendPinToChat(pin) {
+    const input = document.getElementById('chat-input');
+    if (!input) {
+      Q.showToast('未找到对话输入框', 'error');
+      return;
+    }
+    const src = pin.source || 'terminal';
+    const ts = fmtDate(pin.timestamp);
+    const body = stripAnsi(pin.text).trim();
+    const quoted = `> 引用钉住内容（来源：${src} · ${ts}）\n> ${body.split('\n').join('\n> ')}`;
+    const existing = input.value.trim();
+    input.value = existing ? existing + '\n\n' + quoted : quoted;
+    input.focus();
+    input.selectionStart = input.selectionEnd = input.value.length;
+    Q.showToast('已填入对话输入框，检查后按 Enter 发送', 'info');
+  }
+
+  // ── Lightweight hover tooltip (气泡说明) ──
+  let _tipEl = null;
+  function ensureTipEl() {
+    if (_tipEl) return _tipEl;
+    _tipEl = document.createElement('div');
+    _tipEl.className = 'pin-tip-bubble';
+    _tipEl.setAttribute('role', 'tooltip');
+    document.body.appendChild(_tipEl);
+    return _tipEl;
+  }
+  function attachTip(el, text) {
+    if (!el || !text) return;
+    el.setAttribute('data-tip', text);
+    el.addEventListener('mouseenter', () => {
+      const tip = ensureTipEl();
+      tip.textContent = text;
+      tip.classList.add('visible'); // 先可见以测量高度
+      const th = tip.offsetHeight;
+      const r = el.getBoundingClientRect();
+      let top = r.top - th - 8;
+      if (top < 8) top = r.bottom + 8; // 顶部不够则翻到下方
+      tip.style.left = Math.max(8, r.left) + 'px';
+      tip.style.top = top + 'px';
+    });
+    el.addEventListener('mouseleave', () => {
+      if (_tipEl) _tipEl.classList.remove('visible');
+    });
+  }
+
   // ── Initialise — wire up events ──
   function init() {
     // Enhance pinned section header
@@ -542,6 +603,7 @@ const Q = /** @type {QCLI} */ (window.QCLI = window.QCLI || {});
       sortBtn.className = 'pinned-header-btn';
       sortBtn.textContent = '⇅';
       sortBtn.title = 'Sort pins (date/source/title)';
+      attachTip(sortBtn, '切换排序方式：按时间 / 来源 / 标题（循环切换）');
       sortBtn.addEventListener('click', (e) => {
         e.stopPropagation();
         cycleSort();
@@ -553,6 +615,7 @@ const Q = /** @type {QCLI} */ (window.QCLI = window.QCLI || {});
       mergeBtn.className = 'pinned-header-btn';
       mergeBtn.textContent = '⊞';
       mergeBtn.title = 'Merge mode';
+      attachTip(mergeBtn, '进入合并模式：勾选多条钉住内容，合并成一条报告（便于一次性导出）');
       mergeBtn.id = 'pin-merge-btn';
       mergeBtn.addEventListener('click', (e) => {
         e.stopPropagation();
@@ -565,6 +628,7 @@ const Q = /** @type {QCLI} */ (window.QCLI = window.QCLI || {});
       exportBtn.className = 'pinned-header-btn';
       exportBtn.textContent = '📥';
       exportBtn.title = 'Export all as Markdown';
+      attachTip(exportBtn, '把所有钉住内容导出为 Markdown（复制到剪贴板，失败则下载 .md 文件）');
       exportBtn.id = 'pin-export-all-btn';
       exportBtn.addEventListener('click', (e) => {
         e.stopPropagation();
