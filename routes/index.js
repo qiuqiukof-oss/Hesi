@@ -34,6 +34,7 @@ const { createRouter: createSkillsRouter } = require('./skills');
 const { createRouter: createExpertsRouter } = require('./experts');
 const { createRouter: createTtsRouter } = require('./tts');
 const { createRouter: createRateLimiterRouter } = require('./rate-limiter');
+const { createRouter: createBotsRouter } = require('./bots');
 const { PluginLoader } = require('./plugin-loader');
 const { ToolRegistry } = require('./ai-tools/registry');
 // ── Enterprise platform routers (security / commercial / data workflows) ──
@@ -129,6 +130,11 @@ function setupRoutes(app, opts = {}) {
   app.use('/api', createFinanceRouter());
   app.use('/api', requireToken, createBrowserRouter());
   app.use('/api', createBrowserScriptsRouter());
+  // ── Bot 接入（通讯接入 A）──
+  // webhook 端点必须绕过 requireToken：平台服务器回调无法携带 HESI 的 token，
+  // 鉴权由各平台适配器内的签名校验负责（fail-closed）。内部 /api/bots/dispatch
+  // 端点在本机回环使用，由路由内部做回环+token 双重校验（见 bots/index.js）。
+  app.use('/api', createBotsRouter());
   if (mcpStatusOpts) {
     app.use('/api', createMcpStatusRouter(mcpStatusOpts));
   }
