@@ -704,6 +704,9 @@ function initToolsSection() {
       case 'workbuddy-hub':
         window.open('/workbuddy-hub.html', '_blank');
         break;
+      case 'bots-plaza':
+        window.open('/bots.html', '_blank');
+        break;
       case 'tools-page':
         window.open('/tools.html', '_blank');
         break;

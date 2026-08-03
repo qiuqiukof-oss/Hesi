@@ -1,0 +1,342 @@
+<!--
+  Copyright (c) 2026 qiuqiukof-oss
+  Licensed under the MIT License. See LICENSE for details.
+-->
+
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>通讯接入 — Hesi</title>
+  <link rel="stylesheet" href="/css/theme.css" />
+  <link rel="stylesheet" href="/css/standalone-nav.css" />
+  <script src="/lib/standalone-theme.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg-ground, #0a0a0b);
+      color: var(--text-primary, #f5f5f7);
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .bt-header { text-align: center; padding: 28px 24px 14px; border-bottom: 1px solid var(--border-default, #38383a); }
+    .bt-header h1 { font-size: 24px; font-weight: 700; }
+    .bt-header p { font-size: 13px; color: var(--text-tertiary, #98989d); margin-top: 4px; }
+    .bt-header p b { color: var(--accent, #6366f1); }
+    .bt-stats { display: flex; gap: 14px; justify-content: center; margin-top: 12px; flex-wrap: wrap; }
+    .bt-stat { font-size: 12px; color: var(--text-secondary, #98989d); background: var(--bg-overlay, #1c1c1e); border: 1px solid var(--border-default, #38383a); border-radius: 8px; padding: 6px 14px; }
+    .bt-stat-value { font-weight: 600; color: var(--text-primary, #f5f5f7); }
+
+    .bt-toolbar { display: flex; gap: 8px; align-items: center; padding: 14px 24px; max-width: 1080px; margin: 0 auto; width: 100%; }
+    .bt-refresh-btn { background: var(--bg-overlay, #1c1c1e); color: var(--text-secondary, #98989d); border: 1px solid var(--border-default, #38383a); border-radius: 8px; padding: 8px 16px; font-size: 13px; cursor: pointer; }
+    .bt-refresh-btn:hover { color: var(--text-primary, #f5f5f7); border-color: var(--accent, #6366f1); }
+    .bt-hint { margin-left: auto; font-size: 11px; color: var(--text-tertiary, #98989d); }
+
+    .bt-scroll { flex: 1; overflow-y: auto; padding: 4px 24px 32px; }
+    .bt-grid { max-width: 1080px; margin: 0 auto; display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; }
+
+    .bt-card { background: var(--bg-surface, #161618); border: 1px solid var(--border-default, #38383a); border-radius: 12px; padding: 18px; display: flex; flex-direction: column; gap: 10px; transition: border-color .2s; }
+    .bt-card:hover { border-color: var(--accent, #6366f1); }
+    .bt-card-head { display: flex; align-items: center; gap: 10px; }
+    .bt-card-icon { font-size: 26px; }
+    .bt-card-title { font-size: 15px; font-weight: 600; flex: 1; }
+    .bt-badge { font-size: 11px; padding: 3px 10px; border-radius: 20px; font-weight: 500; white-space: nowrap; }
+    .bt-badge-ok { background: rgba(52, 199, 89, .15); color: #34c759; border: 1px solid rgba(52, 199, 89, .35); }
+    .bt-badge-off { background: var(--bg-overlay, #1c1c1e); color: var(--text-tertiary, #98989d); border: 1px solid var(--border-default, #38383a); }
+    .bt-badge-testing { background: rgba(255, 159, 10, .15); color: #ff9f0a; border: 1px solid rgba(255, 159, 10, .35); }
+    .bt-badge-fail { background: rgba(255, 69, 58, .15); color: #ff453a; border: 1px solid rgba(255, 69, 58, .35); }
+
+    .bt-card-desc { font-size: 12px; color: var(--text-tertiary, #98989d); line-height: 1.6; min-height: 36px; }
+    .bt-card-meta { font-size: 11px; color: var(--text-tertiary, #98989d); display: flex; gap: 8px; flex-wrap: wrap; }
+    .bt-card-actions { display: flex; gap: 8px; margin-top: 4px; }
+    .bt-btn { font-size: 12px; padding: 6px 12px; border-radius: 8px; border: 1px solid var(--border-default, #38383a); background: var(--bg-overlay, #1c1c1e); color: var(--text-secondary, #98989d); cursor: pointer; }
+    .bt-btn:hover { color: var(--text-primary, #f5f5f7); border-color: var(--accent, #6366f1); }
+    .bt-btn-primary { background: var(--accent, #6366f1); border-color: var(--accent, #6366f1); color: #fff; }
+    .bt-btn-primary:hover { opacity: .9; color: #fff; }
+    .bt-btn:disabled { opacity: .5; cursor: not-allowed; }
+
+    /* 模态（配置表单） */
+    .bt-modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.55); z-index: 1000; align-items: center; justify-content: center; }
+    .bt-modal-overlay.show { display: flex; }
+    .bt-modal { background: var(--bg-surface, #161618); border: 1px solid var(--border-default, #38383a); border-radius: 14px; padding: 22px; width: 380px; max-width: 92vw; }
+    .bt-modal-title { font-size: 16px; font-weight: 600; margin-bottom: 4px; }
+    .bt-modal-desc { font-size: 12px; color: var(--text-tertiary, #98989d); margin-bottom: 14px; }
+    .bt-field { margin-bottom: 12px; }
+    .bt-field label { display: block; font-size: 12px; color: var(--text-secondary, #98989d); margin-bottom: 4px; }
+    .bt-field input { width: 100%; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--border-default, #38383a); background: var(--bg-ground, #0a0a0b); color: var(--text-primary, #f5f5f7); font-size: 13px; }
+    .bt-field input:focus { outline: none; border-color: var(--accent, #6366f1); }
+    .bt-modal-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px; }
+    .bt-modal-actions .bt-btn { padding: 8px 16px; }
+    .bt-test-result { font-size: 12px; margin-top: 8px; padding: 8px 10px; border-radius: 8px; line-height: 1.5; }
+    .bt-test-ok { background: rgba(52,199,89,.12); color: #34c759; }
+    .bt-test-fail { background: rgba(255,69,58,.12); color: #ff453a; }
+
+    .bt-loading { text-align: center; padding: 60px 0; color: var(--text-tertiary, #98989d); font-size: 13px; }
+    .bt-toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: var(--bg-surface, #161618); border: 1px solid var(--border-default, #38383a); color: var(--text-primary, #f5f5f7); padding: 10px 18px; border-radius: 10px; font-size: 13px; opacity: 0; transition: opacity .25s; pointer-events: none; z-index: 1100; }
+    .bt-toast.show { opacity: 1; }
+    .bt-toast.error { border-color: rgba(255,69,58,.5); color: #ff453a; }
+  </style>
+</head>
+<body>
+  <div class="bt-header">
+    <h1>🔌 通讯接入</h1>
+    <p>机器人模式（Bot）· 在群/私聊里 <b>@bot → HESI 执行 → 结果回传</b></p>
+    <div class="bt-stats">
+      <span class="bt-stat">平台 <span class="bt-stat-value" id="bt-stat-total">0</span></span>
+      <span class="bt-stat">已接入 <span class="bt-stat-value" id="bt-stat-configured">0</span></span>
+      <span class="bt-stat">回调端口 <span class="bt-stat-value" id="bt-stat-port">-</span></span>
+    </div>
+  </div>
+
+  <div class="bt-toolbar">
+    <button class="bt-refresh-btn" id="bt-refresh-btn">🔄 刷新</button>
+    <span class="bt-hint">凭证保存到 data/bots-config.json（env 优先）· 未配置平台不暴露回调端点</span>
+  </div>
+
+  <div class="bt-scroll">
+    <div class="bt-grid" id="bt-grid"><div class="bt-loading">加载平台…</div></div>
+  </div>
+
+  <!-- 配置模态 -->
+  <div class="bt-modal-overlay" id="bt-modal">
+    <div class="bt-modal">
+      <div class="bt-modal-title" id="bt-modal-title"></div>
+      <div class="bt-modal-desc" id="bt-modal-desc"></div>
+      <div id="bt-modal-fields"></div>
+      <div class="bt-test-result" id="bt-test-result" style="display:none"></div>
+      <div class="bt-modal-actions">
+        <button class="bt-btn" id="bt-test-btn">🔍 测试连接</button>
+        <button class="bt-btn" onclick="BotsPlaza.closeModal()">取消</button>
+        <button class="bt-btn bt-btn-primary" id="bt-save-btn">保存</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="bt-toast" id="bt-toast"></div>
+
+  <script>
+  (function() {
+    'use strict';
+    // ── 平台静态元数据（与后端 routes/bots/index.js ADAPTERS 对应）──
+    var PLATFORMS = [
+      { id: 'qq', icon: '🐧', name: 'QQ 机器人', desc: 'QQ 官方开放平台机器人。AppID + AppSecret 换 access_token，支持群/私聊消息。', status: 'beta', fields: [ { key: 'appId', label: 'AppID', placeholder: '官方开放平台机器人 AppID' }, { key: 'secret', label: 'AppSecret', placeholder: '官方开放平台机器人 AppSecret' } ] },
+      { id: 'wecom', icon: '💼', name: '企业微信 bot', desc: '企业微信应用/群机器人 webhook。M2 接入，配置后自动注册回调端点。', status: 'planned', fields: [ { key: 'token', label: 'Token', placeholder: '企微机器人 Token' } ] },
+      { id: 'feishu', icon: '🕊️', name: '飞书 bot', desc: '飞书机器人事件订阅（URL 校验 + 消息回调）。M2 接入。', status: 'planned', fields: [ { key: 'appId', label: 'App ID', placeholder: '飞书开放平台 App ID' }, { key: 'appSecret', label: 'App Secret', placeholder: '飞书开放平台 App Secret' } ] },
+      { id: 'dingtalk', icon: '🦖', name: '钉钉 bot', desc: '钉钉机器人 webhook + 回调。M3 接入。', status: 'planned', fields: [ { key: 'token', label: 'Token', placeholder: '钉钉机器人 Token' } ] },
+      { id: 'wechat-bot', icon: '💬', name: '微信 bot', desc: '微信官方机器人平台（对话开放平台/公众号），非个人号。M3 接入。', status: 'planned', fields: [ { key: 'appId', label: 'App ID', placeholder: 'App ID' }, { key: 'appSecret', label: 'App Secret', placeholder: 'App Secret' } ] },
+    ];
+
+    var $ = {};
+    var current = null; // 当前编辑平台
+    var fieldValues = {}; // 当前表单值（未保存暂存）
+
+    function cacheDom() {
+      $.grid = document.getElementById('bt-grid');
+      $.statTotal = document.getElementById('bt-stat-total');
+      $.statConfigured = document.getElementById('bt-stat-configured');
+      $.statPort = document.getElementById('bt-stat-port');
+      $.refreshBtn = document.getElementById('bt-refresh-btn');
+      $.toast = document.getElementById('bt-toast');
+      $.modal = document.getElementById('bt-modal');
+      $.modalTitle = document.getElementById('bt-modal-title');
+      $.modalDesc = document.getElementById('bt-modal-desc');
+      $.modalFields = document.getElementById('bt-modal-fields');
+      $.testResult = document.getElementById('bt-test-result');
+      $.testBtn = document.getElementById('bt-test-btn');
+      $.saveBtn = document.getElementById('bt-save-btn');
+    }
+
+    function fetchWithTimeout(url, ms, opts) {
+      var ctrl = new AbortController();
+      var id = setTimeout(function() { ctrl.abort(); }, ms || 8000);
+      return fetch(url, Object.assign({ signal: ctrl.signal }, opts || {})).then(function(r) { clearTimeout(id); return r; }).catch(function(e) { clearTimeout(id); throw e; });
+    }
+
+    function toast(msg, isError) {
+      $.toast.textContent = msg;
+      $.toast.className = 'bt-toast show' + (isError ? ' error' : '');
+      clearTimeout(toast._t);
+      toast._t = setTimeout(function() { $.toast.className = 'bt-toast'; }, 2600);
+    }
+
+    // ── 渲染 ──
+    function render(gridHtml) {
+      $.grid.innerHTML = gridHtml;
+    }
+
+    function renderCards(cfg) {
+      var platforms = cfg && cfg.platforms ? cfg.platforms : {};
+      var configuredCount = PLATFORMS.filter(function(p) { var c = platforms[p.id]; return c && c.source !== 'none'; }).length;
+      $.statTotal.textContent = PLATFORMS.length;
+      $.statConfigured.textContent = configuredCount;
+      $.statPort.textContent = (cfg && cfg.loopbackPort) || '-';
+
+      var html = PLATFORMS.map(function(p) {
+        var info = platforms[p.id] || {};
+        var isConfigured = info.source && info.source !== 'none';
+        var badge = p.status === 'planned'
+          ? '<span class="bt-badge bt-badge-off">规划中</span>'
+          : (isConfigured ? '<span class="bt-badge bt-badge-ok">✓ 已配置</span>' : '<span class="bt-badge bt-badge-off">未配置</span>');
+        var meta = '';
+        if (p.status !== 'planned') {
+          var masked = info.masked || {};
+          var maskedStr = Object.keys(masked).filter(function(k) { return masked[k]; }).map(function(k) { return k + ': ' + masked[k]; }).join(' · ');
+          meta = '<div class="bt-card-meta">' + (maskedStr ? '凭证 ' + maskedStr + ' · ' : '') + '来源 ' + (info.source === 'env' ? '环境变量' : (info.source === 'file' ? '设置页' : '未配置')) + '</div>';
+        } else {
+          meta = '<div class="bt-card-meta">M2/M3 里程碑接入</div>';
+        }
+        return '<div class="bt-card">' +
+          '<div class="bt-card-head"><span class="bt-card-icon">' + p.icon + '</span><span class="bt-card-title">' + p.name + '</span>' + badge + '</div>' +
+          '<div class="bt-card-desc">' + p.desc + '</div>' + meta +
+          '<div class="bt-card-actions">' +
+            (p.status !== 'planned'
+              ? '<button class="bt-btn" data-act="configure" data-id="' + p.id + '">⚙ 配置</button>' +
+                (isConfigured ? '<button class="bt-btn" data-act="test" data-id="' + p.id + '">🔍 测试</button>' : '')
+              : '<button class="bt-btn bt-btn-primary" data-act="configure" data-id="' + p.id + '">提前配置</button>') +
+          '</div></div>';
+      }).join('');
+      render('<div class="bt-grid-inner">' + html + '</div>');
+    }
+
+    async function load() {
+      render('<div class="bt-loading">加载平台…</div>');
+      try {
+        const [cfgRes, listRes] = await Promise.all([
+          fetchWithTimeout('/api/bots/config', 8000).catch(function() { return null; }),
+          fetchWithTimeout('/api/bots', 8000).catch(function() { return null; }),
+        ]);
+        var cfg = cfgRes && cfgRes.ok ? await cfgRes.json() : null;
+        var list = listRes && listRes.ok ? await listRes.json() : null;
+        if (cfg) cfg.loopbackPort = list && list.loopbackPort;
+        renderCards(cfg || { platforms: {} });
+      } catch (e) {
+        render('<div class="bt-loading">加载失败：' + (e && e.message ? e.message : e) + '</div>');
+      }
+    }
+
+    // ── 配置模态 ──
+    function openModal(platform) {
+      current = platform;
+      fieldValues = {};
+      $.modalTitle.textContent = '配置 ' + platform.name;
+      $.modalDesc.textContent = platform.desc;
+      $.modalFields.innerHTML = platform.fields.map(function(f) {
+        return '<div class="bt-field"><label>' + f.label + '</label><input type="password" data-field="' + f.key + '" placeholder="' + (f.placeholder || '') + '" autocomplete="off" /></div>';
+      }).join('');
+      $.testResult.style.display = 'none';
+      $.testResult.className = 'bt-test-result';
+      $.testBtn.disabled = false;
+      $.saveBtn.disabled = false;
+      $.modal.classList.add('show');
+      // 聚焦第一个输入
+      var first = $.modalFields.querySelector('input');
+      if (first) first.focus();
+    }
+
+    function closeModal() {
+      $.modal.classList.remove('show');
+      current = null;
+    }
+
+    function collectFields() {
+      var out = {};
+      $.modalFields.querySelectorAll('input[data-field]').forEach(function(inp) {
+        if (inp.value && inp.value.trim()) out[inp.dataset.field] = inp.value.trim();
+      });
+      return out;
+    }
+
+    async function saveConfig() {
+      if (!current) return;
+      var fields = collectFields();
+      if (Object.keys(fields).length === 0) { toast('请至少填写一项凭证', true); return; }
+      $.saveBtn.disabled = true;
+      try {
+        const res = await fetchWithTimeout('/api/bots/config', 8000, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ platform: current.id, fields: fields }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || ('HTTP ' + res.status));
+        toast(data.warning || '已保存 ✓');
+        closeModal();
+        load();
+      } catch (e) {
+        toast('保存失败：' + (e && e.message ? e.message : e), true);
+        $.saveBtn.disabled = false;
+      }
+    }
+
+    async function testConnection() {
+      if (!current) return;
+      var fields = collectFields();
+      // 未填完整时仍可测试（后端用已存配置）
+      $.testBtn.disabled = true;
+      $.testResult.style.display = 'block';
+      $.testResult.className = 'bt-test-result bt-badge-testing';
+      $.testResult.textContent = '测试中…';
+      try {
+        // 若表单有新值，先保存再测（保证用最新凭证）
+        if (Object.keys(fields).length > 0) {
+          const saveRes = await fetchWithTimeout('/api/bots/config', 8000, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ platform: current.id, fields: fields }),
+          });
+          const saveData = await saveRes.json();
+          if (!saveRes.ok) throw new Error(saveData.error || ('HTTP ' + saveRes.status));
+        }
+        const res = await fetchWithTimeout('/api/bots/' + current.id + '/test', 8000, { method: 'POST' });
+        const data = await res.json();
+        if (data.ok) {
+          $.testResult.className = 'bt-test-result bt-test-ok';
+          $.testResult.textContent = '✅ ' + (data.detail || '连接正常');
+        } else {
+          $.testResult.className = 'bt-test-result bt-test-fail';
+          $.testResult.textContent = '❌ ' + (data.error || '连接失败');
+        }
+      } catch (e) {
+        $.testResult.className = 'bt-test-result bt-test-fail';
+        $.testResult.textContent = '❌ ' + (e && e.message ? e.message : e);
+      } finally {
+        $.testBtn.disabled = false;
+      }
+    }
+
+    // ── 事件绑定 ──
+    function bind() {
+      $.refreshBtn.addEventListener('click', load);
+      $.saveBtn.addEventListener('click', saveConfig);
+      $.testBtn.addEventListener('click', testConnection);
+      $.modal.addEventListener('click', function(e) { if (e.target === $.modal) closeModal(); });
+      document.addEventListener('keydown', function(e) { if (e.key === 'Escape') closeModal(); });
+      $.grid.addEventListener('click', function(e) {
+        var btn = e.target.closest('[data-act]');
+        if (!btn) return;
+        var act = btn.dataset.act;
+        var id = btn.dataset.id;
+        var platform = PLATFORMS.find(function(p) { return p.id === id; });
+        if (!platform) return;
+        if (act === 'configure') openModal(platform);
+        else if (act === 'test') { openModal(platform); setTimeout(testConnection, 50); }
+      });
+    }
+
+    // ── 启动 ──
+    document.addEventListener('DOMContentLoaded', function() {
+      cacheDom();
+      bind();
+      load();
+    });
+
+    // 暴露给 inline onclick（取消按钮）
+    window.BotsPlaza = {
+      closeModal: closeModal,
+    };
+  })();
+  </script>
+</body>
+</html>

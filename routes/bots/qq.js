@@ -20,28 +20,34 @@
 // ============================================================
 
 const { normalizeInbound } = require('./adapter');
+const botConfig = require('../../lib/bot-config');
 
-/** @type {{ appId: string, secret: string, token: string, tokenExpireAt: number }} */
+/** @type {{ token: string, tokenExpireAt: number }} */
 const state = {
-  appId: process.env.HESI_BOT_QQ_APPID || '',
-  secret: process.env.HESI_BOT_QQ_SECRET || '',
   token: '',
   tokenExpireAt: 0,
 };
 
+/** 运行时取配置（env 优先 + data 覆盖）。 */
+function getCredentials() {
+  return botConfig.getConfig('qq');
+}
+
 /** 适配器是否已配置（未配置 → 不注册路由）。 */
-const isConfigured = () => !!(state.appId && state.secret);
+const isConfigured = () => botConfig.isConfigured('qq');
 
 /**
  * 获取 QQ access_token（带缓存，过期前 60s 刷新）。
+ * 凭证从 botConfig 读取（env 优先）。
  * @returns {Promise<string>}
  */
 async function getAccessToken() {
   if (state.token && Date.now() < state.tokenExpireAt - 60000) return state.token;
+  const cred = getCredentials();
   const res = await fetch('https://bots.qq.com/app/v1/token', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ appId: state.appId, clientSecret: state.secret }),
+    body: JSON.stringify({ appId: cred.appId, clientSecret: cred.secret }),
   });
   if (!res.ok) {
     const t = await res.text().catch(() => '');
@@ -51,6 +57,19 @@ async function getAccessToken() {
   state.token = data.access_token || '';
   state.tokenExpireAt = Date.now() + ((Number(data.expires_in) || 7200) * 1000);
   return state.token;
+}
+
+/**
+ * 测试凭证连通性：尝试换取 access_token。
+ * @returns {Promise<{ ok: boolean, detail?: string, error?: string }>}
+ */
+async function testConnection() {
+  try {
+    const token = await getAccessToken();
+    return { ok: !!token, detail: token ? '凭证有效，成功获取 access_token' : '返回空 token' };
+  } catch (err) {
+    return { ok: false, error: (err && err.message) || String(err) };
+  }
 }
 
 /**
@@ -114,6 +133,7 @@ async function sendMessage(chatId, text, opts = {}) {
 module.exports = {
   isConfigured,
   getAccessToken,
+  testConnection,
   verifyWebhook,
   eventToInbound,
   sendMessage,

@@ -126,6 +126,37 @@ function createRouter() {
     });
   });
 
+  // ── 平台配置（脱敏读取 + 保存）——requireToken 保护（管理操作）──
+  router.get('/bots/config', requireToken, (req, res) => {
+    const botConfig = require('../../lib/bot-config');
+    const out = {};
+    for (const a of ADAPTERS) {
+      out[a.id] = botConfig.getConfig(a.id);
+    }
+    res.json({ platforms: out, envKeys: botConfig.PLATFORM_ENV });
+  });
+
+  router.post('/bots/config', requireToken, (req, res) => {
+    const botConfig = require('../../lib/bot-config');
+    const { platform, fields } = req.body || {};
+    if (!platform || !fields) return res.status(400).json({ error: 'platform/fields required' });
+    const result = botConfig.saveConfig(platform, fields);
+    if (!result.ok) return res.status(400).json({ error: result.error });
+    res.json({ ok: true, ...(result.warning ? { warning: result.warning } : {}) });
+  });
+
+  // ── 平台连接测试（用当前凭证跑一次连通性校验）——requireToken 保护 ──
+  router.post('/bots/:platform/test', requireToken, async (req, res) => {
+    const { platform } = req.params;
+    const entry = ADAPTERS.find(a => a.id === platform);
+    if (!entry) return res.status(404).json({ error: `unknown platform: ${platform}` });
+    if (typeof entry.adapter.testConnection !== 'function') {
+      return res.status(400).json({ ok: false, error: '该平台暂不支持连接测试' });
+    }
+    const result = await entry.adapter.testConnection();
+    res.json(result);
+  });
+
   return router;
 }
 
