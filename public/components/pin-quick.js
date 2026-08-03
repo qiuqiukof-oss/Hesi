@@ -12,10 +12,11 @@
 'use strict';
 
 /** @typedef {import('../types').QCLI} QCLI */
-const Q = /** @type {QCLI} */ (window.QCLI || {});
+function Q() { return /** @type {QCLI} */ (window.QCLI || {}); }
 
 function getActiveTerm() {
-  return Q.term || (Q.Tabs && Q.Tabs.term) || null;
+  const q = Q();
+  return q.term || (q.Tabs && q.Tabs.term) || null;
 }
 
 function getSelectionText() {
@@ -54,8 +55,13 @@ function ensureBar() {
     e.preventDefault();
     e.stopPropagation();
     const text = getSelectionText();
-    if (!text) { Q.showToast('请先选中要钉住的内容', 'info'); hideBar(); return; }
-    Q.pinSelectedOutput(text, { skipPrompt: true });
+    const q = Q();
+    if (!text) {
+      if (q.showToast) q.showToast('请先选中要钉住的内容', 'info');
+      hideBar();
+      return;
+    }
+    if (q.pinSelectedOutput) q.pinSelectedOutput(text, { skipPrompt: true });
     hideBar();
   });
   barEl.appendChild(btn);
@@ -98,8 +104,12 @@ function ensureHoverBtn() {
     e.preventDefault();
     e.stopPropagation();
     const text = getSelectionText();
-    if (!text) { Q.showToast('请先选中要钉住的内容', 'info'); return; }
-    Q.pinSelectedOutput(text, { skipPrompt: true });
+    const q = Q();
+    if (!text) {
+      if (q.showToast) q.showToast('请先选中要钉住的内容', 'info');
+      return;
+    }
+    if (q.pinSelectedOutput) q.pinSelectedOutput(text, { skipPrompt: true });
   });
   container.appendChild(hoverBtn);
   return hoverBtn;
@@ -121,7 +131,7 @@ function init() {
     onMaybeSelectionChange();
   });
   document.addEventListener('keyup', (e) => {
-    if (e.shiftKey || e.key === 'Shift' || e.key.startsWith('Arrow')) onMaybeSelectionChange();
+    if (e.shiftKey || e.key === 'Shift' || (e.key && e.key.startsWith('Arrow'))) onMaybeSelectionChange();
   });
   window.addEventListener('scroll', hideBar, true);
   window.addEventListener('resize', hideBar);
@@ -132,7 +142,7 @@ function init() {
 }
 
 export const PinQuick = { init, showBar, hideBar };
-Q.PinQuick = PinQuick;
+if (window.QCLI) window.QCLI.PinQuick = PinQuick;
 
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', () => setTimeout(init, 0));
