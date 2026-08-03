@@ -105,6 +105,17 @@ const Q = /** @type {QCLI} */ (window.QCLI = window.QCLI || {});
       titleSpan.title = pin.title || pin.text.slice(0, 120);
       titleRow.appendChild(titleSpan);
 
+      // Edit title button
+      const editBtn = document.createElement('button');
+      editBtn.className = 'pin-edit-btn';
+      editBtn.textContent = '✏';
+      editBtn.title = 'Edit title & tags';
+      editBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        showPinEditor(pin, el);
+      });
+      titleRow.appendChild(editBtn);
+
       content.appendChild(titleRow);
 
       // Meta row (source + time)
@@ -113,6 +124,19 @@ const Q = /** @type {QCLI} */ (window.QCLI = window.QCLI || {});
       const src = pin.source || 'terminal';
       metaRow.textContent = `${src} · ${fmtDate(pin.timestamp)}`;
       content.appendChild(metaRow);
+
+      // Tags row
+      if (pin.tags && pin.tags.length > 0) {
+        const tagsRow = document.createElement('div');
+        tagsRow.className = 'pin-tags';
+        for (const tag of pin.tags) {
+          const chip = document.createElement('span');
+          chip.className = 'pin-tag';
+          chip.textContent = tag;
+          tagsRow.appendChild(chip);
+        }
+        content.appendChild(tagsRow);
+      }
 
       // Preview (first line of text)
       const preview = document.createElement('div');
@@ -123,12 +147,183 @@ const Q = /** @type {QCLI} */ (window.QCLI = window.QCLI || {});
 
       el.appendChild(content);
 
+      // ── Actions ──
+      const actions = document.createElement('div');
+      actions.className = 'pin-actions';
+
+      const copyBtn = document.createElement('button');
+      copyBtn.className = 'pin-action-btn';
+      copyBtn.textContent = '📋';
+      copyBtn.title = 'Copy to clipboard';
+      copyBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const text = stripAnsi(pin.text);
+        navigator.clipboard.writeText(text).then(() => {
+          showToast('Copied to clipboard', 'success');
+        }).catch(err => console.warn('[PinReport] clipboard error:', err));
+      });
+      actions.appendChild(copyBtn);
+      attachTip(copyBtn, '复制这段钉住内容到剪贴板');
+
+      const delBtn = document.createElement('button');
+      delBtn.className = 'pin-action-btn danger';
+      delBtn.textContent = '✕';
+      delBtn.title = 'Remove pin';
+      delBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        store.remove(pin.id).then(() => renderPinnedList()).catch(err => console.error('[PinReport] remove failed:', err));
+      });
+      actions.appendChild(delBtn);
+      attachTip(delBtn, '从钉住列表移除这条');
+
+      el.appendChild(actions);
+
       // Click to expand
       el.addEventListener('click', () => {
         el.classList.toggle('expanded');
       });
 
       container.appendChild(el);
+    }
+  }
+
+  // ── Show inline pin editor ──
+  function showPinEditor(pin, el) {
+    // Close any existing editors
+    document.querySelectorAll('.pin-editor').forEach(e => e.remove());
+
+    const editor = document.createElement('div');
+    editor.className = 'pin-editor';
+
+    const titleInput = document.createElement('input');
+    titleInput.type = 'text';
+    titleInput.className = 'pin-editor-title';
+    titleInput.value = pin.title || '';
+    titleInput.placeholder = 'Pin title…';
+
+    const tagsContainer = document.createElement('div');
+    tagsContainer.className = 'pin-editor-tags';
+
+    const tagChips = document.createElement('div');
+    tagChips.className = 'pin-editor-chips';
+    if (pin.tags) {
+      for (const tag of pin.tags) {
+        const chip = document.createElement('span');
+        chip.className = 'pin-tag removable';
+        chip.textContent = tag + ' ×';
+        chip.addEventListener('click', () => {
+          pin.tags = pin.tags.filter(t => t !== tag);
+          renderChips();
+          save();
+        });
+        tagChips.appendChild(chip);
+      }
+    }
+
+    const tagInput = document.createElement('input');
+    tagInput.type = 'text';
+    tagInput.className = 'pin-editor-tag-input';
+    tagInput.placeholder = '+ Add tag (Enter to add)';
+    tagInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && tagInput.value.trim()) {
+        e.preventDefault();
+        if (!pin.tags) pin.tags = [];
+        const tag = tagInput.value.trim().toLowerCase().replace(/\s+/g, '-');
+        if (!pin.tags.includes(tag)) {
+          pin.tags.push(tag);
+          tagInput.value = '';
+          renderChips();
+          save();
+        }
+      }
+    });
+
+    tagsContainer.appendChild(tagChips);
+    tagsContainer.appendChild(tagInput);
+
+    const btnRow = document.createElement('div');
+    btnRow.className = 'pin-editor-btn-row';
+
+    const saveBtn = document.createElement('button');
+    saveBtn.className = 'pin-editor-save';
+    saveBtn.textContent = 'Save';
+    saveBtn.addEventListener('click', () => {
+      pin.title = titleInput.value.trim();
+      save();
+      closeEditor();
+      renderPinnedList();
+    });
+    btnRow.appendChild(saveBtn);
+
+    const cancelBtn = document.createElement('button');
+    cancelBtn.className = 'pin-editor-cancel';
+    cancelBtn.textContent = 'Cancel';
+    cancelBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      closeEditor();
+    });
+    btnRow.appendChild(cancelBtn);
+
+    editor.appendChild(titleInput);
+    editor.appendChild(tagsContainer);
+    editor.appendChild(btnRow);
+
+    const rect = el.getBoundingClientRect();
+    const desiredWidth = Math.max(220, Math.min(320, rect.width));
+    editor.style.position = 'fixed';
+    editor.style.left = `${Math.max(8, rect.left)}px`;
+    editor.style.top = `${rect.bottom + 4}px`;
+    editor.style.width = `${desiredWidth}px`;
+    editor.style.zIndex = '9999';
+
+    document.body.appendChild(editor);
+    titleInput.focus();
+    titleInput.select();
+
+    function closeEditor() {
+      editor.remove();
+      document.removeEventListener('mousedown', onDocClick);
+      document.removeEventListener('keydown', onKey);
+      window.removeEventListener('resize', closeEditor);
+    }
+    function onDocClick(e) {
+      if (editor.contains(e.target)) return;
+      closeEditor();
+    }
+    function onKey(e) {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        closeEditor();
+      }
+    }
+    setTimeout(() => {
+      document.addEventListener('mousedown', onDocClick);
+      document.addEventListener('keydown', onKey);
+      window.addEventListener('resize', closeEditor);
+    }, 0);
+
+    function renderChips() {
+      tagChips.innerHTML = '';
+      if (pin.tags) {
+        for (const tag of pin.tags) {
+          const chip = document.createElement('span');
+          chip.className = 'pin-tag removable';
+          chip.textContent = tag + ' ×';
+          chip.addEventListener('click', () => {
+            pin.tags = pin.tags.filter(t => t !== tag);
+            renderChips();
+            save();
+          });
+          tagChips.appendChild(chip);
+        }
+      }
+    }
+
+    async function save() {
+      const s = window.QCLI?.PinStore;
+      if (s) {
+        await s.update(pin.id, { title: pin.title || '', tags: pin.tags || [] });
+      }
     }
   }
 
