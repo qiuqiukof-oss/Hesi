@@ -50,7 +50,7 @@ function ensureBar() {
   btn.className = 'pin-quick-btn';
   btn.type = 'button';
   btn.innerHTML = '📌 <span>Pin</span>';
-  btn.title = '钉住选中内容';
+  btn.title = '将终端选中内容存至Hesi剪切板';
   btn.addEventListener('click', (e) => {
     e.preventDefault();
     e.stopPropagation();
@@ -99,7 +99,7 @@ function ensureHoverBtn() {
   hoverBtn.className = 'pin-hover-btn';
   hoverBtn.type = 'button';
   hoverBtn.innerHTML = '📌';
-  hoverBtn.title = '钉住选中内容（先选中终端文字）';
+  hoverBtn.title = '将终端选中内容存至Hesi剪切板';
   hoverBtn.addEventListener('click', (e) => {
     e.preventDefault();
     e.stopPropagation();
