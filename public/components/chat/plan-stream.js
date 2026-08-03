@@ -28,8 +28,13 @@ export const planStreamMixin = {
    */
   _handlePlanEvent(evt) {
     if (!this.msgsEl || !evt) return;
-    // P0b：把事件转发给实时 stdout 控制台（若存在），控制台只读取、不改既有逻辑
-    if (typeof this._planConsoleEvent === 'function') this._planConsoleEvent(evt);
+    // P0b：把事件转发给实时 stdout 控制台（若存在），控制台只读取、不改既有逻辑。
+    // 关键：绝不允许控制台逻辑抛错连累上方步骤气泡渲染——包一层 try/catch 兜底。
+    try {
+      if (typeof this._planConsoleEvent === 'function') this._planConsoleEvent(evt);
+    } catch (e) {
+      console.error('[plan-console] 事件处理异常（已隔离，不影响步骤气泡）:', e);
+    }
     const t = evt.type;
 
     if (t === 'start') {

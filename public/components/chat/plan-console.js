@@ -71,6 +71,11 @@ export const planConsoleMixin = {
     if (!host) return null;
     const inputArea = host.querySelector('.chat-input-area');
     if (!inputArea) return null;
+    // 修复（2026-08-04）：insertBefore 要求 inputArea 是其直接父的子节点。
+    // 运行时 #chat-drawer 的 DOM 可能被重排，inputArea 未必是 host(#chat-drawer)
+    // 的直接子（被某层包裹），此时 host.insertBefore 会抛 NotFoundError。
+    // 改用 inputArea 的真实父节点作为插入参考点——它对所有层级都安全。
+    const refParent = inputArea.parentNode || host;
 
     const root = document.createElement('div');
     root.className = 'plan-console';
@@ -131,7 +136,7 @@ export const planConsoleMixin = {
     root.appendChild(stream);
 
     // 插入到输入框之前（聊天抽屉底部上方），不挤压消息区为主
-    host.insertBefore(root, inputArea);
+    refParent.insertBefore(root, inputArea);
 
     root.addEventListener('mouseenter', () => { if (this._planConsole) this._planConsole.hover = true; });
     root.addEventListener('mouseleave', () => { if (this._planConsole) this._planConsole.hover = false; });
