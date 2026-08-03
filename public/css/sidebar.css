@@ -835,18 +835,18 @@
 }
 
 .sidebar-tools-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 3px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
   padding: 2px 0;
 }
 
 .sidebar-tool-btn {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   align-items: center;
-  gap: 2px;
-  padding: 5px 2px;
+  gap: 8px;
+  padding: 6px 10px;
   background: transparent;
   border: 1px solid transparent;
   border-radius: var(--radius-md);
@@ -855,23 +855,27 @@
   transition: all 0.15s var(--ease-out);
   font-family: var(--font-ui);
   min-width: 0;
-  min-height: 42px;
+  min-height: 30px;
+  text-align: left;
 }
 
 .sidebar-tool-btn:hover {
   background: var(--bg-hover);
   color: var(--text-primary);
   border-color: var(--accent-glow);
-  transform: translateY(-1px);
+  transform: translateX(1px);
 }
 
 .sidebar-tool-btn:active {
-  transform: translateY(0);
+  transform: translateX(0);
 }
 
 .sidebar-tool-btn .stb-icon {
-  font-size: 14px;
+  font-size: 15px;
   line-height: 1;
+  flex-shrink: 0;
+  width: 18px;
+  text-align: center;
   transition: transform 0.15s var(--ease-spring);
 }
 
@@ -880,12 +884,13 @@
 }
 
 .sidebar-tool-btn .stb-label {
-  font-size: 8px;
-  line-height: 1;
+  font-size: 12px;
+  line-height: 1.2;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 100%;
+  flex: 1;
+  min-width: 0;
   letter-spacing: 0.2px;
 }
 
