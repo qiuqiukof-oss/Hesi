@@ -34,10 +34,6 @@ function wsSend(data) {
 }
 
 /** @param {string} msg @param {string} [type] */
-function showToast(msg, type) {
-  const fn = Q().showToast;
-  if (fn) fn(msg, type);
-}
 
 // ── State ──
 /** @type {string} */
@@ -152,7 +148,7 @@ export async function pinSelectedOutput() {
     title || ''
   );
   hideContextMenu();
-  showToast('📌 ' + ('已固定到输出剪贴板'), 'success');
+  Q.showToast('📌 ' + ('已固定到输出剪贴板'), 'success');
   await renderPinnedList();
 }
 
@@ -228,7 +224,7 @@ export async function renderPinnedList() {
 
       el.addEventListener('click', function() {
         navigator.clipboard.writeText(/** @type {string} */ (pinText)).catch(function() {});
-        showToast('📋 ' + ('已复制到剪贴板'), 'success');
+        Q.showToast('📋 ' + ('已复制到剪贴板'), 'success');
       });
 
       container.appendChild(el);

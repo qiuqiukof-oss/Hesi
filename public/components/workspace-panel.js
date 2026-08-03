@@ -17,10 +17,6 @@
 /** @returns {QCLI} */
 function Q() { return /** @type {QCLI} */ (window.QCLI || {}); }
 
-function showToast(msg, type) {
-  const t = Q().showToast;
-  if (t) t(msg, type || 'info');
-}
 
 // ============================================================
 // Open / Close
@@ -97,7 +93,7 @@ export async function renderWorkspaceList() {
     el.addEventListener('click', async () => {
       const tabs = Q().Tabs;
       if (!tabs || !ws.tabs || ws.tabs.length === 0) {
-        showToast('\u5de5\u4f5c\u533a\u6ca1\u6709\u53ef\u6062\u590d\u7684 tab', 'info');
+        Q.showToast('\u5de5\u4f5c\u533a\u6ca1\u6709\u53ef\u6062\u590d\u7684 tab', 'info');
         return;
       }
       for (const tab of ws.tabs) {
@@ -112,7 +108,7 @@ export async function renderWorkspaceList() {
         }
       }
       closeWorkspacePanel();
-      showToast(`\u2705 \u5df2\u6062\u590d\u5de5\u4f5c\u533a "${ws.name}"\uff08${ws.tabs.length} \u4e2a tab\uff09`, 'success');
+      Q.showToast(`\u2705 \u5df2\u6062\u590d\u5de5\u4f5c\u533a "${ws.name}"\uff08${ws.tabs.length} \u4e2a tab\uff09`, 'success');
     });
 
     container.appendChild(el);
@@ -137,7 +133,7 @@ Promise.resolve().then(() => {
   document.getElementById('workspace-save-btn')?.addEventListener('click', async () => {
     const tabs = Q().Tabs;
     if (!tabs || tabs.tabs.length === 0) {
-      showToast('\u6ca1\u6709\u53ef\u4fdd\u5b58\u7684 tab\u3002\u8bf7\u5148\u542f\u52a8\u4e00\u4e9b CLI\u3002', 'info');
+      Q.showToast('\u6ca1\u6709\u53ef\u4fdd\u5b58\u7684 tab\u3002\u8bf7\u5148\u542f\u52a8\u4e00\u4e9b CLI\u3002', 'info');
       return;
     }
     const name = prompt('\u5de5\u4f5c\u533a\u540d\u79f0:');
@@ -145,7 +141,7 @@ Promise.resolve().then(() => {
     const store = Q().WorkspaceStore;
     if (store) {
       await store.save(name.trim(), tabs.tabs);
-      showToast(`\ud83d\udcbe \u5df2\u4fdd\u5b58\u5de5\u4f5c\u533a "${name.trim()}"`, 'success');
+      Q.showToast(`\ud83d\udcbe \u5df2\u4fdd\u5b58\u5de5\u4f5c\u533a "${name.trim()}"`, 'success');
       await renderWorkspaceList();
     }
   });

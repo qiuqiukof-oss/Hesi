@@ -24,7 +24,7 @@
 // 安全：agentId 必须经过 INSTALL_REGISTRY 白名单校验，杜绝任意命令执行。
 // ============================================================
 const { Router } = require('express');
-const { spawn } = require('child_process');
+const { spawn, execFile } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 const { isNativeFile, writeAgentLauncher } = require('../lib/agent-launcher');

@@ -88,4 +88,7 @@ import './digital-employees.js'; // DigitalEmployees → role-based employee man
 import './agents.js';        // Agents → AI agent sidebar panel
 import './settings.js';      // Settings → settings UI, env vars
 
+// ── Pin Report — pin management / report panel（从 main.js 迁入懒加载：非首屏关键路径）──
+import './pin-report.js';     // PinReport → Q.PinReport（固定/合并/导出 Markdown）
+
 console.log('[Hesi] Lazy bundle loaded (P3 panels included)');

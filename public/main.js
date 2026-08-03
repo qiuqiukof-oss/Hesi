@@ -33,7 +33,7 @@ import './workspace-store.js'; // WorkspaceStore → profile save/restore
 import './upload.js';        // Upload → file upload & media preview
 import './custom-css.js';    // CustomCSS → user CSS injection
 import './shortcuts.js';     // Shortcuts → keyboard shortcut panel
-import './pin-report.js';    // PinReport → pin management UI
+// import './pin-report.js' → 已迁入 public/lazy.js 懒加载（非首屏关键路径）    // PinReport → pin management UI
 
 // ── UI panels (loaded after utilities) ──
 import './palette.js';       // Palette → command palette

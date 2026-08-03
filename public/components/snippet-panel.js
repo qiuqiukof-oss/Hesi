@@ -21,10 +21,6 @@ function Q() { return /** @type {QCLI} */ (window.QCLI || {}); }
 async function getStore() { return Q().SnippetStore || null; }
 
 /** @param {string} msg @param {string} [type] */
-function showToast(msg, type) {
-  const t = Q().showToast;
-  if (t) t(msg, type || 'info');
-}
 
 // ============================================================
 // Open / Close
@@ -117,7 +113,7 @@ export async function renderSnippetList() {
         const term = Q().Tabs?.term;
         if (term) term.focus();
       } else {
-        showToast('\u8bf7\u5148\u542f\u52a8\u4e00\u4e2a CLI', 'info');
+        Q.showToast('\u8bf7\u5148\u542f\u52a8\u4e00\u4e2a CLI', 'info');
       }
     });
 
@@ -179,7 +175,7 @@ Promise.resolve().then(() => {
         document.getElementById('add-snippet-modal')?.classList.add('hidden');
         if (errorEl) errorEl.classList.add('hidden');
         snippetForm.reset();
-        showToast(`\ud83d\udccb \u5df2\u6dfb\u52a0\u7247\u6bb5 "${name}"`, 'success');
+        Q.showToast(`\ud83d\udccb \u5df2\u6dfb\u52a0\u7247\u6bb5 "${name}"`, 'success');
         await renderSnippetList();
         // Refresh command palette cache
         if (Q().openPalette) {
