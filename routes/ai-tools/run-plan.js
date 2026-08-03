@@ -770,11 +770,13 @@ async function execStepDirectly(step, cwd, opts = {}) {
           killTree(child.pid);
         }
       }, 200);
+      let onAbort = null;
       if (signal && typeof signal.addEventListener === 'function') {
-        signal.addEventListener('abort', () => {
+        onAbort = () => {
           manuallyKilled = true;
           if (child && !child.killed) killTree(child.pid);
-        }, { once: true });
+        };
+        signal.addEventListener('abort', onAbort, { once: true });
       }
       let settled = false;
       // ⚠️ 兜底：spawn 的 timeout 只杀「直接子进程」——若命令内启动后台进程
@@ -785,6 +787,7 @@ async function execStepDirectly(step, cwd, opts = {}) {
         if (settled) return;
         settled = true;
         clearInterval(watch);
+        if (onAbort && signal) signal.removeEventListener('abort', onAbort);
         if (backgroundGraceMs) {
           // 后台启动模式：shell 已退出但后台进程持有管道 → 视为启动成功，放养进程
           if (child && !child.killed) { try { child.unref(); } catch { /* ignore */ } }
@@ -798,6 +801,7 @@ async function execStepDirectly(step, cwd, opts = {}) {
         if (settled) return;
         settled = true;
         clearInterval(watch);
+        if (onAbort && signal) signal.removeEventListener('abort', onAbort);
         clearTimeout(forceTimer);
         // spawn timeout 默认发 SIGTERM（killed=true, 非手动）；abort 用 SIGKILL（manuallyKilled）
         const killed = manuallyKilled || sig === 'SIGKILL';

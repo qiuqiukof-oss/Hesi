@@ -216,12 +216,14 @@ class McpHub {
       this.live.set(id, connector);
     } catch (e) {
       // Persist the failure so the UI can show status=error.
-      const r = data.clients.find((c) => c.id === id);
+      // 重新读取最新 store 再合并本记录，避免并发 connect 的读改写竞态互相覆盖（见 Batch C）。
+      const fresh = loadStore();
+      const r = fresh.clients.find((c) => c.id === id);
       if (r) {
         r.status = 'error';
         r.error = e.message;
         r.toolCount = 0;
-        saveStore(data);
+        saveStore(fresh);
       }
       throw e;
     }

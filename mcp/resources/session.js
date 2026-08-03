@@ -57,7 +57,7 @@ const routeHandlers = [
       }
 
       const tailLines = params.has("tailLines") ? parseInt(params.get("tailLines"), 10) : 200;
-      const output = session.read({ mode: "tail", tailLines });
+      const output = await session.read({ mode: "tail", tailLines });
       return {
         contents: [{ uri, mimeType: "application/json", text: JSON.stringify({ sessionId, output }) }],
       };

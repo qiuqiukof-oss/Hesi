@@ -710,12 +710,14 @@ When the user asks you to perform a "system self-check" / "全面自检" / "diag
     // Compaction / fact extraction may call the LLM; run async after the
     // response streams so the user never waits on it.
     if (MemoryStore.enabled && sessionId) {
-      MemoryStore.commit(sessionId).catch(() => {});
+      MemoryStore.commit(sessionId).catch((e) => console.error('[chat] MemoryStore.commit failed:', e?.message));
       // 上下文压缩始终执行（属窗口管理，非"生成记忆"）；事实抽取受 memoryEnabled 闸控。
       // 显式传 baseUrl：否则 llm-bridge 兜底 env，本地 LLM 用户走 HESI_LLM_BASE_URL。
-      MemoryStore.compactIfNeeded(sessionId, { apiKey, provider: clientProvider, model, baseUrl: clientBaseUrl }).catch(() => {});
+      MemoryStore.compactIfNeeded(sessionId, { apiKey, provider: clientProvider, model, baseUrl: clientBaseUrl })
+        .catch((e) => console.error('[chat] compactIfNeeded failed:', e?.message));
       if (memoryEnabled !== false) {
-        MemoryStore.extractFacts(sessionId, { apiKey, provider: clientProvider, model, baseUrl: clientBaseUrl }).catch(() => {});
+        MemoryStore.extractFacts(sessionId, { apiKey, provider: clientProvider, model, baseUrl: clientBaseUrl })
+          .catch((e) => console.error('[chat] extractFacts failed:', e?.message));
       }
     }
 

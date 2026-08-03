@@ -63,6 +63,17 @@ module.exports = async function proxy(req, res) {
   const tail = req.originalUrl.slice(PROXY_PREFIX.length) || '/';
   const target = resolveBase(cfg) + tail;
 
+  // 仅允许 http/https：防止 apiBaseUrl 被配成 file:// 等危险协议、把 API Key 泄露给非预期目标
+  let targetUrl;
+  try {
+    targetUrl = new URL(target);
+  } catch {
+    return res.status(400).json({ error: 'Agnes apiBaseUrl 不是合法 URL' });
+  }
+  if (targetUrl.protocol !== 'http:' && targetUrl.protocol !== 'https:') {
+    return res.status(400).json({ error: 'Agnes apiBaseUrl 仅支持 http/https 协议' });
+  }
+
   const headers = { Authorization: `Bearer ${  apiKey}` };
   const ct = req.headers['content-type'];
   if (ct) headers['Content-Type'] = ct;

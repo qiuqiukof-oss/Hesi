@@ -139,9 +139,17 @@ const server = new Server(
 // Tool Handlers
 // ══════════════════════════════════════════════════
 
-server.setRequestHandler(ListToolsRequestSchema, async () => ({
-  tools: allToolDefinitions.concat(await connectorsTools.resolveDefinitions()),
-}));
+server.setRequestHandler(ListToolsRequestSchema, async () => {
+  // 连接器定义解析失败不应拖垮整个 tools/list（否则内置工具也一并消失）。
+  // 单连接器故障隔离：降级为仅内置工具可用。
+  let connectorTools = [];
+  try {
+    connectorTools = await connectorsTools.resolveDefinitions();
+  } catch (e) {
+    console.error('[mcp] resolveDefinitions failed, falling back to built-in tools only:', e?.message);
+  }
+  return { tools: allToolDefinitions.concat(connectorTools) };
+});
 
 server.setRequestHandler(CallToolRequestSchema, async (request) => {
   const { name, arguments: args } = request.params;

@@ -152,7 +152,11 @@ class McpConnector {
 
   async callTool(name, args = {}) {
     if (!this.client) await this.connect();
-    const timeout = Number(this.entry.timeout) || 30000;
+    // 与 connect() 一致：配置 timeout 单位为秒（<1000 视为秒），避免把 600s 当 600ms 必超时
+    const rawTimeout = Number(this.entry.timeout);
+    const timeout = rawTimeout
+      ? (rawTimeout < 1000 ? rawTimeout * 1000 : rawTimeout)
+      : 30000;
     const res = await withTimeout(
       this.client.callTool({ name, arguments: args }),
       timeout,

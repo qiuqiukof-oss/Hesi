@@ -434,17 +434,19 @@ function main() {
   const rl = createInterface({ input: process.stdin });
   let buffer = "";
 
-  rl.on("line", (line) => {
+  rl.on("line", async (line) => {
     buffer += line;
     try {
       const request = JSON.parse(buffer);
       buffer = "";
-      const response = handleMCPRequest(request);
-      if (response) {
+      // tools/call 返回 Promise，必须 await 否则 JSON.stringify 把 Promise 序列化为 {}（工具调用恒返回空）
+      const response = await handleMCPRequest(request);
+      if (response !== null && response !== undefined) {
         process.stdout.write(JSON.stringify(response) + "\n");
       }
-    } catch {
-      // Incomplete JSON — keep buffering
+    } catch (e) {
+      // Incomplete JSON — 继续缓冲；其它异常记入日志避免静默吞掉
+      if (!(e instanceof SyntaxError)) console.error("[netforge] MCP request error:", e?.message);
     }
   });
 
