@@ -208,7 +208,7 @@ export async function renderPinnedList() {
   container.innerHTML = '';
   for (let i = 0; i < pins.length; i++) {
     const pin = pins[i];
-    (function(pinId, pinText) {
+    (function(pinText) {
       const el = document.createElement('div');
       el.className = 'pin-item';
 
@@ -217,23 +217,8 @@ export async function renderPinnedList() {
       text.textContent = pinText.slice(0, 200);
       el.appendChild(text);
 
-      const removeBtn = document.createElement('button');
-      removeBtn.className = 'pin-item-remove';
-      removeBtn.textContent = '✕';
-      removeBtn.addEventListener('click', async function(e) {
-        e.stopPropagation();
-        await store.remove(pinId);
-        await renderPinnedList();
-      });
-      el.appendChild(removeBtn);
-
-      el.addEventListener('click', function() {
-        navigator.clipboard.writeText(/** @type {string} */ (pinText)).catch(function() {});
-        Q().showToast('📋 ' + ('已复制到剪贴板'), 'success');
-      });
-
       container.appendChild(el);
-    })(pin.id, pin.text);
+    })(pin.text);
   }
 }
 

@@ -141,15 +141,8 @@
         <span class="pinned-header-icon">📌</span>
         <span class="pinned-header-title">输出片段</span>
         <div class="pinned-header-actions">
-          <button id="pinned-report-btn" class="pinned-header-btn" title="打开报告面板">📋</button>
           <button id="pinned-clear-btn" class="pinned-clear-btn" title="清除">🗑</button>
         </div>
-      </div>
-      <div id="pin-merge-bar" class="pin-merge-bar hidden">
-        <span id="pin-merge-count" class="pin-merge-count"></span>
-        <button class="pin-merge-action-btn" onclick="window.QCLI?.PinReport?.mergeSelectedPins()">🔗 合并</button>
-        <button class="pin-merge-action-btn" onclick="window.QCLI?.PinReport?.exportSelectedToMarkdown?.()">📥 导出选中</button>
-        <button class="pin-merge-action-btn cancel" onclick="window.QCLI?.PinReport?.toggleMergeMode?.()">✕ 取消</button>
       </div>
       <div id="pinned-list"></div>
     </div>
@@ -951,21 +944,6 @@
         <button id="workspace-close-btn" class="history-close-btn" title="关闭 (Esc)">✕</button>
       </div>
       <div id="workspace-list"></div>
-    </div>
-  </div>
-
-  <!-- ====== Pin Report Panel Overlay ====== -->
-  <div id="pin-report-overlay" class="hidden">
-    <div id="pin-report-bg"></div>
-    <div id="pin-report-panel">
-      <div class="pin-report-header">
-        <span class="pin-report-header-icon">📋</span>
-        <span class="pin-report-header-title">报告面板</span>
-        <span id="pin-report-count" class="pin-report-count"></span>
-        <button id="pin-report-export-btn" class="pin-report-header-btn" title="导出全部为 Markdown">📥 导出全部</button>
-        <button id="pin-report-close" class="pin-report-header-btn close" title="关闭">✕</button>
-      </div>
-      <div id="pin-report-list"></div>
     </div>
   </div>
 
