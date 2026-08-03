@@ -46,7 +46,9 @@ class BrowserManager {
   async connect(cdpUrl) {
     const url = cdpUrl || DEFAULT_CDP_URL;
     this.cdpUrl = url;
-    this.retries = 0; // 每次真正发起连接都重置计数，避免失败路径堆积导致永久死锁
+    // 注意：重试计数只在连接成功时（下方 this.retries = 0）重置。
+    // 此处切勿重置，否则 ensureConnected 的 MAX_RETRIES 守卫与指数退避将失效，
+    // 导致浏览器断开后陷入无限 1s 重连风暴。
 
     // 先试探 CDP 端点是否存活
     try {

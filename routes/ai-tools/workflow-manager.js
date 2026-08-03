@@ -365,14 +365,16 @@ class WorkflowManager {
     const wf = this._workflows.get(workflowId);
     if (!wf || wf.status !== 'running') return;
 
-    // 如果被调度锁定，跳过（防止重复调度）
-    if (wf._scheduling) return;
+    // 如果被调度锁定，标记为待重跑后返回（防止重复调度，但不再静默丢弃请求）
+    if (wf._scheduling) { wf._pending = true; return; }
     wf._scheduling = true;
 
     try {
       await this._doSchedule(wf);
     } finally {
       wf._scheduling = false;
+      // 调度窗口内有新完成事件进来 → 重跑一次，避免就绪任务永久停摆
+      if (wf._pending) { wf._pending = false; this._schedule(workflowId); }
     }
   }
 
