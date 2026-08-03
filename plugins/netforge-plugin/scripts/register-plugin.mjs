@@ -11,7 +11,7 @@
  * so Hesi can discover it on next start.
  */
 
-import { readFileSync, writeFileSync, existsSync, mkdirSync } from "node:fs";
+import { readFileSync, writeFileSync, renameSync, existsSync, mkdirSync } from "node:fs";
 import { homedir, platform } from "node:os";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -64,7 +64,8 @@ function register() {
     lastUpdated: new Date().toISOString(),
   });
 
-  writeFileSync(DB_PATH, JSON.stringify(filtered, null, 2), "utf-8");
+  writeFileSync(DB_PATH + ".tmp", JSON.stringify(filtered, null, 2), "utf-8");
+  renameSync(DB_PATH + ".tmp", DB_PATH);
   console.log(`[NetForge] ✅ Registered plugin "${PLUGIN_NAME}@${MARKETPLACE}" in ${DB_PATH}`);
   console.log(`[NetForge]    Install path: ${PLUGIN_ROOT}`);
 }

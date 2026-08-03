@@ -25,9 +25,6 @@
 import { safeStorage } from '../lib/storage.js';
 import AgentSessionRenderer from './agent-session-renderer.js';
 import { renderMarkdown } from './message-render.js';
-import { buildBenefitBar } from './benefit-bar.js';
-import { computeSavings } from './savings-icon.js';
-import { computeContextUsage } from './context-usage.js';
 import { mountCategoryChips, getActiveCategory } from './category-chips.js';
 import { mermaidPreviewMixin } from './chat/mermaid-preview.js';
 import { discussControlsMixin } from './chat/discuss-controls.js';
@@ -157,7 +154,10 @@ class ChatPanel extends HTMLElement {
     this.attachPreviewEl = document.getElementById('chat-attachments');
     this.verifyBtn = document.getElementById('chat-verify-btn');
     // 核查模式（verify-first）：从 localStorage 恢复开关状态并同步按钮高亮
-    this._verifyMode = localStorage.getItem('qcli-verify-mode') === '1';
+    // 隐私模式 / 禁用存储时 localStorage 会抛错，需 try/catch 避免面板挂载失败
+    let savedVerify = null;
+    try { savedVerify = localStorage.getItem('qcli-verify-mode'); } catch { /* 存储不可用：保持默认 false */ }
+    this._verifyMode = savedVerify === '1';
     if (this.verifyBtn) {
       this.verifyBtn.classList.toggle('active', this._verifyMode);
       this.verifyBtn.addEventListener('click', () => this._toggleVerifyMode());
@@ -436,7 +436,7 @@ class ChatPanel extends HTMLElement {
             this.toggle();
             const term = qcli().Tabs?.term || qcli().term;
             if (term && typeof term.focus === 'function') {
-              try { term.focus(); } catch (_) { /* term may be disposed — non-critical; user will refocus manually */ }
+              try { term.focus(); } catch { /* term may be disposed — non-critical; user will refocus manually */ }
             }
           }
         }
@@ -571,7 +571,7 @@ class ChatPanel extends HTMLElement {
   // ── 核查模式（verify-first）开关 ──
   _toggleVerifyMode() {
     this._verifyMode = !this._verifyMode;
-    localStorage.setItem('qcli-verify-mode', this._verifyMode ? '1' : '0');
+    try { localStorage.setItem('qcli-verify-mode', this._verifyMode ? '1' : '0'); } catch { /* 存储不可用：仅内存态 */ }
     if (this.verifyBtn) this.verifyBtn.classList.toggle('active', this._verifyMode);
   }
 
@@ -723,7 +723,7 @@ class ChatPanel extends HTMLElement {
 
               // Save snapshot for next comparison (only read, not yet "committed")
               this._pendingTerminalLines = currentLines;
-            } catch (e) { /* terminal buffer not available */ }
+            } catch { /* terminal buffer not available */ }
           }
         }
 

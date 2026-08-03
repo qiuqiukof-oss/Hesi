@@ -44,13 +44,21 @@ async function networkAction(action, filter) {
   }
 }
 
+function clearPollTimer() {
+  if (dom && dom.panel && dom.panel._pollTimer) {
+    clearInterval(dom.panel._pollTimer);
+    dom.panel._pollTimer = null;
+  }
+}
+
 async function startCapture() {
   const result = await networkAction('start');
   if (result.success) {
     _isRecording = true;
     updateUI();
-    // Auto-poll every 2 seconds
+    // Auto-poll every 2 seconds；先清旧定时器避免重复 start 造成双轮询泄漏
     if (dom && dom.panel) {
+      clearPollTimer();
       dom.panel._pollTimer = setInterval(pollEntries, 2000);
     }
   } else {
@@ -62,10 +70,7 @@ async function startCapture() {
 
 async function stopCapture() {
   _isRecording = false;
-  if (dom && dom.panel && dom.panel._pollTimer) {
-    clearInterval(dom.panel._pollTimer);
-    dom.panel._pollTimer = null;
-  }
+  clearPollTimer();
   await networkAction('stop');
   updateUI();
 }
@@ -81,10 +86,7 @@ async function pollEntries() {
     if (typeof result.isActive === 'boolean' && result.isActive !== _isRecording) {
       _isRecording = result.isActive;
       updateUI();
-      if (!_isRecording && dom && dom.panel && dom.panel._pollTimer) {
-        clearInterval(dom.panel._pollTimer);
-        dom.panel._pollTimer = null;
-      }
+      if (!_isRecording) clearPollTimer();
     }
   }
 }
@@ -472,6 +474,7 @@ function convertHarEntry(harEntry) {
 // ============================================================
 
 function init(container) {
+  clearPollTimer(); // 重新挂载前清掉旧轮询定时器，避免跨次 init 泄漏
   container.innerHTML = `
     <div class="nm-panel">
       <div class="nm-toolbar">

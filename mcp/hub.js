@@ -64,7 +64,10 @@ function loadStore() {
 
 function saveStore(data) {
   ensureStore();
-  fs.writeFileSync(STORE_PATH, JSON.stringify(data, null, 2), 'utf-8');
+  // 原子写：先写临时文件再 rename，避免写到一半进程崩溃导致 STORE_PATH 损坏成非法 JSON
+  const tmp = `${STORE_PATH}.tmp`;
+  fs.writeFileSync(tmp, JSON.stringify(data, null, 2), 'utf-8');
+  fs.renameSync(tmp, STORE_PATH);
 }
 
 class McpHub {
