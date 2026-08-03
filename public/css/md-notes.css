@@ -204,3 +204,106 @@
   background: var(--bg-elevated, #1c212b);
   font-weight: 700;
 }
+
+/* ── Crumb nav: clickable segments + edit + up ── */
+.mdn-crumb-nav {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.mdn-seg {
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  color: var(--accent, #6366f1);
+  transition: background 0.12s ease;
+  max-width: 22ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.mdn-seg:hover {
+  background: color-mix(in srgb, var(--accent, #6366f1) 16%, transparent);
+  text-decoration: underline;
+}
+.mdn-seg.mdn-seg-leaf {
+  cursor: default;
+  color: var(--text-secondary, #b6bccb);
+  background: transparent;
+  text-decoration: none;
+  font-weight: 600;
+}
+.mdn-sep {
+  color: var(--text-tertiary, #6a7080);
+  font-size: 11px;
+  user-select: none;
+  padding: 0 1px;
+}
+.mdn-edit-btn,
+.mdn-up-btn {
+  flex: 0 0 auto;
+  margin-left: 4px;
+  padding: 3px 8px;
+  border: 1px solid var(--border-subtle, #2a2f3a);
+  border-radius: 6px;
+  background: var(--bg-elevated, #1c212b);
+  color: var(--text-secondary, #b6bccb);
+  font-size: 11px;
+  cursor: pointer;
+  transition: background 0.12s ease, border-color 0.12s ease;
+}
+.mdn-edit-btn:hover,
+.mdn-up-btn:hover {
+  border-color: var(--accent, #6366f1);
+  color: var(--accent, #6366f1);
+}
+
+/* ── Edit mode (manual path entry) ── */
+.mdn-edit-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  flex-wrap: nowrap;
+}
+.mdn-edit-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 5px 8px;
+  border: 1px solid var(--accent, #6366f1);
+  border-radius: 6px;
+  background: var(--bg-base, #14171f);
+  color: var(--text-primary, #e6e8ec);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12px;
+  outline: none;
+}
+.mdn-edit-input:focus {
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent, #6366f1) 30%, transparent);
+}
+.mdn-edit-go,
+.mdn-edit-cancel {
+  flex: 0 0 auto;
+  padding: 5px 10px;
+  border: 1px solid var(--border-subtle, #2a2f3a);
+  border-radius: 6px;
+  background: var(--bg-elevated, #1c212b);
+  color: var(--text-primary, #e6e8ec);
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.mdn-edit-go {
+  border-color: var(--accent, #6366f1);
+  color: var(--accent, #6366f1);
+}
+.mdn-edit-go:hover {
+  background: color-mix(in srgb, var(--accent, #6366f1) 18%, transparent);
+}
+.mdn-edit-cancel:hover {
+  border-color: var(--text-tertiary, #6a7080);
+}

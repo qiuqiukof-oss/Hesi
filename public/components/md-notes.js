@@ -96,26 +96,80 @@ async function openDir(dir) {
   }
 }
 
+function splitSegments(absPath) {
+  // Split an absolute path into display segments + their accumulated prefix.
+  //   "H:\Hesi\.workbuddy" -> [{name:"H:\\", full:"H:\\"}, {name:"Hesi", full:"H:\\Hesi"}, {name:".workbuddy", full:"H:\\Hesi\\.workbuddy"}]
+  //   "H:\Hesi"           -> [{name:"H:\\", full:"H:\\"}, {name:"Hesi", full:"H:\\Hesi"}]
+  //   "C:/a/b"            -> POSIX-style fallback
+  if (!absPath) return [];
+  const isWin = /^[A-Za-z]:[\\/]/.test(absPath);
+  if (isWin) {
+    const m = absPath.match(/^([A-Za-z]:)([\\\/].*)$/);
+    if (!m) return [{ name: absPath, full: absPath, isLeaf: true }];
+    const drive = m[1] + (m[2].startsWith('\\') ? '\\' : '/');
+    const rest = m[2].replace(/^[\\\/]+/, '');
+    const parts = rest.split(/[\\\/]/).filter(Boolean);
+    const segs = [{ name: drive, full: drive, isLeaf: parts.length === 0 }];
+    let acc = drive;
+    for (let i = 0; i < parts.length; i++) {
+      acc = acc.replace(/[\\\/]+$/, '') + (drive.endsWith('\\') ? '\\' : '/') + parts[i];
+      segs.push({ name: parts[i], full: acc, isLeaf: i === parts.length - 1 });
+    }
+    return segs;
+  }
+  // POSIX
+  const parts = absPath.split('/').filter(Boolean);
+  const segs = [];
+  let acc = '';
+  for (let i = 0; i < parts.length; i++) {
+    acc += '/' + parts[i];
+    segs.push({ name: parts[i], full: acc, isLeaf: i === parts.length - 1 });
+  }
+  return segs;
+}
+
 function renderTree(data) {
   const crumbs = el('mdn-crumbs');
   const list = el('mdn-list');
   if (!list || !crumbs) return;
 
-  // breadcrumb
+  // breadcrumb — segments (each clickable, except leaf) + "📍 前往" toggle
   crumbs.innerHTML = '';
+  const nav = document.createElement('div');
+  nav.className = 'mdn-crumb-nav';
+  const segs = splitSegments(data.dir);
+  segs.forEach((s, idx) => {
+    if (idx > 0) {
+      const sep = document.createElement('span');
+      sep.className = 'mdn-sep';
+      sep.textContent = '›';
+      nav.appendChild(sep);
+    }
+    const seg = document.createElement('span');
+    seg.className = 'mdn-seg' + (s.isLeaf ? ' mdn-seg-leaf' : '');
+    seg.textContent = s.name;
+    seg.title = s.full;
+    if (!s.isLeaf) seg.onclick = () => openDir(s.full);
+    nav.appendChild(seg);
+  });
+  const edit = document.createElement('button');
+  edit.type = 'button';
+  edit.className = 'mdn-edit-btn';
+  edit.textContent = '📍';
+  edit.title = '手动输入路径（Enter 跳转，Esc 取消）';
+  edit.setAttribute('aria-label', '手动输入路径');
+  edit.onclick = () => enterEditMode(data.dir);
+  nav.appendChild(edit);
   if (data.parent) {
-    const up = document.createElement('span');
-    up.className = 'mdn-crumb mdn-up';
-    up.textContent = '.. 上级';
+    const up = document.createElement('button');
+    up.type = 'button';
+    up.className = 'mdn-up-btn';
+    up.textContent = '⬆ 上级';
     up.title = data.parent;
     up.onclick = () => openDir(data.parent);
-    crumbs.appendChild(up);
+    nav.appendChild(up);
   }
-  const cur = document.createElement('span');
-  cur.className = 'mdn-crumb mdn-cur';
-  cur.textContent = data.dir;
-  cur.title = data.dir;
-  crumbs.appendChild(cur);
+  crumbs.appendChild(nav);
 
   list.innerHTML = '';
   (data.dirs || []).forEach((d) => {
@@ -135,6 +189,89 @@ function renderTree(data) {
   if (!(data.dirs || []).length && !(data.files || []).length) {
     list.innerHTML = '<div class="mdn-hint">（空目录）</div>';
   }
+}
+
+/** Swap the nav row into a text input for manual path entry. */
+function enterEditMode(curDir) {
+  const crumbs = el('mdn-crumbs');
+  if (!crumbs) return;
+  const nav = crumbs.querySelector('.mdn-crumb-nav');
+  if (!nav) return;
+
+  // Avoid double entry
+  if (crumbs.querySelector('.mdn-edit-row')) return;
+
+  const row = document.createElement('div');
+  row.className = 'mdn-edit-row';
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.className = 'mdn-edit-input';
+  input.value = curDir;
+  input.placeholder = '输入绝对路径… 例如  H:\\Hesi\\.workbuddy\\memory';
+  input.spellcheck = false;
+  input.autocomplete = 'off';
+
+  const go = document.createElement('button');
+  go.type = 'button';
+  go.className = 'mdn-edit-go';
+  go.textContent = '前往';
+  go.title = '跳转（Enter）';
+
+  const cancel = document.createElement('button');
+  cancel.type = 'button';
+  cancel.className = 'mdn-edit-cancel';
+  cancel.textContent = '取消';
+  cancel.title = '取消（Esc）';
+
+  row.appendChild(input);
+  row.appendChild(go);
+  row.appendChild(cancel);
+
+  nav.style.display = 'none';
+  crumbs.appendChild(row);
+  // Select the path stem (drop trailing slash for easy overtype)
+  setTimeout(() => {
+    input.focus();
+    input.select();
+  }, 0);
+
+  let busy = false;
+  const submit = () => {
+    if (busy) return;
+    const v = (input.value || '').trim();
+    if (!v) {
+      Q().showToast?.('路径不能为空', 'error');
+      return;
+    }
+    busy = true;
+    openDir(v).finally(() => {
+      busy = false;
+    });
+  };
+  const close = () => {
+    if (nav.parentNode) nav.style.display = '';
+    row.remove();
+  };
+
+  go.onclick = submit;
+  cancel.onclick = close;
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      submit();
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      close();
+    }
+  });
+  // Click outside the row → cancel (UX nicety, mirrors pin-quick behaviour)
+  const onDocClick = (e) => {
+    if (!row.contains(e.target) && e.target !== nav && !nav.contains(e.target)) {
+      document.removeEventListener('mousedown', onDocClick, true);
+      close();
+    }
+  };
+  setTimeout(() => document.addEventListener('mousedown', onDocClick, true), 0);
 }
 
 async function openFile(p) {
@@ -163,7 +300,9 @@ function registerTab() {
   UIR.registerTab('md-notes', {
     icon: '📝',
     label: '笔记',
-    category: 'tool',
+    // 落点：系统资源 (order 1) 之后、编排 (digital 下一组) 之前
+    category: 'monitor',
+    order: 2,
     render: (container) => {
       try {
         renderRoot(container);
