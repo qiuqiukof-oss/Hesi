@@ -261,7 +261,11 @@
 
 /* ── Pin Editor (inline) ── */
 .pin-editor {
-  margin-top: 4px;
+  position: absolute;
+  left: 4px;
+  right: 4px;
+  top: calc(100% - 2px);
+  z-index: 100;
   padding: 6px;
   background: var(--bg-surface);
   border: 1px solid var(--accent);
@@ -270,9 +274,8 @@
   flex-direction: column;
   gap: 4px;
   animation: modal-in 0.15s var(--ease-out);
-  width: 100%;
-  min-width: 0;
   box-sizing: border-box;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
 }
 
 .pin-editor-title {
