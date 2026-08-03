@@ -247,6 +247,10 @@ const Q = /** @type {QCLI} */ (window.QCLI = window.QCLI || {});
     tagsContainer.appendChild(tagChips);
     tagsContainer.appendChild(tagInput);
 
+    // Button row
+    const btnRow = document.createElement('div');
+    btnRow.className = 'pin-editor-btn-row';
+
     // Save button
     const saveBtn = document.createElement('button');
     saveBtn.className = 'pin-editor-save';
@@ -254,17 +258,50 @@ const Q = /** @type {QCLI} */ (window.QCLI = window.QCLI || {});
     saveBtn.addEventListener('click', () => {
       pin.title = titleInput.value.trim();
       save();
-      editor.remove();
+      closeEditor();
       renderPinnedList();
     });
+    btnRow.appendChild(saveBtn);
+
+    // Cancel button
+    const cancelBtn = document.createElement('button');
+    cancelBtn.className = 'pin-editor-cancel';
+    cancelBtn.textContent = 'Cancel';
+    cancelBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      closeEditor();
+    });
+    btnRow.appendChild(cancelBtn);
 
     editor.appendChild(titleInput);
     editor.appendChild(tagsContainer);
-    editor.appendChild(saveBtn);
+    editor.appendChild(btnRow);
 
     el.appendChild(editor);
     titleInput.focus();
     titleInput.select();
+
+    // Close handlers
+    function closeEditor() {
+      editor.remove();
+      document.removeEventListener('mousedown', onDocClick);
+      document.removeEventListener('keydown', onKey);
+    }
+    function onDocClick(e) {
+      if (editor.contains(e.target)) return;
+      closeEditor();
+    }
+    function onKey(e) {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        closeEditor();
+      }
+    }
+    // Delay attaching so the click that opened the editor doesn't close it
+    setTimeout(() => {
+      document.addEventListener('mousedown', onDocClick);
+      document.addEventListener('keydown', onKey);
+    }, 0);
 
     function renderChips() {
       tagChips.innerHTML = '';

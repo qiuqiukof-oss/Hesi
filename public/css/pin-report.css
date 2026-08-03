@@ -271,10 +271,14 @@
   gap: 4px;
   animation: modal-in 0.15s var(--ease-out);
   width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
 }
 
 .pin-editor-title {
   width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
   background: var(--bg-ground);
   border: 1px solid var(--border-default);
   border-radius: var(--radius-sm);
@@ -303,6 +307,8 @@
 
 .pin-editor-tag-input {
   width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
   background: var(--bg-ground);
   border: 1px solid var(--border-default);
   border-radius: var(--radius-sm);
@@ -317,8 +323,14 @@
   border-color: var(--accent);
 }
 
-.pin-editor-save {
-  align-self: flex-end;
+.pin-editor-btn-row {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-1);
+}
+
+.pin-editor-save,
+.pin-editor-cancel {
   background: var(--accent);
   color: white;
   border: none;
@@ -328,10 +340,23 @@
   cursor: pointer;
   transition: background 0.15s;
   font-family: var(--font-ui);
+  flex-shrink: 0;
 }
 
 .pin-editor-save:hover {
   background: var(--accent-hover);
+}
+
+.pin-editor-cancel {
+  background: transparent;
+  color: var(--text-secondary);
+  border: 1px solid var(--border-default);
+}
+
+.pin-editor-cancel:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+  border-color: var(--border-strong);
 }
 
 /* ── Pin Merge Bar ── */
