@@ -144,6 +144,31 @@ function splitSegments(absPath) {
   return segs;
 }
 
+// ──────────────────────────────────────────────────────────────────────
+// Whitelist check (mirrors backend isWithinRoots).
+//   A path is "inside" a root when it equals the root path, OR when it is
+//   a strict descendant (proper prefix, followed by a separator) — this
+//   avoids the C:\foo being mistakenly treated as "inside" C:\foob.
+// ──────────────────────────────────────────────────────────────────────
+function normalizeForCompare(p) {
+  if (!p) return '';
+  return p.replace(/[\\/]+$/, '');
+}
+function isUnderSomeRoot(fullPath, roots) {
+  if (!fullPath) return false;
+  const fp = normalizeForCompare(fullPath);
+  for (const r of roots || []) {
+    const rp = normalizeForCompare(r && r.path);
+    if (!rp) continue;
+    if (fp === rp) return true;
+    if (fp.length > rp.length && fp.startsWith(rp)) {
+      const tail = fp[rp.length];
+      if (tail === '\\' || tail === '/') return true;
+    }
+  }
+  return false;
+}
+
 function renderTree(data) {
   const crumbs = el('mdn-crumbs');
   const list = el('mdn-list');
@@ -169,8 +194,22 @@ function renderTree(data) {
   back.onclick = goBack;
   nav.appendChild(back);
 
-  // 2) Path segments
-  const segs = splitSegments(data.dir);
+  // 2) Path segments — filter out anything outside the whitelist (e.g. the
+  //    drive root H:\ above H:\Hesi would 403 if clicked) and mark whitelist
+  //    roots themselves as non-clickable leaves so we never render dead links.
+  const rawSegs = splitSegments(data.dir);
+  const segs = rawSegs
+    .filter((s) => isUnderSomeRoot(s.full, state.roots))
+    .map((s, _idx, arr) => {
+      // Whitelist roots are *inside* the whitelist but clicking them is
+      // meaningless (you'd just refresh the same view), so force leaf style.
+      const isRoot = (state.roots || []).some((r) => normalizeForCompare(r.path) === normalizeForCompare(s.full));
+      return Object.assign({}, s, {
+        isLeaf: s.isLeaf || isRoot,
+        clickable: !s.isLeaf && !isRoot,
+      });
+    });
+
   segs.forEach((s, idx) => {
     if (idx > 0) {
       const sep = document.createElement('span');
@@ -182,7 +221,7 @@ function renderTree(data) {
     seg.className = 'mdn-seg' + (s.isLeaf ? ' mdn-seg-leaf' : '');
     seg.textContent = s.name;
     seg.title = s.full;
-    if (!s.isLeaf) seg.onclick = () => openDir(s.full);
+    if (s.clickable) seg.onclick = () => openDir(s.full);
     nav.appendChild(seg);
   });
 
@@ -196,8 +235,9 @@ function renderTree(data) {
   edit.onclick = () => enterEditMode(data.dir);
   nav.appendChild(edit);
 
-  // 4) Up one level (only when above the root whitelist itself)
-  if (data.parent) {
+  // 4) Up one level — only render when the parent is inside the whitelist
+  //    (otherwise clicking it would 403 against the backend fail-closed).
+  if (data.parent && isUnderSomeRoot(data.parent, state.roots)) {
     const up = document.createElement('button');
     up.type = 'button';
     up.className = 'mdn-up-btn';
