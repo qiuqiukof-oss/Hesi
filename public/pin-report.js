@@ -627,20 +627,15 @@ const Q = /** @type {QCLI} */ (window.QCLI = window.QCLI || {});
 
     // Close button
     const closeBtn = document.getElementById('pin-report-close');
-    if (closeBtn) {
-      closeBtn.addEventListener('click', closeReportPanel);
-      closeBtn.onclick = closeReportPanel;
-    }
+    if (closeBtn) closeBtn.addEventListener('click', closeReportPanel);
 
     // Overlay export-all button (self-contained, no dependency on boot.js)
     const overlayExportBtn = document.getElementById('pin-report-export-btn');
     if (overlayExportBtn) {
-      const onExport = (e) => {
+      overlayExportBtn.addEventListener('click', (e) => {
         e.stopPropagation();
         exportPinsToMarkdown();
-      };
-      overlayExportBtn.addEventListener('click', onExport);
-      overlayExportBtn.onclick = onExport;
+      });
     }
 
     // Enhance pinned section header
