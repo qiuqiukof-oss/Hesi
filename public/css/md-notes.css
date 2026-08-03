@@ -9,21 +9,38 @@
   box-sizing: border-box;
 }
 
-/* body: tree + reader */
+/* body: tree | splitter | reader  (tree width is a CSS var, draggable) */
 .md-notes-body {
   flex: 1 1 auto;
-  display: flex;
+  display: grid;
+  grid-template-columns: var(--tree-w, 280px) 6px minmax(0, 1fr);
   min-height: 0;
 }
 .md-notes-tree {
-  flex: 0 0 280px;
   display: flex;
   flex-direction: column;
   min-height: 0;
+  min-width: 0;       /* allow grid to shrink; prevent overflow */
+  overflow: hidden;
   border-right: 1px solid var(--border-subtle, #2a2f3a);
 }
+.mdn-splitter {
+  cursor: col-resize;
+  background: var(--border-subtle, #2a2f3a);
+  position: relative;
+  transition: background 0.12s ease;
+  /* Wider hit area than visual width so dragging is easy */
+}
+.mdn-splitter::before {
+  content: '';
+  position: absolute;
+  inset: 0 -3px;       /* extend hit area by 3px each side */
+}
+.mdn-splitter:hover,
+.mdn-splitter:active {
+  background: var(--accent, #6366f1);
+}
 .md-notes-reader {
-  flex: 1 1 auto;
   min-width: 0;
   overflow-y: auto;
   padding: 14px 18px;
@@ -219,7 +236,8 @@
   padding: 0 1px;
 }
 .mdn-edit-btn,
-.mdn-up-btn {
+.mdn-up-btn,
+.mdn-back-btn {
   flex: 0 0 auto;
   margin-left: 4px;
   padding: 3px 8px;
@@ -232,9 +250,15 @@
   transition: background 0.12s ease, border-color 0.12s ease;
 }
 .mdn-edit-btn:hover,
-.mdn-up-btn:hover {
+.mdn-up-btn:hover,
+.mdn-back-btn:hover {
   border-color: var(--accent, #6366f1);
   color: var(--accent, #6366f1);
+}
+.mdn-back-btn {
+  font-size: 13px;
+  line-height: 1;
+  padding: 3px 7px;
 }
 
 /* ── Edit mode (manual path entry) ── */

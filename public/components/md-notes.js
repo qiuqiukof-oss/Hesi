@@ -18,7 +18,7 @@ function Q() {
   return /** @type {QCLI} */ (window.QCLI || {});
 }
 
-const state = { roots: [], dir: '' };
+const state = { roots: [], dir: '', _history: [] };
 
 async function apiGet(url) {
   const r = await fetch(url);
@@ -49,14 +49,18 @@ function el(id) {
 function renderRoot(container) {
   container.innerHTML =
     '<div class="md-notes">' +
-    '<div class="md-notes-body">' +
-    '<div class="md-notes-tree">' +
+    '<div class="md-notes-body" id="mdn-body">' +
+    '<div class="md-notes-tree" id="mdn-tree">' +
     '<div class="mdn-crumbs" id="mdn-crumbs"></div>' +
     '<div class="mdn-list" id="mdn-list"><div class="mdn-hint">点面包屑右侧「📍 前往」输入路径，或选择下方任一已加载目录</div></div>' +
     '</div>' +
+    '<div class="mdn-splitter" id="mdn-splitter" role="separator" aria-orientation="vertical" title="拖动调整左右宽度"></div>' +
     '<div class="md-notes-reader" id="mdn-reader"><div class="mdn-hint">点击 .md 文件查看内容</div></div>' +
     '</div>' +
     '</div>';
+
+  // Restore persisted tree width (set by user dragging the splitter)
+  applyTreeWidth(getStoredTreeWidth());
 
   // Default to the first whitelisted root so the user lands somewhere useful.
   ensureRoots()
@@ -68,6 +72,9 @@ function renderRoot(container) {
       const list = el('mdn-list');
       if (list) list.innerHTML = '<div class="mdn-error">无法加载白名单根目录</div>';
     });
+
+  // Wire up the splitter (idempotent — one listener per render)
+  setupSplitter();
 }
 
 async function openDir(dir) {
@@ -76,11 +83,32 @@ async function openDir(dir) {
   if (list) list.innerHTML = '<div class="mdn-loading">加载中…</div>';
   try {
     const data = await apiGet('/api/fs/md-list?dir=' + encodeURIComponent(dir));
+    // Push onto history only when we actually navigated to a *new* dir.
+    // Skip the initial auto-open (empty history) and consecutive identical dirs.
+    if (state._history.length === 0) {
+      state._history = [data.dir];
+    } else if (state._history[state._history.length - 1] !== data.dir) {
+      state._history.push(data.dir);
+    }
     state.dir = data.dir;
     renderTree(data);
   } catch (e) {
     if (crumbs) crumbs.innerHTML = '';
     if (list) list.innerHTML = '<div class="mdn-error">' + escapeHtml(e.message) + '</div>';
+  }
+}
+
+/** Pop the history stack and navigate back. Falls back to the first root. */
+function goBack() {
+  if (state._history.length > 1) {
+    state._history.pop();
+    const target = state._history[state._history.length - 1];
+    openDir(target);
+  } else if (state.roots && state.roots[0]) {
+    // Already at the entry root (or history is empty) — still go to the first root.
+    openDir(state.roots[0].path);
+  } else {
+    Q().showToast?.('没有可返回的目录', 'info');
   }
 }
 
@@ -121,10 +149,27 @@ function renderTree(data) {
   const list = el('mdn-list');
   if (!list || !crumbs) return;
 
-  // breadcrumb — segments (each clickable, except leaf) + "📍 前往" toggle
+  // breadcrumb — ⬅ back + clickable segments + "📍 前往" toggle + ⬆ up
   crumbs.innerHTML = '';
   const nav = document.createElement('div');
   nav.className = 'mdn-crumb-nav';
+
+  // 1) Back button — always visible, history-aware tooltip, falls back to first root.
+  const back = document.createElement('button');
+  back.type = 'button';
+  back.className = 'mdn-back-btn';
+  back.textContent = '⬅';
+  back.setAttribute('aria-label', '返回上一目录');
+  const hasPrev = state._history.length > 1;
+  back.title = hasPrev
+    ? '返回 ' + state._history[state._history.length - 2]
+    : (state.roots && state.roots[0]
+        ? '回到根目录 ' + state.roots[0].path
+        : '返回上一目录');
+  back.onclick = goBack;
+  nav.appendChild(back);
+
+  // 2) Path segments
   const segs = splitSegments(data.dir);
   segs.forEach((s, idx) => {
     if (idx > 0) {
@@ -140,6 +185,8 @@ function renderTree(data) {
     if (!s.isLeaf) seg.onclick = () => openDir(s.full);
     nav.appendChild(seg);
   });
+
+  // 3) Manual path entry toggle
   const edit = document.createElement('button');
   edit.type = 'button';
   edit.className = 'mdn-edit-btn';
@@ -148,6 +195,8 @@ function renderTree(data) {
   edit.setAttribute('aria-label', '手动输入路径');
   edit.onclick = () => enterEditMode(data.dir);
   nav.appendChild(edit);
+
+  // 4) Up one level (only when above the root whitelist itself)
   if (data.parent) {
     const up = document.createElement('button');
     up.type = 'button';
@@ -273,6 +322,79 @@ function enterEditMode(curDir) {
     }
   };
   setTimeout(() => document.addEventListener('mousedown', onDocClick, true), 0);
+}
+
+// ──────────────────────────────────────────────────────────────────────
+// Splitter: drag the vertical handle between tree and reader to resize.
+// Width is persisted to localStorage so it survives reloads.
+// ──────────────────────────────────────────────────────────────────────
+
+const SPLITTER_KEY = 'hesi-md-tree-w';
+const SPLITTER_MIN = 120;
+const SPLITTER_MAX = 800;
+
+function getStoredTreeWidth() {
+  try {
+    const v = parseInt(localStorage.getItem(SPLITTER_KEY) || '280', 10);
+    if (!Number.isFinite(v)) return 280;
+    return Math.max(SPLITTER_MIN, Math.min(SPLITTER_MAX, v));
+  } catch {
+    return 280;
+  }
+}
+
+function applyTreeWidth(w) {
+  const tree = el('mdn-tree');
+  const body = el('mdn-body');
+  if (!tree || !body) return;
+  body.style.setProperty('--tree-w', w + 'px');
+}
+
+function setupSplitter() {
+  const handle = el('mdn-splitter');
+  const tree = el('mdn-tree');
+  const body = el('mdn-body');
+  if (!handle || !tree || !body) return;
+  if (handle._wired) return; // idempotent: re-entry on re-render is a no-op
+  handle._wired = true;
+
+  let dragging = false;
+  let startX = 0;
+  let startW = 0;
+
+  const onMove = (e) => {
+    if (!dragging) return;
+    const dx = e.clientX - startX;
+    let next = startW + dx;
+    if (next < SPLITTER_MIN) next = SPLITTER_MIN;
+    if (next > SPLITTER_MAX) next = SPLITTER_MAX;
+    applyTreeWidth(next);
+  };
+  const onUp = () => {
+    if (!dragging) return;
+    dragging = false;
+    document.body.style.userSelect = '';
+    document.body.style.cursor = '';
+    // Persist on release (one write, not 60/sec while dragging)
+    const tree = el('mdn-tree');
+    if (tree) {
+      const w = Math.round(tree.getBoundingClientRect().width);
+      try { localStorage.setItem(SPLITTER_KEY, String(w)); } catch { /* noop */ }
+    }
+    document.removeEventListener('mousemove', onMove);
+    document.removeEventListener('mouseup', onUp);
+  };
+
+  handle.addEventListener('mousedown', (e) => {
+    e.preventDefault();
+    dragging = true;
+    startX = e.clientX;
+    startW = Math.round(tree.getBoundingClientRect().width);
+    document.body.style.userSelect = 'none';
+    document.body.style.cursor = 'col-resize';
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+  });
 }
 
 async function openFile(p) {
