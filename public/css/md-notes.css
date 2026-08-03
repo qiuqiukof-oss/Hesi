@@ -9,31 +9,6 @@
   box-sizing: border-box;
 }
 
-/* root chips */
-.md-notes-roots {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  padding: 8px 10px;
-  border-bottom: 1px solid var(--border-subtle, #2a2f3a);
-}
-.mdn-root-chip {
-  flex: 0 0 auto;
-  padding: 5px 12px;
-  border: 1px solid var(--border-subtle, #2a2f3a);
-  border-radius: 999px;
-  background: var(--bg-elevated, #1c212b);
-  color: var(--text-primary, #e6e8ec);
-  font-size: 12px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background 0.15s ease, border-color 0.15s ease;
-}
-.mdn-root-chip:hover {
-  border-color: var(--accent, #6366f1);
-  background: color-mix(in srgb, var(--accent, #6366f1) 14%, var(--bg-elevated, #1c212b));
-}
-
 /* body: tree + reader */
 .md-notes-body {
   flex: 1 1 auto;

@@ -49,36 +49,24 @@ function el(id) {
 function renderRoot(container) {
   container.innerHTML =
     '<div class="md-notes">' +
-    '<div class="md-notes-roots" id="mdn-roots"></div>' +
     '<div class="md-notes-body">' +
     '<div class="md-notes-tree">' +
     '<div class="mdn-crumbs" id="mdn-crumbs"></div>' +
-    '<div class="mdn-list" id="mdn-list"><div class="mdn-hint">选择上方根目录开始浏览</div></div>' +
+    '<div class="mdn-list" id="mdn-list"><div class="mdn-hint">点面包屑右侧「📍 前往」输入路径，或选择下方任一已加载目录</div></div>' +
     '</div>' +
     '<div class="md-notes-reader" id="mdn-reader"><div class="mdn-hint">点击 .md 文件查看内容</div></div>' +
     '</div>' +
     '</div>';
 
-  const rootsEl = el('mdn-roots');
+  // Default to the first whitelisted root so the user lands somewhere useful.
   ensureRoots()
     .then((roots) => {
-      rootsEl.innerHTML = '';
-      if (!roots.length) {
-        rootsEl.innerHTML = '<div class="mdn-hint">无可用根目录</div>';
-        return;
-      }
-      roots.forEach((r) => {
-        const chip = document.createElement('button');
-        chip.type = 'button';
-        chip.className = 'mdn-root-chip';
-        chip.textContent = r.name;
-        chip.title = r.path;
-        chip.onclick = () => openDir(r.path);
-        rootsEl.appendChild(chip);
-      });
+      if (roots && roots[0] && !state.dir) openDir(roots[0].path);
     })
-    .catch((e) => {
-      rootsEl.innerHTML = '<div class="mdn-error">' + escapeHtml(e.message) + '</div>';
+    .catch(() => {
+      // roots not available — show hint in the list area
+      const list = el('mdn-list');
+      if (list) list.innerHTML = '<div class="mdn-error">无法加载白名单根目录</div>';
     });
 }
 
@@ -210,6 +198,18 @@ function enterEditMode(curDir) {
   input.placeholder = '输入绝对路径… 例如  H:\\Hesi\\.workbuddy\\memory';
   input.spellcheck = false;
   input.autocomplete = 'off';
+  // Bind whitelisted roots as datalist suggestions (replaces the old root chip row).
+  const dlId = 'mdn-roots-datalist';
+  input.setAttribute('list', dlId);
+  const datalist = document.createElement('datalist');
+  datalist.id = dlId;
+  const roots = state.roots || [];
+  roots.forEach((r) => {
+    const opt = document.createElement('option');
+    opt.value = r.path;
+    opt.label = r.name;
+    datalist.appendChild(opt);
+  });
 
   const go = document.createElement('button');
   go.type = 'button';
@@ -226,6 +226,7 @@ function enterEditMode(curDir) {
   row.appendChild(input);
   row.appendChild(go);
   row.appendChild(cancel);
+  row.appendChild(datalist);
 
   nav.style.display = 'none';
   crumbs.appendChild(row);
