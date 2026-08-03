@@ -25,6 +25,7 @@
     label: 'Agnes 创作',
     category: 'monitor',
     order: 2,
+    defaultHidden: true, // 默认不在右栏显示，用户可通过「Tab 管理」手动开启；主入口为工具箱独立页面
     render (container) {
       container.innerHTML =
         `<div class="agnes-plugin-wrap">` +

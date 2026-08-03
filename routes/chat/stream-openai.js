@@ -158,7 +158,7 @@ async function streamOpenAIWithTools(res, messages, apiKey, model, baseUrl, tool
     }
     // L3 (v0.7.5): 推理强度控制 —— 按 provider+model+档位注入原生参数。
     // 不支持的模型 / standard 档：buildReasoningParams 返回 null，不注入（避免 400）。
-    const _rp = buildReasoningParams('openai', modelName, reasoningEffort, cwManager.maxOutputTokens(modelName));
+    const _rp = buildReasoningParams('openai', modelName, reasoningEffort, cwManager.maxOutputTokens(modelName), baseUrl);
     if (_rp) Object.assign(body, _rp);
     let pr;
     let streamAttempt = 0;

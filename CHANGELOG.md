@@ -6,6 +6,24 @@ use `vMAJOR.MINOR.PATCH-<tag>`.
 
 ---
 
+## [v0.7.6] — 2026-08-03
+
+### Qwen 推理强度双拓扑修复
+- **伪档位失效修复（致命）**：`local-thinking`（Qwen3）分支原发的 `reasoning_effort` 对 Qwen 系列非法、被后端忽略，导致「深度」档伪生效、本地连思考都开不起来。改为真正生效的参数：云端顶层 `enable_thinking` + `thinking_budget`，本地 `chat_template_kwargs` 包裹。
+- **thinking_budget 边界**：受 `max_tokens-1024` 夹断；本地默认 8192 / 云端默认 16000；env `HESI_QWEN_THINKING_BUDGET_DEEP` 可覆盖。
+- **IPv6 回环边界**：`isLocalBaseUrl` 归一化去掉方括号，`http://[::1]:1234` 正确识别为本地拓扑（不再误判云端、避免本地 llama.cpp/vLLM/LM Studio 不认顶层参数而 400）。
+
+### Agnes 设置持久化修复
+- **B（致命）清除数据误删主应用设置**：`localStorage.clear()` 改为仅删 `agnes_*` 前缀 key，不再误清主应用 `qcli-theme`、侧栏、隐藏 tab 等。
+- **C（致命）写盘失败静默假成功**：`handlers/config.js` 写盘异常不再被吞、POST 失败回 500；前端保存失败弹「设置保存失败」toast。
+- **A（体验）未保存刷新无提示**：新增脏标记 + `beforeunload`，改了没点保存就刷新会弹「离开此页？」确认。
+
+### Agnes 工作台丝滑
+- 彻底去除 `.sidebar` 及全部浮层的 `backdrop-filter` 重绘源（之前降 20→10px + 交互守卫在独立窗口拖拽下失效）；hover 抽屉交互（默认 72px 图标栏、移入平滑展开 224px 显示文字）；拖动不选中文字；清理失效的 `is-interacting` 守卫与注入脚本。
+
+### Agnes 入口收敛
+- **Agnes 创作默认隐藏右侧栏 Tab**（`defaultHidden` 经 Tab 管理开关可手动恢复），**工具箱新增「🎬 Agnes 创作台」独立页面卡片**——从工具箱点开即全屏独立窗口，从源头规避窄列内 hover 抽屉冲突。
+
 ## [v0.7.5] — 2026-08-03
 
 ### 全站主题跟随 + 持久化修复

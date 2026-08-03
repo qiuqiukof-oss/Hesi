@@ -48,7 +48,30 @@ function supportsReasoning(provider, model) {
  * @param {number} [maxTokens]  本次请求的 max_tokens（Anthropic budget 必须小于它）
  * @returns {object|null}
  */
-function buildReasoningParams(provider, model, effort, maxTokens) {
+/**
+ * 判断 baseUrl 是否指向本地/内网推理后端（而非云端 SaaS）。
+ * 本地拓扑（LM Studio / vLLM 等）的 Qwen 需把 enable_thinking/thinking_budget
+ * 包进 chat_template_kwargs；云端 Qwen（OpenAI 兼容官方）则放顶层 body。
+ * 仅按 URL 主机判定，不写死任何 provider 名（守「杜绝硬编码」红线）。
+ * @param {string} [url]
+ * @returns {boolean}
+ */
+function isLocalBaseUrl(url) {
+  if (!url) return false;
+  try {
+    // IPv6 主机在 hostname 中会带方括号（如 [::1]），先归一化去掉以便统一判定
+    const h = new URL(url).hostname.replace(/^\[|\]$/g, '');
+    if (h === 'localhost' || h === '127.0.0.1' || h === '0.0.0.0' || h === '::1') return true;
+    if (h.startsWith('192.168.')) return true;
+    if (h.startsWith('10.')) return true;
+    if (/^172\.(1[6-9]|2\d|3[01])\./.test(h)) return true;
+    return false;
+  } catch {
+    return false;
+  }
+}
+
+function buildReasoningParams(provider, model, effort, maxTokens, baseUrl) {
   if (!CONTROL_ENABLED) return null;
   if (!effort || effort === 'standard') return null; // 标准档：不注入，让模型按默认强度
 
@@ -61,12 +84,25 @@ function buildReasoningParams(provider, model, effort, maxTokens) {
     return { reasoning_effort: effort === 'deep' ? 'high' : 'medium' };
   }
 
-  // ── Qwen3 / OpenAI 兼容本地：enable_thinking 布尔 + 尽力 reasoning_effort ──
+  // ── Qwen3 / OpenAI 兼容：enable_thinking 布尔 + thinking_budget（非 reasoning_effort）──
+  // ⚠️ Qwen 系不认 reasoning_effort（伪档位，被各后端静默忽略，连思考都开不起来）。
+  // 正确合法参数：云端顶层 enable_thinking + thinking_budget；本地(vLLM/LM Studio)
+  // 需包进 chat_template_kwargs。两种拓扑按 baseUrl 区分，否则本地会 400。
   if (kind === 'local-thinking') {
-    if (effort === 'off') return { enable_thinking: false };
-    const params = { enable_thinking: true };
-    if (effort === 'deep') params.reasoning_effort = 'high';
-    return params;
+    const local = isLocalBaseUrl(baseUrl);
+    if (effort === 'off') {
+      // 关闭思考：云端顶层 enable_thinking:false；本地包进 chat_template_kwargs
+      return local ? { chat_template_kwargs: { enable_thinking: false } } : { enable_thinking: false };
+    }
+    // 到此处仅 'deep' 档（standard/off 已前置 return）：分配思考预算
+    const cap = Number(maxTokens) || 8192;
+    const cfgDeep = Number(process.env.HESI_QWEN_THINKING_BUDGET_DEEP);
+    const defaultDeep = Number.isFinite(cfgDeep) && cfgDeep > 0 ? cfgDeep : (local ? 8192 : 16000);
+    // budget 必须小于 max_tokens，至少留 1024 给最终输出（R6）
+    const budget = Math.max(1024, Math.min(defaultDeep, cap - 1024));
+    return local
+      ? { chat_template_kwargs: { enable_thinking: true, thinking_budget: budget } }
+      : { enable_thinking: true, thinking_budget: budget };
   }
 
   // ── Anthropic Claude 扩展思考：thinking.budget_tokens ──
@@ -84,4 +120,4 @@ function buildReasoningParams(provider, model, effort, maxTokens) {
   return null;
 }
 
-module.exports = { supportsReasoning, buildReasoningParams, CONTROL_ENABLED };
+module.exports = { supportsReasoning, buildReasoningParams, isLocalBaseUrl, CONTROL_ENABLED };

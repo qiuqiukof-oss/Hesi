@@ -71,6 +71,7 @@ class UIRegistry {
    * @param {Function} def.render  — (container: HTMLElement) => void, called when tab is first activated
    * @param {number}   [def.order] — insertion order within category (defaults to 100, lower = earlier)
    * @param {string}   [def.category] — category key from CATEGORIES (default 'other')
+   * @param {boolean}  [def.defaultHidden] — if true, tab is hidden by default until user toggles it in Tab 管理
    * @returns {boolean} true if registered, false if id already exists
    */
   registerTab(id, def) {
@@ -87,8 +88,13 @@ class UIRegistry {
       order: def.order !== undefined ? def.order : 100,
       category: cat,
       hidden: false,
+      defaultHidden: def.defaultHidden === true,
       _rendered: false,
     };
+    // 若用户从未调整过 Tab 管理，按注册时的 defaultHidden 决定初始显隐。
+    if (tabDef.defaultHidden && !this._hasHiddenPrefsSaved()) {
+      tabDef.hidden = true;
+    }
     this._tabs.set(id, tabDef);
     // Notify late-binding listener (so right-panel.js can create the button + panel dynamically)
     if (this._onTabRegistered) {
@@ -215,6 +221,18 @@ class UIRegistry {
    * 保存当前注册的Tab为localStorage（供外部引用CATEGORIES）。
    */
   static get CATEGORIES_MAP() { return UIRegistry.CATEGORIES; }
+
+  /**
+   * 检查用户是否已保存过 Tab 隐藏偏好。
+   * @returns {boolean}
+   */
+  _hasHiddenPrefsSaved() {
+    try {
+      return localStorage.getItem('qcli-hidden-tabs') !== null;
+    } catch (e) {
+      return false;
+    }
+  }
 
   /**
    * 将隐藏偏好保存到 localStorage。

@@ -132,8 +132,6 @@ a:hover {
 .sidebar {
   width: var(--sidebar-width);
   background: var(--bg-glass);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
   border-right: 1px solid var(--border-color);
   display: flex;
   flex-direction: column;
@@ -142,6 +140,17 @@ a:hover {
   gap: 8px;
   flex-shrink: 0;
   z-index: 10;
+  overflow: hidden;
+  transition: width var(--transition-normal);
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: none;
+}
+
+/* 抽屉式展开：hover 时从图标栏平滑拉宽到显示文字标签（无 backdrop-filter，零重绘成本） */
+.sidebar:hover {
+  width: 224px;
+  align-items: stretch;
 }
 
 .sidebar-logo {
@@ -208,12 +217,20 @@ a:hover {
   border-radius: var(--radius-md);
   cursor: pointer;
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   align-items: center;
   justify-content: center;
-  gap: 2px;
+  gap: 10px;
+  padding: 0;
   transition: all var(--transition-normal);
   position: relative;
+}
+
+/* 抽屉展开态：nav-item 占满宽度、图标左对齐、文字淡入 */
+.sidebar:hover .nav-item {
+  width: 100%;
+  justify-content: flex-start;
+  padding-left: 16px;
 }
 
 .nav-item::before {
@@ -248,9 +265,18 @@ a:hover {
 }
 
 .nav-label {
-  font-size: 10px;
+  font-size: 13px;
   line-height: 1;
-  opacity: 0.8;
+  opacity: 0;
+  max-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  transition: opacity var(--transition-fast), max-width var(--transition-normal);
+}
+
+.sidebar:hover .nav-label {
+  opacity: 0.85;
+  max-width: 160px;
 }
 
 .connection-status {
@@ -260,6 +286,19 @@ a:hover {
   padding: 8px 4px;
   font-size: 11px;
   color: var(--text-tertiary);
+}
+
+.status-text {
+  opacity: 0;
+  max-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  transition: opacity var(--transition-fast), max-width var(--transition-normal);
+}
+
+.sidebar:hover .status-text {
+  opacity: 1;
+  max-width: 120px;
 }
 
 .status-dot {
@@ -611,8 +650,6 @@ a:hover {
   padding: 12px 20px;
   border-radius: var(--radius-sm);
   background: var(--bg-glass);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
   border: 1px solid var(--border-color);
   color: var(--text-primary);
   font-size: 14px;
@@ -655,8 +692,6 @@ a:hover {
   position: fixed;
   inset: 0;
   background: rgba(0, 0, 0, 0.5);
-  backdrop-filter: blur(4px);
-  -webkit-backdrop-filter: blur(4px);
   z-index: 50;
   opacity: 0;
   pointer-events: none;
@@ -1404,8 +1439,6 @@ a:hover {
   position: fixed;
   inset: 0;
   background: rgba(0, 0, 0, 0.9);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
   z-index: 100;
   display: flex;
   align-items: center;
@@ -1701,8 +1734,6 @@ a:hover {
   position: fixed;
   inset: 0;
   background: rgba(0, 0, 0, 0.5);
-  backdrop-filter: blur(4px);
-  -webkit-backdrop-filter: blur(4px);
   z-index: 50;
   opacity: 0;
   pointer-events: none;
@@ -3931,12 +3962,19 @@ a:hover {
   --gradient-glow: radial-gradient(ellipse at center, rgba(0, 217, 255, 0.15), transparent 70%);
 }
 
-/* 拖拽/缩放时临时关闭毛玻璃：backdrop-filter 每帧重绘模糊层是
-   窗口拖拽卡顿的根因；交互期间禁用，松手 180ms 后恢复。 */
-body.is-interacting,
-body.is-interacting *,
-body.is-interacting *::before,
-body.is-interacting *::after {
-  backdrop-filter: none !important;
-  -webkit-backdrop-filter: none !important;
+/* 触屏设备无 hover：保持 72px 图标栏，禁用抽屉展开避免误触 */
+@media (hover: none) {
+  .sidebar:hover {
+    width: var(--sidebar-width);
+    align-items: center;
+  }
+  .sidebar:hover .nav-item,
+  .sidebar:hover .nav-label,
+  .sidebar:hover .status-text {
+    width: 48px;
+    justify-content: center;
+    padding-left: 0;
+    opacity: 0;
+    max-width: 0;
+  }
 }

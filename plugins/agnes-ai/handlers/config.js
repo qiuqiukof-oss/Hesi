@@ -28,7 +28,11 @@ function saveConfig(cfg) {
   try {
     if (!fs.existsSync(PLUGIN_DATA)) fs.mkdirSync(PLUGIN_DATA, { recursive: true });
     fs.writeFileSync(CONFIG_FILE, JSON.stringify(cfg, null, 2), 'utf8');
-  } catch (e) { /* ignore */ }
+    return true;
+  } catch (e) {
+    console.error('[Agnes] 写入插件配置失败 (config.json 不可写？):', e);
+    return false;
+  }
 }
 
 function maskKey(key) {
@@ -73,7 +77,10 @@ module.exports = function config(req, res) {
     for (const k of MODEL_PREFS) {
       if (body[k] !== undefined && body[k] !== null && body[k] !== '') cfg[k] = body[k];
     }
-    saveConfig(cfg);
+    const ok = saveConfig(cfg);
+    if (!ok) {
+      return res.status(500).json({ ok: false, error: '配置写入失败，请检查磁盘权限或 Hesi 数据目录是否可写' });
+    }
     return res.json({ ok: true, configured: !!cfg.apiKey });
   }
 

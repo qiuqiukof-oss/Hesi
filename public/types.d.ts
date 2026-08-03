@@ -244,6 +244,8 @@ interface TabDefinition {
   label: string;
   render: (container: HTMLElement) => void;
   order?: number;
+  category?: string;
+  defaultHidden?: boolean;
 }
 
 interface TabDefWithId extends TabDefinition {

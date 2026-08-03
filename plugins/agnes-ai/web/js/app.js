@@ -235,8 +235,22 @@ async function saveSettingsToStorage() {
     });
   } catch (e) {
     console.warn('[Agnes] 保存插件配置失败:', e);
+    showToast('设置保存失败，请检查 Hesi 服务是否运行', 'error');
   }
 }
+
+// 仅清除 Agnes 自己的本地数据（agnes_* 前缀），避免误删主应用（如 qcli-theme、侧栏等）设置
+function clearAgnesLocalStorage() {
+  const keys = [];
+  for (let i = 0; i < localStorage.length; i++) {
+    const k = localStorage.key(i);
+    if (k && k.startsWith('agnes_')) keys.push(k);
+  }
+  keys.forEach((k) => localStorage.removeItem(k));
+}
+
+// 设置面板是否有未保存改动（用于 beforeunload 提示，避免误以为不持久）
+let settingsDirty = false;
 
 function applySettingsToUI() {
   DOM.apiKey.value = State.apiKey || '';
@@ -1451,6 +1465,7 @@ function initSettings() {
     State.videoResolution = DOM.videoResolution.value;
 
     saveSettingsToStorage();
+    settingsDirty = false;
     updateConnectionStatus();
     closeSettings();
     showToast('设置已保存', 'success');
@@ -1458,7 +1473,7 @@ function initSettings() {
 
   DOM.clearAllData.addEventListener('click', () => {
     if (confirm('确定要清除所有数据吗？这将删除所有对话、图片和视频历史记录。')) {
-      localStorage.clear();
+      clearAgnesLocalStorage();
       State.chatHistory = [];
       State.imageHistory = [];
       State.videoTasks.clear();
@@ -1473,6 +1488,19 @@ function initSettings() {
       // 同时清空服务端持久化配置（含 API Key）
       fetch('/api/plugins/agnes-ai/config', { method: 'DELETE' }).catch(() => {});
       showToast('所有数据已清除', 'info');
+    }
+  });
+
+  // 设置面板任意输入即标记脏；离开/刷新前有未保存改动则提示，避免误以为不持久
+  document.querySelectorAll('#settingsPanel input, #settingsPanel select').forEach((el) => {
+    el.addEventListener('input', () => { settingsDirty = true; });
+    el.addEventListener('change', () => { settingsDirty = true; });
+  });
+  window.addEventListener('beforeunload', (e) => {
+    if (settingsDirty) {
+      e.preventDefault();
+      e.returnValue = '';
+      return '';
     }
   });
 
