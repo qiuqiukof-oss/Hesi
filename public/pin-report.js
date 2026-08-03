@@ -30,7 +30,7 @@ const Q = /** @type {QCLI} */ (window.QCLI = window.QCLI || {});
   let pinOrder = [];            // ordered pin IDs (for sorted display)
   const selectedPins = new Set(); // pin IDs selected for merge
   let mergeMode = false;
-  let sortBy = 'date';          // 'date' | 'source' | 'title'
+  let sortBy = 'date-desc';     // 'date-desc' | 'date-asc' | 'source-asc' | 'source-desc' | 'title-asc' | 'title-desc'
 
   // ── Format helpers ──
   function fmtDate(ts) {
@@ -46,17 +46,33 @@ const Q = /** @type {QCLI} */ (window.QCLI = window.QCLI || {});
   // ── Sort pins ──
   function sortPins(pins) {
     const sorted = [...pins];
-    switch (sortBy) {
-      case 'date':
-        sorted.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
-        break;
-      case 'source':
-        sorted.sort((a, b) => (a.source || '').localeCompare(b.source || ''));
-        break;
-      case 'title':
-        sorted.sort((a, b) => (a.title || a.text.slice(0, 40) || '').localeCompare(b.title || b.text.slice(0, 40) || ''));
-        break;
-    }
+    const [field, dir] = sortBy.split('-');
+    const asc = dir === 'asc' ? 1 : -1;
+    const cmp = (aVal, bVal) => {
+      const a = aVal ?? '';
+      const b = bVal ?? '';
+      if (a === b) return 0;
+      return String(a).localeCompare(String(b), undefined, { numeric: true, sensitivity: 'base' }) * asc;
+    };
+    sorted.sort((a, b) => {
+      let result = 0;
+      switch (field) {
+        case 'date':
+          result = ((a.timestamp || 0) - (b.timestamp || 0)) * asc;
+          break;
+        case 'source':
+          result = cmp(a.source, b.source);
+          break;
+        case 'title':
+          result = cmp(a.title || a.text.slice(0, 40), b.title || b.text.slice(0, 40));
+          break;
+      }
+      // Stable fallback: if equal by chosen key, tie-break by timestamp desc
+      if (result === 0) {
+        result = (b.timestamp || 0) - (a.timestamp || 0);
+      }
+      return result;
+    });
     pinOrder = sorted.map(p => p.id);
     return sorted;
   }
@@ -758,12 +774,20 @@ const Q = /** @type {QCLI} */ (window.QCLI = window.QCLI || {});
   }
 
   function cycleSort() {
-    const modes = ['date', 'source', 'title'];
-    const labels = { date: 'by date', source: 'by source', title: 'by title' };
+    const modes = ['date-desc', 'date-asc', 'source-asc', 'source-desc', 'title-asc', 'title-desc'];
+    const labels = {
+      'date-desc': '按时间倒序',
+      'date-asc': '按时间正序',
+      'source-asc': '按来源正序',
+      'source-desc': '按来源倒序',
+      'title-asc': '按标题正序',
+      'title-desc': '按标题倒序'
+    };
     const idx = modes.indexOf(sortBy);
     sortBy = modes[(idx + 1) % modes.length];
+    console.log('[PinReport] cycleSort ->', sortBy);
     renderPinnedList();
-    showToast(`Sorted ${labels[sortBy]}`, 'info');
+    showToast(`已切换排序：${labels[sortBy]}`, 'info');
   }
 
   // ── Export API ──
