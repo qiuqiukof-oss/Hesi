@@ -21,6 +21,11 @@ import { escapeHtml } from './escape.js';
 /** @type {QCLI} */
 const Q = /** @type {QCLI} */ (window.QCLI = window.QCLI || {});
 
+  // Safe toast helper (toast.js lives in the main bundle; use runtime lookup)
+  function showToast(message, type = 'info') {
+    window.QCLI?.showToast?.(message, type);
+  }
+
   // ── State ──
   let pinOrder = [];            // ordered pin IDs (for sorted display)
   const selectedPins = new Set(); // pin IDs selected for merge
@@ -159,7 +164,7 @@ const Q = /** @type {QCLI} */ (window.QCLI = window.QCLI || {});
         e.stopPropagation();
         const text = stripAnsi(pin.text);
         navigator.clipboard.writeText(text).then(() => {
-          Q.showToast('Copied to clipboard', 'success');
+          showToast('Copied to clipboard', 'success');
         }).catch(err => console.warn('[PinReport] clipboard error:', err));
       });
       actions.appendChild(copyBtn);
@@ -407,7 +412,7 @@ const Q = /** @type {QCLI} */ (window.QCLI = window.QCLI || {});
     const bar = document.getElementById('pin-merge-bar');
     if (bar) bar.classList.add('hidden');
     await renderPinnedList();
-    Q.showToast(`Merged ${selected.length} pins into one report`, 'success');
+    showToast(`Merged ${selected.length} pins into one report`, 'success');
   }
 
   // ── Export pins to Markdown ──
@@ -449,7 +454,7 @@ const Q = /** @type {QCLI} */ (window.QCLI = window.QCLI || {});
     // Copy to clipboard
     try {
       await navigator.clipboard.writeText(md);
-      Q.showToast('Exported to clipboard as Markdown', 'success');
+      showToast('Exported to clipboard as Markdown', 'success');
     } catch (e) {
       // Fallback: download as file
       const blob = new Blob([md], { type: 'text/markdown' });
@@ -459,7 +464,7 @@ const Q = /** @type {QCLI} */ (window.QCLI = window.QCLI || {});
       a.download = `qcli-report-${Date.now()}.md`;
       a.click();
       URL.revokeObjectURL(url);
-      Q.showToast('Downloaded as Markdown file', 'success');
+      showToast('Downloaded as Markdown file', 'success');
     }
   }
 
@@ -501,7 +506,7 @@ const Q = /** @type {QCLI} */ (window.QCLI = window.QCLI || {});
 
     try {
       await navigator.clipboard.writeText(md);
-      Q.showToast('Exported selected pins to clipboard', 'success');
+      showToast('Exported selected pins to clipboard', 'success');
     } catch (e) {
       const blob = new Blob([md], { type: 'text/markdown' });
       const url = URL.createObjectURL(blob);
@@ -510,7 +515,7 @@ const Q = /** @type {QCLI} */ (window.QCLI = window.QCLI || {});
       a.download = `qcli-report-selected-${Date.now()}.md`;
       a.click();
       URL.revokeObjectURL(url);
-      Q.showToast('Downloaded as Markdown file', 'success');
+      showToast('Downloaded as Markdown file', 'success');
     }
   }
 
@@ -620,15 +625,20 @@ const Q = /** @type {QCLI} */ (window.QCLI = window.QCLI || {});
 
     // Close button
     const closeBtn = document.getElementById('pin-report-close');
-    if (closeBtn) closeBtn.addEventListener('click', closeReportPanel);
+    if (closeBtn) {
+      closeBtn.addEventListener('click', closeReportPanel);
+      closeBtn.onclick = closeReportPanel;
+    }
 
     // Overlay export-all button (self-contained, no dependency on boot.js)
     const overlayExportBtn = document.getElementById('pin-report-export-btn');
     if (overlayExportBtn) {
-      overlayExportBtn.addEventListener('click', (e) => {
+      const onExport = (e) => {
         e.stopPropagation();
         exportPinsToMarkdown();
-      });
+      };
+      overlayExportBtn.addEventListener('click', onExport);
+      overlayExportBtn.onclick = onExport;
     }
 
     // Enhance pinned section header
@@ -756,7 +766,7 @@ const Q = /** @type {QCLI} */ (window.QCLI = window.QCLI || {});
     const idx = modes.indexOf(sortBy);
     sortBy = modes[(idx + 1) % modes.length];
     renderPinnedList();
-    Q.showToast(`Sorted ${labels[sortBy]}`, 'info');
+    showToast(`Sorted ${labels[sortBy]}`, 'info');
   }
 
   // ── Export API ──
