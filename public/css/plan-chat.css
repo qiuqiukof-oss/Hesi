@@ -408,3 +408,129 @@
   white-space: pre-wrap;
   word-break: break-all;
 }
+
+/* ============================================================
+   P0b 实时 stdout 控制台：聊天抽屉底部内嵌可折叠面板
+   常驻 DOM（#chat-drawer 内、.chat-input-area 之前），
+   plan 运行时自动浮现，提供连续滚动的实时输出流。
+   ============================================================ */
+.plan-console {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  max-height: 38vh;
+  min-height: 30px;
+  border-top: 1px solid var(--border-default);
+  background: var(--bg-elevated);
+  font-size: 12px;
+}
+
+.plan-console.minimized { max-height: 32px; }
+
+.plan-console-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2, 8px);
+  padding: 5px var(--space-2, 8px);
+  border-bottom: 1px solid var(--border-subtle);
+  background: var(--bg-surface);
+  user-select: none;
+}
+
+.plan-console.minimized .plan-console-header { border-bottom: none; }
+
+.plan-console-title {
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+}
+
+.plan-console-pill {
+  flex: 0 0 auto;
+  padding: 1px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  border: 1px solid var(--border-default);
+  color: var(--text-tertiary);
+  white-space: nowrap;
+}
+.plan-console-pill[data-state='running'] { color: var(--accent-hover); border-color: var(--accent); background: var(--accent-glow); }
+.plan-console-pill[data-state='done'] { color: var(--success); border-color: var(--success); }
+.plan-console-pill[data-state='error'] { color: var(--danger); border-color: var(--danger); }
+
+.plan-console-progress {
+  flex: 0 0 auto;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-tertiary);
+  font-variant-numeric: tabular-nums;
+}
+
+.plan-console-spacer { flex: 1 1 auto; }
+
+.plan-console-btn {
+  flex: 0 0 auto;
+  padding: 3px 8px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  background: var(--bg-elevated);
+  color: var(--text-secondary);
+  font-size: 11px;
+  cursor: pointer;
+  transition: background 0.12s ease, border-color 0.12s ease, color 0.12s ease;
+}
+.plan-console-btn:hover { border-color: var(--accent); color: var(--accent-hover); }
+.plan-console-btn.is-active { color: var(--accent-hover); border-color: var(--accent); background: var(--accent-glow); }
+
+.plan-console-stream {
+  flex: 1 1 auto;
+  overflow: auto;
+  padding: var(--space-2, 8px);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--text-secondary);
+  background: var(--bg-ground);
+}
+
+.plan-console.minimized .plan-console-stream { display: none; }
+
+.plan-console-sep {
+  margin: 6px 0 3px;
+  padding: 2px 0 2px 8px;
+  border-left: 2px solid var(--border-strong);
+  color: var(--text-tertiary);
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+.plan-console-sep:first-child { margin-top: 0; }
+.plan-console-sep.is-running { border-left-color: var(--accent); color: var(--accent-hover); }
+.plan-console-sep.is-done { border-left-color: var(--success); color: var(--success); }
+.plan-console-sep.is-error { border-left-color: var(--danger); color: var(--danger); }
+.plan-console-sep.is-blocked,
+.plan-console-sep.is-warn { border-left-color: var(--warning); color: var(--warning); }
+
+.plan-console-out {
+  margin: 0;
+  padding: 0;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--text-secondary);
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+.plan-console-out-chat {
+  color: var(--text-tertiary);
+  font-style: italic;
+  opacity: 0.85;
+}
+.plan-console-out-err {
+  color: var(--danger);
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .plan-console-btn { transition: none; }
+}

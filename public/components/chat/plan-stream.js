@@ -28,6 +28,8 @@ export const planStreamMixin = {
    */
   _handlePlanEvent(evt) {
     if (!this.msgsEl || !evt) return;
+    // P0b：把事件转发给实时 stdout 控制台（若存在），控制台只读取、不改既有逻辑
+    if (typeof this._planConsoleEvent === 'function') this._planConsoleEvent(evt);
     const t = evt.type;
 
     if (t === 'start') {

@@ -37,6 +37,7 @@ import { sidePanelsMixin } from './chat/side-panels.js';
 import { metricsSavingsMixin } from './chat/metrics-savings.js';
 import { messageDomMixin } from './chat/message-dom.js';
 import { terminalContextMixin } from './chat/terminal-context.js';
+import { planConsoleMixin } from './chat/plan-console.js';
 import { nextTip } from './chat/thinking-tips.js';
 
 /** @typedef {import('../types').QCLI} QCLI */
@@ -1744,7 +1745,7 @@ class ChatPanel extends HTMLElement {
 }
 
 // ── 原型 mixin 装配（从 chat/ 子模块挂回 ChatPanel.prototype）──
-Object.assign(ChatPanel.prototype, mermaidPreviewMixin, discussControlsMixin, planControlsMixin, planStreamMixin, planStepBubbleMixin, attachmentsMixin, historySessionMixin, sidePanelsMixin, metricsSavingsMixin, messageDomMixin, terminalContextMixin);
+Object.assign(ChatPanel.prototype, mermaidPreviewMixin, discussControlsMixin, planControlsMixin, planStreamMixin, planStepBubbleMixin, planConsoleMixin, attachmentsMixin, historySessionMixin, sidePanelsMixin, metricsSavingsMixin, messageDomMixin, terminalContextMixin);
 
 customElements.define('chat-panel', ChatPanel);
 
