@@ -165,18 +165,6 @@ const Q = /** @type {QCLI} */ (window.QCLI = window.QCLI || {});
       actions.appendChild(copyBtn);
       attachTip(copyBtn, '复制这段钉住内容到剪贴板');
 
-      // Send-to-chat button
-      const sendBtn = document.createElement('button');
-      sendBtn.className = 'pin-action-btn';
-      sendBtn.textContent = '↩';
-      sendBtn.title = '发到对话';
-      sendBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        sendPinToChat(pin);
-      });
-      actions.appendChild(sendBtn);
-      attachTip(sendBtn, '把这段钉住内容作为引用填入当前对话输入框（不会自动发送，请检查后按 Enter 发送）');
-
       const delBtn = document.createElement('button');
       delBtn.className = 'pin-action-btn danger';
       delBtn.textContent = '✕';
@@ -536,24 +524,6 @@ const Q = /** @type {QCLI} */ (window.QCLI = window.QCLI || {});
 
       list.appendChild(card);
     }
-  }
-
-  // ── Send pinned content into the chat input (引用填入，不自动发送) ──
-  function sendPinToChat(pin) {
-    const input = document.getElementById('chat-input');
-    if (!input) {
-      Q.showToast('未找到对话输入框', 'error');
-      return;
-    }
-    const src = pin.source || 'terminal';
-    const ts = fmtDate(pin.timestamp);
-    const body = stripAnsi(pin.text).trim();
-    const quoted = `> 引用钉住内容（来源：${src} · ${ts}）\n> ${body.split('\n').join('\n> ')}`;
-    const existing = input.value.trim();
-    input.value = existing ? existing + '\n\n' + quoted : quoted;
-    input.focus();
-    input.selectionStart = input.selectionEnd = input.value.length;
-    Q.showToast('已填入对话输入框，检查后按 Enter 发送', 'info');
   }
 
   // ── Lightweight hover tooltip (气泡说明) ──
