@@ -451,21 +451,21 @@ const Q = /** @type {QCLI} */ (window.QCLI = window.QCLI || {});
 
     const md = lines.join('\n');
 
-    // Copy to clipboard
+    // Export = download .md file (visible action) + best-effort clipboard copy
     try {
       await navigator.clipboard.writeText(md);
-      showToast('Exported to clipboard as Markdown', 'success');
-    } catch (e) {
-      // Fallback: download as file
-      const blob = new Blob([md], { type: 'text/markdown' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `qcli-report-${Date.now()}.md`;
-      a.click();
-      URL.revokeObjectURL(url);
-      showToast('Downloaded as Markdown file', 'success');
-    }
+    } catch (e) { /* clipboard is optional */ }
+
+    const blob = new Blob([md], { type: 'text/markdown' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `hesi-report-${new Date().toISOString().slice(0, 10)}.md`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    showToast('已导出 Markdown 文件（同时已复制到剪贴板）', 'success');
   }
 
   // ── Export selected pins to Markdown ──
@@ -504,19 +504,21 @@ const Q = /** @type {QCLI} */ (window.QCLI = window.QCLI || {});
 
     const md = lines.join('\n');
 
+    // Export = download .md file (visible action) + best-effort clipboard copy
     try {
       await navigator.clipboard.writeText(md);
-      showToast('Exported selected pins to clipboard', 'success');
-    } catch (e) {
-      const blob = new Blob([md], { type: 'text/markdown' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `qcli-report-selected-${Date.now()}.md`;
-      a.click();
-      URL.revokeObjectURL(url);
-      showToast('Downloaded as Markdown file', 'success');
-    }
+    } catch (e) { /* clipboard is optional */ }
+
+    const blob = new Blob([md], { type: 'text/markdown' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `hesi-report-selected-${new Date().toISOString().slice(0, 10)}.md`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    showToast('已导出选中 Markdown 文件（同时已复制到剪贴板）', 'success');
   }
 
   // ── Open the report panel overlay ──
