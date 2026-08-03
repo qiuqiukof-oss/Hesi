@@ -14,10 +14,11 @@
 
 import { createStore } from './createStore.js';
 import { safeStorage } from '../lib/storage.js';
+import { isValidTheme } from '../lib/theme-registry.js';
 
 /**
  * @typedef {Object} UiState
- * @property {'dark'|'light'} theme
+ * @property {string} theme
  * @property {boolean} sidebarCollapsed
  * @property {number} sidebarWidth
  * @property {number} terminalFontSize
@@ -27,10 +28,13 @@ import { safeStorage } from '../lib/storage.js';
  * @property {number} chatDrawerHeight
  */
 
-/** @returns {'dark'|'light'} */
+/** @returns {string} */
 function getSavedTheme() {
   const saved = safeStorage.get('qcli-theme');
-  if (saved === 'light' || saved === 'dark') return saved;
+  // 保留完整主题 id（xuan / quiet / xuanye / cyber …），不要回落成仅 light/dark。
+  // 旧实现只认 light/dark，会在订阅回写时把自定义配色覆盖成 dark，
+  // 导致「设置主题后刷新即恢复默认」，且独立页面永远读不到自定义配色。
+  if (isValidTheme(saved)) return /** @type {string} */ (saved);
   if (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) return 'light';
   return 'dark';
 }

@@ -9,14 +9,16 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Hesi · 一个跑在浏览器里的 AI 中枢</title>
+<script src="/lib/standalone-theme.js"></script>
+<link rel="stylesheet" href="/css/theme.css" />
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;700;900&display=swap');
 *{margin:0;padding:0;box-sizing:border-box}
 html,body{height:100%;overflow:hidden}
-body{font-family:'Noto Sans SC','Microsoft YaHei',sans-serif;background:#050507;color:#e8e8f0}
+body{font-family:'Noto Sans SC','Microsoft YaHei',sans-serif;background:var(--bg-ground);color:var(--text-primary)}
 
 /* 背景：流光 + 浮动光球（始终在动） */
-#bg{position:fixed;inset:0;z-index:0;background:radial-gradient(circle at 30% 20%,#101826 0%,#050507 60%);overflow:hidden}
+#bg{position:fixed;inset:0;z-index:0;background:radial-gradient(circle at 30% 20%, rgba(125,125,125,0.06) 0%, var(--bg-ground) 60%);overflow:hidden}
 #bg::before{content:"";position:absolute;inset:-50%;background:conic-gradient(from 0deg,transparent,rgba(56,225,255,.06),transparent 30%,rgba(245,158,11,.05),transparent 60%);animation:spin 26s linear infinite}
 .orb{position:absolute;border-radius:50%;filter:blur(40px);opacity:.5;animation:float 14s ease-in-out infinite}
 .orb.a{width:340px;height:340px;background:#1b3a5c;left:-80px;top:10%;animation-delay:0s}

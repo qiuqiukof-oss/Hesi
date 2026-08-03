@@ -6,6 +6,15 @@ use `vMAJOR.MINOR.PATCH-<tag>`.
 
 ---
 
+## [v0.7.5] — 2026-08-03
+
+### 全站主题跟随 + 持久化修复
+- **主题持久化修复（致命）**：`uiStore.getSavedTheme()` 保留完整主题 id（xuan/quiet/xuanye/cyber），不再回落成仅 light/dark；修复「设置主题后刷新即恢复默认」且独立页面读不到自定义配色的问题。
+- **独立页面 / 插件页跟随 6 主题**：新增 `public/lib/standalone-theme.js` 注入器（跨标签页实时跟随）；文档画廊 / 预算管理 / 图表模板 / 插件广场 / workbuddy 广场 / tools 及 admin / blackboard / onboarding-guide / plugin-market 均随主题整套换肤。
+- **Agnes 工作台跟随 + 拖拽卡顿修复**：`style.css` 显式映射 6 套主题；`backdrop-filter` 由 20px 降至 10px 并加交互守卫，消除拖拽 / 缩放迟滞。
+- **多 Agent 黑板排版协调**：三处硬编码色改为主题令牌。
+- **CLI 关闭红字收敛**（前序）：`ws-router.js` 不再泄漏退出红字到其它 CLI 标签页。
+
 ## [v0.5.1] — 2026-07-28
 
 ### 语音输出 / 工具调用稳定性修复（实测问题修复）

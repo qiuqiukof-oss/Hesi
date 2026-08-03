@@ -24,36 +24,57 @@
 function Q() { return /** @type {QCLI} */ (window.QCLI || {}); }
 
 // ── Preset definitions ──
+// 每个预设是一组「完整场景」：主题配色 + 终端内部背景/透明度 + 终端外部背景。
+// 顶部主题卡片只切换配色；快速预设一次性覆盖整套终端外观。
 const PRESETS = {
   'dark': {
     label: '暗色默认',
+    theme: 'dark',
     innerBg: '#0d0e10',
     innerAlpha: 100,
     outerBg: '#0a0a0b',
   },
   'light': {
     label: '亮色默认',
+    theme: 'light',
     innerBg: '#fafafa',
     innerAlpha: 100,
     outerBg: '#f5f5f5',
   },
   'transparent-dark': {
     label: '半透暗色',
+    theme: 'dark',
     innerBg: '#0d0e10',
     innerAlpha: 75,
     outerBg: '#0a0a0b',
   },
   'transparent-light': {
     label: '半透亮色',
+    theme: 'light',
     innerBg: '#fafafa',
     innerAlpha: 70,
     outerBg: '#f5f5f5',
   },
   'paper': {
-    label: '纸质古书',
+    label: '📜 纸质古书',
+    theme: 'xuan',
     innerBg: '#e8d5a3',
     innerAlpha: 92,
     outerBg: '#5c3a1e',
+  },
+  'matrix': {
+    label: '🟢 黑客矩阵',
+    theme: 'cyber',
+    innerBg: '#001a00',
+    innerAlpha: 85,
+    outerBg: '#000d00',
+  },
+  'midnight': {
+    label: '🌑 深夜影院',
+    theme: 'xuanye',
+    innerBg: '#12100d',
+    innerAlpha: 90,
+    outerBg: '#0a0806',
   },
 };
 
@@ -231,11 +252,9 @@ function applyPreset(presetKey) {
     btn.classList.toggle('active', btn.dataset.theme === presetKey);
   });
 
-  // Apply light/dark base theme if applicable
-  if (presetKey === 'dark' || presetKey === 'transparent-dark') {
-    if (Q().applyTheme) Q().applyTheme('dark');
-  } else if (presetKey === 'light' || presetKey === 'transparent-light' || presetKey === 'paper') {
-    if (Q().applyTheme) Q().applyTheme('light');
+  // Apply theme if preset specifies one
+  if (preset.theme && Q().applyTheme) {
+    Q().applyTheme(preset.theme);
   }
 
   // Apply inner bg

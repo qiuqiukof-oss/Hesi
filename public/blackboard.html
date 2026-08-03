@@ -9,13 +9,23 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>共享黑板 · Hesi</title>
+<script src="/lib/standalone-theme.js"></script>
 <link rel="icon" href="/favicon.ico">
+<link rel="stylesheet" href="/css/theme.css" />
 <style>
   /* ── 自包含样式：不依赖任何外部 CSS ── */
   :root {
-    --bg: #f6f7f9; --panel: #ffffff; --border: #e3e6ea;
-    --text: #23272e; --muted: #7a828c;
-    --green: #22a45d; --red: #d9463e; --orange: #e8912d; --blue: #3b7dd8; --gray: #9aa1a9;
+    /* 私有变量别名映射到 Hesi 主题令牌：一处定义，6 套主题全部跟随 */
+    --bg: var(--bg-ground);
+    --panel: var(--bg-surface);
+    --border: var(--border-default);
+    --text: var(--text-primary);
+    --muted: var(--text-tertiary);
+    --green: var(--success);
+    --red: var(--danger);
+    --orange: var(--warning);
+    --blue: var(--info);
+    --gray: var(--text-tertiary);
     --radius: 10px;
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -48,7 +58,7 @@
     background: var(--panel); border: 1px solid var(--border);
     border-radius: var(--radius); padding: 14px 16px;
   }
-  section h2 { font-size: 14px; font-weight: 600; margin-bottom: 4px; color: #3a4048; }
+  section h2 { font-size: 14px; font-weight: 600; margin-bottom: 4px; color: var(--text-primary); }
   section h2 .count { color: var(--muted); font-weight: 400; font-size: 12px; }
   .hint { color: var(--muted); font-size: 12px; margin-bottom: 10px; line-height: 1.5; }
   .empty { color: var(--muted); font-size: 13px; padding: 8px 0; line-height: 1.6; }
@@ -91,7 +101,7 @@
   .role-row { display: flex; gap: 8px; align-items: center; padding: 4px 0; font-size: 13px; }
   .role-row .agent { font-family: Consolas, monospace; font-weight: 600; }
   .role-row .arrow { color: var(--muted); }
-  .role-tag { background: #eef3fb; color: var(--blue); border-radius: 5px; padding: 1px 8px; font-size: 12px; }
+  .role-tag { background: var(--bg-hover); color: var(--blue); border-radius: 5px; padding: 1px 8px; font-size: 12px; }
 
   /* DAG */
   #dag { min-height: 60px; overflow-x: auto; }
@@ -100,7 +110,7 @@
 
   /* 日志 */
   #logs { max-height: 320px; overflow-y: auto; font-size: 12.5px; }
-  .log-row { display: flex; gap: 10px; padding: 4px 0; border-bottom: 1px dashed #eef0f2; }
+  .log-row { display: flex; gap: 10px; padding: 4px 0; border-bottom: 1px dashed var(--border-subtle); }
   .log-row .ts { color: var(--muted); font-family: Consolas, monospace; flex: none; }
   .log-row .actor { color: var(--blue); flex: none; }
 

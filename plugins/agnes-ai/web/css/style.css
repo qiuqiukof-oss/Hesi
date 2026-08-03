@@ -131,9 +131,9 @@ a:hover {
 /* --- Sidebar --- */
 .sidebar {
   width: var(--sidebar-width);
-  background: rgba(10, 10, 26, 0.8);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
+  background: var(--bg-glass);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
   border-right: 1px solid var(--border-color);
   display: flex;
   flex-direction: column;
@@ -611,8 +611,8 @@ a:hover {
   padding: 12px 20px;
   border-radius: var(--radius-sm);
   background: var(--bg-glass);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
   border: 1px solid var(--border-color);
   color: var(--text-primary);
   font-size: 14px;
@@ -3790,4 +3790,153 @@ a:hover {
   .message {
     max-width: 100%;
   }
+}
+
+/* ============================================
+   跟随主应用主题：6 套主题映射
+   由 index.html 注入的 data-theme / data-scheme 控制。
+   默认 :root（上方）即 Agnes 暗色品牌 = [data-theme="dark"]。
+   此处按主题 id 显式重映射全部表面变量（含强调色/渐变），
+   使其与主应用 6 套主题一一对应。特异性 [data-theme="x"](0,1,0)
+   高于默认 :root(0,0,1)，故可覆盖。
+   ============================================ */
+:root[data-theme="light"] {
+  --bg-primary: #f5f5f5;
+  --bg-secondary: #fafafa;
+  --bg-tertiary: #ffffff;
+  --bg-card: rgba(0, 0, 0, 0.025);
+  --bg-card-hover: rgba(0, 0, 0, 0.05);
+  --bg-glass: rgba(255, 255, 255, 0.82);
+  --border-color: rgba(0, 0, 0, 0.1);
+  --border-light: rgba(0, 0, 0, 0.14);
+  --text-primary: #18181b;
+  --text-secondary: rgba(24, 24, 27, 0.72);
+  --text-tertiary: rgba(24, 24, 27, 0.45);
+  --accent-primary: #6366f1;
+  --accent-primary-hover: #4f46e5;
+  --accent-primary-glow: rgba(99, 102, 241, 0.3);
+  --accent-secondary: #0891b2;
+  --accent-secondary-hover: #06b6d4;
+  --accent-warm: #d97706;
+  --accent-success: #16a34a;
+  --accent-danger: #dc2626;
+  --accent-danger-hover: #ef4444;
+  --gradient-main: linear-gradient(135deg, #f5f5f5 0%, #fafafa 50%, #ffffff 100%);
+  --gradient-accent: linear-gradient(135deg, #6366f1, #0891b2);
+  --gradient-accent-hover: linear-gradient(135deg, #4f46e5, #06b6d4);
+  --gradient-glow: radial-gradient(ellipse at center, rgba(99, 102, 241, 0.12), transparent 70%);
+}
+:root[data-theme="quiet"] {
+  --bg-primary: #eeece7;
+  --bg-secondary: #f4f2ee;
+  --bg-tertiary: #faf9f6;
+  --bg-card: rgba(47, 44, 40, 0.03);
+  --bg-card-hover: rgba(47, 44, 40, 0.06);
+  --bg-glass: rgba(244, 242, 238, 0.82);
+  --border-color: rgba(47, 44, 40, 0.12);
+  --border-light: rgba(47, 44, 40, 0.16);
+  --text-primary: #2f2c28;
+  --text-secondary: rgba(47, 44, 40, 0.72);
+  --text-tertiary: rgba(47, 44, 40, 0.45);
+  --accent-primary: #69705f;
+  --accent-primary-hover: #565c4c;
+  --accent-primary-glow: rgba(105, 112, 95, 0.3);
+  --accent-secondary: #846a8c;
+  --accent-secondary-hover: #9a7fa2;
+  --accent-warm: #a8813c;
+  --accent-success: #5f7d5a;
+  --accent-danger: #a35b4e;
+  --accent-danger-hover: #b86b5e;
+  --gradient-main: linear-gradient(135deg, #eeece7 0%, #f4f2ee 50%, #faf9f6 100%);
+  --gradient-accent: linear-gradient(135deg, #69705f, #846a8c);
+  --gradient-accent-hover: linear-gradient(135deg, #565c4c, #9a7fa2);
+  --gradient-glow: radial-gradient(ellipse at center, rgba(105, 112, 95, 0.12), transparent 70%);
+}
+:root[data-theme="xuan"] {
+  --bg-primary: #ece4d5;
+  --bg-secondary: #f4eee1;
+  --bg-tertiary: #f9f4ea;
+  --bg-card: rgba(43, 33, 23, 0.04);
+  --bg-card-hover: rgba(43, 33, 23, 0.08);
+  --bg-glass: rgba(236, 228, 213, 0.82);
+  --border-color: rgba(43, 33, 23, 0.12);
+  --border-light: rgba(43, 33, 23, 0.18);
+  --text-primary: #2b2117;
+  --text-secondary: rgba(43, 33, 23, 0.72);
+  --text-tertiary: rgba(43, 33, 23, 0.45);
+  --accent-primary: #9e3d32;
+  --accent-primary-hover: #853127;
+  --accent-primary-glow: rgba(158, 61, 50, 0.3);
+  --accent-secondary: #3f6b5f;
+  --accent-secondary-hover: #4f7d6f;
+  --accent-warm: #9c6a14;
+  --accent-success: #4a7a52;
+  --accent-danger: #a82f5c;
+  --accent-danger-hover: #c05244;
+  --gradient-main: linear-gradient(135deg, #ece4d5 0%, #e3d9c6 50%, #f4eee1 100%);
+  --gradient-accent: linear-gradient(135deg, #9e3d32, #3f6b5f);
+  --gradient-accent-hover: linear-gradient(135deg, #853127, #4f7d6f);
+  --gradient-glow: radial-gradient(ellipse at center, rgba(158, 61, 50, 0.12), transparent 70%);
+}
+:root[data-theme="xuanye"] {
+  --bg-primary: #12100d;
+  --bg-secondary: #1a1712;
+  --bg-tertiary: #221e18;
+  --bg-card: rgba(237, 228, 211, 0.05);
+  --bg-card-hover: rgba(237, 228, 211, 0.09);
+  --bg-glass: rgba(18, 16, 13, 0.7);
+  --border-color: rgba(237, 228, 211, 0.1);
+  --border-light: rgba(237, 228, 211, 0.14);
+  --text-primary: #ede4d3;
+  --text-secondary: rgba(237, 228, 211, 0.72);
+  --text-tertiary: rgba(237, 228, 211, 0.45);
+  --accent-primary: #c8a45c;
+  --accent-primary-hover: #dbb96f;
+  --accent-primary-glow: rgba(200, 164, 92, 0.3);
+  --accent-secondary: #b8503f;
+  --accent-secondary-hover: #c8604f;
+  --accent-warm: #d9a441;
+  --accent-success: #7a9e5c;
+  --accent-danger: #e0566b;
+  --accent-danger-hover: #ec6b7e;
+  --gradient-main: linear-gradient(135deg, #12100d 0%, #1a1712 50%, #221e18 100%);
+  --gradient-accent: linear-gradient(135deg, #c8a45c, #b8503f);
+  --gradient-accent-hover: linear-gradient(135deg, #dbb96f, #c8604f);
+  --gradient-glow: radial-gradient(ellipse at center, rgba(200, 164, 92, 0.15), transparent 70%);
+}
+:root[data-theme="cyber"] {
+  --bg-primary: #06080f;
+  --bg-secondary: #0b0e18;
+  --bg-tertiary: #111524;
+  --bg-card: rgba(0, 217, 255, 0.05);
+  --bg-card-hover: rgba(0, 217, 255, 0.09);
+  --bg-glass: rgba(6, 8, 15, 0.7);
+  --border-color: rgba(0, 217, 255, 0.14);
+  --border-light: rgba(0, 217, 255, 0.2);
+  --text-primary: #e6f1ff;
+  --text-secondary: rgba(230, 241, 255, 0.72);
+  --text-tertiary: rgba(230, 241, 255, 0.45);
+  --accent-primary: #00d9ff;
+  --accent-primary-hover: #5ce6ff;
+  --accent-primary-glow: rgba(0, 217, 255, 0.3);
+  --accent-secondary: #b14aff;
+  --accent-secondary-hover: #cd85ff;
+  --accent-warm: #ffb020;
+  --accent-success: #00e5a0;
+  --accent-danger: #ff4d6d;
+  --accent-danger-hover: #ff7d94;
+  --gradient-main: linear-gradient(135deg, #06080f 0%, #0b0e18 50%, #111524 100%);
+  --gradient-accent: linear-gradient(135deg, #00d9ff, #b14aff);
+  --gradient-accent-hover: linear-gradient(135deg, #5ce6ff, #cd85ff);
+  --gradient-glow: radial-gradient(ellipse at center, rgba(0, 217, 255, 0.15), transparent 70%);
+}
+
+/* 拖拽/缩放时临时关闭毛玻璃：backdrop-filter 每帧重绘模糊层是
+   窗口拖拽卡顿的根因；交互期间禁用，松手 180ms 后恢复。 */
+body.is-interacting,
+body.is-interacting *,
+body.is-interacting *::before,
+body.is-interacting *::after {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
 }

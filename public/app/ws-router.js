@@ -80,31 +80,37 @@ Q.onWSMessage = function(msg) {
       }
       break;
 
-    case 'exit':
+    case 'exit': {
       state.launched = false;
       state.launching = false;
+
+      // Windows STATUS_CONTROL_C_EXIT (0xC000013A): 用户按 Ctrl+C / 关闭窗口 / 关闭 Tab
+      // 产生的正常退出码。node-pty 可能以有符号 -1073741510 或无符号 3221225786 返回。
+      const isControlCExit = msg.code === -1073741510 || msg.code === 3221225786 || msg.code === 0xC000013A;
+      const isErrorExit = msg.code !== 0 && msg.code !== null && !isControlCExit;
+
       if (msg.tabId && Q.Tabs) {
         const tab = Q.Tabs.getTab(msg.tabId);
-        const t = tab?.term || termRef.current;
-        if (msg.code === 0) {
-          if (t) t.write(`\r\n\x1b[90m[Process exited with code ${msg.code}]\x1b[0m\r\n`);
-        } else if (msg.code !== null) {
-          if (t) t.write(`\r\n\x1b[31m[Process exited with code ${msg.code}]\x1b[0m\r\n`);
-        } else if (msg.signal) {
-          if (t) t.write(`\r\n\x1b[33m[Process killed by signal ${msg.signal}]\x1b[0m\r\n`);
+        // 严格按 tabId 路由到对应终端；找不到对应 tab 时**不** fallback 到当前活动终端，
+        // 否则关闭一个 CLI 会把退出消息写到其它 CLI，造成红字串扰和重复。
+        if (tab?.term) {
+          if (isErrorExit) {
+            tab.term.write(`\r\n\x1b[90m[进程已退出，退出码 ${msg.code}]\x1b[0m\r\n`);
+          } else if (msg.signal) {
+            tab.term.write(`\r\n\x1b[90m[进程被信号 ${msg.signal} 终止]\x1b[0m\r\n`);
+          }
+          // 正常退出（0 / CONTROL_C_EXIT）不在终端内打印红字，避免污染视觉。
         }
         state.activeCliId = null;
         Q.updateTerminalDims?.();
-        setTimeout(() => { if (Q.Tabs) Q.Tabs.close(msg.tabId); }, 2000);
+        // 正常退出直接关闭 Tab；异常退出保留 2s 让用户看到提示。
+        const closeDelay = isErrorExit || msg.signal ? 2000 : 50;
+        setTimeout(() => { if (Q.Tabs) Q.Tabs.close(msg.tabId); }, closeDelay);
         break;
       }
-      if (msg.code === 0) {
-        if (termRef.current) termRef.current.write(`\r\n\x1b[90m[Process exited with code ${msg.code}]\x1b[0m\r\n`);
-      } else if (msg.code !== null) {
-        if (termRef.current) termRef.current.write(`\r\n\x1b[31m[Process exited with code ${msg.code}]\x1b[0m\r\n`);
-      } else if (msg.signal) {
-        if (termRef.current) termRef.current.write(`\r\n\x1b[33m[Process killed by signal ${msg.signal}]\x1b[0m\r\n`);
-      }
+
+      // 无 tabId 的兼容路径（旧版单 CLI）：只更新状态，不再向 termRef.current 写消息，
+      // 避免在错误的终端里留下退出信息。
       if (dom.activeLabel) dom.activeLabel.className = '';
       if (dom.activeLabel) dom.activeLabel.textContent = __('cli.notRunning');
       if (dom.activeVersion) dom.activeVersion.textContent = '';
@@ -112,6 +118,7 @@ Q.onWSMessage = function(msg) {
       state.activeCliId = null;
       Q.updateTerminalDims?.();
       break;
+    }
 
     case 'error':
       state.launching = false;
@@ -145,10 +152,11 @@ Q.onWSMessage = function(msg) {
           : msg.duration + 's';
         const title = msg.isError ? 'Command failed' : 'Command completed';
         const body = msg.cliName
-          ? `[${msg.cliName}] ${msg.duration}s, exit code ${msg.exitCode}`
-          : `${msg.duration}s, exit code ${msg.exitCode}`;          try { new Notification(title, { body, tag: 'cmd-complete' }); } catch (e) {
-            console.warn('[WS] Notification failed:', e?.message);
-          }
+          ? `[${msg.cliName}] ${dur}, exit code ${msg.exitCode}`
+          : `${dur}, exit code ${msg.exitCode}`;
+        try { new Notification(title, { body, tag: 'cmd-complete' }); } catch (e) {
+          console.warn('[WS] Notification failed:', e?.message);
+        }
       }
       const notifMsg = msg.isError
         ? `[${msg.cliName || 'CLI'}] exit ${msg.exitCode} (${msg.duration}s)`

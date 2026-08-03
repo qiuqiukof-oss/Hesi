@@ -11,6 +11,42 @@
   <title>Agnes AI 全能平台</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>✨</text></svg>">
   <link rel="stylesheet" href="css/style.css">
+  <script>
+  (function () {
+    try {
+      var t = localStorage.getItem('qcli-theme') || 'xuan';
+      var dark = (t === 'dark' || t === 'xuanye' || t === 'cyber');
+      var root = document.documentElement;
+      root.setAttribute('data-theme', t);
+      root.setAttribute('data-scheme', dark ? 'dark' : 'light');
+      window.addEventListener('storage', function (e) {
+        if (e && e.key === 'qcli-theme') {
+          var nv = e.newValue || 'xuan';
+          var d = (nv === 'dark' || nv === 'xuanye' || nv === 'cyber');
+          root.setAttribute('data-scheme', d ? 'dark' : 'light');
+          root.setAttribute('data-theme', nv);
+        }
+      });
+    } catch (e) {}
+  })();
+  </script>
+  <script>
+  /* 拖拽/缩放时临时关闭毛玻璃：窗口拖拽或缩放会每帧重绘 blur 层导致卡顿。
+     按下指针(拖拽开始)即关 blur，松开 180ms 后恢复；窗口 resize 同理。
+     body 在 head 执行时尚不存在，故在事件触发时惰性取用。 */
+  (function () {
+    try {
+      var cls = 'is-interacting';
+      var timer;
+      function on() { if (document.body) document.body.classList.add(cls); }
+      function off() { clearTimeout(timer); timer = setTimeout(function () { if (document.body) document.body.classList.remove(cls); }, 180); }
+      window.addEventListener('pointerdown', on);
+      window.addEventListener('pointerup', off);
+      window.addEventListener('pointercancel', off);
+      window.addEventListener('resize', function () { on(); off(); });
+    } catch (e) {}
+  })();
+  </script>
 </head>
 <body>
   <!-- Settings Panel Overlay -->
