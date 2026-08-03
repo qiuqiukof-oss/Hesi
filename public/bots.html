@@ -127,7 +127,7 @@
       { id: 'wecom', icon: '💼', name: '企业微信 bot', desc: '企业微信应用/群机器人 webhook。M2 接入，配置后自动注册回调端点。', status: 'planned', fields: [ { key: 'token', label: 'Token', placeholder: '企微机器人 Token' } ] },
       { id: 'feishu', icon: '🕊️', name: '飞书 bot', desc: '飞书机器人事件订阅（URL 校验 + 消息回调）。M2 接入。', status: 'planned', fields: [ { key: 'appId', label: 'App ID', placeholder: '飞书开放平台 App ID' }, { key: 'appSecret', label: 'App Secret', placeholder: '飞书开放平台 App Secret' } ] },
       { id: 'dingtalk', icon: '🦖', name: '钉钉 bot', desc: '钉钉机器人 webhook + 回调。M3 接入。', status: 'planned', fields: [ { key: 'token', label: 'Token', placeholder: '钉钉机器人 Token' } ] },
-      { id: 'wechat-bot', icon: '💬', name: '微信 bot', desc: '微信官方机器人平台（对话开放平台/公众号），非个人号。M3 接入。', status: 'planned', fields: [ { key: 'appId', label: 'App ID', placeholder: 'App ID' }, { key: 'appSecret', label: 'App Secret', placeholder: 'App Secret' } ] },
+      { id: 'wechat-bot', icon: '💬', name: '微信 bot', desc: '微信 iLink Bot API（扫码登录 + 长轮询）。微信扫码确认即完成配置，无需手填密钥。', status: 'beta', mode: 'qrcode', fields: [] },
     ];
 
     var $ = {};
@@ -189,15 +189,22 @@
         } else {
           meta = '<div class="bt-card-meta">M2/M3 里程碑接入</div>';
         }
+        var actions = '';
+        if (p.status === 'planned') {
+          actions = '<button class="bt-btn bt-btn-primary" data-act="configure" data-id="' + p.id + '">提前配置</button>';
+        } else if (p.mode === 'qrcode') {
+          // 扫码登录平台（微信）：二维码确认即配置，无密钥表单
+          actions = isConfigured
+            ? '<button class="bt-btn" data-act="qrcode" data-id="' + p.id + '">🔗 重新扫码</button><button class="bt-btn" data-act="test" data-id="' + p.id + '">🔍 测试</button>'
+            : '<button class="bt-btn bt-btn-primary" data-act="qrcode" data-id="' + p.id + '">📱 扫码配置</button>';
+        } else {
+          actions = '<button class="bt-btn" data-act="configure" data-id="' + p.id + '">⚙ 配置</button>' +
+            (isConfigured ? '<button class="bt-btn" data-act="test" data-id="' + p.id + '">🔍 测试</button>' : '');
+        }
         return '<div class="bt-card">' +
           '<div class="bt-card-head"><span class="bt-card-icon">' + p.icon + '</span><span class="bt-card-title">' + p.name + '</span>' + badge + '</div>' +
           '<div class="bt-card-desc">' + p.desc + '</div>' + meta +
-          '<div class="bt-card-actions">' +
-            (p.status !== 'planned'
-              ? '<button class="bt-btn" data-act="configure" data-id="' + p.id + '">⚙ 配置</button>' +
-                (isConfigured ? '<button class="bt-btn" data-act="test" data-id="' + p.id + '">🔍 测试</button>' : '')
-              : '<button class="bt-btn bt-btn-primary" data-act="configure" data-id="' + p.id + '">提前配置</button>') +
-          '</div></div>';
+          '<div class="bt-card-actions">' + actions + '</div></div>';
       }).join('');
       render('<div class="bt-grid-inner">' + html + '</div>');
     }
@@ -224,11 +231,28 @@
       fieldValues = {};
       $.modalTitle.textContent = '配置 ' + platform.name;
       $.modalDesc.textContent = platform.desc;
+      if (platform.mode === 'qrcode') {
+        // 扫码登录模式（微信）：显示二维码 + 轮询状态，无密钥表单
+        $.modalFields.innerHTML =
+          '<div id="bt-qrcode-wrap" style="text-align:center;padding:8px 0;">' +
+            '<div id="bt-qrcode-img" style="font-size:13px;color:var(--text-tertiary);padding:20px 0;">生成二维码中…</div>' +
+            '<div id="bt-qrcode-hint" style="font-size:12px;color:var(--text-tertiary);margin-top:4px;">用微信扫码并确认，完成登录即自动保存</div>' +
+          '</div>';
+        $.testResult.style.display = 'none';
+        $.testResult.className = 'bt-test-result';
+        $.testBtn.style.display = 'none';
+        $.saveBtn.style.display = 'none';
+        $.modal.classList.add('show');
+        startQrPoll();
+        return;
+      }
       $.modalFields.innerHTML = platform.fields.map(function(f) {
         return '<div class="bt-field"><label>' + f.label + '</label><input type="password" data-field="' + f.key + '" placeholder="' + (f.placeholder || '') + '" autocomplete="off" /></div>';
       }).join('');
       $.testResult.style.display = 'none';
       $.testResult.className = 'bt-test-result';
+      $.testBtn.style.display = '';
+      $.saveBtn.style.display = '';
       $.testBtn.disabled = false;
       $.saveBtn.disabled = false;
       $.modal.classList.add('show');
@@ -237,8 +261,57 @@
       if (first) first.focus();
     }
 
+    // ── 扫码登录轮询（微信 iLink Bot）──
+    var qrPollTimer = null;
+    async function startQrPoll() {
+      if (qrPollTimer) { clearInterval(qrPollTimer); qrPollTimer = null; }
+      var imgEl = document.getElementById('bt-qrcode-img');
+      var hintEl = document.getElementById('bt-qrcode-hint');
+      try {
+        const res = await fetchWithTimeout('/api/bots/wechat-bot/qrcode', 10000);
+        const data = await res.json();
+        if (!res.ok || !data.ok) throw new Error((data && data.error) || ('HTTP ' + res.status));
+        var qrcode = data.qrcode;
+        if (data.qrcodeUrl) {
+          imgEl.innerHTML = '<img src="' + data.qrcodeUrl + '" style="width:200px;height:200px;border-radius:10px;border:1px solid var(--border-default);" alt="微信扫码" />';
+        } else {
+          imgEl.innerHTML = '<div style="font-size:13px;">二维码获取失败</div>';
+          return;
+        }
+        // 每 2s 轮询状态
+        qrPollTimer = setInterval(async function() {
+          try {
+            const sres = await fetchWithTimeout('/api/bots/wechat-bot/qrcode/status?qrcode=' + encodeURIComponent(qrcode), 6000);
+            const sdata = await sres.json();
+            if (sdata.status === 'confirmed') {
+              clearInterval(qrPollTimer); qrPollTimer = null;
+              if (hintEl) hintEl.textContent = '✅ 扫码确认成功，已保存登录态';
+              if (imgEl) imgEl.innerHTML = '<div style="font-size:30px;padding:50px 0;">✅</div>';
+              toast('微信 bot 配置成功 ✓');
+              load();
+            } else if (sdata.status === 'scaned') {
+              if (hintEl) hintEl.textContent = '📱 已扫码，请在手机上确认…';
+            } else if (sdata.status === 'expired') {
+              clearInterval(qrPollTimer); qrPollTimer = null;
+              if (hintEl) hintEl.textContent = '⏱ 二维码已过期，点击「重新生成」';
+              if (imgEl) imgEl.innerHTML = '<button class="bt-btn bt-btn-primary" onclick="BotsPlaza.regenQr()">🔄 重新生成二维码</button>';
+            }
+          } catch (e) { /* 单次轮询失败忽略，下轮重试 */ }
+        }, 2000);
+      } catch (e) {
+        imgEl.innerHTML = '<div style="font-size:13px;">二维码获取失败：' + (e && e.message ? e.message : e) + '</div>';
+      }
+    }
+
+    function regenQr() {
+      var imgEl = document.getElementById('bt-qrcode-img');
+      if (imgEl) imgEl.innerHTML = '<div style="font-size:13px;color:var(--text-tertiary);padding:20px 0;">生成二维码中…</div>';
+      startQrPoll();
+    }
+
     function closeModal() {
       $.modal.classList.remove('show');
+      if (qrPollTimer) { clearInterval(qrPollTimer); qrPollTimer = null; }
       current = null;
     }
 
@@ -320,7 +393,7 @@
         var id = btn.dataset.id;
         var platform = PLATFORMS.find(function(p) { return p.id === id; });
         if (!platform) return;
-        if (act === 'configure') openModal(platform);
+        if (act === 'configure' || act === 'qrcode') openModal(platform);
         else if (act === 'test') { openModal(platform); setTimeout(testConnection, 50); }
       });
     }
@@ -332,9 +405,10 @@
       load();
     });
 
-    // 暴露给 inline onclick（取消按钮）
+    // 暴露给 inline onclick（取消按钮 / 重新生成二维码）
     window.BotsPlaza = {
       closeModal: closeModal,
+      regenQr: regenQr,
     };
   })();
   </script>

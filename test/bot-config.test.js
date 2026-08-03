@@ -89,3 +89,25 @@ test('isConfigured: env/file 任一有值即 true', () => {
   process.env.HESI_BOT_QQ_SECRET = 'b';
   assert.strictEqual(botConfig().isConfigured('qq'), true);
 });
+
+// ── 微信 iLink Bot（扫码登录）凭证字段 ──
+test('wechat-bot: saveConfig 支持 botToken/baseurl（扫码登录产物）', () => {
+  const r = botConfig().saveConfig('wechat-bot', { botToken: 'wx-bot-token-123', baseurl: 'https://ilinkai.weixin.qq.com' });
+  assert.strictEqual(r.ok, true);
+  const cfg = botConfig().getConfig('wechat-bot');
+  assert.strictEqual(cfg.source, 'file');
+  assert.strictEqual(cfg.botToken, 'wx-bot-token-123');
+  assert.strictEqual(cfg.baseurl, 'https://ilinkai.weixin.qq.com');
+  assert.strictEqual(botConfig().isConfigured('wechat-bot'), true);
+});
+
+test('wechat-bot: 未登录（无 botToken）→ isConfigured=false', () => {
+  assert.strictEqual(botConfig().isConfigured('wechat-bot'), false);
+});
+
+test('wechat-bot: getUpdates 未配置时拒绝（fail-closed）', async () => {
+  const wb = require('../routes/bots/wechat-bot');
+  const r = await wb.getUpdates('');
+  assert.strictEqual(r.ok, false);
+  assert.match(r.error || '', /not configured/);
+});

@@ -23,8 +23,9 @@ const { dispatchToChat } = require('./dispatch');
 
 // ── 平台适配器注册表（fail-closed：isConfigured() 为 false 的平台不挂路由）──
 const ADAPTERS = [
-  { id: 'qq', name: 'QQ 机器人', adapter: require('./qq') },
-  // M2+ 接入：wecom / feishu / dingtalk / wechat-bot（各自 <platform>.js + 官方文档核对）
+  { id: 'qq', name: 'QQ 机器人', adapter: require('./qq'), mode: 'webhook' },
+  { id: 'wechat-bot', name: '微信 bot', adapter: require('./wechat-bot'), mode: 'longpoll' },
+  // M2+ 接入：wecom / feishu / dingtalk（各自 <platform>.js + 官方文档核对）
 ];
 
 /**
@@ -49,8 +50,11 @@ function toInbound(platformId, body) {
 function createRouter() {
   const router = express.Router();
 
-  // ── 各平台 webhook 接收（fail-closed）──
+  // ── 各平台接收端（fail-closed）──
+  // mode=webhook：注册 /webhook 回调路由（平台服务器推送）
+  // mode=longpoll：不注册 webhook（微信 iLink 是主动长轮询拉取，见 wechat-bot.js）
   for (const entry of ADAPTERS) {
+    if (entry.mode !== 'webhook') continue;
     if (!entry.adapter.isConfigured || !entry.adapter.isConfigured()) {
       console.log(`[bots] ${entry.name} 未配置凭证，不注册 /api/bots/${entry.id}/webhook（fail-closed）`);
       continue;
@@ -155,6 +159,28 @@ function createRouter() {
     }
     const result = await entry.adapter.testConnection();
     res.json(result);
+  });
+
+  // ── 扫码登录配置（微信 iLink Bot：qrcode 生成 + 状态轮询）──
+  // GET /api/bots/wechat-bot/qrcode → 生成二维码（{ qrcode, qrcodeUrl }）
+  // GET /api/bots/wechat-bot/qrcode/status?qrcode=... → 轮询 wait/scaned/confirmed
+  router.get('/bots/wechat-bot/qrcode', requireToken, async (req, res) => {
+    const entry = ADAPTERS.find(a => a.id === 'wechat-bot');
+    if (!entry || typeof entry.adapter.getQrCode !== 'function') {
+      return res.status(400).json({ ok: false, error: '微信 bot 适配器未就绪' });
+    }
+    const result = await entry.adapter.getQrCode();
+    res.json(result);
+  });
+
+  router.get('/bots/wechat-bot/qrcode/status', requireToken, async (req, res) => {
+    const entry = ADAPTERS.find(a => a.id === 'wechat-bot');
+    const qrcode = req.query && req.query.qrcode;
+    if (!entry || typeof entry.adapter.pollQrStatus !== 'function' || !qrcode) {
+      return res.status(400).json({ ok: false, error: 'qrcode 参数缺失或适配器未就绪' });
+    }
+    const result = await entry.adapter.pollQrStatus(String(qrcode));
+    res.json({ ok: result.status === 'confirmed', ...result });
   });
 
   return router;
