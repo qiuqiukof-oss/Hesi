@@ -28,6 +28,11 @@ const { streamAnthropicWithTools, parseAnthropicStream, buildAnthropicConversati
 const { injectAttachments } = require('./attachments');
 const { runDiscussion } = require('./discuss');
 const { runPlanTurn } = require('./plan-turn');
+
+// 本地 LLM 默认 baseUrl 从 env 读取（HESI_LLM_BASE_URL，默认 Ollama 11434），
+// 不硬编码端口（用户本地 LLM 部署端口各异：LM Studio 1234 / Ollama 11434 / vLLM 自定义等）。
+// 见 lib/llm/url.js 的规范。
+const DEFAULT_LOCAL_LLM_BASE = process.env.HESI_LLM_BASE_URL || 'http://localhost:11434';
 const { recordCompact } = require('./metrics'); // P1.5: 上下文压缩计数累加
 // Long-term memory subsystem (M4): archive + recall + compaction. Importing the
 // facade only — internal modules stay encapsulated.
@@ -637,7 +642,7 @@ When the user asks you to perform a "system self-check" / "全面自检" / "diag
         } catch (_) { /* fall through */ }
       }
 
-      const lmStudioBase = 'http://127.0.0.1:1234';
+      const lmStudioBase = DEFAULT_LOCAL_LLM_BASE;
       try {
         const healthResp = await fetch(`${lmStudioBase}/v1/models`, { signal: AbortSignal.timeout(2000) });
         if (healthResp.ok) {
@@ -648,7 +653,8 @@ When the user asks you to perform a "system self-check" / "全面自检" / "diag
       } catch (_) { /* LM Studio not available */ }
       return res.status(400).json({
         error: 'No API key configured. Set OPENAI_API_KEY or ANTHROPIC_API_KEY in environment, '
-          + 'or provide one in the request, or start LM Studio (localhost:1234).',
+          + 'or provide one in the request, or start a local OpenAI-compatible LLM '
+          + `(e.g. LM Studio / Ollama) reachable at ${DEFAULT_LOCAL_LLM_BASE}.`,
         needsKey: true,
       });
     }
@@ -818,7 +824,7 @@ When the user asks you to perform a "system self-check" / "全面自检" / "diag
         } catch (_) { /* custom base URL failed */ }
       }
 
-      const lmStudioBase = 'http://127.0.0.1:1234';
+      const lmStudioBase = DEFAULT_LOCAL_LLM_BASE;
       try {
         const healthResp = await fetch(`${lmStudioBase}/v1/models`, { signal: AbortSignal.timeout(2000) });
         if (healthResp.ok) {

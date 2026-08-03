@@ -348,7 +348,8 @@ function createRouter() {
     // 需要 CDP 连接 — 通过 BrowserManager 执行
     // 使用内部 HTTP 请求到 browser/evaluate 来执行脚本
     try {
-      const apiBase = `http://127.0.0.1:${process.env.PORT || 3001}/api`;
+      const { getPort } = require('../lib/port');
+      const apiBase = `http://127.0.0.1:${getPort()}/api`;
       const response = await fetch(`${apiBase}/browser/evaluate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

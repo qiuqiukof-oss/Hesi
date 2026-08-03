@@ -10,8 +10,8 @@
 // Start: node mcp-server.js
 //
 // Environment variables:
-//   QCLI_API_URL       - Hesi HTTP API base (default: http://localhost:3001/api)
-//   QCLI_WS_URL        - Hesi WebSocket URL  (default: ws://localhost:3001)
+//   QCLI_API_URL       - Hesi HTTP API base (default: http://127.0.0.1:4264/api)
+//   QCLI_WS_URL        - Hesi WebSocket URL  (default: ws://127.0.0.1:4264)
 //   QCLI_MCP_TOKEN     - Bearer token for MCP auth (optional, dev: skip)
 //   QCLI_SESSION_TTL   - Session TTL in ms (default: 900000 = 15 min)
 //   QCLI_MAX_SESSIONS  - Max concurrent sessions (default: 10)

@@ -252,7 +252,7 @@ npm install
 ### Start
 
 ```bash
-npm start              # → http://localhost:3001 (listens on 127.0.0.1 and ::1 by default)
+npm start              # → http://localhost:4264 (listens on 127.0.0.1 and ::1 by default)
 npm run dev            # development mode (hot reload)
 npm run mcp            # start the MCP service standalone
 ```
@@ -261,7 +261,7 @@ npm run mcp            # start the MCP service standalone
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `PORT` | `3001` | HTTP service port |
+| `PORT` | `4264` | HTTP service port |
 | `HOST` | `loopback` | Bind address; setting `0.0.0.0` prints a high-risk warning |
 | `OPENAI_API_KEY` / `ANTHROPIC_API_KEY` | — | LLM provider keys (optional) |
 | `STABILITY_API_KEY` / `BING_SEARCH_API_KEY` / `TAVILY_API_KEY` | — | Image/search keys (optional) |

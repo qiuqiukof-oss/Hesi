@@ -12,7 +12,9 @@
 // - Throws on failure (caught by caller's try/catch)
 // ============================================================
 
-const API_BASE = () => `http://127.0.0.1:${process.env.PORT || 3001}/api`;
+const { getPort } = require('../../lib/port');
+
+const API_BASE = () => `http://127.0.0.1:${getPort()}/api`;
 
 /** Ensure path starts with '/' */
 const normalizePath = (p) => p.startsWith('/') ? p : `/${  p}`;

@@ -10,6 +10,7 @@
 // ============================================================
 
 const { fetchPost } = require('../internal-api');
+const { DEFAULT_CDP_URL } = require('../../browser/helpers');
 
 /**
  * @param {import('../registry').ToolRegistry} registry
@@ -82,7 +83,7 @@ function register(registry) {
         },
         buildCommand: 'npm run build',
         serverPort: process.env.PORT || 4264,
-        cdpEndpoint: 'http://127.0.0.1:9222',
+        cdpEndpoint: DEFAULT_CDP_URL,
       }, null, 2);
     },
   });

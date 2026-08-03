@@ -49,7 +49,10 @@ process.on('uncaughtException', (err) => {
 // ============================================================
 // Configuration
 // ============================================================
-const PORT = parseInt(process.env.PORT, 10) || 4264;
+const { syncPortToEnv } = require('./lib/port');
+// 启动期把端口同步回 process.env.PORT，消灭散落的 `process.env.PORT || 3001`
+// 这类历史写法造成的内部调用端口分裂。详见 lib/port.js。
+const PORT = syncPortToEnv();
 const HOST = process.env.HOST || 'loopback'; // default = dual loopback bind (127.0.0.1 + ::1)
 const isWin = process.platform === 'win32';
 

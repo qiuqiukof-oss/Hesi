@@ -269,7 +269,7 @@ function parseTextToolCall(xml) {
  * @returns {string}
  */
 function getApiBase() {
-  return `http://127.0.0.1:${process.env.PORT || 3001}/api`;
+  return `http://127.0.0.1:${require('../../lib/port').getPort()}/api`;
 }
 
 module.exports = {

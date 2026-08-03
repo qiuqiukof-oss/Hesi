@@ -128,7 +128,7 @@ async function captureBeforeAction(page) {
 
 /**
  * 检测当前页面 URL 是否为 Hesi 管理页面（即 agent 自身的宿主页面）。
- * Hesi 默认监听端口 3001，也可以通过 PORT 环境变量修改。
+ * Hesi 默认监听端口由 lib/port.js 单一事实源管理（默认 4264），也可通过 PORT 环境变量修改。
  * @param {string} pageUrl - 页面 URL 字符串
  * @returns {boolean}
  */
@@ -136,8 +136,9 @@ function isCLIQPageUrl(pageUrl) {
   if (!pageUrl || typeof pageUrl !== 'string') return false;
   try {
     const parsed = new URL(pageUrl);
-    // Hesi 页面特征：localhost/127.0.0.1 且端口为 3001（或环境变量 PORT）
-    const cliqPort = parseInt(process.env.PORT, 10) || 3001;
+    // Hesi 页面特征：localhost/127.0.0.1 且端口匹配 getPort()
+    const { getPort } = require('../../lib/port');
+    const cliqPort = getPort();
     const isLocalhost = ['localhost', '127.0.0.1', '[::1]'].includes(parsed.hostname);
     if (isLocalhost && parsed.port === String(cliqPort)) return true;
     // loopback 地址 + 端口号匹配足以确定是 Hesi 管理页面，无需额外 hostname 关键词匹配
@@ -158,7 +159,6 @@ async function checkCLIQPage(page) {
   try {
     const pageUrl = page.url();
     if (isCLIQPageUrl(pageUrl)) {
-      const cliqPort = parseInt(process.env.PORT, 10) || 3001;
       return {
         isCLIQ: true,
         message: `当前在 Hesi 管理页面（${pageUrl}）上操作，该页面是 CDP 连接的宿主页面。对其进行导航/点击/输入等操作会导致 CDP 断开连接，所有浏览器能力将不可用！\n请改用 browser_farm_create 创建新的隔离浏览器会话，然后在新会话中进行操作。`,

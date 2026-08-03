@@ -264,7 +264,7 @@ npm install
 ### 启动
 
 ```bash
-npm start              # → http://localhost:3001（默认监听 127.0.0.1 与 ::1）
+npm start              # → http://localhost:4264（默认监听 127.0.0.1 与 ::1）
 npm run dev            # 开发模式（热重载）
 npm run mcp            # 独立启动 MCP 服务
 ```

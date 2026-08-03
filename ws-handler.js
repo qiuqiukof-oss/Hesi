@@ -77,7 +77,7 @@ const { dispatchWSMessage } = require('./ws/message-dispatch');
  *
  * @param {http.Server} server  — the HTTP server to attach to
  * @param {object}      [opts]
- * @param {number}      [opts.port=3001]  — used for CLI_BRIDGE_URL env var
+ * @param {number}      [opts.port]  — used for CLI_BRIDGE_URL env var (默认 4264，见 lib/port)
  * @returns {{ wss: WebSocketServer, activePTYs: Map, close: Function }}
  */
 /**
@@ -87,10 +87,10 @@ const { dispatchWSMessage } = require('./ws/message-dispatch');
  * across servers keeps terminal/agent/workflow state unified.
  *
  * @param {object} [opts]
- * @param {number} [opts.port=3001]  — used for CLI_BRIDGE_URL env var
+ * @param {number} [opts.port]  — used for CLI_BRIDGE_URL env var (默认 4264，见 lib/port)
  * @returns {WSManager}
  */
-function createWSManager({ port = 3001 } = {}) {
+function createWSManager({ port = require('./lib/port').getPort() } = {}) {
   // One or more WebSocketServer instances (one per bound HTTP server).
   /** @type {Array<import('ws').WebSocketServer>} */
   const wssList = [];
