@@ -60,7 +60,6 @@ export function loadCustomCSS() {
       createCSSEditor();
     }
     const editor = document.getElementById('custom-css-editor');
-    const existing = document.getElementById('custom-css-style');
     if (editor) {
       editor.value = loadCustomCSS();
     }
@@ -71,7 +70,8 @@ export function loadCustomCSS() {
     // Re-attach escape handler if not already attached
     if (!_escapeHandler) {
       _escapeHandler = function escapeHandler(e) {
-        if (e.key === 'Escape' && !overlay.classList.contains('hidden')) {
+        const ov = document.getElementById('custom-css-overlay');
+        if (e.key === 'Escape' && ov && !ov.classList.contains('hidden')) {
           closeCSSEditor();
           document.removeEventListener('keydown', _escapeHandler);
           _escapeHandler = null;

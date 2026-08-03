@@ -53,8 +53,8 @@ function renderFormData() {
 
     html += `<div class="af-form-section">
       <div class="af-form-header">
-        <span class="af-form-title">表单 ${fi + 1}${form.id ? ' #' + form.id : ''}</span>
-        <span class="af-form-action">${form.method || 'GET'} ${form.action ? '→ ' + form.action.slice(0, 40) : ''}</span>
+        <span class="af-form-title">表单 ${fi + 1}${form.id ? ' #' + escapeHtml(form.id) : ''}</span>
+        <span class="af-form-action">${escapeHtml(form.method || 'GET')} ${form.action ? '→ ' + escapeHtml(form.action.slice(0, 40)) : ''}</span>
         <span class="af-form-count">${form.fieldCount} 字段</span>
       </div>`;
 
@@ -64,7 +64,7 @@ function renderFormData() {
         <div class="af-field-label">
           <span class="af-field-name">${escapeHtml(f.label || f.name || f.id || 'unknown')}</span>
           ${f.required ? '<span class="af-field-required">*</span>' : ''}
-          <span class="af-field-type">${f.type || f.tag}</span>
+          <span class="af-field-type">${escapeHtml(f.type || f.tag)}</span>
         </div>
         <div class="af-field-input-row">
           <input type="text" class="af-field-input" id="af-input-${fi}-${i}"

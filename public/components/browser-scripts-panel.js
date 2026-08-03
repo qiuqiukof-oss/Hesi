@@ -442,20 +442,14 @@ function init(container) {
     label: '📜 为此页面创建脚本',
     requiresSelection: false,
     order: 80,
-    action: (selection, term) => {
+    action: async (selection, _term) => {
       // 获取当前页面 URL
-      const activeTab = Qq.Tabs;
       let currentUrl = '';
       try {
-        // 尝试从浏览器标签获取 URL
-        fetch('/api/browser/ping')
-          .then(r => r.json())
-          .then(data => {
-            if (data.connected && data.url) {
-              currentUrl = data.url;
-            }
-          })
-          .catch(() => {});
+        // 尝试从浏览器标签获取 URL（必须 await，否则编辑器打开时 URL 仍为空）
+        const resp = await fetch('/api/browser/ping');
+        const data = await resp.json();
+        if (data.connected && data.url) currentUrl = data.url;
       } catch (e) { console.warn('[BrowserScripts] Failed to fetch browser ping:', e?.message); }
 
       // 打开编辑器，预填代码

@@ -76,14 +76,14 @@ import { escapeHtml } from '../escape.js';
         const id = cli.id;
         const isChecked = _selectedIds.has(id);
         return `<label style="display:flex;align-items:center;gap:6px;padding:4px 6px;border-radius:4px;cursor:pointer;font-size:11px;background:${isChecked ? 'var(--accent-glow)' : 'transparent'};">
-          <input type="checkbox" class="cli-imp-checkbox" data-id="${id}" ${isChecked ? 'checked' : ''} style="accent-color:var(--accent);" />
+          <input type="checkbox" class="cli-imp-checkbox" data-id="${escapeHtml(id)}" ${isChecked ? 'checked' : ''} style="accent-color:var(--accent);" />
           <span style="font-weight:600;color:var(--text-primary);flex:1;">${escapeHtml(cli.name)}</span>
-          <span style="font-size:9px;color:var(--text-tertiary);">${cli.category || 'tool'}</span>
-          <span style="font-size:9px;color:var(--text-tertiary);">${cli.version ? cli.version.slice(0, 15) : ''}</span>
+          <span style="font-size:9px;color:var(--text-tertiary);">${escapeHtml(cli.category || 'tool')}</span>
+          <span style="font-size:9px;color:var(--text-tertiary);">${escapeHtml(cli.version ? cli.version.slice(0, 15) : '')}</span>
         </label>`;
       }).join('');
     } catch (err) {
-      listEl.innerHTML = '<div style="padding:12px;text-align:center;color:#ef4444;font-size:11px;">❌ 加载失败: ' + err.message + '</div>';
+      listEl.innerHTML = '<div style="padding:12px;text-align:center;color:#ef4444;font-size:11px;">❌ 加载失败: ' + escapeHtml(err.message) + '</div>';
     }
   }
 
@@ -211,7 +211,7 @@ import { escapeHtml } from '../escape.js';
         <div style="margin-top:4px;">
           <div style="font-size:11px;color:var(--text-secondary);margin-bottom:4px;">📋 发现 ${clisToImport.length} 个 CLI：</div>
           <div style="max-height:120px;overflow-y:auto;display:flex;flex-direction:column;gap:2px;margin-bottom:6px;">
-            ${clisToImport.map(c => `<div style="font-size:10px;padding:2px 4px;background:var(--bg-elevated);border-radius:4px;">${c.name || '(未命名)'} · ${c.category || 'tool'}</div>`).join('')}
+            ${clisToImport.map(c => `<div style="font-size:10px;padding:2px 4px;background:var(--bg-elevated);border-radius:4px;">${escapeHtml(c.name || '(未命名)')} · ${escapeHtml(c.category || 'tool')}</div>`).join('')}
           </div>
           <button id="cli-imp-do-import" style="padding:4px 14px;border-radius:6px;border:none;background:var(--accent);color:#fff;font-size:10px;cursor:pointer;">📥 导入 ${clisToImport.length} 个 CLI</button>
         </div>
@@ -238,7 +238,7 @@ import { escapeHtml } from '../escape.js';
       });
 
     } catch (err) {
-      previewEl.innerHTML = `<div style="color:#ef4444;font-size:11px;padding:8px;">❌ 无法解析文件: ${err.message}</div>`;
+      previewEl.innerHTML = `<div style="color:#ef4444;font-size:11px;padding:8px;">❌ 无法解析文件: ${escapeHtml(err.message)}</div>`;
       previewEl.style.display = 'block';
     }
   }

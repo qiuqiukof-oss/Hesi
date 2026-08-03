@@ -407,7 +407,11 @@ export const planStreamMixin = {
       await fetch('/api/plan/' + encodeURIComponent(execId) + '/' + kind, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
       });
-    } catch { /* 网络异常由 approval-resolved 事件覆盖，这里仅禁按钮 */ }
+    } catch {
+      // 网络异常且 approval-resolved 事件未到 → 解禁按钮并提示，避免 UI 死锁
+      if (btns) btns.forEach((b) => { b.disabled = false; });
+      if (window.QCLI?.showToast) window.QCLI.showToast('审批提交失败，请重试', 'error');
+    }
   },
 
   _escapeHtml(str) {
