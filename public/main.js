@@ -58,6 +58,7 @@ import './components/workspace-panel.js';   // Workspace profiles
 import './components/sidebar-manager.js';    // Sidebar toggle + resize
 import './components/welcome-renderer.js';  // Welcome carousel slides
 import './components/context-menu.js';      // Terminal right-click menu
+import './components/pin-quick.js';        // Quick pin (selection bar + hover pin)
 import './components/search-bar.js';        // Terminal search bar
 import './components/session-restore.js';    // Session restore overlay
 import './components/ws-manager.js';         // WebSocket connection manager

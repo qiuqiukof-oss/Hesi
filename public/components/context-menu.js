@@ -134,15 +134,20 @@ export function copySelection() {
   }
 }
 
-export async function pinSelectedOutput() {
-  if (!currentPinText) return;
+export async function pinSelectedOutput(selectionOverride, opts) {
+  const text = (selectionOverride != null && String(selectionOverride).trim() !== '')
+    ? selectionOverride
+    : currentPinText;
+  if (!text) return;
   const store = Q().PinStore;
   if (!store) return;
   const activeTab = Q().Tabs ? Q().Tabs.activeTabId : null;
   const tab = activeTab && Q().Tabs ? Q().Tabs.getTab(activeTab) : null;
-  const title = prompt('Pin title (optional):', tab && tab.name ? 'Output from ' + tab.name : '');
+  const skipPrompt = !!(opts && opts.skipPrompt);
+  const defaultTitle = tab && tab.name ? 'Output from ' + tab.name : '';
+  const title = skipPrompt ? defaultTitle : prompt('Pin title (optional):', defaultTitle);
   await store.add(
-    currentPinText.replace(/(?:[@-Z\-_]|[[0-?]*[ -/]*[@-~])/g, '').trim(),
+    String(text).replace(/(?:[@-Z\-_]|[[0-?]*[ -/]*[@-~])/g, '').trim(),
     tab && tab.cliId || '',
     tab && tab.name || '',
     title || ''
