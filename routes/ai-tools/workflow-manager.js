@@ -567,16 +567,44 @@ class WorkflowManager {
     this._bbTaskError(wf, task, err.message, false); // S4: 黑板同步 — 步骤彻底失败
 
     if (task.onFailure === 'continue') {
+      // 失败任务的下游依赖仍会被 _propagateSkip 在调度时发现并跳过，
+      // 这里只让工作流继续推进其它就绪任务。
       this._schedule(wf.workflowId).catch(() => {});
     } else if (task.onFailure === 'skip-dependents') {
+      // 与 continue 的区别：主动把依赖本任务的下游（含传递依赖）标 skipped，
+      // 不再尝试执行；其余无依赖任务照常推进。
+      this._markDependentsSkipped(wf, task.id);
       this._schedule(wf.workflowId).catch(() => {});
     } else {
-      // stop
+      // stop（默认）
       wf.status = 'failed';
       for (const t of wf.tasks) {
         if (t.status === 'pending') {
           t.status = 'skipped';
           t.error = 'workflow stopped due to task failure';
+        }
+      }
+    }
+  }
+
+  /**
+   * 将依赖 failedId 的下游任务（含传递依赖）标记为 skipped。
+   * 用于 onFailure='skip-dependents'：失败任务的下游不再尝试执行。
+   * @param {object} wf
+   * @param {string} failedId
+   */
+  _markDependentsSkipped(wf, failedId) {
+    const dependents = new Set([failedId]);
+    let changed = true;
+    while (changed) {
+      changed = false;
+      for (const t of wf.tasks) {
+        if (t.status !== 'pending') continue;
+        if ((t.dependsOn || []).some((d) => dependents.has(d))) {
+          dependents.add(t.id);
+          t.status = 'skipped';
+          t.error = `dependency failed/skipped (${failedId})`;
+          changed = true;
         }
       }
     }
