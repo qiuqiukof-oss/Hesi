@@ -182,6 +182,9 @@ async function runPlanTurn(res, p = {}) {
       if (!discussBeforePlan || !discussPartners.length) return '';
       emit('phase', { phase: 'discuss', label });
       console.log('[runPlanTurn] 开始讨论 phase, partners=%d, label=%s', discussPartners.length, label);
+      // 保留 timer 引用，Promise.race 结束（无论快慢）后 clearTimeout，
+      // 避免高频 Plan 执行下定时器句柄堆积（P3 #9）。
+      let discussTimer;
       try {
         const out = await Promise.race([
           runRoundtable({
@@ -205,14 +208,23 @@ async function runPlanTurn(res, p = {}) {
             },
             shouldAbort: () => watcher.isAborted(),
           }),
-          new Promise((_, reject) => setTimeout(() => reject(new Error(`讨论超时（${Math.round(DISCUSS_TIMEOUT_MS / 1000)}s）`)), DISCUSS_TIMEOUT_MS)),
+          new Promise((_, reject) => {
+            discussTimer = setTimeout(
+              () => reject(new Error(`讨论超时（${Math.round(DISCUSS_TIMEOUT_MS / 1000)}s）`)),
+              DISCUSS_TIMEOUT_MS
+            );
+          }),
         ]);
         console.log('[runPlanTurn] 讨论完成, summary length=%d', (out && out.summary) ? out.summary.length : 0);
         return (out && out.summary) || '';
       } catch (e) {
         console.warn('[runPlanTurn] 讨论跳过: %s', e.message);
-        emit('discussion-error', { message: `讨论跳过，直接生成方案：${e.message}` });
+        // 事件名必须与前端 plan-stream.js 的 discuss_error 分支对齐（SSE 会转 plan_discuss_error）。
+        // 旧的 'discussion-error' 会转成 plan_discussion_error，前端匹配不到 → 讨论错误静默消失。
+        emit('discuss-error', { message: `讨论跳过，直接生成方案：${e.message}` });
         return '';
+      } finally {
+        clearTimeout(discussTimer);
       }
     };
 

@@ -78,7 +78,13 @@ export const planStreamMixin = {
         // 用户已选择「本次会话始终允许」→ 自动通过，不弹气泡
         // Plan B：强制审批（宿主敏感写入）即便开了始终允许也必须人工点选，不可自动跳过
         const execId = (evt.step && evt.step.execId) || '';
-        if (execId) fetch('/api/plan/' + encodeURIComponent(execId) + '/approve', { method: 'POST', headers: { 'Content-Type': 'application/json' } }).catch(() => {});
+        if (execId) {
+          // P2 #5: 补 res.ok 检查——401/403/500 会让 fetch 正常 resolve，
+          // 缺检查则 catch 不触发、审批静默卡死（开了 token 必现）。
+          fetch('/api/plan/' + encodeURIComponent(execId) + '/approve', { method: 'POST', headers: { 'Content-Type': 'application/json' } })
+            .then((r) => { if (!r.ok) throw new Error('HTTP ' + r.status); })
+            .catch(() => {});
+        }
       } else {
         this._renderApprovalBubble(evt.step);
         this.scrollToBottom();
@@ -411,11 +417,14 @@ export const planStreamMixin = {
     const btns = bubble && bubble.querySelectorAll('button');
     if (btns) btns.forEach((b) => { b.disabled = true; });
     try {
-      await fetch('/api/plan/' + encodeURIComponent(execId) + '/' + kind, {
+      // P2 #5: 必须检查 res.ok——401/403/500 时 fetch 不抛错，
+      // 缺检查则走不到 catch、按钮永久 disabled，Plan 卡死在待审批。
+      const res = await fetch('/api/plan/' + encodeURIComponent(execId) + '/' + kind, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
       });
+      if (!res.ok) throw new Error('HTTP ' + res.status);
     } catch {
-      // 网络异常且 approval-resolved 事件未到 → 解禁按钮并提示，避免 UI 死锁
+      // 网络异常 / 非 2xx 且 approval-resolved 事件未到 → 解禁按钮并提示，避免 UI 死锁
       if (btns) btns.forEach((b) => { b.disabled = false; });
       if (window.QCLI?.showToast) window.QCLI.showToast('审批提交失败，请重试', 'error');
     }

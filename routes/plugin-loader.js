@@ -470,6 +470,11 @@ class PluginLoader {
    * @returns {{ success: boolean, error?: string }}
    */
   reloadPlugin(name) {
+    // P3 #11: 与创建接口（routes/index.js /plugins/create）对齐，校验 kebab-case。
+    // 否则 name 可含 `..` 经 path.join 越出插件目录读取任意 plugin.json（读取型穿越）。
+    if (typeof name !== 'string' || !/^[a-z0-9-]+$/.test(name)) {
+      return { success: false, error: 'Plugin name must be kebab-case (lowercase letters, numbers, hyphens)' };
+    }
     const pluginDir = path.join(this._pluginsDir, name);
     const manifestPath = path.join(pluginDir, 'plugin.json');
 

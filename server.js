@@ -67,7 +67,7 @@ const servers = [];
 const REQUIRED_ENV = [
   { key: 'OPENAI_API_KEY', desc: 'OpenAI API key', optional: true },
   { key: 'ANTHROPIC_API_KEY', desc: 'Anthropic API key', optional: true },
-  { key: 'STABILITY_API_KEY', desc: 'Stability AI API key (optional, enables AI image generation)', optional: true },
+  { key: 'AGNES_API_KEY', desc: 'Agnes AI API key (optional, enables AI image/video generation)', optional: true },
   { key: 'PANDOC_PATH', desc: 'Pandoc executable path (optional, enables document format conversion via convert_document tool)', optional: true },
   { key: 'BING_SEARCH_API_KEY', desc: 'Bing Search API key (optional, falls back to DuckDuckGo/Tavily)', optional: true },
   { key: 'TAVILY_API_KEY', desc: 'Tavily Search API key (optional, uses keyless mode by default)', optional: true },

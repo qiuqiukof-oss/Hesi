@@ -466,7 +466,7 @@ function dispatchWSMessage(ctx, ws, msg) {
 
     case 'policy:reload': {
       // Hot-reload: re-read .cli-q-policy.json from disk
-      const { reloadPolicy } = require('./mcp/security/policy');
+      const { reloadPolicy } = require('../mcp/security/policy');
       reloadPolicy();
       ws.send(JSON.stringify({ type: 'policy:reloaded' }));
       break;

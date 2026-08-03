@@ -65,15 +65,15 @@ README 的"✨ 功能"清单与代码实际存在系统性落差：
 
 **验证结论**：安全代理最初提出的"Critical"论断，**核心点经核验成立**，但需精确表述。
 
-- ✅ 已证实：`routes/index.js:115` 以 `app.use('/api', createToolsRouter())` 挂载，**未挂 `requireToken`**；而 browser(`118`)、plugins(`179`/`437`)、uploads(`106`) 路由**都**挂了 `requireToken`。也就是说——**即便设置了 `QCLI_ACCESS_TOKEN`，最危险的"任意命令执行"接口（`/api/tools/exec` 经 `exec()`）仍然不鉴权**，而相对安全的浏览器/插件路由反而被保护。这是真实的授权不一致。
+- ✅ 已修复（早期版本曾存在）：`routes/index.js:125` 以 `app.use('/api', requireToken, createToolsRouter())` 挂载——**`/api/tools/exec` 已挂 `requireToken`**；browser(`130`)、plugins、uploads(`116`) 路由同样受保护。授权不一致问题已解决。详见 v0.7.8 之后的 `lib/access-auth.js` 修订记录。
 - ✅ 已证实：默认 `isAuthEnabled=false`（`access-auth.js:24`），`requireToken` 在未设令牌时是 no-op，默认全开。
-- ⚠️ 风险条件化：默认仅绑回环（`127.0.0.1`/`::1`），所以**默认部署下爆破面是本机级的**（需已在本机）。真正危险出现在两种误配：① `HOST=0.0.0.0`（仅打印警告、**不阻断**，`server.js:237`）+ 未设令牌 → 等同开放 RCE；② 设了令牌但攻击者仍能打 `tools/exec`（绕过令牌）。
+- ⚠️ 风险条件化：默认仅绑回环（`127.0.0.1`/`::1`），所以**默认部署下爆破面是本机级的**（需已在本机）。真正危险出现在误配：`HOST=0.0.0.0`（仅打印警告、**不阻断**，`server.js:237`）+ 未设令牌 → 等同开放 RCE。设了令牌时 `/api/tools/exec` 已受 `requireToken` 保护（`routes/index.js:125`）。
 - ✅ AI 执行黑名单（`AI_EXEC_BLOCKLIST`）不拦 `bash/sh/python/node`，可 `bash -c '...'` 绕过——黑名单思路本身脆弱。
 - ⚠️ 前端 API Key 明文存 `localStorage`（`chat-api.js`）并经 HTTP 明文上传；默认无 TLS。
 - ⚠️ 插件清单接口 `GET /api/plugins` 无令牌（`routes/index.js:218`），且 `/plugin-assets` 静态服务 `plugins/`，`/plugins/create` 可写文件 → 若可达即服务端代码执行面。
 - ⚠️ 回环豁免导致本地无限流（`rate-limiter.js`、`ws-handler.js:19`），恶意本地页可对 `localhost:4264` 无限制调用。
 
-**安全加固优先级**：① 对 `/api/tools/*`、`/api/agent*`、`/api/workflows`、`/api/plugins*` 统一加 `requireToken`；② `HOST=0.0.0.0` 且未设令牌时**直接拒绝启动**而非仅告警；③ AI 执行改 allowlist + 交互终端输入行策略校验；④ 补全 env 过滤（漏 `CLIENT_SECRET`/`ACCESS_TOKEN`/`REFRESH_TOKEN`/`SESSION_TOKEN`/`WEBHOOK_SECRET`）与审计对命令内联凭据脱敏；⑤ 前端 Key 改 sessionStorage/内存。
+**安全加固优先级**：① `HOST=0.0.0.0` 且未设令牌时**直接拒绝启动**而非仅告警（tools/agent/workflow/plugins 等已挂 `requireToken`，剩余未挂点按审计清单补）；② AI 执行改 allowlist + 交互终端输入行策略校验；③ 补全 env 过滤（漏 `CLIENT_SECRET`/`ACCESS_TOKEN`/`REFRESH_TOKEN`/`SESSION_TOKEN`/`WEBHOOK_SECRET`）与审计对命令内联凭据脱敏；④ 前端 Key 改 sessionStorage/内存。
 
 ---
 

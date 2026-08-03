@@ -59,8 +59,10 @@ function isAllowedUploadExt(filename) {
 function safeResolve(userPath) {
   const ws = getWorkspace();
   const resolved = path.resolve(ws, userPath);
-  // Ensure the resolved path is still within the workspace
-  if (!resolved.startsWith(ws)) {
+  // Ensure the resolved path is still within the workspace.
+  // 必须用 path.sep 收尾比较，否则 `H:\HesiX\...` 这类兄弟目录会因前缀
+  // 命中 `H:\Hesi` 而越界（与 routes/fs.js 的成熟写法对齐）。
+  if (resolved !== ws && !resolved.startsWith(ws + path.sep)) {
     throw new Error('Path traversal denied: path must be within workspace');
   }
   return resolved;

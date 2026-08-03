@@ -16,6 +16,7 @@ offline-cache/
 data/
 uploads/
 backups/
+backup/
 
 # ===== Logs =====
 *.log

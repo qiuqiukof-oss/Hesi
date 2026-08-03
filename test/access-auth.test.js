@@ -81,3 +81,70 @@ test('localOriginGuard middleware: passes loopback-origin POST', () => {
   localOriginGuard(req, res, () => { nexted = true; });
   assert.strictEqual(nexted, true);
 });
+
+// ── P1 鉴权绕过回归（v0.7.9）──
+// 修复前 requireToken 用 `isLoopbackAddr(ip) || isLoopbackOrigin(origin) || isLoopbackOrigin(referer)`
+// 做回环豁免；Origin/Referer 是客户端自报头、可伪造，远程攻击者带
+// `Origin: http://localhost` 即可绕过 QCLI_ACCESS_TOKEN。修复后仅按真实 socket IP 豁免。
+// requireToken 在模块加载时捕获 env，故此处动态设 env 并清 require 缓存后重新加载。
+function freshRequireToken(token, requireLoopback) {
+  process.env.QCLI_ACCESS_TOKEN = token;
+  if (requireLoopback) process.env.QCLI_TOKEN_REQUIRE_LOOPBACK = '1';
+  else delete process.env.QCLI_TOKEN_REQUIRE_LOOPBACK;
+  delete require.cache[require.resolve('../lib/access-auth')];
+  return require('../lib/access-auth').requireToken;
+}
+
+function callRequireToken(fn, { ip, origin, referer, token }) {
+  let statusCode = 0;
+  const res = {
+    status(c) { statusCode = c; return this; },
+    json() { return this; },
+  };
+  let nexted = false;
+  const req = {
+    ip,
+    headers: { ...(origin ? { origin } : {}), ...(referer ? { referer } : {}) },
+    query: {},
+  };
+  if (token) req.headers.authorization = `Bearer ${token}`;
+  fn(req, res, () => { nexted = true; });
+  return { statusCode, nexted };
+}
+
+test('P1: forged loopback Origin does NOT bypass token (remote IP)', () => {
+  const requireToken = freshRequireToken('secret-token', false);
+  // 远程 IP + 伪造回环 Origin/Referer → 必须 401，不能 next()
+  const r = callRequireToken(requireToken, {
+    ip: '203.0.113.9',
+    origin: 'http://localhost',
+    referer: 'http://127.0.0.1:4264/',
+  });
+  assert.strictEqual(r.nexted, false);
+  assert.strictEqual(r.statusCode, 401);
+});
+
+test('P1: forged loopback Origin does NOT bypass token (valid token still works)', () => {
+  const requireToken = freshRequireToken('secret-token', false);
+  const r = callRequireToken(requireToken, {
+    ip: '203.0.113.9',
+    origin: 'http://localhost',
+    token: 'secret-token',
+  });
+  assert.strictEqual(r.nexted, true);
+});
+
+test('P1: real loopback IP still exempt by default', () => {
+  const requireToken = freshRequireToken('secret-token', false);
+  const r = callRequireToken(requireToken, { ip: '127.0.0.1' });
+  assert.strictEqual(r.nexted, true);
+});
+
+test('P1: REQUIRE_LOOPBACK=1 requires token even for loopback IP', () => {
+  const requireToken = freshRequireToken('secret-token', true);
+  const r = callRequireToken(requireToken, { ip: '127.0.0.1' });
+  assert.strictEqual(r.nexted, false);
+  assert.strictEqual(r.statusCode, 401);
+  const ok = callRequireToken(requireToken, { ip: '127.0.0.1', token: 'secret-token' });
+  assert.strictEqual(ok.nexted, true);
+});

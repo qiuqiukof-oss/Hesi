@@ -213,7 +213,18 @@ async function runCliTurn({ partner, persona, protocol }, question, transcript, 
     const task = buildCliTask({ question, transcript: forCli, round, persona, protocol });
     // cwd 真实传给 agentPool.start → createHeadlessExec 的 opts.cwd（进程真实 chdir 到项目目录）。
     // 不再在 prompt 里写 cd 文字（LLM 不保证执行，实测无效）。
-    const started = JSON.parse(await agentPool.start(partner, task, '', null, undefined, cwd));
+    // P3 #10: agentPool 契约是 JSON 字符串，但崩溃/异常时可能返回非 JSON 文本；
+    // 直接 JSON.parse 会把真实错因转成 SyntaxError 再被上层 catch 混淆掩埋。
+    // 这里包 try/catch，解析失败降级为 start-failed，消息里带上原始输出便于排障。
+    let started;
+    try {
+      started = JSON.parse(await agentPool.start(partner, task, '', null, undefined, cwd));
+    } catch (startErr) {
+      return {
+        full: `（CLI Agent「${partner}」启动异常：${startErr && startErr.message ? startErr.message : startErr}）`,
+        terminal: 'start-failed', ok: false,
+      };
+    }
     if (!started.ok) {
       return { full: `（无法启动 CLI Agent「${partner}」：${started.error}）`, terminal: 'start-failed', ok: false };
     }
@@ -234,7 +245,15 @@ async function runCliTurn({ partner, persona, protocol }, question, transcript, 
     try {
       while (Date.now() < deadline) {
         if (shouldAbort && shouldAbort()) { terminal = 'aborted'; break; }
-        const r = JSON.parse(await agentPool.poll(sid));
+        // P3 #10: 同 start 一样，poll 也可能返回非 JSON（进程崩溃/管道异常）。
+        // 解析失败降级为 error terminal，不再向上抛 SyntaxError 掩盖真实错因。
+        let r;
+        try {
+          r = JSON.parse(await agentPool.poll(sid));
+        } catch (pollErr) {
+          onToken(`（轮询异常：${pollErr && pollErr.message ? pollErr.message : pollErr}）`);
+          terminal = 'error'; break;
+        }
         if (!r.ok) { onToken(`（轮询失败：${r.error}）`); terminal = 'error'; break; }
         const delta = r.output || '';
         if (delta && delta !== lastDelta) {
