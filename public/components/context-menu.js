@@ -153,7 +153,7 @@ export async function pinSelectedOutput(selectionOverride, opts) {
     title || ''
   );
   hideContextMenu();
-  Q.showToast('📌 ' + ('已固定到输出剪贴板'), 'success');
+  Q().showToast('📌 ' + ('已固定到输出剪贴板'), 'success');
   await renderPinnedList();
 }
 
@@ -229,7 +229,7 @@ export async function renderPinnedList() {
 
       el.addEventListener('click', function() {
         navigator.clipboard.writeText(/** @type {string} */ (pinText)).catch(function() {});
-        Q.showToast('📋 ' + ('已复制到剪贴板'), 'success');
+        Q().showToast('📋 ' + ('已复制到剪贴板'), 'success');
       });
 
       container.appendChild(el);
