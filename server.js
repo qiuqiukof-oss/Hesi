@@ -366,9 +366,13 @@ function startServer() {
           if (!NODE_PTY_AVAILABLE) {
           console.warn('[PTY] node-pty native addon not built — terminal/agent disabled. Run npm rebuild node-pty and restart.');
         }
-        console.log(`Platform: ${  process.platform  } | Node ${  process.version}`);
-        console.log('Uploads  : TTL 1 hour');
-        setImmediate(cleanupOldUploads);
+          console.log(`Platform: ${  process.platform  } | Node ${  process.version}`);
+          console.log('Uploads  : TTL 1 hour');
+          setImmediate(cleanupOldUploads);
+          // Bot 消息接收循环（通讯接入 A · M2）：QQ WS / 微信长轮询，只启动已配置平台。
+          try {
+            require('./lib/bot-loop').startAll();
+          } catch (e) { /* 优雅降级，不阻断服务 */ }
         const uploadsDir = require('path').join(__dirname, 'uploads');
         if (!require('fs').existsSync(uploadsDir)) {
           require('fs').mkdirSync(uploadsDir, { recursive: true });
@@ -396,6 +400,8 @@ function shutdown() {
   console.log('\nShutting down...');
   // 先回收 MCP 子进程，避免父进程退出后它成为孤儿（许多 node 进程残留的根因）。
   if (mcpManager) { try { mcpManager.shutdown(); } catch (e) { /* already gone */ } }
+  // 停止 bot 消息接收循环（QQ WS / 微信长轮询）。
+  try { require('./lib/bot-loop').stopAll(); } catch { /* ignore */ }
   try { wsManager.close(); } catch (e) { /* already closed */ }
   for (const srv of servers) { try { srv.close(); } catch (e) { /* already closed */ } }
   // Restore console + close rotating log stream (if file logging was enabled).

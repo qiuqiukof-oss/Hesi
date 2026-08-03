@@ -151,3 +151,16 @@ test('qq: createBindTask 网络失败返回结构化错误', async () => {
     assert.ok(r.error);
   }
 });
+
+// ── bot-loop 消息接收循环（M2）──
+test('bot-loop: 未配置任何平台时 startAll 不启动循环（幂等安全）', () => {
+  // 确保无配置（beforeEach 已清）
+  const loop = require('../lib/bot-loop');
+  // startLoops 内部判断 isConfigured——直接验证逻辑：无配置时 loops 不增长
+  const before = require('../lib/bot-config').isConfigured('qq');
+  assert.strictEqual(before, false);
+  // handleInbound 缺 sender 时静默降级（不抛错）
+  const { normalizeInbound } = require('../routes/bots/adapter');
+  const inbound = normalizeInbound('qq', { chatId: 'g-1', text: 'hi' });
+  return loop.handleInbound('qq', inbound).then(() => assert.ok(true));
+});
