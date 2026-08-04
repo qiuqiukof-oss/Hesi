@@ -164,6 +164,9 @@ export const discussControlsMixin = {
       // 订阅：Plan 页改了伙伴选择，这里实时更新
       PS.subscribe((ids) => {
         this._discussPartners = ids;
+        // bug 修复（2026-08-04 审查反馈）：跨页同步时主 Agent 维度失同步——
+        // 原只更新 _discussPartners，_discussPartner（主 Agent=首个伙伴）残留旧值
+        this._discussPartner = (Array.isArray(ids) && ids[0]) || '';
         dropdown.querySelectorAll('input[type="checkbox"]').forEach((cb) => { cb.checked = ids.indexOf(cb.dataset.id) !== -1; });
         updateBtnLabel();
       });

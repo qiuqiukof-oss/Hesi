@@ -11,6 +11,49 @@ const express = require('express');
 const { loadRegistry, saveRegistry } = require('../cli-discovery');
 const { SENSITIVE_VAR_PATTERNS } = require('../lib/env-filter');
 
+// ── import 白名单清洗（bug 修复 2026-08-04 审查反馈）──
+// CLI 注册表合法字段（与 cli-discovery 产物一致）；未知字段一律剔除，
+// 防脏 JSON 覆盖注册表/注入任意键。
+const CLI_FIELDS = ['id', 'name', 'path', 'type', 'category', 'discovered', 'args', 'version', 'addedAt', 'init'];
+const MAX_CLIS = 10000;      // 注册表条目上限（防超大 payload）
+const MAX_STR_LEN = 2000;    // 单字段字符串上限
+const MAX_ARGS_LEN = 65536;  // args（object/array）序列化上限
+const MAX_FOLDERS = 1000;    // 收藏文件夹数量上限
+const MAX_FOLDER_LEN = 500;  // 单个文件夹路径上限
+
+/**
+ * 清洗 import 数据为合法 registry 结构；不合法返回 null。
+ * @param {object} data
+ * @returns {object|null}
+ */
+function sanitizeRegistry(data) {
+  if (!data || typeof data !== 'object' || Array.isArray(data)) return null;
+  const out = { version: Number.isInteger(data.version) && data.version >= 1 ? data.version : 1 };
+  const clis = Array.isArray(data.clis) ? data.clis : [];
+  if (clis.length > MAX_CLIS) return null;
+  out.clis = clis
+    .filter((c) => c && typeof c === 'object' && !Array.isArray(c))
+    .map((c) => {
+      const clean = {};
+      for (const k of CLI_FIELDS) {
+        if (!(k in c)) continue;
+        const v = c[k];
+        if (k === 'args') {
+          if (v !== null && typeof v === 'object' && JSON.stringify(v).length <= MAX_ARGS_LEN) clean.args = v;
+        } else if (typeof v === 'string' && v.length <= MAX_STR_LEN) {
+          clean[k] = v;
+        }
+      }
+      return clean;
+    });
+  if (Array.isArray(data.folders)) {
+    out.folders = data.folders
+      .filter((f) => typeof f === 'string' && f.length <= MAX_FOLDER_LEN)
+      .slice(0, MAX_FOLDERS);
+  }
+  return out;
+}
+
 /**
  * Create the settings router.
  * @returns {express.Router}
@@ -41,19 +84,33 @@ function createRouter() {
   /**
    * POST /api/settings/import — Import config from uploaded JSON.
    * Replaces registry and folders with the imported data.
+   * （bug 修复 2026-08-04 审查反馈：原只校验 registry 存在，脏 JSON 可覆盖
+   * CLI 注册表任意字段——增加结构白名单清洗：类型/长度/数量上限，剔除未知字段。）
    */
   router.post('/settings/import', (req, res) => {
     try {
       const data = req.body;
-      if (!data || !data.registry) {
+      if (!data || typeof data !== 'object' || Array.isArray(data) || !data.registry) {
         return res.status(400).json({ error: 'Invalid settings file: missing registry' });
       }
 
-      // Save registry (folders are stored inside cli-registry.json as registry.folders)
-      if (data.folders) {
-        data.registry.folders = data.folders;
+      // bug 修复（2026-08-04 审查反馈）：sanitizeRegistry 接收的是 registry
+      // 结构本身（{version, clis, folders}），不是 {registry:...} 外壳——
+      // 传错层级会导致 data.clis 恒为 undefined → 空注册表被误判合法
+      const cleaned = sanitizeRegistry(data.registry);
+      if (!cleaned) {
+        return res.status(400).json({ error: 'Invalid settings file: registry structure rejected' });
       }
-      saveRegistry(data.registry);
+
+      // folders 独立清洗（不并入 registry 外壳）
+      if (Array.isArray(data.folders)) {
+        cleaned.folders = data.folders
+          .filter((f) => typeof f === 'string' && f.length <= MAX_FOLDER_LEN)
+          .slice(0, MAX_FOLDERS);
+      }
+
+      // 清洗后的 registry 落盘
+      saveRegistry(cleaned);
 
       res.json({ success: true, message: 'Settings imported successfully' });
     } catch (err) {
@@ -83,4 +140,4 @@ function createRouter() {
   return router;
 }
 
-module.exports = { createRouter };
+module.exports = { createRouter, sanitizeRegistry };

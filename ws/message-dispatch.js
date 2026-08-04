@@ -16,6 +16,9 @@ const path = require('path');
 const { loadRegistry, resolveCommand } = require('../cli-discovery');
 const { createDigitalEmployee } = require('./digital-employee');
 
+/** PTY 单次写入上限（bug 修复 2026-08-04 审查反馈：防大 payload 冲垮 PTY 缓冲）。 */
+const PTY_WRITE_MAX = 256 * 1024;
+
 /**
  * Dispatch a single parsed WebSocket message.
  *
@@ -131,6 +134,13 @@ function dispatchWSMessage(ctx, ws, msg) {
             : 'No tabId specified and no default terminal session',
         }));
         return;
+      }
+      // bug 修复（2026-08-04 审查反馈）：PTY 写入无长度上限，大 payload 可冲垮
+      // PTY 缓冲——加类型校验 + 单次写入上限（256KB）
+      if (typeof msg.data !== 'string') break;
+      if (msg.data.length > PTY_WRITE_MAX) {
+        ws.send(JSON.stringify({ type: 'error', message: `PTY write too large (max ${PTY_WRITE_MAX} chars)` }));
+        break;
       }
       tab.pty.write(msg.data);
       break;
@@ -294,6 +304,11 @@ function dispatchWSMessage(ctx, ws, msg) {
     case 'agent:input': {
       const { sessionId, data } = msg;
       if (typeof data !== 'string') break;
+      // bug 修复（2026-08-04 审查反馈）：agent PTY 写入同样限长（与终端写入一致）
+      if (data.length > PTY_WRITE_MAX) {
+        ws.send(JSON.stringify({ type: 'error', message: `agent input too large (max ${PTY_WRITE_MAX} chars)` }));
+        break;
+      }
       const sessions = agentManager.agentSessions.get(ws);
       if (!sessions) break;
       const session = sessions.get(sessionId);
