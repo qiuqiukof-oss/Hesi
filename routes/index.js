@@ -35,6 +35,7 @@ const { createRouter: createExpertsRouter } = require('./experts');
 const { createRouter: createTtsRouter } = require('./tts');
 const { createRouter: createRateLimiterRouter } = require('./rate-limiter');
 const { createRouter: createBotsRouter } = require('./bots');
+const { createRouter: createLlmProvidersRouter } = require('./llm-providers');
 const { PluginLoader } = require('./plugin-loader');
 const { ToolRegistry } = require('./ai-tools/registry');
 // ── Enterprise platform routers (security / commercial / data workflows) ──
@@ -123,6 +124,7 @@ function setupRoutes(app, opts = {}) {
   app.use('/api', createPresetsRouter());
   app.use('/api', createProjectRouter());
   app.use('/api/tts', createTtsRouter());
+  app.use('/api', createLlmProvidersRouter());
   app.use('/api', requireToken, createToolsRouter());
   app.use('/api', requireToken, createWorkspaceRouter());
   app.use('/api', requireToken, createFsRouter());

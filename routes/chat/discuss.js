@@ -98,9 +98,23 @@ const { sse, openSseStream, startHeartbeat, watchDisconnect } = require('./sse-u
 
 // ── provider 解析（与 routes/chat/index.js 保持一致）──
 function resolveConfig({ apiKey, provider, baseUrl, model }) {
-  const p = provider || (process.env.ANTHROPIC_API_KEY ? 'anthropic' : 'openai');
-  const key = apiKey || process.env.OPENAI_API_KEY || process.env.ANTHROPIC_API_KEY || '';
-  const url = baseUrl || (p === 'anthropic' ? 'https://api.anthropic.com' : 'https://api.openai.com/v1');
+  // M2（大模型接入统一模块）：provider-config 参与解析（请求级优先 →
+  // provider-config env+data → 旧 env 兜底），与 chat 主链路 resolveForChat 对齐。
+  let effProvider = provider;
+  let effKey = apiKey;
+  let effBase = baseUrl;
+  if (!effProvider || !effKey) {
+    try {
+      const { resolveForChat } = require('../../lib/llm-provider/provider-client');
+      const r = resolveForChat(effProvider, effKey, effBase);
+      effProvider = effProvider || r.providerId;
+      effKey = effKey || r.apiKey;
+      effBase = effBase || r.baseUrl;
+    } catch { /* 模块加载失败时回落旧逻辑 */ }
+  }
+  const p = effProvider || (process.env.ANTHROPIC_API_KEY ? 'anthropic' : 'openai');
+  const key = effKey || process.env.OPENAI_API_KEY || process.env.ANTHROPIC_API_KEY || '';
+  const url = effBase || (p === 'anthropic' ? 'https://api.anthropic.com' : 'https://api.openai.com/v1');
   const m = model || (p === 'anthropic' ? 'claude-sonnet-4-20250514' : 'gpt-4o-mini');
   return { p, key, url, m };
 }

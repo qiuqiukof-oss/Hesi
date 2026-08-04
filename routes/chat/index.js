@@ -25,6 +25,7 @@ const { QCLI_TOOLS, executeToolCall } = require('./tools');
 const { pruneToolContext } = require('./token-budget');
 const { streamOpenAIWithTools } = require('./stream-openai');
 const { streamAnthropicWithTools, parseAnthropicStream, buildAnthropicConversation } = require('./stream-anthropic');
+const { resolveForChat } = require('../../lib/llm-provider/provider-client');
 const { injectAttachments } = require('./attachments');
 const { runDiscussion } = require('./discuss');
 const { runPlanTurn } = require('./plan-turn');
@@ -625,13 +626,25 @@ When the user asks you to perform a "system self-check" / "全面自检" / "diag
     // 现运行环境为本地 LLM / 自有 key，429 不再成立；circuit-breaker 仍兜底失控循环。
 
     // Determine provider and API key
+    // M1（大模型接入统一模块）：provider-config 参与解析——请求级显式值优先，
+    // 其次 provider-config（env 优先 + data/llm-providers.json 覆盖，支持
+    // deepseek/qwen/glm/kimi/ollama 等注册表 provider），最后保留旧 env 兜底，
+    // 零配置迁移（R5）。旧 OPENAI/ANTHROPIC/HESI_LLM_BASE_URL 行为完全不变。
+    const resolved = resolveForChat(clientProvider, clientKey, clientBaseUrl);
     const provider = clientProvider ||
+      resolved.providerId ||
       (process.env.ANTHROPIC_API_KEY ? 'anthropic' : 'openai');
 
     const apiKey = clientKey ||
+      resolved.apiKey ||
       process.env.OPENAI_API_KEY ||
       process.env.ANTHROPIC_API_KEY ||
       '';
+
+    // 模型缺省：请求级 model 优先，其次 provider-config 默认模型
+    const resolvedModel = resolved.model || model;
+    // baseUrl：请求级 clientBaseUrl 优先，其次 provider-config（含 HESI_LLM_<ID>_BASE_URL 覆盖）
+    const resolvedBaseUrl = resolved.baseUrl || clientBaseUrl;
 
     if (!apiKey) {
       if (clientBaseUrl) {
@@ -696,9 +709,9 @@ When the user asks you to perform a "system self-check" / "全面自检" / "diag
       }
       const tools = disableTools ? undefined : QCLI_TOOLS;
       if (provider === 'anthropic') {
-        await streamAnthropicWithTools(res, contextMessages, apiKey, model, clientBaseUrl, tools, sseBroadcast, req, undefined, req.body.reasoningEffort);
+        await streamAnthropicWithTools(res, contextMessages, apiKey, resolvedModel || model, resolvedBaseUrl || clientBaseUrl, tools, sseBroadcast, req, undefined, req.body.reasoningEffort);
       } else {
-        await streamOpenAIWithTools(res, contextMessages, apiKey, model, clientBaseUrl, tools, sseBroadcast, req, undefined, req.body.reasoningEffort);
+        await streamOpenAIWithTools(res, contextMessages, apiKey, resolvedModel || model, resolvedBaseUrl || clientBaseUrl, tools, sseBroadcast, req, undefined, req.body.reasoningEffort);
       }
     } catch (err) {
       // 诊断日志：把真实报错打进服务端，便于定位是 apihub/网络还是本地逻辑。
