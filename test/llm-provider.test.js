@@ -220,3 +220,17 @@ test('health: 无云端 key 时优先选「用户配置过的本地 provider」�
   assert.strictEqual(c.baseUrl, 'http://127.0.0.1:1234');
   assert.strictEqual(c.model, 'qwen3.6-test');
 });
+
+// ── 回归：本地 provider 默认 baseUrl 不含 /v1（球总要求）+ buildApiUrl 自动补全 ──
+test('registry: lmstudio 默认 baseUrl 不含 /v1（服务根地址）', () => {
+  const lm = getProvider('lmstudio');
+  assert.strictEqual(lm.defaultBaseUrl, 'http://localhost:1234');
+  assert.ok(!/\/v1$/.test(lm.defaultBaseUrl), 'lmstudio 默认不应含 /v1');
+});
+
+test('buildApiUrl: 不含 /v1 的 baseUrl 自动补 /v1（/models 与 /chat/completions 同规则）', () => {
+  const { buildApiUrl } = require('../lib/llm/url');
+  assert.strictEqual(buildApiUrl('http://127.0.0.1:1234', '', '/models'), 'http://127.0.0.1:1234/v1/models');
+  assert.strictEqual(buildApiUrl('http://localhost:1234/v1', '', '/models'), 'http://localhost:1234/v1/models');
+  assert.strictEqual(buildApiUrl('http://localhost:11434/v1', '', '/models'), 'http://localhost:11434/v1/models');
+});
