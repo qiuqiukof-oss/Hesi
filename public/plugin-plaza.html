@@ -797,6 +797,7 @@
       var actionsHtml = '';
       if (source === 'installed') {
         actionsHtml = '<button class="plaza-action-btn installed-btn" disabled>✅ 已安装</button>' +
+          (plugin.homepage ? '<a class="plaza-action-btn primary" style="text-decoration:none;display:inline-block;line-height:1.6" href="' + escapeStr(plugin.homepage) + '" target="_blank">🔗 使用说明</a>' : '') +
           '<button class="plaza-action-btn danger" onclick="PZA.uninstall(\'' + escapeStr(name) + '\')">🗑 卸载</button>';
       } else if (installed) {
         actionsHtml = '<button class="plaza-action-btn installed-btn" disabled>✅ 已安装</button>';
@@ -834,7 +835,7 @@
       } else if (tab === 'installed') {
         var installedList = state.installed.map(function(p) {
           var m = p.manifest || {};
-          return { name: m.name || p.name, description: m.description || '未找到 plugin.json', author: m.author || p.name, version: m.version || '', tags: [], _installed: true, _loaded: p.loaded, icon: '📦' };
+          return { name: m.name || p.name, description: m.description || '未找到 plugin.json', author: m.author || p.name, version: m.version || '', tags: [], _installed: true, _loaded: p.loaded, icon: '📦', homepage: m.homepage || '' };
         });
         $.gridInstalled.innerHTML = filterPlugins(installedList, query).map(function(p) { return renderCard(p, 'installed'); }).join('') ||
           '<div class="plaza-empty"><div class="plaza-empty-icon">📦</div><p>还没有安装任何插件。去"精选"或"社区"标签页浏览吧！</p></div>';
