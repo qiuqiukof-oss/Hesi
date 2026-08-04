@@ -43,11 +43,11 @@ afterEach(() => {
 });
 
 // ── 注册表 ──
-test('registry: 含 9 家 provider 且字段完整', () => {
+test('registry: 含 12 家 provider 且字段完整', () => {
   const reg = getRegistry();
-  assert.strictEqual(reg.length, 9);
+  assert.strictEqual(reg.length, 12);
   const ids = reg.map((p) => p.id);
-  for (const id of ['openai', 'anthropic', 'deepseek', 'qwen', 'glm', 'kimi', 'ollama', 'lmstudio', 'vllm']) {
+  for (const id of ['openai', 'anthropic', 'deepseek', 'qwen', 'glm', 'kimi', 'openrouter', 'opencode-zen', 'nvidia-nim', 'ollama', 'lmstudio', 'vllm']) {
     assert.ok(ids.includes(id), `missing provider ${id}`);
   }
   for (const p of reg) {
@@ -55,6 +55,20 @@ test('registry: 含 9 家 provider 且字段完整', () => {
     assert.ok(['cloud', 'local'].includes(p.kind));
     assert.ok(['openai-compat', 'anthropic'].includes(p.apiType));
   }
+});
+
+test('registry: 免费额度 provider 端点正确', () => {
+  assert.strictEqual(getProvider('openrouter').defaultBaseUrl, 'https://openrouter.ai/api/v1');
+  assert.strictEqual(getProvider('opencode-zen').defaultBaseUrl, 'https://opencode.ai/zen/v1');
+  assert.strictEqual(getProvider('nvidia-nim').defaultBaseUrl, 'https://integrate.api.nvidia.com/v1');
+  // env key 均登记
+  assert.strictEqual(getProvider('openrouter').apiKeyEnv, 'OPENROUTER_API_KEY');
+  assert.strictEqual(getProvider('opencode-zen').apiKeyEnv, 'OPENCODE_API_KEY');
+  assert.strictEqual(getProvider('nvidia-nim').apiKeyEnv, 'NVIDIA_API_KEY');
+  // 默认免费模型存在
+  assert.ok(getProvider('openrouter').models.some((m) => m.endsWith(':free')));
+  assert.ok(getProvider('opencode-zen').models.length >= 1);
+  assert.ok(getProvider('nvidia-nim').models.length >= 1);
 });
 
 test('registry: 本地 provider 无需 key（kind=local）', () => {
