@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hesi Switch — 模型网关管理</title>
+<style>
+  :root { color-scheme: dark; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", "Microsoft YaHei", sans-serif;
+    background: #0b0f17; color: #e2e8f0; padding: 24px; line-height: 1.5;
+  }
+  .container { max-width: 980px; margin: 0 auto; }
+  h1 { font-size: 22px; margin-bottom: 4px; }
+  .sub { color: #64748b; font-size: 13px; margin-bottom: 24px; }
+  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-bottom: 24px; }
+  .stat-card { background: #111827; border: 1px solid #1e293b; border-radius: 10px; padding: 14px; }
+  .stat-card .num { font-size: 24px; font-weight: 600; color: #22c55e; }
+  .stat-card .label { font-size: 12px; color: #94a3b8; margin-top: 4px; }
+  .card { background: #111827; border: 1px solid #1e293b; border-radius: 10px; padding: 18px; margin-bottom: 16px; }
+  .card h2 { font-size: 15px; margin-bottom: 12px; color: #f1f5f9; }
+  .btn {
+    background: #2563eb; color: #fff; border: none; border-radius: 6px;
+    padding: 7px 14px; font-size: 13px; cursor: pointer; margin-right: 8px;
+  }
+  .btn:hover { background: #1d4ed8; }
+  .btn-danger { background: #dc2626; }
+  .btn-danger:hover { background: #b91c1c; }
+  .btn-ghost { background: #1e293b; color: #cbd5e1; }
+  .btn-ghost:hover { background: #334155; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid #1e293b; }
+  th { color: #94a3b8; font-weight: 500; }
+  code { background: #0f172a; padding: 2px 6px; border-radius: 4px; font-size: 12px; color: #7dd3fc; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 12px; }
+  .badge-ok { background: rgba(34,197,94,.15); color: #22c55e; }
+  .badge-warn { background: rgba(245,158,11,.15); color: #f59e0b; }
+  .muted { color: #64748b; font-size: 12px; }
+  .endpoint { margin-bottom: 6px; }
+  .toast { position: fixed; bottom: 24px; right: 24px; background: #111827; border: 1px solid #2563eb; color: #e2e8f0; padding: 10px 16px; border-radius: 8px; font-size: 13px; opacity: 0; transition: opacity .25s; }
+  .toast.show { opacity: 1; }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>🔄 Hesi Switch</h1>
+  <div class="sub">Hesi 模型网关 — 对外 OpenAI 兼容 API · 复用模型服务页 12 家 provider · 自动故障转移</div>
+
+  <div class="stats" id="stats"></div>
+
+  <div class="card">
+    <h2>🔑 网关 API Key</h2>
+    <div class="muted" style="margin-bottom:10px">仅用于非本机回环的远程调用；本机（127.0.0.1）自动放行。留空 = 仅本机可用。</div>
+    <button class="btn" onclick="addKey()">＋ 生成新 Key</button>
+    <button class="btn btn-danger" onclick="clearKeys()">清空全部 Key</button>
+    <div style="margin-top:12px">
+      <table>
+        <thead><tr><th>Key（打码）</th><th>说明</th></tr></thead>
+        <tbody id="key-list"><tr><td colspan="2" class="muted">加载中…</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>📊 用量统计</h2>
+    <table>
+      <thead><tr><th>模型</th><th>请求数</th><th>字符数</th><th>最近时间</th></tr></thead>
+      <tbody id="usage-list"><tr><td colspan="4" class="muted">加载中…</td></tr></tbody>
+    </table>
+  </div>
+
+  <div class="card">
+    <h2>🔌 对外调用方式</h2>
+    <div class="endpoint"><code>POST /api/plugins/hesi-switch/v1/chat/completions</code> — 聊天补全（支持 <code>stream: true</code> SSE 流式）</div>
+    <div class="endpoint"><code>GET  /api/plugins/hesi-switch/v1/models</code> — 模型列表</div>
+    <div class="endpoint"><code>GET  /api/plugins/hesi-switch/health</code> — 健康检查</div>
+    <div style="margin-top:10px" class="muted">
+      模型名写法：<code>provider/model</code> 显式路由（如 <code>deepseek/deepseek-chat</code>、<code>lmstudio/qwen3.6</code>）；否则自动选择（⭐默认 → 已配置云端 → 本地）。
+    </div>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+'use strict';
+const BASE = '/api/plugins/hesi-switch';
+const $ = (id) => document.getElementById(id);
+
+function toast(msg) {
+  const t = $('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+async function jfetch(url, opts) {
+  const res = await fetch(url, opts);
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || ('HTTP ' + res.status));
+  return data;
+}
+
+async function loadAll() {
+  try {
+    // 健康 + 模型
+    const health = await jfetch(BASE + '/health');
+    const models = await jfetch(BASE + '/v1/models');
+    // Key
+    const keys = await jfetch(BASE + '/admin/keys');
+    // 用量
+    const usage = await jfetch(BASE + '/admin/usage');
+    renderStats(health, models, keys, usage);
+    renderKeys(keys);
+    renderUsage(usage);
+  } catch (e) {
+    toast('加载失败：' + (e && e.message ? e.message : e));
+  }
+}
+
+function renderStats(health, models, keys, usage) {
+  const okCount = (health.health || []).filter((h) => h.status === 'ok' || h.status === 'degraded').length;
+  $('stats').innerHTML = [
+    '<div class="stat-card"><div class="num">' + okCount + '</div><div class="label">可用 Provider（' + (health.health || []).length + ' 家注册）</div></div>',
+    '<div class="stat-card"><div class="num">' + (models.data || []).length + '</div><div class="label">可路由模型别名</div></div>',
+    '<div class="stat-card"><div class="num">' + (keys.enabled ? '✅ 开启' : '⚪ 仅本机') + '</div><div class="label">网关 Key 校验（' + keys.count + ' 个）</div></div>',
+    '<div class="stat-card"><div class="num">' + (usage.totalRequests || 0) + '</div><div class="label">累计请求</div></div>',
+  ].join('');
+}
+
+function renderKeys(keys) {
+  const list = $('key-list');
+  if (!keys.keys || !keys.keys.length) {
+    list.innerHTML = '<tr><td colspan="2" class="muted">未配置 Key — 仅本机回环可用</td></tr>';
+    return;
+  }
+  list.innerHTML = keys.keys.map((k, i) =>
+    '<tr><td><code>' + k + '</code></td><td class="muted">Key #' + (i + 1) + '</td></tr>'
+  ).join('');
+}
+
+function renderUsage(usage) {
+  const list = $('usage-list');
+  const models = usage.models || [];
+  if (!models.length) {
+    list.innerHTML = '<tr><td colspan="4" class="muted">暂无用量记录</td></tr>';
+    return;
+  }
+  list.innerHTML = models.map((m) =>
+    '<tr><td><code>' + m.model + '</code></td><td>' + m.requests + '</td><td>' + m.chars + '</td><td class="muted">' + new Date(m.lastTs).toLocaleString() + '</td></tr>'
+  ).join('');
+}
+
+async function addKey() {
+  try {
+    const data = await jfetch(BASE + '/admin/keys', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'add' }) });
+    toast('新 Key 已生成：' + data.key + '（已复制到剪贴板提示，请妥善保存）');
+    if (navigator.clipboard) { try { await navigator.clipboard.writeText(data.key); } catch { /* ignore */ } }
+    loadAll();
+  } catch (e) { toast('生成失败：' + (e && e.message ? e.message : e)); }
+}
+
+async function clearKeys() {
+  if (!confirm('确定清空全部网关 Key？')) return;
+  try {
+    await jfetch(BASE + '/admin/keys', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'clear' }) });
+    toast('已清空');
+    loadAll();
+  } catch (e) { toast('清空失败：' + (e && e.message ? e.message : e)); }
+}
+
+document.addEventListener('DOMContentLoaded', loadAll);
+</script>
+</body>
+</html>
