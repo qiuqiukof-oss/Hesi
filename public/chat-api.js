@@ -6,129 +6,86 @@
 // @ts-check
 // ============================================================
 // AI Chat API — frontend communication layer
-// Handles SSE streaming, API key management, provider switching
+// Handles SSE streaming. C 净化版（v0.8.0）：API Key / provider /
+// baseUrl / 模型统一由后端「模型服务」配置（env 优先 + data 文件覆盖），
+// 前端不再存储/透传 key——浏览器不碰 key，彻底消除双存储冲突。
+// 前端仅保留「规划/核查专用模型」与「推理强度」两个非敏感选择。
 // ============================================================
 'use strict';
 
 /** @typedef {import('./types').QCLI} QCLI */
 
-import { safeStorage, safeSession } from './lib/storage.js';
-import { CryptoStore } from './lib/crypto-store.js';
 import { Personalization } from './app/personalization.js';
+import { safeStorage, safeSession } from './lib/storage.js';
 
-const AI_KEY = 'qcli-ai-key';
+/** 读取 localStorage 字符串（带异常兜底）。@param {string} k @param {string} d */
+function safeStorageGet(k, d) {
+  try { return safeStorage.get(k, d); } catch { return d; }
+}
+/** 删除 localStorage 项（带异常兜底）。@param {string} k */
+function safeStorageRemove(k) {
+  try { safeStorage.remove(k); } catch { /* ignore */ }
+}
 
 export const ChatAPI = {
-    // ── API Key Management ──
-    // Hesi runs locally on loopback only. The API key is encrypted with
-    // Web Crypto (AES-GCM, non-exportable IndexedDB key) before persisting
-    // to localStorage — plaintext only lives in memory for the current tab
-    // session. A one-time migration lifts a legacy plaintext key from
-    // localStorage/sessionStorage, encrypts it, and removes the plaintext copy.
+    // ── 配置状态（C 净化版：全部由后端 /api/chat/status 判定）──
 
-    /** Get stored API key (decrypt from localStorage; legacy plaintext migration) */
+    /** @deprecated v0.8.0 起浏览器不再存 key；返回空串（兼容旧调用方） */
     async getApiKey() {
-      const ok = await CryptoStore.ready();
-      const fromStorage = safeStorage.get(AI_KEY, '');
-      if (fromStorage) {
-        // Legacy: plaintext key stored before v0.7.x crypto upgrade
-        if (!fromStorage.startsWith('aes:')) {
-          if (ok) {
-            const ct = await CryptoStore.encrypt(fromStorage);
-            safeStorage.set(AI_KEY, 'aes:' + ct);
-          }
-          return fromStorage;
-        }
-        // v0.7+: encrypted key
-        if (ok) return await CryptoStore.decrypt(fromStorage.slice(4));
-        return ''; // crypto unavailable → can't decrypt
-      }
-      const fromSession = safeSession.get(AI_KEY, '');
-      if (fromSession) {
-        safeSession.remove(AI_KEY);
-        if (ok) {
-          const ct = await CryptoStore.encrypt(fromSession);
-          safeStorage.set(AI_KEY, 'aes:' + ct);
-        } else {
-          safeStorage.set(AI_KEY, fromSession); // fallback: plaintext
-        }
-        return fromSession;
-      }
       return '';
     },
 
-    /** Store API key (encrypt via Web Crypto, persist to localStorage) */
+    /** @deprecated v0.8.0 起 key 全走后端；清除遗留存储（若有） */
     async setApiKey(key) {
-      safeSession.remove(AI_KEY);
-      if (!key) { safeStorage.remove(AI_KEY); return; }
-      const ok = await CryptoStore.ready();
-      if (ok) {
-        const ct = await CryptoStore.encrypt(key);
-        safeStorage.set(AI_KEY, 'aes:' + ct);
-      } else {
-        // Graceful fallback: plaintext localStorage (browser lacks Web Crypto)
-        safeStorage.set(AI_KEY, key);
-      }
+      if (!key) { safeStorageRemove('qcli-ai-key'); safeSession.remove('qcli-ai-key'); }
     },
 
-    /** Get stored provider */
+    /** @deprecated v0.8.0 起 provider 由后端决定；返回空（后端自动选择） */
     getProvider() {
-      return safeStorage.get('qcli-ai-provider', 'openai');
+      return '';
     },
 
-    /** Store provider */
-    setProvider(provider) {
-      safeStorage.set('qcli-ai-provider', provider);
-    },
+    /** @deprecated v0.8.0 no-op（provider 由后端决定） */
+    setProvider() { /* no-op */ },
 
-    /** Get stored model name */
+    /** @deprecated v0.8.0 起默认模型由后端决定；返回空（后端用 provider-config.model） */
     getModel() {
-      return safeStorage.get('qcli-ai-model', '');
+      return '';
     },
 
-    /** Store model name */
-    setModel(model) {
-      safeStorage.set('qcli-ai-model', model);
-    },
+    /** @deprecated v0.8.0 no-op（默认模型由后端决定） */
+    setModel() { /* no-op */ },
 
     /** Get stored planning/verify-mode model (optional, stronger reasoning model) */
     getPlanModel() {
-      return safeStorage.get('qcli-ai-model-plan', '');
+      return safeStorageGet('qcli-ai-model-plan', '');
     },
 
     /** Store planning/verify-mode model */
     setPlanModel(model) {
-      safeStorage.set('qcli-ai-model-plan', model);
+      if (model) safeStorage.set('qcli-ai-model-plan', String(model));
+      else safeStorageRemove('qcli-ai-model-plan');
     },
 
-    /** Get stored API base URL (OpenAI-compatible) */
+    /** @deprecated v0.8.0 起 baseUrl 由后端 provider-config 决定；返回空 */
     getBaseUrl() {
-      return safeStorage.get('qcli-ai-base-url', '');
+      return '';
     },
 
-    /** Store API base URL */
-    setBaseUrl(url) {
-      safeStorage.set('qcli-ai-base-url', url);
-    },
+    /** @deprecated v0.8.0 no-op */
+    setBaseUrl() { /* no-op */ },
 
     /**
-     * Check if AI is configured.
-     * Returns true if:
-     *  - Server env vars are set, OR
-     *  - An API key is stored, OR
-     *  - A custom base URL is set (for local/self-hosted models like Ollama)
+     * Check if AI is configured（后端事实源：/api/chat/status 基于 provider-config）。
      */
     async isConfigured() {
       try {
         const resp = await fetch('/api/chat/status');
         if (resp.ok) {
           const data = await resp.json();
-          if (data.configured) return true;
+          return !!data.configured;
         }
-      } catch (e) { /* ignore */ }
-      // Allow local/self-hosted APIs without a key
-      if (!!(await this.getApiKey())) return true;
-      if (!!this.getBaseUrl()) return true;
+      } catch { /* ignore */ }
       return false;
     },
 
@@ -154,20 +111,18 @@ export const ChatAPI = {
      * @param {AbortSignal} [options.signal] - Optional abort signal
      */
     async sendMessage({ messages, onToken, onDone, onError, onStatus, onToolCall, onToolLive, onUsage, onAgentMetrics, onReasoning, reasoningEffort, terminalContext, terminalContextChanged, signal, discuss, partner, partners, maxTurns, onDiscuss, sessionId, category, verifyMode, takenOver, planMode, planAgentId, fullAccess, onPlan, keepStreamOnError }) {
-      const apiKey = await this.getApiKey();
-      const provider = this.getProvider();
-      let model = this.getModel();
+      // C 净化版（v0.8.0）：不再读取浏览器 key/provider/model/baseUrl——
+      // 全部由后端「模型服务」配置决定。前端仅透传：
+      //  - verifyMode 时的「规划/核查专用模型」（模型名，非敏感）
+      //  - 推理强度 reasoningEffort（每次请求即时覆盖，无冲突）
+      let model;
       if (verifyMode) { const pm = this.getPlanModel(); if (pm) model = pm; }
-      const baseUrl = this.getBaseUrl();
 
       try {
         const body = {
           messages,
           sessionId: sessionId || undefined,
-          apiKey: apiKey || undefined,
-          provider: provider || undefined,
           model: model || undefined,
-          baseUrl: baseUrl || undefined,
         };
         if (discuss) {
           body.discuss = true;
@@ -295,7 +250,7 @@ export const ChatAPI = {
                   reader.cancel().catch(() => {});
                   return;
                 }
-              } catch (e) {
+              } catch {
                 // Skip malformed JSON
               }
             }

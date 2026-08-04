@@ -561,8 +561,13 @@ const RoundTableView = {
   // ── 引擎：复用 Q.ChatAPI.sendMessage（discuss 模式）──
   async start() {
     if (this.running) return;
-    const apiKey = (Q.ChatAPI && Q.ChatAPI.getApiKey) ? await Q.ChatAPI.getApiKey() : '';
-    if (!apiKey) { this.toast('未配置 API Key（设置 → AI Key）'); return; }
+    // C 净化版（v0.8.0）：key 由后端「模型服务」配置，前端仅检查后端状态
+    let aiReady = false;
+    try {
+      const resp = await fetch('/api/chat/status');
+      if (resp.ok) { const d = await resp.json(); aiReady = !!d.configured; }
+    } catch { /* ignore */ }
+    if (!aiReady) { this.toast('未配置模型服务（侧边栏 → 🤖 模型服务）'); return; }
     if (!this.selected.length) { this.toast('请至少选择一个参与 Agent'); return; }
     const topic = this.elTopic.value.trim();
     if (!topic) { this.toast('请输入议题'); return; }

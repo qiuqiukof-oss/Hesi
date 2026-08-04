@@ -101,32 +101,17 @@ function init() {
 
   if (aiSettingsBtn && aiSettingsOverlay) {
     aiSettingsBtn.addEventListener('click', () => {
-      const savedProvider = Q.ChatAPI?.getProvider?.() || 'openai';
-      const savedKey = Q.ChatAPI?.getApiKey?.() || '';
-      const savedModel = Q.ChatAPI?.getModel?.() || '';
+      // C 净化版（v0.8.0）：provider/API Key/模型/BaseURL 统一由后端「模型服务」配置，
+      // 前端 AI 设置仅保留「规划/核查专用模型」+「推理强度」两个非敏感选择。
       const savedPlanModel = Q.ChatAPI?.getPlanModel?.() || '';
-      const savedBaseUrl = Q.ChatAPI?.getBaseUrl?.() || '';
-      const provEl = document.getElementById('ai-provider');
-      const keyEl = document.getElementById('ai-api-key');
-      const modelEl = document.getElementById('ai-model');
       const planModelEl = document.getElementById('ai-model-plan');
-      const baseUrlEl = document.getElementById('ai-base-url');
-      if (provEl) provEl.value = savedProvider;
-      if (keyEl) keyEl.value = savedKey;
-      if (modelEl) modelEl.value = savedModel;
       if (planModelEl) planModelEl.value = savedPlanModel;
-      if (baseUrlEl) baseUrlEl.value = savedBaseUrl;
-      // L3 (v0.7.5): 按当前 provider+model 决定是否显示「推理强度」开关
+      // 推理强度开关：默认展开（无 provider/model 可判时按当前选择显示）
       const rcLabel = document.getElementById('ai-reasoning-label');
       const rcEl = document.getElementById('ai-reasoning-effort');
       if (rcLabel && rcEl) {
-        const supported = Q.ReasoningConfig?.supportsReasoning?.(savedProvider, savedModel);
-        if (supported) {
-          rcLabel.classList.remove('hidden');
-          rcEl.value = Q.ReasoningConfig?.getReasoningEffort?.() || 'standard';
-        } else {
-          rcLabel.classList.add('hidden');
-        }
+        rcLabel.classList.remove('hidden');
+        rcEl.value = Q.ReasoningConfig?.getReasoningEffort?.() || 'standard';
       }
       if (aiSettingsStatus) { aiSettingsStatus.classList.add('hidden'); aiSettingsStatus.textContent = ''; }
       aiSettingsOverlay.classList.remove('hidden');
@@ -144,22 +129,9 @@ function init() {
 
     aiSettingsForm.addEventListener('submit', (e) => {
       e.preventDefault();
-      const provEl = document.getElementById('ai-provider');
-      const keyEl = document.getElementById('ai-api-key');
-      const modelEl = document.getElementById('ai-model');
       const planModelEl = document.getElementById('ai-model-plan');
-      const baseUrlEl = document.getElementById('ai-base-url');
-      const provider = provEl ? provEl.value : 'openai';
-      const apiKey = keyEl ? keyEl.value.trim() : '';
-      const model = modelEl ? modelEl.value.trim() : '';
       const planModel = planModelEl ? planModelEl.value.trim() : '';
-      const baseUrl = baseUrlEl ? baseUrlEl.value.trim() : '';
-
-      Q.ChatAPI?.setProvider?.(provider);
-      Q.ChatAPI?.setApiKey?.(apiKey);
-      Q.ChatAPI?.setModel?.(model);
       Q.ChatAPI?.setPlanModel?.(planModel);
-      Q.ChatAPI?.setBaseUrl?.(baseUrl);
 
       // L3 (v0.7.5): 若当前模型支持推理强度，持久化用户选择
       const rcLabel = document.getElementById('ai-reasoning-label');
@@ -169,35 +141,37 @@ function init() {
       }
 
       if (aiSettingsStatus) {
-        aiSettingsStatus.textContent = apiKey
-          ? '\u2714 API Key \u5df2\u4fdd\u5b58'
-          : '\u26a0 \u672a\u8bbe\u7f6e API Key\uff0c\u5c06\u4f7f\u7528\u73af\u5883\u53d8\u91cf\u6216\u6a21\u62df\u56de\u7b54';
+        aiSettingsStatus.textContent = '\u2714 \u5df2\u4fdd\u5b58\uff08\u6a21\u578b\u4e0e API Key \u5728\u300c\u6a21\u578b\u670d\u52a1\u300d\u914d\u7f6e\uff09';
         aiSettingsStatus.className = 'ai-status';
         aiSettingsStatus.classList.remove('hidden');
       }
       setTimeout(() => aiSettingsOverlay.classList.add('hidden'), 1500);
     });
 
-    // L3 (v0.7.5): 切换到不同 provider/model 时实时显隐「推理强度」开关
+    // C 净化版：表单不再含 provider/model 输入，推理强度开关常显（由后端按模型判支持）
     const _syncReasoningVisibility = () => {
-      const pEl = document.getElementById('ai-provider');
-      const mEl = document.getElementById('ai-model');
       const rcLabel = document.getElementById('ai-reasoning-label');
       const rcEl = document.getElementById('ai-reasoning-effort');
-      if (!pEl || !mEl || !rcLabel || !rcEl) return;
-      const supported = Q.ReasoningConfig?.supportsReasoning?.(pEl.value, mEl.value.trim());
-      if (supported) {
-        rcLabel.classList.remove('hidden');
-        rcEl.value = Q.ReasoningConfig?.getReasoningEffort?.() || 'standard';
-      } else {
-        rcLabel.classList.add('hidden');
-      }
+      if (!rcLabel || !rcEl) return;
+      rcLabel.classList.remove('hidden');
+      rcEl.value = Q.ReasoningConfig?.getReasoningEffort?.() || 'standard';
     };
-    const provEl2 = document.getElementById('ai-provider');
-    const modelEl2 = document.getElementById('ai-model');
-    if (provEl2) provEl2.addEventListener('change', _syncReasoningVisibility);
-    if (modelEl2) modelEl2.addEventListener('input', _syncReasoningVisibility);
+    _syncReasoningVisibility();
   }
+
+  // C 净化版：旧版浏览器 localStorage API Key 迁移清理（v0.8.0 起 key 全走后端）
+  (async function migrateLegacyBrowserKey() {
+    try {
+      const { safeStorage } = await import('./lib/storage.js');
+      const legacyKey = safeStorage.get('qcli-ai-key', '');
+      if (legacyKey) {
+        safeStorage.remove('qcli-ai-key');
+        if (typeof Q.showToast === 'function') {
+          Q.showToast('旧版浏览器 API Key 已停用：请到「模型服务」页配置（后端全链路生效）', 'info');
+        }
+      }
+    } catch { /* ignore */ }
+  })();
 
   // ── Wire up Personalization modal（个性化入口）──
   (function wirePersonalization() {

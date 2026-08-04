@@ -641,10 +641,11 @@ When the user asks you to perform a "system self-check" / "全面自检" / "diag
       process.env.ANTHROPIC_API_KEY ||
       '';
 
-    // 模型缺省：请求级 model 优先，其次 provider-config 默认模型
-    const resolvedModel = resolved.model || model;
+    // 模型缺省：请求级 model（如 verifyMode 的规划/核查专用模型）优先，
+    // 其次 provider-config 默认模型（C 净化版下前端仅能传 planModel，必须生效）
+    const resolvedModel = model || resolved.model;
     // baseUrl：请求级 clientBaseUrl 优先，其次 provider-config（含 HESI_LLM_<ID>_BASE_URL 覆盖）
-    const resolvedBaseUrl = resolved.baseUrl || clientBaseUrl;
+    const resolvedBaseUrl = clientBaseUrl || resolved.baseUrl;
 
     if (!apiKey) {
       if (clientBaseUrl) {
@@ -665,9 +666,8 @@ When the user asks you to perform a "system self-check" / "全面自检" / "diag
         }
       } catch (_) { /* LM Studio not available */ }
       return res.status(400).json({
-        error: 'No API key configured. Set OPENAI_API_KEY or ANTHROPIC_API_KEY in environment, '
-          + 'or provide one in the request, or start a local OpenAI-compatible LLM '
-          + `(e.g. LM Studio / Ollama) reachable at ${DEFAULT_LOCAL_LLM_BASE}.`,
+        error: '未配置模型服务：请在侧边栏「🤖 模型服务」配置任一 provider（或设置 OPENAI_API_KEY / 启动本地 LLM）。'
+          + `本地默认端点 ${DEFAULT_LOCAL_LLM_BASE}。`,
         needsKey: true,
       });
     }
@@ -755,16 +755,22 @@ When the user asks you to perform a "system self-check" / "全面自检" / "diag
   // ──────────────────────────────────────────────
   // GET /api/chat/status — Check if AI is configured
   // ──────────────────────────────────────────────
+  // C 净化版（v0.8.0）：以 provider-config 为事实源（env 优先 + data 文件覆盖），
+  // 任意已配置 provider（含本地）即视为可用；旧 env OPENAI/ANTHROPIC 自动映射。
   router.get('/chat/status', (req, res) => {
-    const hasOpenAI = !!process.env.OPENAI_API_KEY;
-    const hasAnthropic = !!process.env.ANTHROPIC_API_KEY;
-    res.json({
-      configured: hasOpenAI || hasAnthropic,
-      providers: {
-        openai: hasOpenAI,
-        anthropic: hasAnthropic,
-      },
-    });
+    let anyConfigured = false;
+    const providers = {};
+    try {
+      const { getAllConfigs } = require('../../lib/llm-provider/provider-config');
+      for (const c of getAllConfigs()) {
+        providers[c.id] = c.configured;
+        if (c.configured) anyConfigured = true;
+      }
+    } catch { /* 模块异常时回落旧 env 判断 */ }
+    if (!anyConfigured) {
+      anyConfigured = !!(process.env.OPENAI_API_KEY || process.env.ANTHROPIC_API_KEY);
+    }
+    res.json({ configured: anyConfigured, providers });
   });
 
   // ──────────────────────────────────────────────
