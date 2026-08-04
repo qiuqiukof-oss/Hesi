@@ -103,7 +103,9 @@ function resolveConfig({ apiKey, provider, baseUrl, model }) {
   let effProvider = provider;
   let effKey = apiKey;
   let effBase = baseUrl;
-  if (!effProvider || !effKey) {
+  // bug 修复（2026-08-04）：provider+key 都给但 baseUrl 缺省时也要解析默认地址，
+  // 否则 deepseek/qwen 等非 OpenAI/Anthropic provider 会打到 OpenAI 官方端点。
+  if (!effProvider || !effKey || !effBase) {
     try {
       const { resolveForChat } = require('../../lib/llm-provider/provider-client');
       const r = resolveForChat(effProvider, effKey, effBase);

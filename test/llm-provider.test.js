@@ -23,6 +23,10 @@ const { resolveWithFallback } = require('../lib/llm-provider/provider-health');
 
 const SAVED_ENV = { ...process.env };
 
+// 测试隔离（修复 2026-08-04）：用临时配置文件，不碰真实 data/llm-providers.json——
+// 此前直接操作真实文件，删除失败会残留污染（曾覆盖用户真实 lmstudio 配置）
+const TMP_CONFIG = path.join(require('os').tmpdir(), `hesi-llm-test-${process.pid}.json`);
+
 beforeEach(() => {
   // 清掉可能残留的 env，隔离测试
   delete process.env.OPENAI_API_KEY;
@@ -33,13 +37,14 @@ beforeEach(() => {
   delete process.env.KIMI_API_KEY;
   delete process.env.HESI_LLM_OPENAI_BASE_URL;
   delete process.env.HESI_LLM_DEEPSEEK_BASE_URL;
-  // 移除测试配置文件
-  try { fs.unlinkSync(providerConfig.CONFIG_FILE); } catch { /* ignore */ }
+  // 指向临时配置文件（不碰真实 data/）
+  process.env.HESI_LLM_PROVIDERS_CONFIG = TMP_CONFIG;
+  try { fs.unlinkSync(TMP_CONFIG); } catch { /* ignore */ }
 });
 
 afterEach(() => {
   process.env = { ...SAVED_ENV };
-  try { fs.unlinkSync(providerConfig.CONFIG_FILE); } catch { /* ignore */ }
+  try { fs.unlinkSync(TMP_CONFIG); } catch { /* ignore */ }
 });
 
 // ── 注册表 ──

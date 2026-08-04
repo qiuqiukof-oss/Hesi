@@ -13,7 +13,7 @@
 
 const { test } = require('node:test');
 const assert = require('node:assert');
-const { normalizeInbound, buildChatRequest, normalizeOutbound } = require('../routes/bots/adapter');
+const { normalizeInbound } = require('../routes/bots/adapter');
 const { buildRequest } = require('../routes/bots/dispatch');
 const qq = require('../routes/bots/qq');
 const { toInbound } = require('../routes/bots/index');
@@ -33,25 +33,36 @@ test('adapter.normalizeInbound: 缺 chatId/text 抛错（fail-closed）', () => 
   assert.throws(() => normalizeInbound('qq', null), /non-object/);
 });
 
-test('adapter.buildChatRequest: 组装 /api/chat body（默认 bot 会话 id）', () => {
+test('dispatch.buildRequest: 组装 /api/chat body（默认 bot 会话 id）——生产单一来源', () => {
   const inbound = normalizeInbound('qq', { chatId: 'g-1', text: '跑测试' });
-  const body = buildChatRequest(inbound);
+  const body = buildRequest(inbound);
   assert.deepStrictEqual(body.messages, [{ role: 'user', content: '跑测试' }]);
   assert.strictEqual(body.sessionId, 'bot:qq:g-1');
   assert.strictEqual(body.planMode, false);
   // 自定义 sessionId/provider/planMode
-  const body2 = buildChatRequest(inbound, { sessionId: 'custom', provider: 'deepseek', planMode: true });
+  const body2 = buildRequest(inbound, { sessionId: 'custom', provider: 'deepseek', planMode: true });
   assert.strictEqual(body2.sessionId, 'custom');
   assert.strictEqual(body2.provider, 'deepseek');
   assert.strictEqual(body2.planMode, true);
 });
 
-test('adapter.normalizeOutbound: 统一出站结构', () => {
-  const out = normalizeOutbound('qq', 'g-1', '回复内容', { replyToken: 'rt' });
-  assert.strictEqual(out.platform, 'qq');
-  assert.strictEqual(out.chatId, 'g-1');
-  assert.strictEqual(out.text, '回复内容');
-  assert.strictEqual(out.replyToken, 'rt');
+test('dispatch.collectSseReply: 从 SSE 流收集 token 正文', async () => {
+  const { collectSseReply } = require('../routes/bots/dispatch');
+  // 构造一个假的 SSE 响应流（fetch 返回的 Response.body）
+  const sseText = 'data: {"type":"token","content":"你好"}\n\n'
+    + 'data: {"type":"token","content":"，世界"}\n\n'
+    + 'data: {"type":"status","message":"ok"}\n\n'
+    + 'data: [DONE]\n\n';
+  const fakeRes = { body: new ReadableStream({ start(c) { c.enqueue(new TextEncoder().encode(sseText)); c.close(); } }) };
+  const reply = await collectSseReply(fakeRes);
+  assert.strictEqual(reply, '你好，世界');
+});
+
+test('dispatch.collectSseReply: 空流回退"已受理"', async () => {
+  const { collectSseReply } = require('../routes/bots/dispatch');
+  const fakeRes = { body: new ReadableStream({ start(c) { c.close(); } }) };
+  const reply = await collectSseReply(fakeRes);
+  assert.strictEqual(reply, '✅ 已受理');
 });
 
 test('dispatch.buildRequest: 与 adapter 一致（循环依赖解耦）', () => {

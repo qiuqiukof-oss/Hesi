@@ -651,17 +651,18 @@ When the user asks you to perform a "system self-check" / "全面自检" / "diag
       // Bug 修复（2026-08-04）：无 key 时优先试「provider-config 解析出的本地地址」
       // （用户可能在模型服务页配置了 LM Studio 1234 / 自定义 vLLM 等），
       // 而不是只探测默认 11434——否则配置了本地 provider 也会被误报 needsKey。
+      // 且用 contextMessages（含系统提示/记忆/技能），与有 key 路径一致（bug 修复 B-4）。
       if (resolvedBaseUrl) {
         const tools = disableTools ? undefined : QCLI_TOOLS;
         try {
-          await streamOpenAIWithTools(res, messages, '', resolvedModel || model || 'local-model', resolvedBaseUrl, tools, broadcastFn, req, undefined);
+          await streamOpenAIWithTools(res, contextMessages, '', resolvedModel || model || 'local-model', resolvedBaseUrl, tools, broadcastFn, req, undefined);
           return;
         } catch (_) { /* 本地服务不可达则回落默认探测 */ }
       }
       if (clientBaseUrl) {
         const tools = disableTools ? undefined : QCLI_TOOLS;
         try {
-          await streamOpenAIWithTools(res, messages, '', model || 'local-model', clientBaseUrl, tools, broadcastFn, req, undefined);
+          await streamOpenAIWithTools(res, contextMessages, '', model || 'local-model', clientBaseUrl, tools, broadcastFn, req, undefined);
           return;
         } catch (_) { /* fall through */ }
       }
@@ -671,7 +672,7 @@ When the user asks you to perform a "system self-check" / "全面自检" / "diag
         const healthResp = await fetch(`${lmStudioBase}/v1/models`, { signal: AbortSignal.timeout(2000) });
         if (healthResp.ok) {
           const tools = disableTools ? undefined : QCLI_TOOLS;
-          await streamOpenAIWithTools(res, messages, '', model || 'local-model', lmStudioBase, tools, broadcastFn, req, undefined);
+          await streamOpenAIWithTools(res, contextMessages, '', model || 'local-model', lmStudioBase, tools, broadcastFn, req, undefined);
           return;
         }
       } catch (_) { /* LM Studio not available */ }
@@ -837,15 +838,30 @@ When the user asks you to perform a "system self-check" / "全面自检" / "diag
       return res.status(400).json({ error: 'messages array is required' });
     }
 
+    // bug 修复（2026-08-04）：非流式工具路由接入 provider-config（此前漏接，
+    // data/llm-providers.json 或 HESI_LLM_<ID>_BASE_URL 配置在此路由不生效）
+    const resolved = resolveForChat(clientProvider, clientKey, clientBaseUrl);
     const provider = clientProvider ||
+      resolved.providerId ||
       (process.env.ANTHROPIC_API_KEY ? 'anthropic' : 'openai');
 
     const apiKey = clientKey ||
+      resolved.apiKey ||
       process.env.OPENAI_API_KEY ||
       process.env.ANTHROPIC_API_KEY ||
       '';
 
+    const resolvedModel = model || resolved.model;
+    const resolvedBaseUrl = clientBaseUrl || resolved.baseUrl;
+
     if (!apiKey) {
+      // 本地 provider（用户配置的 lmstudio/ollama 等）→ 直接用其 baseUrl
+      if (resolvedBaseUrl) {
+        try {
+          const result = await nonStreamingChat(messages, '', resolvedModel || 'local-model', 'openai', resolvedBaseUrl, broadcastFn, sessionId);
+          return res.json({ success: true, ...result });
+        } catch (_) { /* 本地服务不可达则回落默认探测 */ }
+      }
       if (clientBaseUrl) {
         try {
           const result = await nonStreamingChat(messages, '', model || 'local-model', 'openai', clientBaseUrl, broadcastFn, sessionId);
@@ -862,13 +878,13 @@ When the user asks you to perform a "system self-check" / "全面自检" / "diag
         }
       } catch (_) { /* LM Studio not available */ }
       return res.status(400).json({
-        error: 'No API key configured.',
+        error: '未配置模型服务：请在侧边栏「🤖 模型服务」配置任一 provider。',
         needsKey: true,
       });
     }
 
     try {
-      const result = await nonStreamingChat(messages, apiKey, model, provider, clientBaseUrl, broadcastFn, sessionId);
+      const result = await nonStreamingChat(messages, apiKey, resolvedModel || model, provider, resolvedBaseUrl || clientBaseUrl, broadcastFn, sessionId);
       res.json({ success: true, ...result });
     } catch (err) {
       res.status(500).json({ error: err.message });

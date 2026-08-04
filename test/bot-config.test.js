@@ -16,13 +16,18 @@ const assert = require('node:assert');
 const fs = require('node:fs');
 const path = require('node:path');
 
-const CONFIG_FILE = path.join(__dirname, '..', 'data', 'bots-config.json');
+// 测试隔离（修复 2026-08-04）：用临时配置文件，不碰真实 data/bots-config.json——
+// 此前直接操作真实文件，删除失败会残留污染（并发跑时"未配置"断言偶发失败）
+const CONFIG_FILE = path.join(require('os').tmpdir(), `hesi-bot-test-${process.pid}.json`);
 const savedEnv = { ...process.env };
 
 beforeEach(() => {
   // 清掉测试相关的 env 与配置文件
   delete process.env.HESI_BOT_QQ_APPID;
   delete process.env.HESI_BOT_QQ_SECRET;
+  delete process.env.HESI_BOT_WECHAT_TOKEN;
+  delete process.env.HESI_BOT_WECHAT_BASEURL;
+  process.env.HESI_BOT_CONFIG = CONFIG_FILE;
   try { if (fs.existsSync(CONFIG_FILE)) fs.unlinkSync(CONFIG_FILE); } catch { /* ignore */ }
 });
 

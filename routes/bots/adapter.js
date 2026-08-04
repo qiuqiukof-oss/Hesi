@@ -47,45 +47,6 @@ function normalizeInbound(platform, event, extra = {}) {
   };
 }
 
-/**
- * 把统一 inbound 消息组装为内部派发任务（直接复用 /api/chat 的请求体结构）。
- * @param {object} inbound — normalizeInbound 的输出
- * @param {{ model?: string, provider?: string, apiKey?: string, planMode?: boolean, sessionId?: string }} [opts]
- * @returns {object} 可直接 POST /api/chat 的 body
- */
-function buildChatRequest(inbound, opts = {}) {
-  return {
-    messages: [
-      { role: 'user', content: inbound.text },
-    ],
-    model: opts.model,
-    provider: opts.provider || inbound.provider,
-    apiKey: opts.apiKey,
-    planMode: opts.planMode === true,
-    sessionId: opts.sessionId || `bot:${inbound.platform}:${inbound.chatId}`,
-  };
-}
-
-/**
- * 把内部结果规范化为统一 outbound 结构。
- * @param {string} platform
- * @param {string} chatId
- * @param {string} text — 回传给用户的正文
- * @param {{ raw?: object, replyToken?: string }} [extra]
- * @returns {{ platform: string, chatId: string, text: string, raw?: object, replyToken?: string }}
- */
-function normalizeOutbound(platform, chatId, text, extra = {}) {
-  return {
-    platform,
-    chatId,
-    text,
-    raw: extra.raw,
-    replyToken: extra.replyToken,
-  };
-}
-
 module.exports = {
   normalizeInbound,
-  buildChatRequest,
-  normalizeOutbound,
 };

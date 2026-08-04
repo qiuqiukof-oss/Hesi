@@ -23,7 +23,9 @@ const { dispatchToChat } = require('./dispatch');
 
 // ── 平台适配器注册表（fail-closed：isConfigured() 为 false 的平台不挂路由）──
 const ADAPTERS = [
-  { id: 'qq', name: 'QQ 机器人', adapter: require('./qq'), mode: 'webhook' },
+  // mode: 'ws' = WebSocket 长连接收消息（bot-loop 管理），不注册 webhook 回调端点
+  // （bug 修复 2026-08-04：此前标 webhook 但 verifyWebhook 恒 false → 死端点 403 误导）
+  { id: 'qq', name: 'QQ 机器人', adapter: require('./qq'), mode: 'ws' },
   { id: 'wechat-bot', name: '微信 bot', adapter: require('./wechat-bot'), mode: 'longpoll' },
   // M2+ 接入：wecom / feishu / dingtalk（各自 <platform>.js + 官方文档核对）
 ];
@@ -131,11 +133,19 @@ function createRouter() {
   });
 
   // ── 平台配置（脱敏读取 + 保存）——requireToken 保护（管理操作）──
+  // 🔒 bug 修复（2026-08-04）：getConfig 返回体含明文 secret/botToken，此处剥离，
+  // 只向客户端暴露 masked（尾 4 位）+ source + 非敏感字段。
   router.get('/bots/config', requireToken, (req, res) => {
     const botConfig = require('../../lib/bot-config');
     const out = {};
     for (const a of ADAPTERS) {
-      out[a.id] = botConfig.getConfig(a.id);
+      const cfg = botConfig.getConfig(a.id);
+      const { masked, source, ...rest } = cfg;
+      // rest 可能含明文 secret/botToken → 删除
+      for (const k of Object.keys(rest)) {
+        if (['secret', 'botToken', 'appSecret', 'token'].includes(k)) delete rest[k];
+      }
+      out[a.id] = { ...rest, source, masked };
     }
     res.json({ platforms: out, envKeys: botConfig.PLATFORM_ENV });
   });

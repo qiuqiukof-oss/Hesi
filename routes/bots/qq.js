@@ -106,9 +106,12 @@ async function pollBindResult(taskId, key) {
         try {
           const appSecret = decryptSecret(encrypted, key);
           botConfig.saveConfig('qq', { appId, secret: appSecret });
+          // 凭证变更 → 重启接收循环（bug 修复 2026-08-04：此前需重启服务才生效）
+          try { require('../../lib/bot-loop').restartAll?.(); } catch { /* ignore */ }
           return { status: 'completed', appId, detail: '扫码绑定成功，已保存 AppID/AppSecret' };
         } catch (decErr) {
-          return { status: 'completed', appId, error: `解密失败：${decErr && decErr.message ? decErr.message : decErr}` };
+          // bug 修复（2026-08-04）：解密失败不应返回 completed（前端会误判 ok:true）
+          return { status: 'error', appId, error: `解密失败：${decErr && decErr.message ? decErr.message : decErr}` };
         }
       }
       return { status: 'completed', appId, error: '缺少凭据字段' };

@@ -101,6 +101,8 @@ async function pollQrStatus(qrcode) {
       const baseurl = data.baseurl || BASE;
       if (botToken) {
         botConfig.saveConfig('wechat-bot', { botToken, baseurl });
+        // 凭证变更 → 重启接收循环（bug 修复 2026-08-04：此前需重启服务才生效）
+        try { require('../../lib/bot-loop').restartAll?.(); } catch { /* ignore */ }
         return { status: 'confirmed', detail: '扫码确认成功，已保存登录态' };
       }
       return { status: 'error', error: 'confirmed 但缺少 bot_token' };

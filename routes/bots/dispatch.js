@@ -43,14 +43,51 @@ async function dispatchToChat(inbound, opts = {}) {
       const text = await res.text().catch(() => '');
       return { ok: false, reply: '', status: res.status, error: text.slice(0, 500) || `HTTP ${res.status}` };
     }
-    const data = await res.json().catch(() => ({}));
-    const reply = String(data.reply || data.content || data.text || '✅ 已受理').trim();
+    // /api/chat 返回 SSE 流（正文在 type:'token' 事件）——不能用 res.json() 解析
+    // （bug 修复 2026-08-04：修复前恒回"✅ 已受理"，机器人模式拿不到 AI 回复）。
+    const reply = await collectSseReply(res);
     return { ok: true, reply, status: 200 };
   } catch (err) {
     return { ok: false, reply: '', error: err && err.name === 'AbortError' ? 'bot: dispatch timeout' : (err && err.message) || String(err) };
   } finally {
     clearTimeout(timer);
   }
+}
+
+/**
+ * 读取 /api/chat 的 SSE 流，收集所有 type:'token' 正文片段拼成完整回复。
+ * @param {Response} res
+ * @returns {Promise<string>}
+ */
+async function collectSseReply(res) {
+  const reader = res.body && res.body.getReader();
+  if (!reader) return '✅ 已受理';
+  const decoder = new TextDecoder();
+  let buffer = '';
+  let reply = '';
+  let done = false;
+  while (!done) {
+    const { done: streamDone, value } = await reader.read();
+    if (streamDone) break;
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split('\n');
+    buffer = lines.pop() || '';
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (!trimmed.startsWith('data: ')) continue;
+      const payload = trimmed.slice(6).trim();
+      if (payload === '[DONE]') { done = true; break; }
+      try {
+        const evt = JSON.parse(payload);
+        if (evt && evt.type === 'token' && typeof evt.content === 'string') {
+          reply += evt.content;
+        } else if (evt && evt.type === 'error' && evt.message) {
+          reply += (reply ? '\n' : '') + `⚠️ ${evt.message}`;
+        }
+      } catch { /* 非 JSON 帧忽略 */ }
+    }
+  }
+  return reply.trim() || '✅ 已受理';
 }
 
 /**
@@ -71,4 +108,4 @@ function buildRequest(inbound, opts = {}) {
   };
 }
 
-module.exports = { dispatchToChat, buildRequest };
+module.exports = { dispatchToChat, buildRequest, collectSseReply };
