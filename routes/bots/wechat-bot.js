@@ -46,11 +46,25 @@ function baseBody(extra = {}) {
   return { base_info: { channel_version: '2.0.0' }, ...extra };
 }
 
-/** 生成随机 X-WECHAT-UIN（base64(uint32)）。 */
+/** 生成随机 X-WECHAT-UIN（协议：uint32 → 十进制字符串 → base64，见官方 curl 示例 MzA1NDE5ODk2）。 */
 function randomUin() {
-  const buf = Buffer.alloc(4);
-  for (let i = 0; i < 4; i++) buf[i] = Math.floor(Math.random() * 256);
-  return buf.toString('base64');
+  const n = Math.floor(Math.random() * 0xFFFFFFFF);
+  return Buffer.from(String(n), 'utf8').toString('base64');
+}
+
+/**
+ * 从入站消息提取文本（协议结构：item_list[].text_item.text，type=1 文本）。
+ * @param {object} m — getupdates 返回的 msgs 单条消息
+ * @returns {string}
+ */
+function extractText(m) {
+  if (!m || !Array.isArray(m.item_list)) return '';
+  for (const it of m.item_list) {
+    if (it && it.type === 1 && it.text_item && typeof it.text_item.text === 'string') {
+      return it.text_item.text;
+    }
+  }
+  return '';
 }
 
 /**
@@ -154,15 +168,32 @@ async function getUpdates(getUpdatesBuf = '') {
 }
 
 /**
- * 发送文本消息（必须回传 context_token）。
- * @param {string} contextToken — 入站消息的 context_token
+ * 发送文本消息（bug 修复 2026-08-04：请求体改为协议要求的 msg 包装结构
+ * ——原平铺 { context_token, text } 与协议不符，服务端无法路由/解析，
+ * 是"bot 收到消息但不回复"的根因之一）。
+ * 协议要求（对照 wechatbot.dev / botilink 实现）：
+ *   { "msg": { "to_user_id", "client_id", "message_type": 2, "message_state": 2,
+ *              "item_list": [{ "type": 1, "text_item": { "text" } }],
+ *              "context_token" }, "base_info": {...} }
+ * @param {string} contextToken — 入站消息的 context_token（必须回传）
  * @param {string} text
+ * @param {string} [toUserId] — 入站消息的 from_user_id（发送者），回传给 ta
  * @returns {Promise<{ ok: boolean, error?: string }>}
  */
-async function sendMessage(contextToken, text) {
+async function sendMessage(contextToken, text, toUserId) {
   const cfg = botConfig.getConfig('wechat-bot');
   if (!cfg.botToken || !contextToken) return { ok: false, error: 'wechat: botToken/contextToken required' };
   const url = (cfg.baseurl || BASE).replace(/\/+$/, '');
+  const payload = {
+    msg: {
+      to_user_id: toUserId || '',
+      client_id: `hesi-${Math.random().toString(36).slice(2, 10)}`,
+      message_type: 2,
+      message_state: 2,
+      context_token: contextToken,
+      item_list: [{ type: 1, text_item: { text: text.slice(0, 2000) } }],
+    },
+  };
   try {
     const res = await fetch(`${url}/ilink/bot/sendmessage`, {
       method: 'POST',
@@ -171,15 +202,16 @@ async function sendMessage(contextToken, text) {
         AuthorizationType: 'ilink_bot_token',
         Authorization: `Bearer ${cfg.botToken}`,
         'X-WECHAT-UIN': randomUin(),
+        'iLink-App-ClientVersion': '1',
       },
-      body: JSON.stringify(baseBody({ context_token: contextToken, text: text.slice(0, 2000) })),
+      body: JSON.stringify(baseBody(payload)),
     });
     if (!res.ok) {
       const t = await res.text().catch(() => '');
       return { ok: false, error: `HTTP ${res.status} ${t.slice(0, 200)}` };
     }
-    const data = await res.json();
-    if (data.errcode === -14) return { ok: false, expired: true, error: '会话过期' };
+    const data = await res.json().catch(() => ({}));
+    if (data.errcode === -14 || data.ret === -14) return { ok: false, expired: true, error: '会话过期' };
     return { ok: true };
   } catch (err) {
     return { ok: false, error: (err && err.message) || String(err) };
@@ -269,5 +301,6 @@ module.exports = {
   pollQrStatus,
   getUpdates,
   sendMessage,
+  extractText,
   testConnection,
 };
