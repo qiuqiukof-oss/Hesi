@@ -292,3 +292,101 @@ test('roles: resolveForChat 优先级 = 请求级 > 角色 > 默认 > 自动', (
   const r4 = resolveForChat(undefined, undefined, undefined, 'discuss');
   assert.strictEqual(r4.providerId, 'nvidia-nim'); // 回落默认
 });
+
+// ── 自定义 provider（v0.8.0 · 模型广场「➕ 自定义」入口）──
+test('custom: addCustomProvider 新增并参与解析', () => {
+  const r = providerConfig.addCustomProvider({ id: 'my-proxy', name: '中转', baseUrl: 'https://one-api.example.com/v1', apiKey: 'sk-custom-1', model: 'gpt-4o' });
+  assert.strictEqual(r.ok, true);
+  const defs = providerConfig.getAllDefs();
+  assert.ok(defs.some((d) => d.id === 'my-proxy'), '自定义在 getAllDefs 中');
+  const cfg = providerConfig.getConfig('my-proxy');
+  assert.strictEqual(cfg.source, 'custom');
+  assert.strictEqual(cfg.configured, true);
+  assert.strictEqual(cfg.apiKey, 'sk-custom-1');
+  assert.strictEqual(cfg.baseUrl, 'https://one-api.example.com/v1');
+  const all = providerConfig.getAllConfigs();
+  const c = all.find((x) => x.id === 'my-proxy');
+  assert.ok(c && c.custom === true && c.maskedKey === '****om-1');
+  const d = providerConfig.setDefaultProvider('my-proxy');
+  assert.strictEqual(d.ok, true);
+});
+
+test('custom: 非法 id / 与内置冲突拒绝', () => {
+  assert.strictEqual(providerConfig.addCustomProvider({ id: 'Bad ID', baseUrl: 'http://x' }).ok, false);
+  assert.strictEqual(providerConfig.addCustomProvider({ id: 'openai', baseUrl: 'http://x' }).ok, false);
+  assert.strictEqual(providerConfig.addCustomProvider({ id: 'x', baseUrl: 'not-a-url' }).ok, false);
+});
+
+test('custom: update/remove 与删除默认清空', () => {
+  // beforeEach 清空配置 → 本测试独立创建
+  providerConfig.addCustomProvider({ id: 'my-proxy', name: '中转', baseUrl: 'https://one-api.example.com/v1', apiKey: 'sk-custom-1', model: 'gpt-4o' });
+  providerConfig.setDefaultProvider('my-proxy');
+  const u = providerConfig.updateCustomProvider('my-proxy', { model: 'gpt-4o-mini' });
+  assert.strictEqual(u.ok, true);
+  assert.strictEqual(providerConfig.getConfig('my-proxy').model, 'gpt-4o-mini');
+  const rm = providerConfig.removeCustomProvider('my-proxy');
+  assert.strictEqual(rm.ok, true);
+  assert.strictEqual(providerConfig.getDefaultProvider(), '');
+  assert.strictEqual(providerConfig.getConfig('my-proxy').configured, false);
+});
+
+test('custom: resolveForChat 支持自定义 provider 显式路由', () => {
+  providerConfig.addCustomProvider({ id: 'my-proxy', name: '中转', baseUrl: 'https://p.example.com/v1', apiKey: 'sk-p', model: 'm1' });
+  const { resolveForChat } = require('../lib/llm-provider/provider-client');
+  const r = resolveForChat('my-proxy', undefined, undefined, 'chat');
+  assert.strictEqual(r.providerId, 'my-proxy');
+  assert.strictEqual(r.apiKey, 'sk-p');
+  assert.strictEqual(r.baseUrl, 'https://p.example.com/v1');
+  providerConfig.removeCustomProvider('my-proxy');
+});
+
+// ── 回归：本地 provider 空 key 判定（2026-08-04 讨论/自动执行走不通 LM Studio）──
+test('llm-bridge: 本地 provider（lmstudio）kind=local，云端（deepseek）kind=cloud', () => {
+  const { getProviderDef } = require('../lib/llm-provider/provider-config');
+  assert.strictEqual(getProviderDef('lmstudio').kind, 'local');
+  assert.strictEqual(getProviderDef('ollama').kind, 'local');
+  assert.strictEqual(getProviderDef('deepseek').kind, 'cloud');
+  // 模拟 llm-bridge 的 isCloud 判定：本地无 key 不报 NO_API_KEY
+  const isCloud = (prov) => {
+    const def = getProviderDef(prov);
+    return !def || def.kind !== 'local';
+  };
+  assert.strictEqual(isCloud('lmstudio'), false, '本地不应视为需 key');
+  assert.strictEqual(isCloud('deepseek'), true, '云端应视为需 key');
+});
+
+test('discuss resolveConfig: 本地 provider 带出 kind=local', () => {
+  // resolveConfig 未导出——通过 provider-config 判定层间接验证（与 discuss 同源）
+  const { getProviderDef } = require('../lib/llm-provider/provider-config');
+  const def = getProviderDef('lmstudio');
+  assert.strictEqual(def.kind, 'local');
+  assert.strictEqual(def.apiType, 'openai-compat');
+});
+
+// ── 回归：defNeedsKey 判定（2026-08-04 自定义端点/本地不强制 key）──
+test('defNeedsKey: 内置云端需要 key；本地与自定义不强制', () => {
+  const { defNeedsKey, getProviderDef } = require('../lib/llm-provider/provider-config');
+  // 内置云端 → 需要
+  assert.strictEqual(defNeedsKey(getProviderDef('deepseek')), true);
+  assert.strictEqual(defNeedsKey(getProviderDef('openai')), true);
+  assert.strictEqual(defNeedsKey(getProviderDef('anthropic')), true);
+  // 本地 → 不强制
+  assert.strictEqual(defNeedsKey(getProviderDef('lmstudio')), false);
+  assert.strictEqual(defNeedsKey(getProviderDef('ollama')), false);
+  assert.strictEqual(defNeedsKey(getProviderDef('vllm')), false);
+  // 自定义 provider（用户配置端点，即使无 key）→ 不强制
+  providerConfig.addCustomProvider({ id: 'my-proxy', name: '中转', baseUrl: 'https://x.example.com/v1' });
+  const def = getProviderDef('my-proxy');
+  assert.ok(def && def._custom === true, '自定义标记');
+  assert.strictEqual(defNeedsKey(def), false, '自定义无 key 不报错');
+  providerConfig.removeCustomProvider('my-proxy');
+});
+
+test('custom: 无 key 自定义 provider 的 getConfig 仍 configured（有 baseUrl）', () => {
+  providerConfig.addCustomProvider({ id: 'no-key-proxy', name: '无key中转', baseUrl: 'https://inner.example.com/v1' });
+  const cfg = providerConfig.getConfig('no-key-proxy');
+  assert.strictEqual(cfg.configured, true, '有 baseUrl 即视为可配置');
+  assert.strictEqual(cfg.apiKey, '');
+  assert.strictEqual(cfg.source, 'custom');
+  providerConfig.removeCustomProvider('no-key-proxy');
+});

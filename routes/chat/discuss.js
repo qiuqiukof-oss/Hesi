@@ -118,7 +118,16 @@ function resolveConfig({ apiKey, provider, baseUrl, model }) {
   const key = effKey || process.env.OPENAI_API_KEY || process.env.ANTHROPIC_API_KEY || '';
   const url = effBase || (p === 'anthropic' ? 'https://api.anthropic.com' : 'https://api.openai.com/v1');
   const m = model || (p === 'anthropic' ? 'claude-sonnet-4-20250514' : 'gpt-4o-mini');
-  return { p, key, url, m };
+  // bug 修复（2026-08-04）：带出 provider 是否强制需 key——本地（lmstudio/ollama/
+  // vllm）与自定义 provider（用户配置端点）不强制，调用方据此区分「云端缺 key
+  // 报错」vs「本地/自定义空 key 直接调」，否则配置本地模型或自定义端点的讨论
+  // 会误报"未配置 API Key（OPENAI/ANTHROPIC）"。
+  let needsKey = true;
+  try {
+    const { getProviderDef, defNeedsKey } = require('../../lib/llm-provider/provider-config');
+    needsKey = defNeedsKey(getProviderDef(p));
+  } catch { /* ignore */ }
+  return { p, key, url, m, needsKey };
 }
 
 // 注：OpenAI / Anthropic 流式解析现已统一复用主聊的共享核心
@@ -457,7 +466,8 @@ function tokenSet(text) {
 // budget: { maxTokens?, maxMinutes? }（0/缺省 = 不限）——接入 plan.budget 的成本守卫（优化方向.md 第 5 步）。
 async function runRoundtable({ message, partner, partners, maxTurns = 6, apiKey, provider, baseUrl, model, takenOver = {}, personas, protocol, transcript, budget, summaryPrompt, cwd, onEvent, shouldAbort }) {
   const cfg = resolveConfig({ apiKey, provider, baseUrl, model });
-  if (!cfg.key) {
+  // 仅云端缺 key 报错；本地 provider（lmstudio/ollama/vllm）空 key 直接调
+  if (!cfg.key && cfg.needsKey) {
     onEvent?.('error', { message: '未配置 API Key（OPENAI/ANTHROPIC），无法运行 AI 讨论。' });
     return { summary: '', transcript: '', stats: null, cleanFinish: false };
   }
@@ -607,7 +617,7 @@ async function runRoundtable({ message, partner, partners, maxTurns = 6, apiKey,
 
 async function runDiscussion(res, { message, partner, partners, maxTurns = 6, apiKey, provider, baseUrl, model, takenOver = {}, personas, protocol, cwd }) {
   const cfg = resolveConfig({ apiKey, provider, baseUrl, model });
-  if (!cfg.key) {
+  if (!cfg.key && cfg.needsKey) {
     sse(res, { type: 'error', message: '未配置 API Key（OPENAI/ANTHROPIC），无法运行 AI 讨论。' });
     sse(res, { type: '[DONE]' });
     res.end();

@@ -18,8 +18,7 @@
 'use strict';
 
 const express = require('express');
-const { getRegistry } = require('../lib/llm-provider/provider-registry');
-const { getAllConfigs, getConfig, setConfig } = require('../lib/llm-provider/provider-config');
+const { getAllConfigs, getConfig, setConfig, getProviderDef, addCustomProvider, updateCustomProvider, removeCustomProvider } = require('../lib/llm-provider/provider-config');
 const { listModels } = require('../lib/llm-provider/provider-client');
 const { healthAll } = require('../lib/llm-provider/provider-health');
 const { requireToken } = require('../lib/access-auth');
@@ -99,10 +98,30 @@ function createRouter() {
   // 单 provider 生效配置详情（脱敏，调试用）
   router.get('/llm-providers/:id', requireToken, (req, res) => {
     const { id } = req.params;
-    const def = getRegistry().find((p) => p.id === id);
+    const def = getProviderDef(id);
     if (!def) return res.status(404).json({ error: `unknown provider: ${id}` });
     const cfg = getConfig(id);
     res.json({ id, name: def.name, apiType: def.apiType, kind: def.kind, ...cfg, apiKey: cfg.apiKey ? `****${cfg.apiKey.slice(-4)}` : '' });
+  });
+
+  // ── 自定义 provider（模型广场「➕ 自定义」入口，v0.8.0）──
+  // POST /llm-providers/custom { action: 'add'|'update'|'remove', ... } — requireToken 保护
+  router.post('/llm-providers/custom', requireToken, (req, res) => {
+    const { action, fields, id } = req.body || {};
+    let result;
+    if (action === 'add') {
+      result = addCustomProvider(fields);
+      if (result.ok) return res.json({ ok: true, provider: result.provider });
+    } else if (action === 'update') {
+      result = updateCustomProvider(id, fields);
+      if (result.ok) return res.json({ ok: true });
+    } else if (action === 'remove') {
+      result = removeCustomProvider(id);
+      if (result.ok) return res.json({ ok: true });
+    } else {
+      return res.status(400).json({ error: "action 须为 'add' | 'update' | 'remove'" });
+    }
+    return res.status(400).json({ error: result && result.error ? result.error : 'operation failed' });
   });
 
   return router;

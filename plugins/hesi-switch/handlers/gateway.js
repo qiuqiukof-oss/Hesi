@@ -94,15 +94,15 @@ function resolveProviderFromModel(model) {
   const m = str.match(/^([a-z0-9-]+)[/:](.+)$/);
   if (m) {
     try {
-      const { getProvider } = require('../../../lib/llm-provider/provider-registry');
-      if (getProvider(m[1])) return { providerId: m[1], model: m[2].trim() };
+      const { getProviderDef } = require('../../../lib/llm-provider/provider-config');
+      if (getProviderDef(m[1])) return { providerId: m[1], model: m[2].trim() };
     } catch { /* ignore */ }
   }
   // 2. 注册表默认模型匹配
   try {
-    const { getRegistry } = require('../../../lib/llm-provider/provider-registry');
+    const { getAllDefs } = require('../../../lib/llm-provider/provider-config');
     const { getConfig } = require('../../../lib/llm-provider/provider-config');
-    for (const def of getRegistry()) {
+    for (const def of getAllDefs()) {
       const cfg = getConfig(def.id);
       if (cfg.model === str) return { providerId: def.id, model: str };
       if (Array.isArray(def.models) && def.models.includes(str)) return { providerId: def.id, model: str };
@@ -215,10 +215,10 @@ async function gatewayHandler(req, res) {
   // ── GET /v1/models ─────────────────────────────────────────
   if (req.method === 'GET' && urlPath.endsWith('/v1/models')) {
     try {
-      const { getRegistry } = require('../../../lib/llm-provider/provider-registry');
+      const { getAllDefs } = require('../../../lib/llm-provider/provider-config');
       const { getConfig } = require('../../../lib/llm-provider/provider-config');
       const out = [];
-      for (const def of getRegistry()) {
+      for (const def of getAllDefs()) {
         const cfg = getConfig(def.id);
         const models = (cfg.model ? [cfg.model] : []).concat(def.models || []);
         // 显式路由别名：provider/model

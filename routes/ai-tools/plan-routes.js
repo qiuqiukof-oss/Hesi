@@ -84,8 +84,16 @@ function buildRoundtableFn(runtime, budget, ctx) {
   };
   return async function roundtableFn({ question, transcript, rounds }) {
     const maxTurns = rounds || 3;
-    // 快速失败①：无 API Key → 立即返回 null，避免 resolveCheckpoint 空转
-    if (!runtime.apiKey && !process.env.OPENAI_API_KEY && !process.env.ANTHROPIC_API_KEY) {
+    // 快速失败①：云端无 Key → 立即返回 null，避免 resolveCheckpoint 空转；
+    // 本地 provider（lmstudio/ollama/vllm）与自定义 provider 无需 key
+    // （bug 修复 2026-08-04，配置本地模型/自定义端点时曾误报）。
+    const isLocal = (() => {
+      try {
+        const { getProviderDef, defNeedsKey } = require('../../lib/llm-provider/provider-config');
+        return !defNeedsKey(getProviderDef(runtime.provider));
+      } catch { return false; }
+    })();
+    if (!runtime.apiKey && !process.env.OPENAI_API_KEY && !process.env.ANTHROPIC_API_KEY && !isLocal) {
       forward('error', { message: '未配置 API Key（OPENAI/ANTHROPIC），无法运行 checkpoint 圆桌讨论，退回需人补充 acceptance' });
       return null;
     }

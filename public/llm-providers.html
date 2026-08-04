@@ -61,6 +61,8 @@
     .llmp-card-fields label { gap: 3px; }
     .llmp-card-fields input, .llmp-card-fields select { padding: 6px 8px; font-size: 13px; }
     .llmp-btn { font-size: 12px; padding: 6px 12px; }
+    .llmp-btn-danger { background: rgba(220,38,38,.15); color: #f87171; border: 1px solid rgba(220,38,38,.3); }
+    .llmp-btn-danger:hover { background: rgba(220,38,38,.28); color: #fecaca; }
   </style>
 </head>
 <body>
@@ -221,15 +223,17 @@
         }
         var html = providers.map(function(p) {
           var cfgModel = p.model ? '<option value="' + esc(p.model) + '">' + esc(p.model) + '</option>' : '';
-          return '<div class="llmp-card" data-id="' + esc(p.id) + '">' +
+          var customTag = p.custom ? '<span class="llmp-card-kind" style="background:rgba(139,92,246,.15);color:#a78bfa">自定义</span>' : '';
+          return '<div class="llmp-card" data-id="' + esc(p.id) + '"' + (p.custom ? ' data-custom="1"' : '') + '>' +
             '<div class="llmp-card-head">' +
               '<span class="llmp-card-name">' + esc(p.name) + '</span>' +
+              customTag +
               '<span class="llmp-card-kind">' + (p.kind === 'local' ? '本地' : '云端') + '</span>' +
               statusBadge(p.health) +
             '</div>' +
             '<div class="llmp-card-meta">' +
               (p.source !== 'none'
-                ? '凭证 ' + (p.source === 'env' ? '环境变量' : '设置页') + ' · ' +
+                ? '凭证 ' + (p.source === 'env' ? '环境变量' : (p.source === 'custom' ? '自定义' : '设置页')) + ' · ' +
                   (p.maskedKey ? 'key ' + esc(p.maskedKey) : '无 key') + ' · '
                 : '') +
               '<span class="llmp-base" title="' + esc(p.baseUrl) + '">' + esc(p.baseUrl) + '</span>' +
@@ -246,11 +250,31 @@
               '<button class="llmp-btn llmp-btn-primary" data-act="save">💾 保存</button>' +
               '<button class="llmp-btn" data-act="models">🔄 拉取模型</button>' +
               '<button class="llmp-btn" data-act="clear">🗑 清空</button>' +
+              (p.custom ? '<button class="llmp-btn llmp-btn-danger" data-act="del">❌ 删除</button>' : '') +
             '</div>' +
             '<div class="llmp-msg"></div>' +
           '</div>';
         }).join('');
-        render(html);
+
+        // 「➕ 添加自定义 provider」卡片（one-api / new-api / 内网中转等 OpenAI 兼容端点）
+        var addCard = '<div class="llmp-card llmp-custom-add" id="llmp-custom-add">' +
+          '<div class="llmp-card-head"><span class="llmp-card-name">➕ 添加自定义 Provider</span>' +
+          '<span class="llmp-card-kind" style="background:rgba(139,92,246,.15);color:#a78bfa">OpenAI 兼容</span></div>' +
+          '<div class="llmp-card-meta">支持 one-api / new-api / 内网中转等自建或私有 OpenAI 兼容端点</div>' +
+          '<div class="llmp-card-fields">' +
+            '<label>标识（id）<input class="cc-id" type="text" placeholder="如 my-proxy（小写字母/数字/连字符）" /></label>' +
+            '<label>显示名<input class="cc-name" type="text" placeholder="如 我的中转" /></label>' +
+            '<label>Base URL<input class="cc-base" type="text" placeholder="https://one-api.example.com/v1" /></label>' +
+            '<label>API Key<input class="cc-key" type="password" placeholder="sk-..." autocomplete="off" /></label>' +
+            '<label>默认模型<input class="cc-model" type="text" placeholder="如 gpt-4o（可选）" /></label>' +
+          '</div>' +
+          '<div class="llmp-card-actions">' +
+            '<button class="llmp-btn llmp-btn-primary" data-act="custom-add">✅ 添加</button>' +
+          '</div>' +
+          '<div class="llmp-msg"></div>' +
+        '</div>';
+
+        render(addCard + html);
         bindAll();
       }).catch(function(e) {
         render('<div class="lp-empty">加载失败：' + esc(e.message) + '</div>');
@@ -261,6 +285,8 @@
     function bindAll() {
       var grid = document.getElementById('lp-grid');
       grid.querySelectorAll('.llmp-card').forEach(function(card) {
+        // 跳过「➕ 添加自定义」卡片（按钮 data-act 不同，单独在下方绑定）
+        if (card.id === 'llmp-custom-add') return;
         var id = card.dataset.id;
         var msgEl = card.querySelector('.llmp-msg');
         var modelSel = card.querySelector('.llmp-model');
@@ -324,7 +350,56 @@
               clearBtn.disabled = false;
             });
         });
+
+        // 删除自定义 provider
+        var delBtn = card.querySelector('[data-act="del"]');
+        if (delBtn) {
+          delBtn.addEventListener('click', function() {
+            if (!confirm('确定删除自定义 provider「' + id + '」？')) return;
+            delBtn.disabled = true;
+            apiPost('/api/llm-providers/custom', { action: 'remove', id: id })
+              .then(function() { say('已删除 ✓'); renderAll(); })
+              .catch(function(e) { say('删除失败：' + (e && e.message), 'error'); delBtn.disabled = false; });
+          });
+        }
       });
+
+      // ── 添加自定义 provider ──
+      var addCard = grid.querySelector('#llmp-custom-add');
+      if (addCard) {
+        var addBtn = addCard.querySelector('[data-act="custom-add"]');
+        var addMsg = addCard.querySelector('.llmp-msg');
+        addBtn.addEventListener('click', function() {
+          var fields = {
+            id: (addCard.querySelector('.cc-id').value || '').trim(),
+            name: (addCard.querySelector('.cc-name').value || '').trim(),
+            baseUrl: (addCard.querySelector('.cc-base').value || '').trim(),
+            apiKey: (addCard.querySelector('.cc-key').value || '').trim(),
+            model: (addCard.querySelector('.cc-model').value || '').trim(),
+          };
+          if (!fields.id || !fields.baseUrl) {
+            addMsg.textContent = 'id 与 Base URL 必填';
+            addMsg.className = 'llmp-msg llmp-msg-error';
+            return;
+          }
+          addBtn.disabled = true;
+          apiPost('/api/llm-providers/custom', { action: 'add', fields: fields })
+            .then(function() {
+              addMsg.textContent = '已添加 ✓';
+              addMsg.className = 'llmp-msg llmp-msg-ok';
+              addCard.querySelector('.cc-id').value = '';
+              addCard.querySelector('.cc-name').value = '';
+              addCard.querySelector('.cc-base').value = '';
+              addCard.querySelector('.cc-key').value = '';
+              addCard.querySelector('.cc-model').value = '';
+              renderAll();
+            }).catch(function(e) {
+              addMsg.textContent = '添加失败：' + (e && e.message ? e.message : e);
+              addMsg.className = 'llmp-msg llmp-msg-error';
+              addBtn.disabled = false;
+            });
+        });
+      }
     }
 
     // ── 启动 ──
