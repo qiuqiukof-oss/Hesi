@@ -44,8 +44,12 @@ function hexToRgba(hex, a) {
  *  - tileAnim: 是否启用「出牌」动画（仅 mahjong）
  *  - css: 该肤专属样式（applySkin 注入 <style id="rt-skin-style">；切肤先移除旧 style）
  */
-// ESM 代码分割时模块可能被复制到不同 chunk，全局单例避免 SKINS 空对象
-const SKINS = window.__hesiSkins = window.__hesiSkins || {
+// ESM 代码分割时模块可能被复制到不同 chunk，全局单例避免 SKINS 空对象。
+// bug 修复（2026-08-04 全局纠错）：顶层直接访问 window 在 Node 环境
+// （前端纯逻辑单测 import）抛 ReferenceError——加环境守卫，Node 下用
+// 模块级单例兜底（浏览器行为不变）。
+const root = (typeof window !== 'undefined') ? window : {};
+const SKINS = root.__hesiSkins = root.__hesiSkins || {
   hearth: {
     id: 'hearth',
     label: '🔥 围炉',
