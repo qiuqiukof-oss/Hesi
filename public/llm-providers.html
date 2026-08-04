@@ -38,6 +38,22 @@
     .lp-grid { max-width: 1080px; margin: 0 auto; display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 16px; }
     .lp-empty { text-align: center; color: var(--text-tertiary, #98989d); padding: 48px 0; font-size: 13px; }
 
+    /* ── 角色路由卡片（v0.8.0）── */
+    .lpr-card { background: var(--bg-surface, #161618); border: 1px solid var(--border-default, #38383a); border-radius: 12px; padding: 16px 18px; }
+    .lpr-head { font-size: 14px; font-weight: 600; color: var(--text-primary, #f5f5f7); display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+    .lpr-hint { font-size: 11px; color: var(--text-tertiary, #98989d); font-weight: 400; }
+    .lpr-default { display: flex; align-items: center; gap: 10px; margin: 12px 0 10px; font-size: 13px; color: var(--text-secondary, #98989d); flex-wrap: wrap; }
+    .lpr-default select { padding: 5px 8px; border: 1px solid var(--border-default, #38383a); border-radius: 8px; background: var(--bg-ground, #0a0a0b); color: var(--text-primary, #f5f5f7); font-size: 13px; min-width: 220px; }
+    .lpr-roles { display: flex; flex-direction: column; gap: 8px; }
+    .lpr-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 12px; }
+    .lpr-role { width: 64px; font-weight: 600; color: var(--text-primary, #f5f5f7); }
+    .lpr-desc { width: 110px; font-size: 11px; color: var(--text-tertiary, #98989d); }
+    .lpr-row select { padding: 4px 6px; border: 1px solid var(--border-default, #38383a); border-radius: 6px; background: var(--bg-ground, #0a0a0b); color: var(--text-primary, #f5f5f7); font-size: 12px; min-width: 180px; }
+    .lpr-row input { padding: 4px 6px; border: 1px solid var(--border-default, #38383a); border-radius: 6px; background: var(--bg-ground, #0a0a0b); color: var(--text-primary, #f5f5f7); font-size: 12px; flex: 1; min-width: 160px; max-width: 260px; }
+    .lpr-msg { font-size: 11px; }
+    .lpr-msg-ok { color: #34c759; }
+    .lpr-msg-err { color: #ff453a; }
+
     .llmp-card { border-radius: 12px; padding: 16px; gap: 8px; }
     .llmp-card-head { gap: 8px; }
     .llmp-card-name { font-size: 15px; }
@@ -66,6 +82,7 @@
   </div>
 
   <div class="lp-scroll">
+    <div id="lp-routing" style="max-width:1080px;margin:0 auto 16px;"></div>
     <div class="lp-grid" id="lp-grid"><div class="lp-empty">加载模型服务列表…</div></div>
   </div>
 
@@ -124,10 +141,80 @@
       document.getElementById('lp-grid').innerHTML = html;
     }
 
+    // ── 角色路由卡片（⭐默认 + chat/plan/discuss/memory 分工，Claude Code 式）──
+    function renderRouting(providers, defaultProvider, roles) {
+      var el = document.getElementById('lp-routing');
+      if (!el) return;
+      var opts = '<option value="">（自动选择）</option>'
+        + providers.map(function(p) {
+            return '<option value="' + esc(p.id) + '">' + esc(p.name) + '</option>';
+          }).join('');
+      var roleMeta = [
+        { id: 'chat',    icon: '💬', label: '聊天',   desc: '主对话（默认）' },
+        { id: 'plan',    icon: '📋', label: 'Plan',   desc: '规划/核查' },
+        { id: 'discuss', icon: '🗣', label: '圆桌',   desc: '多 Agent 讨论' },
+        { id: 'memory',  icon: '🧠', label: '记忆',   desc: '事实抽取/压缩' },
+      ];
+      var roleRows = roleMeta.map(function(r) {
+        var rc = (roles && roles[r.id]) || {};
+        return '<div class="lpr-row" data-role="' + r.id + '">' +
+          '<span class="lpr-role">' + r.icon + ' ' + r.label + '</span>' +
+          '<span class="lpr-desc">' + r.desc + '</span>' +
+          '<select class="lpr-provider">' +
+            '<option value="">（跟随默认）</option>' +
+            providers.map(function(p) {
+              var sel = rc.provider === p.id ? ' selected' : '';
+              return '<option value="' + esc(p.id) + '"' + sel + '>' + esc(p.name) + '</option>';
+            }).join('') +
+          '</select>' +
+          '<input class="lpr-model" type="text" placeholder="模型（留空用 provider 默认）" value="' + esc(rc.model || '') + '" />' +
+          '<button class="lpr-save llmp-btn llmp-btn-primary" data-role="' + r.id + '">保存</button>' +
+          '<span class="lpr-msg"></span>' +
+        '</div>';
+      }).join('');
+      el.innerHTML =
+        '<div class="lpr-card">' +
+          '<div class="lpr-head">⭐ 模型路由 <span class="lpr-hint">不指定角色的任务用默认服务；角色留空跟随默认（Claude Code 式分工）</span></div>' +
+          '<div class="lpr-default">默认服务 <select id="lpr-default">' + opts + '</select>' +
+            '<span class="lpr-msg" id="lpr-default-msg"></span></div>' +
+          '<div class="lpr-roles">' + roleRows + '</div>' +
+        '</div>';
+      // 绑定：默认服务
+      var defSel = el.querySelector('#lpr-default');
+      if (defSel) {
+        defSel.value = defaultProvider || '';
+        defSel.addEventListener('change', function() {
+          var msg = el.querySelector('#lpr-default-msg');
+          apiPost('/api/llm-providers/default', { provider: defSel.value }).then(function() {
+            if (msg) { msg.textContent = '✓ 已设为默认'; msg.className = 'lpr-msg-ok'; }
+          }).catch(function(e) {
+            if (msg) { msg.textContent = '✗ ' + (e && e.message); msg.className = 'lpr-msg-err'; }
+          });
+        });
+      }
+      // 绑定：各角色保存
+      el.querySelectorAll('.lpr-save').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+          var row = btn.closest('.lpr-row');
+          var msg = row.querySelector('.lpr-msg');
+          var fields = {
+            provider: row.querySelector('.lpr-provider').value,
+            model: row.querySelector('.lpr-model').value.trim(),
+          };
+          apiPost('/api/llm-providers/role', { role: btn.dataset.role, fields: fields }).then(function() {
+            if (msg) { msg.textContent = '✓ 已保存'; msg.className = 'lpr-msg-ok'; }
+          }).catch(function(e) {
+            if (msg) { msg.textContent = '✗ ' + (e && e.message); msg.className = 'lpr-msg-err'; }
+          });
+        });
+      });
+    }
+
     function renderAll() {
       render('<div class="lp-empty">加载中…</div>');
       apiGet('/api/llm-providers').then(function(data) {
         var providers = data.providers || [];
+        renderRouting(providers, data.defaultProvider, data.roles);
         if (!providers.length) {
           render('<div class="lp-empty">暂无模型服务</div>');
           return;

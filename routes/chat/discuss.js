@@ -108,7 +108,7 @@ function resolveConfig({ apiKey, provider, baseUrl, model }) {
   if (!effProvider || !effKey || !effBase) {
     try {
       const { resolveForChat } = require('../../lib/llm-provider/provider-client');
-      const r = resolveForChat(effProvider, effKey, effBase);
+      const r = resolveForChat(effProvider, effKey, effBase, 'discuss');
       effProvider = effProvider || r.providerId;
       effKey = effKey || r.apiKey;
       effBase = effBase || r.baseUrl;

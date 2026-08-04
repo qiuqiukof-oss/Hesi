@@ -239,3 +239,56 @@ test('buildApiUrl: 不含 /v1 的 baseUrl 自动补 /v1（/models 与 /chat/comp
   assert.strictEqual(buildApiUrl('http://localhost:1234/v1', '', '/models'), 'http://localhost:1234/v1/models');
   assert.strictEqual(buildApiUrl('http://localhost:11434/v1', '', '/models'), 'http://localhost:11434/v1/models');
 });
+
+// ── 角色路由（v0.8.0 · Claude Code 式多模型分工）──
+test('roles: 默认 provider 设置/读取', () => {
+  providerConfig.setConfig('deepseek', { apiKey: 'sk-ds', model: 'deepseek-chat' });
+  const r = providerConfig.setDefaultProvider('deepseek');
+  assert.strictEqual(r.ok, true);
+  assert.strictEqual(providerConfig.getDefaultProvider(), 'deepseek');
+});
+
+test('roles: 未配置 provider 不能设为默认', () => {
+  const r = providerConfig.setDefaultProvider('openai'); // 未配 key
+  assert.strictEqual(r.ok, false);
+  assert.match(r.error, /未配置/);
+});
+
+test('roles: setRole/getRole 读写 + 清空回落', () => {
+  const r = providerConfig.setRole('plan', { provider: 'openrouter', model: 'gpt-oss:free' });
+  assert.strictEqual(r.ok, true);
+  const g = providerConfig.getRole('plan');
+  assert.strictEqual(g.provider, 'openrouter');
+  assert.strictEqual(g.model, 'gpt-oss:free');
+  // 清空 → 回落默认
+  providerConfig.setRole('plan', { provider: '', model: '' });
+  assert.deepStrictEqual(providerConfig.getRole('plan'), { provider: '', model: '' });
+});
+
+test('roles: 未知角色/未知 provider 拒绝', () => {
+  assert.strictEqual(providerConfig.setRole('nope', {}).ok, false);
+  assert.strictEqual(providerConfig.setRole('chat', { provider: 'nope' }).ok, false);
+});
+
+test('roles: resolveForChat 优先级 = 请求级 > 角色 > 默认 > 自动', () => {
+  const { resolveForChat } = require('../lib/llm-provider/provider-client');
+  providerConfig.setConfig('deepseek', { apiKey: 'sk-ds' });
+  providerConfig.setConfig('openrouter', { apiKey: 'sk-or' });
+  providerConfig.setConfig('nvidia-nim', { apiKey: 'nvapi-x' });
+  // ① 角色 plan → openrouter
+  providerConfig.setRole('plan', { provider: 'openrouter', model: 'gpt-oss:free' });
+  const r1 = resolveForChat(undefined, undefined, undefined, 'plan');
+  assert.strictEqual(r1.providerId, 'openrouter');
+  assert.strictEqual(r1.model, 'gpt-oss:free');
+  // ② 默认 provider → nvidia-nim（角色 chat 未配置时）
+  providerConfig.setDefaultProvider('nvidia-nim');
+  const r2 = resolveForChat(undefined, undefined, undefined, 'chat');
+  assert.strictEqual(r2.providerId, 'nvidia-nim');
+  // ③ 请求级 provider 覆盖一切
+  const r3 = resolveForChat('deepseek', undefined, undefined, 'plan');
+  assert.strictEqual(r3.providerId, 'deepseek');
+  // ④ 角色 provider 未配置 → 回落默认
+  providerConfig.setRole('discuss', { provider: 'openai', model: '' }); // openai 无 key
+  const r4 = resolveForChat(undefined, undefined, undefined, 'discuss');
+  assert.strictEqual(r4.providerId, 'nvidia-nim'); // 回落默认
+});

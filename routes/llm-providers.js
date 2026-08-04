@@ -30,7 +30,7 @@ const { requireToken } = require('../lib/access-auth');
 function createRouter() {
   const router = express.Router();
 
-  // 列表：注册表 + 配置（脱敏）+ 健康（惰性，首次 30s 缓存）
+  // 列表：注册表 + 配置（脱敏）+ 健康 + ⭐默认 + 角色分工（惰性，首次 30s 缓存）
   router.get('/llm-providers', async (req, res) => {
     try {
       const configs = getAllConfigs();
@@ -39,10 +39,31 @@ function createRouter() {
         const h = health.find((x) => x.id === c.id) || { status: 'unknown' };
         return { ...c, health: h.status, healthError: h.error || '' };
       });
-      res.json({ providers: out, source: 'env优先/设置页覆盖' });
+      const { getDefaultProvider, getRole, ROLES } = require('../lib/llm-provider/provider-config');
+      const roles = {};
+      for (const r of ROLES) roles[r] = getRole(r);
+      res.json({ providers: out, source: 'env优先/设置页覆盖', defaultProvider: getDefaultProvider(), roles });
     } catch (err) {
       res.status(500).json({ error: (err && err.message) || String(err) });
     }
+  });
+
+  // ⭐ 设置默认 provider
+  router.post('/llm-providers/default', requireToken, (req, res) => {
+    const { provider } = req.body || {};
+    const { setDefaultProvider } = require('../lib/llm-provider/provider-config');
+    const result = setDefaultProvider(provider);
+    if (!result.ok) return res.status(400).json({ error: result.error });
+    res.json({ ok: true, defaultProvider: provider });
+  });
+
+  // 设置角色分工（chat/plan/discuss/memory）
+  router.post('/llm-providers/role', requireToken, (req, res) => {
+    const { role, fields } = req.body || {};
+    const { setRole } = require('../lib/llm-provider/provider-config');
+    const result = setRole(role, fields);
+    if (!result.ok) return res.status(400).json({ error: result.error });
+    res.json({ ok: true, role, ...(result.warning ? { warning: result.warning } : {}) });
   });
 
   // 模型列表（本地探测 / 云端静态）

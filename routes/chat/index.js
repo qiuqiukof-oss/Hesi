@@ -630,7 +630,7 @@ When the user asks you to perform a "system self-check" / "全面自检" / "diag
     // 其次 provider-config（env 优先 + data/llm-providers.json 覆盖，支持
     // deepseek/qwen/glm/kimi/ollama 等注册表 provider），最后保留旧 env 兜底，
     // 零配置迁移（R5）。旧 OPENAI/ANTHROPIC/HESI_LLM_BASE_URL 行为完全不变。
-    const resolved = resolveForChat(clientProvider, clientKey, clientBaseUrl);
+    const resolved = resolveForChat(clientProvider, clientKey, clientBaseUrl, 'chat');
     const provider = clientProvider ||
       resolved.providerId ||
       (process.env.ANTHROPIC_API_KEY ? 'anthropic' : 'openai');
@@ -840,7 +840,7 @@ When the user asks you to perform a "system self-check" / "全面自检" / "diag
 
     // bug 修复（2026-08-04）：非流式工具路由接入 provider-config（此前漏接，
     // data/llm-providers.json 或 HESI_LLM_<ID>_BASE_URL 配置在此路由不生效）
-    const resolved = resolveForChat(clientProvider, clientKey, clientBaseUrl);
+    const resolved = resolveForChat(clientProvider, clientKey, clientBaseUrl, 'chat');
     const provider = clientProvider ||
       resolved.providerId ||
       (process.env.ANTHROPIC_API_KEY ? 'anthropic' : 'openai');

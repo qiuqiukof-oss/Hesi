@@ -119,7 +119,21 @@ async function runPlanTurn(res, p = {}) {
 
   const cwd = p.cwd || process.cwd();
   const wf = p.workflowManager || workflowManager;
-  const runtime = { apiKey: p.apiKey, provider: p.provider, baseUrl: p.baseUrl, model: p.model };
+  // v0.8.0 角色路由：Plan 任务用 plan 角色（未配置时回落 ⭐默认 → 自动选择），
+  // 请求级显式 provider/apiKey/baseUrl/model 仍优先（Claude Code 式分工）
+  let runtime;
+  try {
+    const { resolveForChat } = require('../../lib/llm-provider/provider-client');
+    const resolved = resolveForChat(p.provider, p.apiKey, p.baseUrl, 'plan');
+    runtime = {
+      apiKey: p.apiKey || resolved.apiKey,
+      provider: p.provider || resolved.providerId,
+      baseUrl: p.baseUrl || resolved.baseUrl,
+      model: p.model || resolved.model,
+    };
+  } catch {
+    runtime = { apiKey: p.apiKey, provider: p.provider, baseUrl: p.baseUrl, model: p.model };
+  }
   const executorAgentId = (typeof p.agentId === 'string' && p.agentId.trim()) ? p.agentId.trim() : 'ai';
   const perms = (p.permissions && typeof p.permissions === 'object') ? p.permissions : null;
   // 🔓 允许完全访问（WorkBuddy 式显式开关）：开启后所有步骤直接执行，不再弹审批气泡。
