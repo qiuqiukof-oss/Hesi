@@ -206,3 +206,17 @@ test('M1: 未指定 provider 但只有 ANTHROPIC key → 选 anthropic（与旧�
   assert.strictEqual(r.providerId, 'anthropic');
   assert.strictEqual(r.apiKey, 'sk-ant');
 });
+
+// ── 回归：本地 provider 用户配置优先于裸默认（球总实测 bug，2026-08-04）──
+test('health: 无云端 key 时优先选「用户配置过的本地 provider」（非裸 ollama）', () => {
+  // 模拟球总场景：仅配置 lmstudio（source=file）
+  providerConfig.setConfig('lmstudio', { apiKey: 'sk-lm-x', baseUrl: 'http://127.0.0.1:1234', model: 'qwen3.6-test' });
+  const r = resolveWithFallback();
+  assert.strictEqual(r.providerId, 'lmstudio');
+  assert.strictEqual(r.fallback, false);
+  // resolveForChat 应带出 lmstudio 的 baseUrl/model
+  const c = resolveForChat(undefined, undefined, undefined);
+  assert.strictEqual(c.providerId, 'lmstudio');
+  assert.strictEqual(c.baseUrl, 'http://127.0.0.1:1234');
+  assert.strictEqual(c.model, 'qwen3.6-test');
+});

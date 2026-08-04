@@ -648,6 +648,16 @@ When the user asks you to perform a "system self-check" / "全面自检" / "diag
     const resolvedBaseUrl = clientBaseUrl || resolved.baseUrl;
 
     if (!apiKey) {
+      // Bug 修复（2026-08-04）：无 key 时优先试「provider-config 解析出的本地地址」
+      // （用户可能在模型服务页配置了 LM Studio 1234 / 自定义 vLLM 等），
+      // 而不是只探测默认 11434——否则配置了本地 provider 也会被误报 needsKey。
+      if (resolvedBaseUrl) {
+        const tools = disableTools ? undefined : QCLI_TOOLS;
+        try {
+          await streamOpenAIWithTools(res, messages, '', resolvedModel || model || 'local-model', resolvedBaseUrl, tools, broadcastFn, req, undefined);
+          return;
+        } catch (_) { /* 本地服务不可达则回落默认探测 */ }
+      }
       if (clientBaseUrl) {
         const tools = disableTools ? undefined : QCLI_TOOLS;
         try {
