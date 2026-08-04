@@ -197,14 +197,17 @@ function verifyWebhook(_req) {
  * @returns {object} normalized inbound
  */
 function eventToInbound(event) {
-  const content = (event && (event.content || '')) || '';
+  // bug 修复（2026-08-04）：兼容官方 WS 事件 d 包裹（{op, t, d:{...}}）与
+  // 平铺 webhook body 两种形态，避免取不到 content 导致消息被静默丢弃
+  const d = (event && event.d && typeof event.d === 'object' && event.d) || event || {};
+  const content = (d.content || '') || '';
   // QQ 机器人 @ 消息：content 形如 "<@!123456> 你好" → 剥离 @ 前缀取正文
   const text = String(content).replace(/^<@!?\d+>\s*/, '').trim();
-  const chatType = event && event.chat_type; // 2=群, 1=c2c(私聊)
-  const chatId = (event && (event.group_openid || event.openid || '')) || '';
+  const chatType = d.chat_type || (event && event.t === 'GROUP_AT_MESSAGE_CREATE' ? 2 : 1); // 2=群, 1=c2c(私聊)
+  const chatId = (d.group_openid || d.openid || (d.author && d.author.user_openid) || '') || '';
   return normalizeInbound('qq', {
     chatId,
-    userId: (event && event.author && event.author.user_openid) || chatId,
+    userId: (d.author && (d.author.user_openid || d.author.member_openid)) || chatId,
     text,
   }, { chatType });
 }
@@ -227,7 +230,8 @@ async function sendMessage(chatId, text, opts = {}) {
       'Content-Type': 'application/json',
       Authorization: `Bearer ${token}`,
     },
-    body: JSON.stringify({ content: text.slice(0, 2000) }), // QQ 单条上限
+    // bug 修复（2026-08-04）：msg_type 官方必填（0=文本），缺失会被拒/无法路由
+    body: JSON.stringify({ content: text.slice(0, 2000), msg_type: 0 }), // QQ 单条上限
   });
   if (!res.ok) {
     const t = await res.text().catch(() => '');

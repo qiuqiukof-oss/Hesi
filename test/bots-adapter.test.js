@@ -103,3 +103,30 @@ test('index.toInbound: 平台事件 → 统一 inbound', () => {
 test('index.toInbound: 未知平台抛错', () => {
   assert.throws(() => toInbound('unknown', { content: 'x' }), /unknown platform/);
 });
+
+// ── QQ 官方 WS 事件 d 包裹兼容（2026-08-04 补）──
+// 官方网关事件结构 { op:0, t:'GROUP_AT_MESSAGE_CREATE', d:{ content, group_openid, author:{user_openid} } }
+test('qq.eventToInbound: 官方 WS 事件（d 包裹）正确解析', () => {
+  const event = {
+    op: 0,
+    t: 'GROUP_AT_MESSAGE_CREATE',
+    s: 12,
+    d: { content: '<@!123456789> 你好', group_openid: 'G_GROUP1', author: { user_openid: 'U_USER1' } },
+  };
+  const inbound = qq.eventToInbound(event);
+  assert.strictEqual(inbound.chatId, 'G_GROUP1');
+  assert.strictEqual(inbound.userId, 'U_USER1');
+  assert.strictEqual(inbound.text, '你好'); // @ 前缀剥离
+  assert.strictEqual(inbound.chatType, 2); // 群
+});
+
+test('qq.eventToInbound: 平铺 webhook body 兼容（回归）', () => {
+  const inbound = qq.eventToInbound({ content: '测试', openid: 'U_ABC', chat_type: 1 });
+  assert.strictEqual(inbound.chatId, 'U_ABC');
+  assert.strictEqual(inbound.text, '测试');
+  assert.strictEqual(inbound.chatType, 1); // c2c 私聊
+});
+
+test('qq.eventToInbound: 空事件 fail-closed 抛错', () => {
+  assert.throws(() => qq.eventToInbound(null));
+});

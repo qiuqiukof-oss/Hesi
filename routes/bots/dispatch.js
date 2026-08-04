@@ -33,9 +33,15 @@ async function dispatchToChat(inbound, opts = {}) {
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), timeoutMs);
   try {
+    const headers = { 'Content-Type': 'application/json' };
+    // bug 修复（2026-08-04）：服务配置 REQUIRE_LOOPBACK=true（严格模式）时
+    // 回环不再豁免鉴权——内部转发必须带 token，否则 bot 消息全部 401 静默失败
+    // （handleInbound 只 console.warn，用户看到"bot 不回话"）。
+    const token = process.env.QCLI_ACCESS_TOKEN;
+    if (token) headers.Authorization = `Bearer ${token}`;
     const res = await fetch(`http://127.0.0.1:${getPort()}/api/chat`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers,
       body: JSON.stringify(body),
       signal: ctrl.signal,
     });
