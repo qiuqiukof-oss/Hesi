@@ -404,7 +404,7 @@
           const saveData = await saveRes.json();
           if (!saveRes.ok) throw new Error(saveData.error || ('HTTP ' + saveRes.status));
         }
-        const res = await fetchWithTimeout('/api/bots/' + current.id + '/test', 8000, { method: 'POST' });
+        const res = await fetchWithTimeout('/api/bots/' + current.id + '/test', 15000, { method: 'POST' });
         const data = await res.json();
         if (data.ok) {
           $.testResult.className = 'bt-test-result bt-test-ok';

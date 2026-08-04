@@ -133,6 +133,10 @@ async function getUpdates(getUpdatesBuf = '') {
         AuthorizationType: 'ilink_bot_token',
         Authorization: `Bearer ${cfg.botToken}`,
         'X-WECHAT-UIN': randomUin(),
+        // bug 修复（2026-08-04）：协议要求客户端版本头（见 get_qrcode_status 注释）。
+        // 实测缺此头时 getupdates 被当作长轮询永久挂起，token 过期（errcode:-14）
+        // 也不立即返回，导致「会话过期」无法被及时探测到。
+        'iLink-App-ClientVersion': '1',
       },
       body: JSON.stringify(baseBody({ get_updates_buf: getUpdatesBuf })),
       signal: ctrl.signal,
@@ -183,13 +187,80 @@ async function sendMessage(contextToken, text) {
 }
 
 /**
- * 测试连接：读配置状态（扫码登录后即"已连接"；未配置提示扫码）。
+ * 测试连接：优先读 bot-loop 实时状态（bug 修复 2026-08-04——原实现只看
+ * token 是否存在，token 过期（errcode:-14）时仍报"已连接"，误导用户；
+ * 且 getupdates 是长轮询，与接收循环并发会被挂起，不能作为探测手段）。
+ *   - 循环已探测到过期 → "会话过期，需重新扫码"
+ *   - 循环最近轮询正常 → "通讯正常"
+ *   - 状态未知（循环未跑/刚启动）→ 短超时探测兜底（8s）
  * @returns {Promise<{ ok: boolean, detail?: string, error?: string }>}
  */
 async function testConnection() {
   const cfg = botConfig.getConfig('wechat-bot');
   if (!cfg.botToken) return { ok: false, error: '未扫码登录，请先在广场页扫码' };
-  return { ok: true, detail: '已扫码登录（bot_token 已保存），长轮询收消息待启用' };
+  // 读接收循环的实时状态（不发起互斥探测——getupdates 是稀缺长轮询资源，
+  // 与接收循环并发会被服务端挂起，绝不能作为探测手段）
+  const { getLoopState } = require('../../lib/bot-loop');
+  const st = getLoopState('wechat-bot');
+  if (st.known && st.expired) {
+    return { ok: false, error: st.lastError || '会话过期，请点「🔗 重新扫码」重新登录' };
+  }
+  // 轮询有过异常记录（含 timeout）→ 不能报"正常"：token 过期时 getupdates
+  // 会被服务端挂住直至超时，timeout 大概率即会话过期（bug 修复 2026-08-04，
+  // 此前误报"通讯正常"误导用户）
+  if (st.known && st.lastError) {
+    return {
+      ok: false,
+      error: `轮询异常（${st.lastError}）——大概率会话过期，请点「🔗 重新扫码」重新登录（重扫后仍异常则检查网络）`,
+    };
+  }
+  if (st.known && !st.expired) {
+    return { ok: true, detail: '通讯正常（长轮询运行中，token 有效）' };
+  }
+  // 状态未知：短超时探测兜底（此时接收循环可能未启动）
+  const r = await getUpdatesWithTimeout('', 8000);
+  if (r.expired) {
+    return { ok: false, error: '会话过期（errcode:-14），请点「🔗 重新扫码」重新登录' };
+  }
+  if (r.ok) return { ok: true, detail: '通讯正常（iLink 长轮询端点可达，token 有效）' };
+  // timeout 或网络错误：大概率会话过期（过期 token 的 getupdates 可能被挂起），
+  // 也可能是网络问题——指引用户优先重扫，扫码后仍不通再看网络。
+  return {
+    ok: false,
+    error: `${r.error || '探测失败'}——大概率会话过期，请点「🔗 重新扫码」重新登录（重扫后仍不通则检查网络）`,
+  };
+}
+
+/** getUpdates 的短超时变体（测试用）：探测连通但不长时间挂起。 */
+async function getUpdatesWithTimeout(getUpdatesBuf, timeoutMs) {
+  const cfg = botConfig.getConfig('wechat-bot');
+  if (!cfg.botToken) return { ok: false, error: 'wechat: not configured' };
+  const url = (cfg.baseurl || BASE).replace(/\/+$/, '');
+  try {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+    const res = await fetch(`${url}/ilink/bot/getupdates`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        AuthorizationType: 'ilink_bot_token',
+        Authorization: `Bearer ${cfg.botToken}`,
+        'X-WECHAT-UIN': randomUin(),
+        'iLink-App-ClientVersion': '1',
+      },
+      body: JSON.stringify(baseBody({ get_updates_buf: getUpdatesBuf })),
+      signal: ctrl.signal,
+    });
+    clearTimeout(timer);
+    if (!res.ok) return { ok: false, error: `HTTP ${res.status}` };
+    const data = await res.json();
+    if (data.errcode === -14 || data.ret === -14) {
+      return { ok: false, expired: true, error: '会话过期，需重新扫码' };
+    }
+    return { ok: true, msgs: data.msgs || [], buf: data.get_updates_buf || getUpdatesBuf };
+  } catch (err) {
+    return { ok: false, error: (err && err.name === 'AbortError') ? 'timeout' : ((err && err.message) || String(err)) };
+  }
 }
 
 module.exports = {

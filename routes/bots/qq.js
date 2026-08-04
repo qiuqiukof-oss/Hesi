@@ -161,10 +161,15 @@ async function getAccessToken() {
 }
 
 /**
- * 测试凭证连通性：尝试换取 access_token。
+ * 测试凭证连通性：尝试换取 access_token（bug 修复 2026-08-04：
+ * 未配置凭证时 fail-closed，直接提示扫码配置，不携带空凭证请求远端）。
  * @returns {Promise<{ ok: boolean, detail?: string, error?: string }>}
  */
 async function testConnection() {
+  const cred = getCredentials();
+  if (!cred.appId || !cred.secret) {
+    return { ok: false, error: '未配置 AppID/AppSecret，请先在广场页扫码配置' };
+  }
   try {
     const token = await getAccessToken();
     return { ok: !!token, detail: token ? '凭证有效，成功获取 access_token' : '返回空 token' };
