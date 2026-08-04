@@ -707,6 +707,9 @@ function initToolsSection() {
       case 'bots-plaza':
         window.open('/bots.html', '_blank');
         break;
+      case 'llm-plaza':
+        window.open('/llm-providers.html', '_blank');
+        break;
       case 'tools-page':
         window.open('/tools.html', '_blank');
         break;

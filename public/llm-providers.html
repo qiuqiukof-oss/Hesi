@@ -1,0 +1,259 @@
+<!--
+  Copyright (c) 2026 qiuqiukof-oss
+  Licensed under the MIT License. See LICENSE for details.
+-->
+
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>模型服务 — Hesi</title>
+  <link rel="stylesheet" href="/css/theme.css" />
+  <link rel="stylesheet" href="/css/standalone-nav.css" />
+  <link rel="stylesheet" href="/css/llm-providers.css" />
+  <script src="/lib/standalone-theme.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg-ground, #0a0a0b);
+      color: var(--text-primary, #f5f5f7);
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .lp-header { text-align: center; padding: 28px 24px 14px; border-bottom: 1px solid var(--border-default, #38383a); }
+    .lp-header h1 { font-size: 24px; font-weight: 700; }
+    .lp-header p { font-size: 13px; color: var(--text-tertiary, #98989d); margin-top: 4px; }
+    .lp-header p b { color: var(--accent, #6366f1); }
+
+    .lp-toolbar { display: flex; gap: 8px; align-items: center; padding: 14px 24px; max-width: 1080px; margin: 0 auto; width: 100%; flex-wrap: wrap; }
+    .lp-refresh-btn { background: var(--bg-overlay, #1c1c1e); color: var(--text-secondary, #98989d); border: 1px solid var(--border-default, #38383a); border-radius: 8px; padding: 8px 16px; font-size: 13px; cursor: pointer; }
+    .lp-refresh-btn:hover { color: var(--text-primary, #f5f5f7); border-color: var(--accent, #6366f1); }
+    .lp-hint { margin-left: auto; font-size: 11px; color: var(--text-tertiary, #98989d); }
+
+    .lp-scroll { flex: 1; overflow-y: auto; padding: 4px 24px 32px; }
+    .lp-grid { max-width: 1080px; margin: 0 auto; display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 16px; }
+    .lp-empty { text-align: center; color: var(--text-tertiary, #98989d); padding: 48px 0; font-size: 13px; }
+
+    .llmp-card { border-radius: 12px; padding: 16px; gap: 8px; }
+    .llmp-card-head { gap: 8px; }
+    .llmp-card-name { font-size: 15px; }
+    .llmp-badge { font-size: 11px; padding: 2px 8px; }
+    .llmp-card-fields label { gap: 3px; }
+    .llmp-card-fields input, .llmp-card-fields select { padding: 6px 8px; font-size: 13px; }
+    .llmp-btn { font-size: 12px; padding: 6px 12px; }
+  </style>
+</head>
+<body>
+  <div class="standalone-nav">
+    <a class="sn-link" href="/">← 返回控制台</a>
+    <span class="sn-sep">/</span>
+    <span class="sn-current">模型服务</span>
+    <a class="sn-link" href="/bots.html">通讯接入</a>
+  </div>
+
+  <div class="lp-header">
+    <h1>🤖 模型服务</h1>
+    <p>接入各家大模型（云端 + 本地）——<b>配置即用</b>，聊天 / Plan / 圆桌 / 记忆自动使用；环境变量优先，本页设置覆盖。</p>
+  </div>
+
+  <div class="lp-toolbar">
+    <button class="lp-refresh-btn" id="lp-refresh">🔄 刷新健康</button>
+    <span class="lp-hint">旧 OPENAI_API_KEY / ANTHROPIC_API_KEY / HESI_LLM_BASE_URL 无需改动，自动映射</span>
+  </div>
+
+  <div class="lp-scroll">
+    <div class="lp-grid" id="lp-grid"><div class="lp-empty">加载模型服务列表…</div></div>
+  </div>
+
+  <script>
+  (function() {
+    'use strict';
+
+    var STATUS_META = {
+      ok:          { label: '✓ 可用',      cls: 'llmp-ok',          icon: '🟢' },
+      degraded:    { label: '⚠ key 无效',   cls: 'llmp-degraded',    icon: '🟠' },
+      down:        { label: '✗ 不可达',     cls: 'llmp-down',        icon: '🔴' },
+      unconfigured:{ label: '未配置',       cls: 'llmp-unconfigured',icon: '⚪' },
+      unknown:     { label: '未探测',       cls: 'llmp-unconfigured',icon: '⚪' },
+    };
+
+    function statusBadge(status) {
+      var m = STATUS_META[status] || STATUS_META.unknown;
+      return '<span class="llmp-badge ' + m.cls + '">' + m.icon + ' ' + m.label + '</span>';
+    }
+
+    function esc(s) {
+      return String(s == null ? '' : s)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    }
+
+    function apiGet(url) {
+      return fetch(url).then(function(res) {
+        if (!res.ok) return res.text().then(function(t) { throw new Error('HTTP ' + res.status + ' ' + t.slice(0, 200)); });
+        return res.json();
+      });
+    }
+
+    function apiPost(url, body) {
+      return fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body || {}),
+      }).then(function(res) {
+        if (!res.ok) return res.text().then(function(t) { throw new Error('HTTP ' + res.status + ' ' + t.slice(0, 200)); });
+        return res.json();
+      });
+    }
+
+    function fetchModels(id) {
+      return apiGet('/api/llm-providers/' + encodeURIComponent(id) + '/models').then(function(d) {
+        return Array.isArray(d.models) ? d.models : [];
+      }).catch(function(e) {
+        console.warn('[llm-providers] fetchModels failed:', e && e.message);
+        return [];
+      });
+    }
+
+    // ── 渲染 ──
+    function render(html) {
+      document.getElementById('lp-grid').innerHTML = html;
+    }
+
+    function renderAll() {
+      render('<div class="lp-empty">加载中…</div>');
+      apiGet('/api/llm-providers').then(function(data) {
+        var providers = data.providers || [];
+        if (!providers.length) {
+          render('<div class="lp-empty">暂无模型服务</div>');
+          return;
+        }
+        var html = providers.map(function(p) {
+          var cfgModel = p.model ? '<option value="' + esc(p.model) + '">' + esc(p.model) + '</option>' : '';
+          return '<div class="llmp-card" data-id="' + esc(p.id) + '">' +
+            '<div class="llmp-card-head">' +
+              '<span class="llmp-card-name">' + esc(p.name) + '</span>' +
+              '<span class="llmp-card-kind">' + (p.kind === 'local' ? '本地' : '云端') + '</span>' +
+              statusBadge(p.health) +
+            '</div>' +
+            '<div class="llmp-card-meta">' +
+              (p.source !== 'none'
+                ? '凭证 ' + (p.source === 'env' ? '环境变量' : '设置页') + ' · ' +
+                  (p.maskedKey ? 'key ' + esc(p.maskedKey) : '无 key') + ' · '
+                : '') +
+              '<span class="llmp-base" title="' + esc(p.baseUrl) + '">' + esc(p.baseUrl) + '</span>' +
+            '</div>' +
+            '<div class="llmp-health-err">' + esc(p.healthError || '') + '</div>' +
+            '<div class="llmp-card-fields">' +
+              '<label>API Key<input class="llmp-key" type="password" placeholder="' +
+                (p.source === 'env' ? '已由环境变量提供（留空不变）' : '粘贴 API Key') +
+                '" autocomplete="off" /></label>' +
+              '<label>Base URL<input class="llmp-base-input" type="text" placeholder="' + esc(p.baseUrl) + '" /></label>' +
+              '<label>模型<select class="llmp-model">' + cfgModel + '<option value="">（使用默认）</option></select></label>' +
+            '</div>' +
+            '<div class="llmp-card-actions">' +
+              '<button class="llmp-btn llmp-btn-primary" data-act="save">💾 保存</button>' +
+              '<button class="llmp-btn" data-act="models">🔄 拉取模型</button>' +
+              '<button class="llmp-btn" data-act="clear">🗑 清空</button>' +
+            '</div>' +
+            '<div class="llmp-msg"></div>' +
+          '</div>';
+        }).join('');
+        render(html);
+        bindAll();
+      }).catch(function(e) {
+        render('<div class="lp-empty">加载失败：' + esc(e.message) + '</div>');
+      });
+    }
+
+    // ── 卡片交互 ──
+    function bindAll() {
+      var grid = document.getElementById('lp-grid');
+      grid.querySelectorAll('.llmp-card').forEach(function(card) {
+        var id = card.dataset.id;
+        var msgEl = card.querySelector('.llmp-msg');
+        var modelSel = card.querySelector('.llmp-model');
+        var saveBtn = card.querySelector('[data-act="save"]');
+        var clearBtn = card.querySelector('[data-act="clear"]');
+        var modelsBtn = card.querySelector('[data-act="models"]');
+
+        var say = function(text, type) {
+          msgEl.textContent = text;
+          msgEl.className = 'llmp-msg ' + (type === 'error' ? 'llmp-msg-error' : 'llmp-msg-ok');
+          if (window.QCLI && window.QCLI.showToast) window.QCLI.showToast(text, type === 'error' ? 'error' : 'success');
+        };
+
+        // 拉取模型列表
+        modelsBtn.addEventListener('click', function() {
+          modelSel.innerHTML = '<option value="">拉取中…</option>';
+          fetchModels(id).then(function(models) {
+            if (!models.length) {
+              modelSel.innerHTML = '<option value="">（无模型 / 服务未运行）</option>';
+              return;
+            }
+            modelSel.innerHTML = models.map(function(m) {
+              return '<option value="' + esc(m) + '">' + esc(m) + '</option>';
+            }).join('') + '<option value="">（使用默认）</option>';
+          });
+        });
+
+        // 保存
+        saveBtn.addEventListener('click', function() {
+          var fields = {};
+          var keyInput = card.querySelector('.llmp-key');
+          var baseInput = card.querySelector('.llmp-base-input');
+          if (keyInput && keyInput.value.trim()) fields.apiKey = keyInput.value.trim();
+          if (baseInput && baseInput.value.trim()) fields.baseUrl = baseInput.value.trim();
+          if (modelSel && modelSel.value) fields.model = modelSel.value;
+          if (!Object.keys(fields).length) {
+            say('没有可保存的内容（key 已由 env 提供时可留空）', 'error');
+            return;
+          }
+          saveBtn.disabled = true;
+          apiPost('/api/llm-providers/config', { provider: id, fields: fields }).then(function(d) {
+            say(d.warning ? '已保存（注意：' + d.warning + '）' : '已保存 ✓');
+            renderAll();
+          }).catch(function(e) {
+            say('保存失败：' + (e && e.message), 'error');
+          }).finally(function() {
+            saveBtn.disabled = false;
+          });
+        });
+
+        // 清空（恢复 env/默认）
+        clearBtn.addEventListener('click', function() {
+          clearBtn.disabled = true;
+          apiPost('/api/llm-providers/config', { provider: id, fields: { apiKey: '', baseUrl: '', model: '' } })
+            .then(function() {
+              say('已清空设置页配置（恢复 env/默认）✓');
+              renderAll();
+            }).catch(function(e) {
+              say('清空失败：' + (e && e.message), 'error');
+            }).finally(function() {
+              clearBtn.disabled = false;
+            });
+        });
+      });
+    }
+
+    // ── 启动 ──
+    document.getElementById('lp-refresh').addEventListener('click', function() {
+      var btn = document.getElementById('lp-refresh');
+      btn.disabled = true;
+      btn.textContent = '刷新中…';
+      apiPost('/api/llm-providers/health', {}).finally(function() {
+        btn.disabled = false;
+        btn.textContent = '🔄 刷新健康';
+        renderAll();
+      });
+    });
+
+    renderAll();
+  })();
+  </script>
+</body>
+</html>
