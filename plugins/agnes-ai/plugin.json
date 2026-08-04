@@ -5,16 +5,51 @@
   "author": "Hesi × Agnes",
   "license": "MIT",
   "routes": [
-    { "method": "GET",    "path": "/api/plugins/agnes-ai/proxy/*", "handler": "handlers/proxy.js" },
-    { "method": "POST",   "path": "/api/plugins/agnes-ai/proxy/*", "handler": "handlers/proxy.js" },
-    { "method": "PUT",    "path": "/api/plugins/agnes-ai/proxy/*", "handler": "handlers/proxy.js" },
-    { "method": "DELETE", "path": "/api/plugins/agnes-ai/proxy/*", "handler": "handlers/proxy.js" },
-    { "method": "PATCH",  "path": "/api/plugins/agnes-ai/proxy/*", "handler": "handlers/proxy.js" },
-    { "method": "GET",    "path": "/api/plugins/agnes-ai/config",  "handler": "handlers/config.js" },
-    { "method": "POST",   "path": "/api/plugins/agnes-ai/config",  "handler": "handlers/config.js" },
-    { "method": "DELETE", "path": "/api/plugins/agnes-ai/config",  "handler": "handlers/config.js" }
+    {
+      "method": "GET",
+      "path": "/api/plugins/agnes-ai/proxy/*",
+      "handler": "handlers/proxy.js"
+    },
+    {
+      "method": "POST",
+      "path": "/api/plugins/agnes-ai/proxy/*",
+      "handler": "handlers/proxy.js"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/plugins/agnes-ai/proxy/*",
+      "handler": "handlers/proxy.js"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/plugins/agnes-ai/proxy/*",
+      "handler": "handlers/proxy.js"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/plugins/agnes-ai/proxy/*",
+      "handler": "handlers/proxy.js"
+    },
+    {
+      "method": "GET",
+      "path": "/api/plugins/agnes-ai/config",
+      "handler": "handlers/config.js"
+    },
+    {
+      "method": "POST",
+      "path": "/api/plugins/agnes-ai/config",
+      "handler": "handlers/config.js"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/plugins/agnes-ai/config",
+      "handler": "handlers/config.js"
+    }
   ],
   "ui": {
-    "scripts": ["ui/panel.js"]
-  }
+    "scripts": [
+      "ui/panel.js"
+    ]
+  },
+  "homepage": "/api/plugins/agnes-ai/doc"
 }

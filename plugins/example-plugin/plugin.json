@@ -4,7 +4,6 @@
   "description": "示例插件 — 展示 Hesi 插件系统的所有能力",
   "author": "Hesi Contributors",
   "license": "MIT",
-
   "clis": [
     {
       "id": "example-hello",
@@ -12,12 +11,13 @@
       "path": "echo",
       "category": "tool",
       "type": "batch",
-      "args": ["Hello from example-plugin!"],
+      "args": [
+        "Hello from example-plugin!"
+      ],
       "init": "",
       "version": "1.0.0"
     }
   ],
-
   "workflows": [
     {
       "id": "example-greet",
@@ -36,7 +36,6 @@
       ]
     }
   ],
-
   "aiTools": [
     {
       "name": "example_echo",
@@ -49,12 +48,13 @@
             "description": "要回显的消息"
           }
         },
-        "required": ["message"]
+        "required": [
+          "message"
+        ]
       },
       "handler": "handlers/echo.js"
     }
   ],
-
   "routes": [
     {
       "method": "GET",
@@ -62,7 +62,6 @@
       "handler": "handlers/hello-route.js"
     }
   ],
-
   "presets": [
     {
       "name": "example",
@@ -72,13 +71,18 @@
       "descriptionEn": "Example preset provided by example-plugin",
       "icon": "🔌",
       "tools": {
-        "example-hello": { "category": "tool", "type": "batch" }
+        "example-hello": {
+          "category": "tool",
+          "type": "batch"
+        }
       },
-      "names": ["example-hello"]
+      "names": [
+        "example-hello"
+      ]
     }
   ],
-
   "lifecycle": {
     "onLoad": "handlers/init.js"
-  }
+  },
+  "homepage": "/api/plugins/example-plugin/doc"
 }

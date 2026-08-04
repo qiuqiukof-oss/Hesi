@@ -4,10 +4,11 @@
   "description": "Mermaid 图表示例/模板浏览器 — 提供内置模板和自定义模板管理",
   "author": "Hesi Contributors",
   "license": "MIT",
-
   "ui": {
-    "scripts": ["ui/panel.js"]
+    "scripts": [
+      "ui/panel.js"
+    ]
   },
-
-  "lifecycle": {}
+  "lifecycle": {},
+  "homepage": "/api/plugins/mermaid-templates/doc"
 }

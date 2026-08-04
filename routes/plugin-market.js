@@ -38,6 +38,7 @@ const { Router } = require('express');
 
 const { createDiscoveryRouter } = require('./plugin-market/discovery');
 const { createInstallRouter } = require('./plugin-market/install');
+const { createDocRouter } = require('./plugin-market/doc');
 const { _test } = require('./plugin-market/helpers');
 
 /**
@@ -51,6 +52,7 @@ function createRouter(opts = {}) {
   const router = Router();
   router.use(createDiscoveryRouter(opts));
   router.use(createInstallRouter(opts));
+  router.use(createDocRouter());
   return router;
 }
 
