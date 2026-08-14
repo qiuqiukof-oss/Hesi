@@ -116,8 +116,12 @@ test('CLOUD 新增：最新热门大模型上下文检测（2026-07 检索）', 
   assert.strictEqual(m.effectiveContext('glm-4-long'), 1000000);
 });
 
-test('旧款云端模型（如 gpt-4o）不收录 → 走大窗口回退 200000', () => {
+test('主流 OpenAI 精确键：gpt-4o 系列 128K（不再高估到 200K）；完全未知模型走 200K 回退', () => {
   const m = new ContextWindowManager();
-  assert.strictEqual(m.effectiveContext('gpt-4o'), 200000);
-  assert.strictEqual(m.effectiveContext('gpt-4o-mini'), 200000);
+  assert.strictEqual(m.effectiveContext('gpt-4o'), 128000, 'gpt-4o 真实 128K，不再高估到 200K');
+  assert.strictEqual(m.effectiveContext('gpt-4o-mini'), 128000);
+  assert.strictEqual(m.effectiveContext('gpt-4'), 128000);
+  assert.strictEqual(m.effectiveContext('gpt-4-turbo'), 128000);
+  // 完全未知且不含任何家族前缀 → 走大窗口回退
+  assert.strictEqual(m.effectiveContext('some-completely-unknown-model'), 200000);
 });

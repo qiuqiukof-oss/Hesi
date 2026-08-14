@@ -86,7 +86,9 @@ async function nonStreamingOpenAI(messages, apiKey, model, baseUrl, broadcastFn,
 
   let currentMessages = [...messages];
   let toolCallCount = 0;
-  const maxToolRounds = 10;
+  // 对齐流式 stream-*.js：复用同一 env 变量 HESI_LLM_MAX_TOOL_ROUNDS（默认 50、可配）。
+  // 原硬编码 10 与流式不一致，是长任务「易停/假完成」的头号真因（对齐企业版 v0.9.7）。
+  const maxToolRounds = Number(process.env.HESI_LLM_MAX_TOOL_ROUNDS) || 50;
 
   while (toolCallCount < maxToolRounds) {
     // ── Total chain timeout check ──
@@ -173,7 +175,9 @@ async function nonStreamingAnthropic(messages, apiKey, model, baseUrl, broadcast
 
   let currentMessages = [...messages];
   let toolCallCount = 0;
-  const maxToolRounds = 10;
+  // 对齐流式 stream-*.js：复用同一 env 变量 HESI_LLM_MAX_TOOL_ROUNDS（默认 50、可配）。
+  // 原硬编码 10 与流式不一致，是长任务「易停/假完成」的头号真因（对齐企业版 v0.9.7）。
+  const maxToolRounds = Number(process.env.HESI_LLM_MAX_TOOL_ROUNDS) || 50;
 
   while (toolCallCount < maxToolRounds) {
     // ── Total chain timeout check ──

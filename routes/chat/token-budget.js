@@ -104,8 +104,6 @@ function pruneToolContext(messages) {
     bySession.get(poll.sessionId).push({ unit: u, poll });
   }
 
-  let changed = false;
-
   for (const [sid, items] of bySession) {
     if (items.length <= 1) {
       // 仅一轮：对单条做尾部截断（若过长）
@@ -113,7 +111,6 @@ function pruneToolContext(messages) {
       if (unit.content.length > AGENT_POLL_KEEP_TAIL) {
         unit.apply(`${unit.content.slice(-AGENT_POLL_KEEP_TAIL)
            }\n\n[agent_poll 输出已截断至尾部 ${AGENT_POLL_KEEP_TAIL} 字符]`);
-        changed = true;
       }
       continue;
     }
@@ -123,7 +120,6 @@ function pruneToolContext(messages) {
     if (last.unit.content.length > AGENT_POLL_KEEP_TAIL) {
       last.unit.apply(`${last.unit.content.slice(-AGENT_POLL_KEEP_TAIL)
          }\n\n[agent_poll 最近一次输出，已截断至尾部 ${AGENT_POLL_KEEP_TAIL} 字符]`);
-      changed = true;
     }
 
     for (let k = 0; k < items.length - 1; k++) {
@@ -133,7 +129,6 @@ function pruneToolContext(messages) {
         `[agent_poll 历史轮次已压缩（session ${sid}，共 ${items.length} 次轮询；最新一次见末条）。${
          tail ? ` 上次尾部预览：\n${tail}` : ''  }]`
       );
-      changed = true;
     }
   }
 
