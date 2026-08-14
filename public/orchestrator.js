@@ -30,11 +30,12 @@ import { escapeHtml } from './escape.js';
 /** @type {QCLI} */
 const Q = /** @type {QCLI} */ (window.QCLI = window.QCLI || {});
 
-const STATUS_ORDER = ['pending', 'blocked', 'running', 'waiting_human', 'completed', 'failed', 'skipped'];
+const STATUS_ORDER = ['pending', 'blocked', 'running', 'resuming', 'waiting_human', 'completed', 'failed', 'skipped'];
 const STATUS_META = {
   pending:       { label: '待运行', color: 'var(--text-tertiary)', icon: '○' },
   blocked:       { label: '阻塞',   color: 'var(--accent-purple)', icon: '⛔' },
   running:       { label: '运行中', color: 'var(--info)',    icon: '⟳' },
+  resuming:      { label: '超时续跑', color: 'var(--warning)', icon: '⏳' },
   completed:     { label: '完成',   color: 'var(--success)', icon: '✅' },
   failed:        { label: '失败',   color: 'var(--danger)',  icon: '❌' },
   skipped:       { label: '跳过',   color: 'var(--text-tertiary)', icon: '⏭' },
@@ -698,6 +699,7 @@ function handleWSMessage(msg) {
         id: t.id, label: t.label, agentId: t.agentId, mode: t.mode, type: t.type,
         dependsOn: t.dependsOn || [], status: t.status || 'pending',
         retries: t.retries || 0, maxRetries: t.maxRetries, onFailure: t.onFailure,
+        autoResumeOnTimeout: t.autoResumeOnTimeout === true,
         output: run.tasks.get(t.id)?.output || '', error: null,
       }));
       renderStatusbar(); renderBoard(); syncRunUI();

@@ -47,6 +47,8 @@ const STATUS = {
   FAILED: 'failed',
   SKIPPED: 'skipped',
   WAITING_HUMAN: 'waiting_human',
+  // autoResumeOnTimeout：任务已超时但 agent 仍在产出，转为后台等待（方案 A）。
+  RESUMING: 'resuming',
 };
 
 // 单 agent 任务回调等待超时：默认 2 分钟，env HESI_AGENT_STEP_TIMEOUT_MS 可调
@@ -130,6 +132,7 @@ function createOrchestrator({ createHeadlessPTY, getAgentCommand, lookupCommand,
       mode: t.mode,
       type: t.type,
       dependsOn: t.dependsOn || [],
+      autoResumeOnTimeout: t.autoResumeOnTimeout === true,
       status: t.status,
       retries: t.retries,
       maxRetries: t.maxRetries,
@@ -157,6 +160,7 @@ function createOrchestrator({ createHeadlessPTY, getAgentCommand, lookupCommand,
       agents: step.agents,
       type: step.type || 'agent',
       dependsOn: prevId ? [prevId] : (step.dependsOn || []),
+      autoResumeOnTimeout: step.autoResumeOnTimeout === true,
       status: STATUS.PENDING,
       retries: 0,
       maxRetries: step.maxRetries != null ? step.maxRetries : 0,
@@ -188,6 +192,7 @@ function createOrchestrator({ createHeadlessPTY, getAgentCommand, lookupCommand,
         agents: t.agents,
         type: t.type || 'agent',
         dependsOn: Array.isArray(t.dependsOn) ? t.dependsOn : [],
+        autoResumeOnTimeout: t.autoResumeOnTimeout === true,
         status: STATUS.PENDING,
         retries: 0,
         maxRetries: t.maxRetries != null ? t.maxRetries : 0,
@@ -306,10 +311,29 @@ function createOrchestrator({ createHeadlessPTY, getAgentCommand, lookupCommand,
       }
       const _log = new RingBuffer(50000);
       const task = rs.tasks.get(taskId);
+      // 方案 A（autoResumeOnTimeout）：超时不 kill，转入 RESUMING 后台等待，产出后正常
+      // resolve；最终兜底 finalTimeout 防无限占资源。settled 守卫防重复 settle（RESUMING
+      // 期间 onExit 与 finalTimeout 竞争）。
+      let settled = false;
+      let timeout = null;
+      let finalTimeout = null;
+      const taskAutoResume = !!(task && task.autoResumeOnTimeout);
+      const FINAL_TIMEOUT_MS = (() => {
+        const v = Number(process.env.HESI_AGENT_FINAL_TIMEOUT_MS);
+        return Number.isFinite(v) && v > 0 ? v : DEFAULT_STEP_TIMEOUT * 3;
+      })();
+      const finalize = (fn, arg) => {
+        if (settled) return;
+        settled = true;
+        if (timeout) clearTimeout(timeout);
+        if (finalTimeout) clearTimeout(finalTimeout);
+        fn(arg);
+      };
 
       const p = createHeadlessPTY(lookup.cmd, [], {
         extraEnv: Object.assign({ WORKFLOW_STEP: task ? task.label : '', WORKFLOW_ID: rs.wfId }, extraEnv || {}),
         onData: (cleaned) => {
+          if (settled) return;
           _log.append(cleaned);
           if (task) {
             task._buf = (task._buf + cleaned).slice(-4096);
@@ -319,15 +343,16 @@ function createOrchestrator({ createHeadlessPTY, getAgentCommand, lookupCommand,
           emit(rs.ws, { type: 'workflow:step:output', workflowId: rs.wfId, stepIndex: rs.index.get(taskId), agentId, data: cleaned });
         },
         onExit: ({ exitCode }) => {
-          clearTimeout(timeout);
+          if (settled) return;
           const code = exitCode == null ? 0 : exitCode;
           // Non-zero exit is a real failure signal for an agent task, so the
           // onFailure policy (retry / skip-dependents / stop) can apply.
-          if (code !== 0) reject(Object.assign(new Error(`agent ${agentId} exited with code ${code}`), { output: _log.join() }));
-          else resolve({ output: _log.join(), exitCode: code });
+          if (code !== 0) finalize(reject, Object.assign(new Error(`agent ${agentId} exited with code ${code}`), { output: _log.join() }));
+          else finalize(resolve, { output: _log.join(), exitCode: code });
         },
         onError: (err) => {
-          reject(new Error(`[spawn_error] ${agentId}: ${err.message}`));
+          if (settled) return;
+          finalize(reject, new Error(`[spawn_error] ${agentId}: ${err.message}`));
         },
       });
 
@@ -337,11 +362,26 @@ function createOrchestrator({ createHeadlessPTY, getAgentCommand, lookupCommand,
       }
       if (task) task._pty = p;
 
-      const timeout = setTimeout(() => {
+      timeout = setTimeout(() => {
+        if (settled) return;
+        // 方案 A：autoResumeOnTimeout 开启 → 不 kill，转入后台等待，agent 产出后正常完成。
+        if (taskAutoResume) {
+          if (task && task.status === STATUS.RUNNING) {
+            task.status = STATUS.RESUMING;
+            emit(rs.ws, { type: 'task:status', taskId, status: STATUS.RESUMING, error: `agent ${agentId} 超过 ${DEFAULT_STEP_TIMEOUT}ms 未退出，已自动继续等待产出（autoResumeOnTimeout）` });
+          }
+          finalTimeout = setTimeout(() => {
+            if (settled) return;
+            // 先 finalize 置 settled 再 kill：kill 同步触发 onExit，避免其把超时误判为成功退出。
+            finalize(reject, Object.assign(new Error(`[final_timeout] agent ${agentId} exceeded ${FINAL_TIMEOUT_MS}ms in autoResume without exit`), { output: _log.join() }));
+            try { p.kill(); } catch (e) { /* PTY already closed on final timeout */ }
+          }, FINAL_TIMEOUT_MS);
+          return;
+        }
+        // 默认行为（无 autoResume）：超时 = 失败，kill + 走 onFailure 策略。
+        // 先 finalize 置 settled 再 kill：kill 同步触发 onExit，避免其把超时误判为成功退出。
+        finalize(reject, Object.assign(new Error(`[timeout] agent ${agentId} exceeded ${DEFAULT_STEP_TIMEOUT}ms without exit`), { output: _log.join() }));
         try { p.kill(); } catch (e) { /* PTY already closed on timeout */ }
-        // 超时 = agent 未在时限内结束，应作为失败（而非静默成功）。
-        // 复用与 onExit 非零退出一致的 reject 路径，使 onFailure 策略（重试/跳过依赖/停止）能生效。
-        reject(Object.assign(new Error(`[timeout] agent ${agentId} exceeded ${DEFAULT_STEP_TIMEOUT}ms without exit`), { output: _log.join() }));
       }, DEFAULT_STEP_TIMEOUT);
 
       p.write(`${prompt  }\n`);
