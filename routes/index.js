@@ -38,14 +38,11 @@ const { createRouter: createBotsRouter } = require('./bots');
 const { createRouter: createLlmProvidersRouter } = require('./llm-providers');
 const { PluginLoader } = require('./plugin-loader');
 const { ToolRegistry } = require('./ai-tools/registry');
-// ── Enterprise platform routers (security / commercial / data workflows) ──
+// ── Platform routers (auth / telemetry / metrics / blackboard / roundtable) ──
 const { createRouter: createAuthRouter } = require('./auth');
-const { createRouter: createAuditAdminRouter } = require('./admin/audit');
-const { createRouter: createLicenseRouter } = require('./license');
 const { createRouter: createTelemetryRouter } = require('./telemetry');
 const { createRouter: createMetricsRouter } = require('./metrics');
 const { createRouter: createBlackboardRouter } = require('./blackboard');
-const { createRouter: createTeamsRouter } = require('./teams');
 const { createRouter: createRoundtableRouter } = require('./roundtable');
 const { createRouter: createWorkspaceRouter } = require('./workspace');
 const { createRouter: createFsRouter } = require('./fs');
@@ -212,15 +209,12 @@ function setupRoutes(app, opts = {}) {
   // 挂载在 /api/experts 下，路由内部使用相对路径（/、/ingest、/:id、POST /）。
   app.use('/api/experts', createExpertsRouter());
 
-  // ── 平台：认证 / 审计 / 许可 / 遥测 / 指标 / 团队（各自内置鉴权） ──
+  // ── 平台：认证 / 遥测 / 指标 / 黑板 / 圆桌（各自内置鉴权） ──
   app.use('/api/auth', createAuthRouter());
-  app.use('/api/admin/audit', createAuditAdminRouter());
-  app.use('/api/license', createLicenseRouter());
   app.use('/api/telemetry', createTelemetryRouter());
   app.use('/api/metrics', createMetricsRouter());
   app.use('/api/blackboard', createBlackboardRouter()); // Phase1 S8: 共享黑板只读观测
   app.use('/api/roundtable', createRoundtableRouter()); // Phase2 S1-S5: 围炉圆桌状态/覆盖层/纪要
-  app.use('/api/workspaces', createTeamsRouter());
 
   // ── Phase 0 全自动闭环：Plan 执行入口（gate→快照→执行→验收→反思） ──
   app.use('/api/plan', requireToken, createPlanRouter({ broadcastFn }));

@@ -56,3 +56,8 @@ hesi/
 # 已在 git 树中跟踪（v0.7.8-fix 起），保证 GitHub Release 的 Source code 自动包含，
 # 用户下载解压后即可 `npm install && npm start` 运行，无需 `npm run build`。
 # 任何 source 变更后必须 `npm run build` 重建并 commit 对应产物（commit 前同步）。
+
+# 运行时自动生成（不入库）
+AGENTS.md
+CLAUDE.md
+

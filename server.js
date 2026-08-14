@@ -20,7 +20,6 @@ const { createWSManager } = require('./ws-handler');
 const { NODE_PTY_AVAILABLE } = require('./ws/pty');
 const { discoverCLIsAsync, resolveRegistryPaths, migrateRegistryCategories } = require('./cli-discovery');
 const { createRouter: createHealthRouter } = require('./routes/health');
-const { createRouter: createSystemRouter } = require('./routes/system');
 const { cleanupOldUploads } = require('./routes/upload');
 const { GENERATED_UPLOADS_DIR, USER_UPLOADS_DIR } = require('./lib/uploads');
 
@@ -277,15 +276,8 @@ setupRoutes(app, {
   mcpStatusOpts: { ensureMCPManager, withMcp },
 });
 
-// Mount digital employee routes (depends on wsManager.digitalEmployeeTeam)
-const { createRouter: createDERouter } = require('./routes/digital-employees');
-app.use('/api', createDERouter({ digitalEmployeeTeam: wsManager.digitalEmployeeTeam }));
-
 // Mount health route on /health (not under /api) to avoid competing with the apiLimiter budget
 app.use('/health', createHealthRouter(wsManager));
-
-// Mount system route (depends on activePTYs from ws-handler)
-app.use('/api', createSystemRouter(wsManager.activePTYs));
 
 // ============================================================
 // Start — dual loopback bind (no LAN exposure by default)

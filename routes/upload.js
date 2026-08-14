@@ -13,7 +13,6 @@ const fs = require('fs');
 const multer = require('multer');
 const { v4: uuidv4 } = require('uuid');
 const { isAllowedUploadExt } = require('./tools');
-const audit = require('../lib/audit');
 const telemetry = require('../lib/telemetry');
 // Upload directory and TTL — kept separate from discovery module
 const { USER_UPLOADS_DIR } = require('../lib/uploads');
@@ -213,7 +212,6 @@ function createRouter({ uploadLimiter }) {
     }
 
     const user = (req.user && req.user.username) || 'anonymous';
-    audit.fileUpload(user, { count: uploaded.length, names: uploaded.map((u) => u.name) });
     telemetry.track('file_upload', { user, feature: 'upload' });
 
     res.json({ success: true, files: uploaded });
@@ -258,7 +256,6 @@ function createRouter({ uploadLimiter }) {
     }
 
     const user = (req.user && req.user.username) || 'anonymous';
-    audit.fileUpload(user, { count: uploaded.length, mode: 'json' });
     telemetry.track('file_upload', { user, feature: 'upload-json' });
 
     res.json({ success: true, files: uploaded });

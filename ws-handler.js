@@ -188,21 +188,11 @@ function createWSManager({ port = require('./lib/port').getPort() } = {}) {
       return null;
     }
 
-    // ── Audit: record the command execution on the unified audit bus (A2) ──
-    // Never let audit break the terminal — wrap in try/catch.
-    try {
-      const audit = require('./lib/audit');
-      const cwd = typeof cliEntry.cwd === 'string'
-        ? cliEntry.cwd
-        : (process.env.HOME || process.env.USERPROFILE || '');
-      audit.ptyCommand({
-        user: (ws && ws._user) || 'anonymous',
-        session: tabId || (ws && ws._sessionId) || 'unknown',
-        cwd,
-        cmd: [cliEntry.name, ...(cliEntry.args || [])].join(' '),
-        policyResult: 'allowed',
-      });
-    } catch (e) { /* audit must never break the terminal */ }
+    // ── Personal edition: audit bus removed (enterprise-only) ──
+    const cwd = typeof cliEntry.cwd === 'string'
+      ? cliEntry.cwd
+      : (process.env.HOME || process.env.USERPROFILE || '');
+    void cwd;
 
     if (!pty) {
       if (ws && ws.readyState === 1) {

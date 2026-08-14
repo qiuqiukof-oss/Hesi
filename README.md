@@ -1,24 +1,25 @@
 <p align="center">
-  <strong>Hesi（合思）v0.7.0 — 全自动多 Agent 协作工作流</strong><br>
+  <strong>Hesi（合思）个人版 v1.0.0 — 浏览器里的终端 + AI 智能体中枢</strong><br>
   <em>AI 讨论 → 制定方案 → AI 讨论审查 → 实施 → AI 讨论审核 → 报告 · 一条聊天消息全自动跑完</em>
 </p>
 
 <p align="center">
-  <a href="https://github.com/qiuqiukof-oss/Hesi/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License"></a>
-  <a href="https://github.com/qiuqiukof-oss/Hesi/releases"><img src="https://img.shields.io/github/v/release/qiuqiukof-oss/Hesi?color=blue" alt="Release"></a>
-  <a href="https://github.com/qiuqiukof-oss/Hesi/stargazers"><img src="https://img.shields.io/github/stars/qiuqiukof-oss/Hesi?style=flat&color=yellow" alt="Stars"></a>
+  <a href="https://github.com/qiuqiukof-oss/Hesi-Q/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License"></a>
+  <a href="https://github.com/qiuqiukof-oss/Hesi-Q/releases"><img src="https://img.shields.io/github/v/release/qiuqiukof-oss/Hesi-Q?color=blue" alt="Release"></a>
+  <a href="https://github.com/qiuqiukof-oss/Hesi-Q/stargazers"><img src="https://img.shields.io/github/stars/qiuqiukof-oss/Hesi-Q?style=flat&color=yellow" alt="Stars"></a>
   <a href="https://nodejs.org/en/"><img src="https://img.shields.io/badge/node-%3E%3D18.0.0-brightgreen" alt="Node Version"></a>
 </p>
 
 <p align="center">
-  <a href="https://qiuqiukof-oss.github.io/Hesi/">▶ 在线体验圆桌 Demo（无需安装）</a> ·
   <a href="#-30-秒快速体验">🚀 30 秒上手</a> ·
   <a href="./README_en.md">English</a>
 </p>
 
 <p align="center">
-  <b>v0.7 核心：同时勾选 💬 AI讨论 + ⚡ 自动执行 → 多 Agent 先讨论再实施方案，</b>从目标输入到交付报告一条 SSE 流跑通，所有结果沉淀在聊天框中。
+  <b>个人版核心：同时勾选 💬 AI讨论 + ⚡ 自动执行 → 多 Agent 先讨论再实施方案，</b>从目标输入到交付报告一条 SSE 流跑通，所有结果沉淀在聊天框中。
 </p>
+
+> 💡 **关于 Hesi 企业版**：本仓库为**个人版（开源，单机单用户）**。企业版在个人版之上提供多用户 / RBAC 权限 / 审计 / 审批 / QQ·微信 Bot / 447 位市场专家全量 / 企业部署与运维支持。需要企业版请查看 [Hesi 企业版说明](#-关于-hesi-企业版)。
 
 ---
 
@@ -27,6 +28,27 @@
 > Hesi 可通过 WebSocket 执行任意终端命令、控制浏览器（CDP 集成）。
 > **强烈建议仅在回环地址（`127.0.0.1` 与 `::1`）本地使用。如必须暴露到非本机网络，务必设置 `QCLI_ACCESS_TOKEN` 并阅读下方《安全部署》章节。**
 > 公网部署且未启用鉴权可能导致远程命令执行（RCE）风险。
+
+---
+
+## 🤝 关于 Hesi 企业版
+
+本仓库是 **Hesi 个人版（开源）**——定位为单机、单用户、自带模型（BYOK）的个人 AI 协作中枢。**个人版免费、开源、可自行部署。**
+
+**Hesi 企业版**基于同一核心，面向组织协作与生产部署，在个人版之上提供：
+
+| 能力 | 个人版（本仓库） | 企业版 |
+|------|:---:|:---:|
+| 终端 + AI 对话 + 圆桌讨论 + 一键执行流 | ✅ | ✅ |
+| 多用户账号 + RBAC 角色权限 | ❌（单机单用户） | ✅ |
+| 审计（操作留痕 / 导出） | ❌ | ✅ |
+| 审批闸（敏感操作需批准） | ❌ | ✅ |
+| QQ / 微信 Bot 接入 | ❌ | ✅ |
+| 447 位市场专家全量 | 仅基础 | ✅ 全量 |
+| 进销存 ERP | ❌ | ✅ |
+| 企业部署 / 运维 / SSO | ❌ | ✅（需部署） |
+
+> 企业版为闭源商业产品，按企业部署 + 运维服务方式交付。需要企业版请通过 GitHub 联系（[Issues](https://github.com/qiuqiukof-oss/Hesi-Q/issues) 或邮件）。
 
 ---
 

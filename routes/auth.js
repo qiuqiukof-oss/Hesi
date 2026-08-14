@@ -10,7 +10,6 @@
 const express = require('express');
 const accounts = require('../lib/auth/accounts');
 const session = require('../lib/auth/session');
-const audit = require('../lib/audit');
 const telemetry = require('../lib/telemetry');
 const idp = require('../lib/auth/idp');
 const { AUTH_MODE } = require('../lib/config');
@@ -25,18 +24,15 @@ function createRouter() {
     if (!username || !password) return res.status(400).json({ error: 'username and password required' });
     const user = accounts.authenticate(username, password);
     if (!user) {
-      audit.log({ type: 'auth', action: 'login_failed', user: username });
       return res.status(401).json({ error: 'invalid credentials' });
     }
     const token = session.createSession(user);
-    audit.login(user.username);
     telemetry.track('login', { user: user.id, feature: 'auth' });
     res.json({ token, user });
   });
 
   // POST /api/auth/logout
   router.post('/logout', session.requireAuth, (req, res) => {
-    audit.logout(req.user.username);
     res.json({ ok: true });
   });
 
@@ -53,7 +49,6 @@ function createRouter() {
     accounts.createUser({ username, password, role: 'admin' })
       .then((user) => {
         const token = session.createSession(user);
-        audit.log({ type: 'auth', action: 'bootstrap', user: username });
         res.json({ token, user });
       })
       .catch((e) => res.status(400).json({ error: e.message }));
@@ -69,7 +64,6 @@ function createRouter() {
     const { username, password, role } = req.body || {};
     accounts.createUser({ username, password, role: role || 'user' })
       .then((u) => {
-        audit.log({ type: 'config_change', action: 'create_user', user: req.user.username, meta: { target: username, role: u.role } });
         res.json({ user: u });
       })
       .catch((e) => res.status(400).json({ error: e.message }));
@@ -79,7 +73,6 @@ function createRouter() {
   router.post('/users/:id/role', session.requireAuth, session.requireRole('users:write'), (req, res) => {
     const u = accounts.updateRole(req.params.id, req.body.role);
     if (!u) return res.status(404).json({ error: 'not found' });
-    audit.log({ type: 'config_change', action: 'set_role', user: req.user.username, meta: { target: u.username, role: u.role } });
     res.json({ user: u });
   });
 
