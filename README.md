@@ -62,7 +62,7 @@
 | 🤖 **多 Agent 围桌讨论** | 在「设置」里填入 LLM API Key → 聊天框勾选 💬 AI讨论 → 选 1–4 个 CLI Agent（opencode / codex / aider） → 输入议题 |
 | ⚡ **全自动协作工作流** | 同时勾选 💬 AI讨论 + ⚡ 自动执行 → 选 CLI Agent 伙伴 + 设定讨论轮数 → 输入目标 → AI 自动完成「讨论→方案→实施→审核→报告」全流程 |
 
-> 💡 **v0.7 推荐试法**：同时勾选 💬+⚡，选 opencode 作为伙伴，输入「在 p4-chat-test 目录创建一个 hello.txt 写 Hello Hesi v0.7.0，验证文件存在且内容正确」。观察五阶段如何在聊天框实时推进。
+> 💡 **推荐试法**：同时勾选 💬+⚡，选 opencode 作为伙伴，输入「在 p4-chat-test 目录创建一个 hello.txt 写 Hello Hesi，验证文件存在且内容正确」。观察五阶段如何在聊天框实时推进。
 
 📖 **完整新手指南**：[docs/getting-started.md](./docs/getting-started.md) ｜ 🧑‍💻 **贡献者指南**：[CONTRIBUTING.md](./CONTRIBUTING.md)
 
@@ -167,7 +167,7 @@
 
 > 隐私：所有记忆均在 `data/memory/` 本地，不外接任何云；`facts.json` / `profile.md` 用户可手动编辑或删除。
 
-### 🤝 AI 助手 × CLI Agent 协作工作流（v0.7 核心）
+### 🤝 AI 助手 × CLI Agent 协作工作流（核心）
 
 > **同时勾选 💬 AI讨论 + ⚡ 自动执行**，多 Agent 先讨论再实施方案，一条 SSE 流跑通全流程。
 
