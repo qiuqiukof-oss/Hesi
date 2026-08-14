@@ -5,9 +5,9 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/qiuqiukof-oss/Hesi/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License"></a>
-  <a href="https://github.com/qiuqiukof-oss/Hesi/releases"><img src="https://img.shields.io/github/v/release/qiuqiukof-oss/Hesi?color=blue" alt="Release"></a>
-  <a href="https://github.com/qiuqiukof-oss/Hesi/stargazers"><img src="https://img.shields.io/github/stars/qiuqiukof-oss/Hesi?style=flat&color=yellow" alt="Stars"></a>
+  <a href="https://github.com/qiuqiukof-oss/Hesi-Q/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License"></a>
+  <a href="https://github.com/qiuqiukof-oss/Hesi-Q/releases"><img src="https://img.shields.io/github/v/release/qiuqiukof-oss/Hesi-Q?color=blue" alt="Release"></a>
+  <a href="https://github.com/qiuqiukof-oss/Hesi-Q/stargazers"><img src="https://img.shields.io/github/stars/qiuqiukof-oss/Hesi-Q?style=flat&color=yellow" alt="Stars"></a>
   <a href="https://nodejs.org/en/"><img src="https://img.shields.io/badge/node-%3E%3D18.0.0-brightgreen" alt="Node Version"></a>
 </p>
 
@@ -20,7 +20,7 @@
 </p>
 
 <p align="center">
-  <a href="https://qiuqiukof-oss.github.io/Hesi/">▶ Live Round-Table Demo (no install)</a> ·
+  <a href="https://qiuqiukof-oss.github.io/Hesi-Q/">▶ Live Round-Table Demo (no install)</a> ·
   <a href="#-30-second-quick-start">🚀 30s Quick Start</a> ·
   <a href="./README.md">中文</a>
 </p>
@@ -39,8 +39,8 @@
 
 | Goal | Action |
 |------|--------|
-| 🖥️ **See it in action** (no install) | [▶ Live Round-Table Demo](https://qiuqiukof-oss.github.io/Hesi/) |
-| 💻 **Try offline** (recommended) | Download the [v0.4.1 Desktop Tray Bundle](https://github.com/qiuqiukof-oss/Hesi/releases/tag/v0.4.1), extract, double-click `tray.bat` (Windows) / `./tray.sh` (macOS/Linux), browser opens `http://127.0.0.1:4264` |
+| 🖥️ **See it in action** (no install) | [▶ Live Round-Table Demo](https://qiuqiukof-oss.github.io/Hesi-Q/) |
+| 💻 **Try offline** (recommended) | Download the [v1.0.0 Desktop Tray Bundle](https://github.com/qiuqiukof-oss/Hesi-Q/releases/tag/v1.0.0), extract, double-click `tray.bat` (Windows) / `./tray.sh` (macOS/Linux), browser opens `http://127.0.0.1:4264` |
 | 🛠️ **Run from source** (devs) | `git clone` → `npm install` → `npm run build` → `npm start`, then open `http://127.0.0.1:4264` |
 | 🤖 **Start a round-table** | Add `OPENAI_API_KEY` or `ANTHROPIC_API_KEY` in Settings, click "Discuss" in the chat, pick 2–4 CLI agents, and enter your topic |
 
@@ -240,8 +240,8 @@
 ### Install
 
 ```bash
-git clone https://github.com/qiuqiukof-oss/Hesi.git
-cd Hesi               # (Need to unzip the portable node to the directory)
+git clone https://github.com/qiuqiukof-oss/Hesi-Q.git
+cd Hesi-Q             # (Need to unzip the portable node to the directory)
 npm install
 npm run build          # production frontend build (outputs public/bundle.js)
 npx playwright install chromium   # optional, for browser-control features

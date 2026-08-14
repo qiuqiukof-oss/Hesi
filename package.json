@@ -10,12 +10,12 @@
   "author": "Hesi Contributors",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/qiuqiukof-oss/Hesi.git"
+    "url": "git+https://github.com/qiuqiukof-oss/Hesi-Q.git"
   },
   "bugs": {
-    "url": "https://github.com/qiuqiukof-oss/Hesi/issues"
+    "url": "https://github.com/qiuqiukof-oss/Hesi-Q/issues"
   },
-  "homepage": "https://github.com/qiuqiukof-oss/Hesi#readme",
+  "homepage": "https://github.com/qiuqiukof-oss/Hesi-Q#readme",
   "engines": {
     "node": ">=18.0.0"
   },

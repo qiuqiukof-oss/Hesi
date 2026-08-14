@@ -56,8 +56,8 @@
 
 | 你想… | 怎么做 |
 |------|--------|
-| 🖥️ **先看效果**（无需安装） | [▶ 在线体验圆桌 Demo](https://qiuqiukof-oss.github.io/Hesi/) |
-| 💻 **零安装试用**（推荐新手） | 下载 [v0.7.0 桌面托盘版](https://github.com/qiuqiukof-oss/Hesi/releases/tag/v0.7.0)，解压后双击 `tray.bat`（Windows）/ `./tray.sh`（macOS/Linux），��览器自动打开 `http://127.0.0.1:4264` |
+| 🖥️ **先看效果**（无需安装） | [▶ 在线体验圆桌 Demo](https://qiuqiukof-oss.github.io/Hesi-Q/) |
+| 💻 **零安装试用**（推荐新手） | 下载 [v1.0.0 桌面托盘版](https://github.com/qiuqiukof-oss/Hesi-Q/releases/tag/v1.0.0)，解压后双击 `tray.bat`（Windows）/ `./tray.sh`（macOS/Linux），浏览器自动打开 `http://127.0.0.1:4264` |
 | 🛠️ **从源码运行**（开发者） | `git clone` → `npm install` → `npm run build` → `npm start`，打开 `http://127.0.0.1:4264` |
 | 🤖 **多 Agent 围桌讨论** | 在「设置」里填入 LLM API Key → 聊天框勾选 💬 AI讨论 → 选 1–4 个 CLI Agent（opencode / codex / aider） → 输入议题 |
 | ⚡ **全自动协作工作流** | 同时勾选 💬 AI讨论 + ⚡ 自动执行 → 选 CLI Agent 伙伴 + 设定讨论轮数 → 输入目标 → AI 自动完成「讨论→方案→实施→审核→报告」全流程 |
@@ -274,8 +274,8 @@
 ### 安装
 
 ```bash
-git clone https://github.com/qiuqiukof-oss/Hesi.git
-cd Hesi               #（需解压便携node至目录）
+git clone https://github.com/qiuqiukof-oss/Hesi-Q.git
+cd Hesi-Q             #（需解压便携node至目录）
 npm install
 npm run build          # 生产构建前端（输出 public/bundle.js）
 npx playwright install chromium   # 可选，浏览器控制功能
