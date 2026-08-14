@@ -49,9 +49,18 @@ const STATUS = {
   WAITING_HUMAN: 'waiting_human',
 };
 
-const DEFAULT_STEP_TIMEOUT = 120000;   // 2 min per agent
+// 单 agent 任务回调等待超时：默认 2 分钟，env HESI_AGENT_STEP_TIMEOUT_MS 可调
+// （建议 60-300s，给足思考时间但有限度；复杂委派任务可调大）。
+const DEFAULT_STEP_TIMEOUT = (() => {
+  const v = Number(process.env.HESI_AGENT_STEP_TIMEOUT_MS);
+  return Number.isFinite(v) && v > 0 ? v : 120000;
+})();
 const DEFAULT_CONTEXT_CAP = 8000;      // structured context injected into dependents
-const BUS_TIMEOUT = 60000;             // agent:msg request/response timeout
+// agent:msg request/response 等待超时：默认 60s，env HESI_AGENT_BUS_TIMEOUT_MS 可调
+const BUS_TIMEOUT = (() => {
+  const v = Number(process.env.HESI_AGENT_BUS_TIMEOUT_MS);
+  return Number.isFinite(v) && v > 0 ? v : 60000;
+})();
 
 // Envelope used to emulate SendMessage over a PTY's stdin/stdout channel.
 const REQ_RE = /<workbuddy-msg[^>]*kind=["']request["'][^>]*msgId=["']([^"']+)["'][^>]*>([\s\S]*?)<\/workbuddy-msg>/g;

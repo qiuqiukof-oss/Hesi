@@ -407,7 +407,12 @@ function deriveWorkdir(action, baseCwd) {
 // ── 单步工作流执行 + 轮询 ──
 
 const POLL_MS = 1000;
-const STEP_TIMEOUT_MS = 10 * 60 * 1000;
+// 单步执行超时：默认 10 分钟，env HESI_PLAN_STEP_TIMEOUT_MS 可调
+// （复杂任务按复杂度动态调整；总时长由每步累计，无整体硬顶）。
+const STEP_TIMEOUT_MS = (() => {
+  const v = Number(process.env.HESI_PLAN_STEP_TIMEOUT_MS);
+  return Number.isFinite(v) && v > 0 ? v : 10 * 60 * 1000;
+})();
 
 /**
  * 解析当前平台可用的 POSIX 兼容 shell（bash/sh）。

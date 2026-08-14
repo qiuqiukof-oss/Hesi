@@ -51,7 +51,12 @@ const { composePersonalization } = require('./personalization');
 
 // Timeout constants (ms)
 const AI_API_FETCH_TIMEOUT = 180_000;  // 单轮 API 调用超时 3 分钟（P3-2，原 120s 偏紧）
-const NON_STREAMING_CHAIN_TIMEOUT = 180_000; // 3 min total tool chain
+// 非流式工具链总超时：默认 3 分钟，env HESI_CHAIN_TIMEOUT_MS 可调
+// （复杂任务建议 900-3600s；AI 讨论+一键执行长任务原 180s 易提前终止）。
+const NON_STREAMING_CHAIN_TIMEOUT = (() => {
+  const v = Number(process.env.HESI_CHAIN_TIMEOUT_MS);
+  return Number.isFinite(v) && v > 0 ? v : 180_000;
+})();
 
 // 生成每请求隔离标识（限流桶归属，P2-3）
 function _newRequestId() {
