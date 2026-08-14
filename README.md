@@ -517,6 +517,13 @@ Hesi 本质上是一个 **本地优先（local-first）** 的终端/浏览器中
 
 ---
 
+---
+
+## 相关项目
+
+- **Hesi DSH 插件**（[hesi-dsh-plugins](https://github.com/qiuqiukof-oss/hesi-dsh-plugins)）：把 Hesi 的圆桌讨论与一键执行流做成 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) 插件（MIT，开源），供 DSH 生态直接使用。
+- **Hesi 企业版**：完整工作台（专家市场 / 企业连接器 / 知识库 / RBAC·审计 / 企业部署）。
+
 ## 许可证
 
 MIT License — see [LICENSE](./LICENSE) for details.
