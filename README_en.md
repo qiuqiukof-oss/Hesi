@@ -42,6 +42,7 @@
 | 🖥️ **See it in action** (no install) | [▶ Live Round-Table Demo](https://qiuqiukof-oss.github.io/Hesi-Q/) |
 | 💻 **Try offline** (recommended) | Download the [v1.0.0 Desktop Tray Bundle](https://github.com/qiuqiukof-oss/Hesi-Q/releases/tag/v1.0.0), extract, double-click `tray.bat` (Windows) / `./tray.sh` (macOS/Linux), browser opens `http://127.0.0.1:4264` |
 | 🛠️ **Run from source** (devs) | `git clone` → `npm install` → `npm run build` → `npm start`, then open `http://127.0.0.1:4264` |
+| 📦 **One-command install** (devs) | `npm install -g hesi-q` → run `hesi`, browser opens `http://127.0.0.1:4264` (published on npmjs; `npx hesi-q` works too, no install needed) |
 | 🤖 **Start a round-table** | Add `OPENAI_API_KEY` or `ANTHROPIC_API_KEY` in Settings, click "Discuss" in the chat, pick 2–4 CLI agents, and enter your topic |
 
 > 💡 Not sure where to start? Try: **Click "Discuss" → select opencode + aider → enter "Design a logging module for this project"** and watch them debate.
@@ -238,6 +239,19 @@
 | **OS** | Windows / macOS / Linux |
 
 ### Install
+
+**Option A: One-command npm install (recommended)**
+
+```bash
+npm install -g hesi-q      # global install (published on npmjs)
+hesi                        # start the server, open http://127.0.0.1:4264
+```
+
+> `npx hesi-q` works too (no install, great for a quick try). The `data/` directory is
+> created automatically at startup in the working directory.
+> Override the port with the `HESI_PORT` env var (default 4264).
+
+**Option B: Run from source**
 
 ```bash
 git clone https://github.com/qiuqiukof-oss/Hesi-Q.git

@@ -58,6 +58,7 @@
 |------|--------|
 | 🖥️ **先看效果**（无需安装） | [▶ 在线体验圆桌 Demo](https://qiuqiukof-oss.github.io/Hesi-Q/) |
 | 💻 **零安装试用**（推荐新手） | 下载 [v1.0.0 桌面托盘版](https://github.com/qiuqiukof-oss/Hesi-Q/releases/tag/v1.0.0)，解压后双击 `tray.bat`（Windows）/ `./tray.sh`（macOS/Linux），浏览器自动打开 `http://127.0.0.1:4264` |
+| 📦 **一键安装**（推荐开发者） | `npm install -g hesi-q` → 敲 `hesi` 启动，浏览器打开 `http://127.0.0.1:4264`（已发布 npmjs，`npx hesi-q` 亦可免安装直跑） |
 | 🛠️ **从源码运行**（开发者） | `git clone` → `npm install` → `npm run build` → `npm start`，打开 `http://127.0.0.1:4264` |
 | 🤖 **多 Agent 围桌讨论** | 在「设置」里填入 LLM API Key → 聊天框勾选 💬 AI讨论 → 选 1–4 个 CLI Agent（opencode / codex / aider） → 输入议题 |
 | ⚡ **全自动协作工作流** | 同时勾选 💬 AI讨论 + ⚡ 自动执行 → 选 CLI Agent 伙伴 + 设定讨论轮数 → 输入目标 → AI 自动完成「讨论→方案→实施→审核→报告」全流程 |
@@ -272,6 +273,18 @@
 | **操作系统** | Windows / macOS / Linux |
 
 ### 安装
+
+**方式 A：npm 一键安装（推荐）**
+
+```bash
+npm install -g hesi-q      # 全局安装（已发布 npmjs）
+hesi                        # 启动服务，浏览器打开 http://127.0.0.1:4264
+```
+
+> `npx hesi-q` 可免安装直跑（适合快速体验）。数据目录 `data/` 在启动时自动创建于工作目录。
+> 端口可用 `HESI_PORT` 环境变量覆盖（默认 4264）。
+
+**方式 B：从源码运行**
 
 ```bash
 git clone https://github.com/qiuqiukof-oss/Hesi-Q.git
