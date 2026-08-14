@@ -84,7 +84,6 @@ import './voice-input.js';   // VoiceInput → speech-to-text for terminal
 import './voice-output.js';  // VoiceOutput → text-to-speech for AI responses
 import './workflows.js';     // Workflows → multi-step agent orchestration
 import './orchestrator.js';   // Orchestrator → WorkBuddy-style task board (DAG orchestration)
-import './digital-employees.js'; // DigitalEmployees → role-based employee management
 import './agents.js';        // Agents → AI agent sidebar panel
 import './settings.js';      // Settings → settings UI, env vars
 
