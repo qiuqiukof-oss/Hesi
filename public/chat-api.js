@@ -96,6 +96,7 @@ export const ChatAPI = {
      *
      * @param {object} options
      * @param {Array<{role:string,content:string}>} options.messages - Chat history
+     * @param {string} [options.endpoint] - SSE 端点（默认 /api/chat；DSH 引擎模式传 /api/dsh2/chat）
      * @param {function(string)} options.onToken - Called with each token
      * @param {function()} options.onDone - Called when stream completes
      * @param {function(string)} options.onError - Called on error
@@ -110,7 +111,7 @@ export const ChatAPI = {
      * @param {boolean} [options.terminalContextChanged] - Whether terminal content has changed since last message
      * @param {AbortSignal} [options.signal] - Optional abort signal
      */
-    async sendMessage({ messages, onToken, onDone, onError, onStatus, onToolCall, onToolLive, onUsage, onAgentMetrics, onReasoning, reasoningEffort, terminalContext, terminalContextChanged, signal, discuss, partner, partners, maxTurns, onDiscuss, sessionId, category, verifyMode, takenOver, planMode, planAgentId, fullAccess, onPlan, keepStreamOnError }) {
+    async sendMessage({ endpoint, messages, onToken, onDone, onError, onStatus, onToolCall, onToolLive, onUsage, onAgentMetrics, onReasoning, reasoningEffort, terminalContext, terminalContextChanged, signal, discuss, partner, partners, maxTurns, onDiscuss, sessionId, category, verifyMode, takenOver, planMode, planAgentId, fullAccess, onPlan, keepStreamOnError }) {
       // C 净化版（v0.8.0）：不再读取浏览器 key/provider/model/baseUrl——
       // 全部由后端「模型服务」配置决定。前端仅透传：
       //  - verifyMode 时的「规划/核查专用模型」（模型名，非敏感）
@@ -162,7 +163,7 @@ export const ChatAPI = {
         const lang = Personalization.getLanguage();
         if (lang && lang !== 'auto') body.language = lang;
 
-        const resp = await fetch('/api/chat', {
+        const resp = await fetch(endpoint || '/api/chat', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(body),

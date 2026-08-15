@@ -99,6 +99,11 @@ class ChatPanel extends HTMLElement {
     /** @type {AgentSessionRenderer|null} */
     this._agentRenderer = null;
 
+    // ── DSH 引擎模式（Phase 2 原生聊天：消息路由到 /api/dsh2/chat）──
+    this._dshEngine = false;             // 当前引擎是否为 DSH（原生聊天模式）
+    this._dshEngineStatus = null;        // 最近一次 /api/dsh2/status 结果
+    this._dshEngineTimer = null;         // 状态轮询定时器
+
     // ── AI 讨论模式状态 ──
     this._discussEnabled = false;     // 开关是否打开
     this._discussPartner = '';        // 选定的主 CLI Agent（兼容旧字段）
@@ -147,6 +152,7 @@ class ChatPanel extends HTMLElement {
     this.blackboardBtn = document.getElementById('chat-blackboard-btn');
     this.roundtableBtn = document.getElementById('chat-roundtable-btn');
     this.dshBtn = document.getElementById('chat-dsh-btn');
+    this.dshEngineBtn = document.getElementById('chat-dsh-engine-btn');
     this.planBtn = null; // P7：抽屉已移除
     this.savingsBtn = document.getElementById('chat-savings-btn');
     this.contextBtn = document.getElementById('chat-context-btn'); // P0.6 占用率圆环
@@ -212,6 +218,7 @@ class ChatPanel extends HTMLElement {
         Q.ChatUI.sendChatMessage = (text) => { if (typeof text === 'string' && this.input) this.input.value = text; this.sendMessage(); };
         Q.ChatUI.toggleChat = () => this.toggle();
         Q.ChatUI.toggleDshMode = (force) => this.toggleDshMode(force);
+        Q.ChatUI.toggleDshEngine = (force) => this.toggleDshEngine(force);
         Q.ChatUI.isChatOpen = () => this.open === true;
         Q.ChatUI.clearChatHistory = () => this.clearHistory();
         Q.ChatUI.appendMessageToDOM = (msg, animate) => this.appendToDOM(msg, animate);
@@ -371,7 +378,12 @@ class ChatPanel extends HTMLElement {
       this.roundtableBtn.addEventListener('click', () => this.toggleMahjongPanel(undefined, 'hearth'));
     }
     if (this.dshBtn) {
+      // Phase 1：🐋 = 切换到 DSH Web UI（iframe 模式）
       this.dshBtn.addEventListener('click', () => this.toggleDshMode());
+    }
+    if (this.dshEngineBtn) {
+      // Phase 2：🐋 原生 = 聊天引擎在 AI 助手 ⇄ DSH 之间切换（消息走 /api/dsh2/chat）
+      this.dshEngineBtn.addEventListener('click', () => this.toggleDshEngine());
     }
     // ── Drag resize via resize handle ──
     if (this.resizeHandle) {
@@ -465,6 +477,13 @@ class ChatPanel extends HTMLElement {
     }
     this._updateTerminalToggleUI();
     this._loadHistory();
+    // DSH 引擎模式记忆（Phase 2）：刷新后保持上次选择的引擎
+    const dshSaved = safeStorage.get('qcli-dsh-engine');
+    if (dshSaved === '1') {
+      this._dshEngine = true;
+      this._syncDshEngineUI();
+      this._startDshEnginePolling();
+    }
     const wasOpen = safeStorage.get('qcli-chat-open');
     if (wasOpen === '1') {
       this.toggle();
@@ -649,8 +668,17 @@ class ChatPanel extends HTMLElement {
     // Real AI API or mock fallback
         const api = Q.ChatAPI;
         if (api) {
+          // Phase 2：DSH 引擎模式下走 /api/dsh2/chat（进程内 DSH，事件协议与 /api/chat 一致）
+          const dshEngine = this._dshEngine === true;
+          if (dshEngine && (!this._dshEngineStatus || !this._dshEngineStatus.running)) {
+            await this._refreshDshEngineStatus();
+          }
+          if (dshEngine && this._dshEngineStatus && !this._dshEngineStatus.running) {
+            this._mockResponse();
+            return;
+          }
           api.isConfigured().then(async (configured) => {
-            if (!configured) {
+            if (!configured && !dshEngine) {
               this._mockResponse();
               return;
             }
@@ -752,6 +780,7 @@ class ChatPanel extends HTMLElement {
         this._planTurnActive = !!this._planEnabled;
 
         api.sendMessage({
+          endpoint: dshEngine ? '/api/dsh2/chat' : undefined,
           messages: msgs,
           category: getActiveCategory() || undefined,
           verifyMode: this._verifyMode,

@@ -37,6 +37,7 @@ const { createRouter: createRateLimiterRouter } = require('./rate-limiter');
 const { createRouter: createBotsRouter } = require('./bots');
 const { createRouter: createLlmProvidersRouter } = require('./llm-providers');
 const { createRouter: createDshRouter } = require('./dsh');
+const { createRouter: createDsh2Router } = require('./dsh2');
 const { PluginLoader } = require('./plugin-loader');
 const { ToolRegistry } = require('./ai-tools/registry');
 // ── Platform routers (auth / telemetry / metrics / blackboard / roundtable) ──
@@ -140,6 +141,8 @@ function setupRoutes(app, opts = {}) {
   }
   // ── DSH（DeepSeek Harness）引擎：并行引擎的进程生命周期管理 ──
   app.use('/api', createDshRouter());
+  // ── DSH2：进程内深度集成（SSE 聊天直接复用 /api/chat 事件协议）──
+  app.use('/api', createDsh2Router());
   setupFinancePageRoutes(app);
 
   // ── Initialize plugin system ──

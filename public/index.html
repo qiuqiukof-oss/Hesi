@@ -115,10 +115,6 @@
           <span class="stb-icon">🤖</span>
           <span class="stb-label">模型服务</span>
         </button>
-        <button class="sidebar-tool-btn" data-tool="dsh-engine" title="DeepSeek Harness（DSH）引擎 — 与 AI 助手并行，随时切换（🐋）">
-          <span class="stb-icon">🐋</span>
-          <span class="stb-label">DSH引擎</span>
-        </button>
         <button class="sidebar-tool-btn" data-tool="tools-page" title="全部工具">
           <span class="stb-icon">🧰</span>
           <span class="stb-label">工具箱</span>
@@ -241,7 +237,7 @@
               </span>
               <span class="savings-pct">--</span>
             </button>
-            <button id="chat-dsh-btn" class="chat-action-btn" title="DeepSeek Harness（DSH）引擎 — 与 AI 助手并行，点击随时切换">🐋</button>
+            <button id="chat-dsh-btn" class="chat-action-btn" title="DSH Web UI（完整版，iframe 嵌入）">🐋⛶</button>
             <button id="chat-clear-btn" class="chat-action-btn" data-i18n-title="chat.clear">🗑</button>
             <button id="chat-close-btn" class="chat-action-btn" data-i18n-title="chat.close">✕</button>
           </div>
@@ -256,6 +252,7 @@
           </div>
         </div>
         <div id="category-chips" class="category-chips" aria-label="对话模式选择"></div>
+        <div id="dsh2-engine-status" class="dsh2-engine-status" data-state="idle" hidden>⏳ DSH 引擎状态未知</div>
         <div class="chat-input-area">
           <div id="discuss-bar" class="discuss-bar">
             <label class="discuss-switch" id="discuss-switch" title="开启后，你的指令会由 AI 助手与所选 CLI Agent（可多选）按回合协作讨论，过程实时可见">
@@ -299,6 +296,7 @@
           <div class="chat-input-row">
             <button id="chat-attach-btn" type="button" class="chat-attach-btn" title="发送图片 / 视频 / 文件给 AI" data-i18n-title="chat.attach">📎</button>
             <button id="chat-verify-btn" type="button" class="chat-verify-btn" title="核查模式：AI 先读文件 / 搜索取证再作答（点击开关）">🔍</button>
+            <button id="chat-dsh-engine-btn" type="button" class="chat-engine-btn" title="DSH 引擎（原生聊天）：与 AI 助手并行，消息直达 DSH 进程内引擎">🐋</button>
             <textarea id="chat-input" rows="1" data-i18n-placeholder="chat.input.placeholder" autocomplete="off"></textarea>
             <button id="chat-send-btn" class="chat-send-btn" data-i18n-title="chat.send">➤</button>
           </div>

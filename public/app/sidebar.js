@@ -710,20 +710,6 @@ function initToolsSection() {
       case 'llm-plaza':
         window.open('/llm-providers.html', '_blank');
         break;
-      case 'dsh-engine':
-        // 打开聊天抽屉并直接进入 DSH 模式
-        if (Q.ChatUI) {
-          if (typeof Q.ChatUI.isChatOpen !== 'function' || !Q.ChatUI.isChatOpen()) {
-            Q.ChatUI.toggleChat();
-          }
-          // 等抽屉展开动画结束后进入 DSH 模式
-          setTimeout(() => {
-            if (Q.ChatUI && typeof Q.ChatUI.toggleDshMode === 'function') Q.ChatUI.toggleDshMode(true);
-          }, 400);
-        } else {
-          Q.showToast?.('聊天面板未就绪，请稍候再试', 'info');
-        }
-        break;
       case 'tools-page':
         window.open('/tools.html', '_blank');
         break;

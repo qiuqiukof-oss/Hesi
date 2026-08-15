@@ -75,6 +75,89 @@ export const sidePanelsMixin = {
   },
 
 
+  // ── Public: DSH 原生聊天引擎（Phase 2）—— 与 AI 助手并行，消息走 /api/dsh2/chat ──
+
+  /**
+   * 切换聊天引擎：AI 助手 ⇄ DSH（原生聊天）。
+   * DSH 引擎模式下：输入框照常用，消息路由到 /api/dsh2/chat，
+   * 思考/文本/工具卡片全部渲染进 Hesi 聊天框（与 /api/chat 同一事件协议）。
+   * @param {boolean} [force] true=切到 DSH / false=切回 AI 助手 / 省略=切换
+   */
+  async toggleDshEngine(force) {
+    const next = force !== undefined ? !!force : !this._dshEngine;
+    if (this._dshEngine === next) return;
+    this._dshEngine = next;
+    if (next) {
+      await this._refreshDshEngineStatus();
+      this._startDshEnginePolling();
+    } else {
+      this._stopDshEnginePolling();
+    }
+    this._syncDshEngineUI();
+    try { localStorage.setItem('qcli-dsh-engine', next ? '1' : '0'); } catch { /* ignore */ }
+  },
+
+  /** 同步 DSH 引擎 UI：标题/副标题/按钮高亮/状态条。 */
+  _syncDshEngineUI() {
+    const drawer = document.getElementById('chat-drawer');
+    const title = drawer && drawer.querySelector('.chat-header-title');
+    const subtitle = drawer && drawer.querySelector('.chat-header-subtitle');
+    const statusEl = document.getElementById('dsh2-engine-status');
+    if (this._dshEngine) {
+      if (title) title.textContent = '🐋 DeepSeek Harness';
+      if (subtitle) subtitle.textContent = 'DSH 引擎 · 原生聊天（进程内）';
+      if (statusEl) statusEl.hidden = false;
+    } else {
+      if (title) title.textContent = '💬 AI 对话';
+      if (subtitle) subtitle.textContent = '与 AI 助手交流';
+      if (statusEl) statusEl.hidden = true;
+    }
+    if (this.dshEngineBtn) this.dshEngineBtn.classList.toggle('active', this._dshEngine);
+    if (this._dshEngine) this._renderDshEngineStatus();
+  },
+
+  /** 拉取 /api/dsh2/status 并缓存。 */
+  async _refreshDshEngineStatus() {
+    try {
+      const r = await fetch('/api/dsh2/status');
+      if (r.ok) this._dshEngineStatus = await r.json();
+    } catch { /* ignore */ }
+    return this._dshEngineStatus;
+  },
+
+  /** 渲染状态条（模型/会话数/错误）。 */
+  _renderDshEngineStatus() {
+    const statusEl = document.getElementById('dsh2-engine-status');
+    if (!statusEl) return;
+    const st = this._dshEngineStatus;
+    if (!st) { statusEl.textContent = '⏳ 引擎状态未知'; statusEl.dataset.state = 'idle'; return; }
+    if (st.running) {
+      statusEl.textContent = `🟢 DSH 引擎运行中 · ${st.model || '未知模型'}` + (st.sessions ? ` · ${st.sessions} 会话` : '');
+      statusEl.dataset.state = 'running';
+    } else {
+      statusEl.textContent = '🟠 DSH 引擎未就绪' + (st.error ? `：${st.error}` : '');
+      statusEl.dataset.state = 'error';
+    }
+  },
+
+  /** 引擎运行期间每 10s 刷新状态。 */
+  _startDshEnginePolling() {
+    this._stopDshEnginePolling();
+    this._dshEngineTimer = setInterval(async () => {
+      if (!this._dshEngine) return;
+      await this._refreshDshEngineStatus();
+      this._renderDshEngineStatus();
+    }, 10_000);
+  },
+
+  _stopDshEnginePolling() {
+    if (this._dshEngineTimer) {
+      clearInterval(this._dshEngineTimer);
+      this._dshEngineTimer = null;
+    }
+  },
+
+
   // ── Public: DSH（DeepSeek Harness）引擎 —— 与 AI 助手并行，随时切换 ──
 
   /**

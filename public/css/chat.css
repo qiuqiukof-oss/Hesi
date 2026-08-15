@@ -187,6 +187,25 @@ body.drawer-resizing {
   display: none;
 }
 
+/* ── DSH 原生聊天引擎状态条（Phase 2：进程内引擎，消息走 /api/dsh2/chat）── */
+.dsh2-engine-status {
+  padding: 4px 12px;
+  font-size: 11px;
+  line-height: 1.5;
+  color: #666;
+  background: rgba(0, 0, 0, 0.03);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.dsh2-engine-status[data-state='running'] {
+  color: #2e7d32;
+}
+.dsh2-engine-status[data-state='error'] {
+  color: #c62828;
+}
+
 /* ── DSH（DeepSeek Harness）引擎模式：聊天区替换为 DSH Web UI ── */
 #chat-drawer.dsh-mode #chat-messages,
 #chat-drawer.dsh-mode .category-chips,
@@ -1156,6 +1175,35 @@ body.drawer-resizing {
 }
 .chat-verify-btn:active { transform: scale(0.95); }
 .chat-verify-btn.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+/* DSH 引擎（原生聊天）切换按钮：复用核查按钮外观，加 active 高亮 */
+.chat-engine-btn {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-default);
+  color: var(--text-secondary);
+  font-size: 16px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: background 0.15s, transform 0.15s, border-color 0.15s, color 0.15s;
+}
+.chat-engine-btn:hover {
+  background: var(--bg-hover);
+  border-color: var(--accent);
+  color: var(--accent);
+  transform: scale(1.05);
+}
+.chat-engine-btn:active { transform: scale(0.95); }
+.chat-engine-btn.active {
   background: var(--accent);
   border-color: var(--accent);
   color: #fff;
