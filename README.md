@@ -18,6 +18,7 @@
 <p align="center">
   <b>个人版核心：同时勾选 💬 AI讨论 + ⚡ 自动执行 → 多 Agent 先讨论再实施方案，</b>从目标输入到交付报告一条 SSE 流跑通，所有结果沉淀在聊天框中。
 </p>
+<img width="2549" height="1191" alt="31e29b87b924e056bb0e65791cf2756b" src="https://github.com/user-attachments/assets/3035a6af-1216-403a-b998-8f6e68c4644c" />
 
 > 💡 **关于 Hesi 企业版**：本仓库为**个人版（开源，单机单用户）**。企业版在个人版之上提供多用户 / RBAC 权限 / 审计 / 审批 / QQ·微信 Bot / 447 位市场专家全量 / 企业部署与运维支持。需要企业版请查看 [Hesi 企业版说明](#-关于-hesi-企业版)。
 
