@@ -18,11 +18,14 @@
 
 const express = require('express');
 
-/** 动态加载 ESM 引擎（CJS require 不能直接吃 ESM，用 import()）。 */
+/** 动态加载 ESM 引擎（CJS require 不能直接吃 ESM，用 import()）。加载失败时清空缓存以允许下次重试。 */
 let _enginePromise = null;
 function engine() {
   if (!_enginePromise) {
-    _enginePromise = import('../lib/dsh2/engine.mjs');
+    _enginePromise = import('../lib/dsh2/engine.mjs').catch((e) => {
+      _enginePromise = null; // 失败后清空，下次请求重新尝试
+      throw e;
+    });
   }
   return _enginePromise;
 }

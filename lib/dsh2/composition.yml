@@ -313,8 +313,8 @@
       - mcp-server.js
     cwd: !!js process.env.HESI_DSH_ROOT ?? process.cwd()
     env:
-      QCLI_API_URL: !!js process.env.HESI_DSH_API_URL ?? 'http://127.0.0.1:4264/api'
-      QCLI_WS_URL: !!js process.env.HESI_DSH_WS_URL ?? 'ws://127.0.0.1:4264'
+      # QCLI_API_URL / QCLI_WS_URL 不在此硬编码：让 mcp-server.js 自身按
+      # mcp/config.js 推导（isHttps() + process.env.PORT），避免端口/协议写死。
       # mcp-client 会 scrubbed 父进程 env（安全考虑），必须显式透传 Hesi 的模型配置
       DEEPSEEK_API_KEY: !!js process.env.DEEPSEEK_API_KEY ?? ''
       HESI_LLM_DEEPSEEK_BASE_URL: !!js process.env.HESI_LLM_DEEPSEEK_BASE_URL ?? ''
