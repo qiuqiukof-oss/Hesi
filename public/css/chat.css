@@ -187,6 +187,61 @@ body.drawer-resizing {
   display: none;
 }
 
+/* ── DSH（DeepSeek Harness）引擎模式：聊天区替换为 DSH Web UI ── */
+#chat-drawer.dsh-mode #chat-messages,
+#chat-drawer.dsh-mode .category-chips,
+#chat-drawer.dsh-mode .chat-input-area {
+  display: none !important;
+}
+#dsh-embed {
+  display: none;
+  flex: 1;
+  min-height: 0;
+  flex-direction: column;
+}
+#chat-drawer.dsh-mode #dsh-embed {
+  display: flex;
+}
+.dsh-embed-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  border-bottom: 1px solid var(--border-default);
+  font-size: 12px;
+  flex-shrink: 0;
+}
+.dsh-embed-title {
+  font-weight: 600;
+}
+#dsh-embed-status {
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+#dsh-embed-status[data-state='running'] {
+  color: #2e7d32;
+}
+#dsh-embed-status[data-state='starting'] {
+  color: #f9a825;
+}
+#dsh-embed-status[data-state='error'] {
+  color: #c62828;
+}
+#dsh-embed-frame {
+  flex: 1;
+  width: 100%;
+  border: 0;
+  min-height: 0;
+  background: #fff;
+}
+#chat-dsh-btn.active {
+  color: #06b6d4;
+  box-shadow: inset 0 -2px 0 currentColor;
+}
+
 @keyframes chat-slide-up {
   from {
     transform: translateY(100%);

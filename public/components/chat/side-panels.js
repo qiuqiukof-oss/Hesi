@@ -75,6 +75,141 @@ export const sidePanelsMixin = {
   },
 
 
+  // ── Public: DSH（DeepSeek Harness）引擎 —— 与 AI 助手并行，随时切换 ──
+
+  /**
+   * 切换聊天引擎：AI 助手 ⇄ DSH。
+   * DSH 模式下聊天区替换为 DSH 官方 Web UI（子进程由后端托管，端口经 /api/dsh 获取）。
+   * @param {boolean} [force] true=进入 DSH / false=切回 AI 助手 / 省略=切换
+   */
+  async toggleDshMode(force) {
+    const drawer = document.getElementById('chat-drawer');
+    const panel = document.getElementById('dsh-embed');
+    if (!drawer || !panel) return;
+    const show = force !== undefined ? force : !drawer.classList.contains('dsh-mode');
+    if (show) {
+      await this._enterDshMode(drawer);
+    } else {
+      this._exitDshMode(drawer);
+    }
+    if (this.dshBtn) this.dshBtn.classList.toggle('active', show);
+    try { localStorage.setItem('qcli-dsh-mode', show ? '1' : '0'); } catch { /* ignore */ }
+  },
+
+  /** 进入 DSH 模式：确保引擎运行 → 装载 iframe → 标题/状态切换。@param {HTMLElement} drawer */
+  async _enterDshMode(drawer) {
+    const statusEl = document.getElementById('dsh-embed-status');
+    const frame = /** @type {HTMLIFrameElement|null} */ (document.getElementById('dsh-embed-frame'));
+    const setStatus = (text, cls) => {
+      if (!statusEl) return;
+      statusEl.textContent = text;
+      statusEl.dataset.state = cls || 'idle';
+    };
+    setStatus('⚙️ 正在启动 DSH 引擎…', 'starting');
+
+    let st;
+    try {
+      st = await (await fetch('/api/dsh/status')).json();
+    } catch { setStatus('❌ 无法连接 Hesi 后端', 'error'); return; }
+    if (!st.available) {
+      setStatus('❌ 未安装 DSH（npm i @deepseek-ai/dsh）', 'error');
+      return;
+    }
+    if (!st.running) {
+      try {
+        st = await (await fetch('/api/dsh/start', { method: 'POST' })).json();
+      } catch { setStatus('❌ DSH 启动请求失败', 'error'); return; }
+    }
+    if (!st.running || !st.port) {
+      setStatus('❌ ' + (st.error || 'DSH 引擎启动失败'), 'error');
+      return;
+    }
+
+    drawer.classList.add('dsh-mode');
+    const title = drawer.querySelector('.chat-header-title');
+    if (title) title.textContent = '🐋 DeepSeek Harness';
+    const subtitle = drawer.querySelector('.chat-header-subtitle');
+    if (subtitle) subtitle.textContent = 'DSH 引擎' + (st.version ? ' · ' + st.version : '');
+    const url = `http://127.0.0.1:${st.port}/`;
+    if (frame) frame.setAttribute('src', url);
+    const openBtn = document.getElementById('dsh-embed-open');
+    if (openBtn) openBtn.setAttribute('href', url);
+    setStatus(
+      st.keyConfigured
+        ? `🟢 运行中 · 端口 ${st.port}`
+        : `🟡 运行中（未配置 DeepSeek Key，可在设置页填入）· 端口 ${st.port}`,
+      'running'
+    );
+    this._bindDshPanelOnce();
+    this._dshStatusTimer = setInterval(() => this._refreshDshStatus(), 5_000);
+  },
+
+  /** 退出 DSH 模式，回到 AI 助手。@param {HTMLElement} drawer */
+  _exitDshMode(drawer) {
+    drawer.classList.remove('dsh-mode');
+    const title = drawer.querySelector('.chat-header-title');
+    if (title) title.textContent = '💬 AI 对话';
+    const subtitle = drawer.querySelector('.chat-header-subtitle');
+    if (subtitle) subtitle.textContent = '与 AI 助手交流';
+    const frame = /** @type {HTMLIFrameElement|null} */ (document.getElementById('dsh-embed-frame'));
+    if (frame) frame.setAttribute('src', 'about:blank'); // 卸载页面，停止 iframe 内轮询
+    if (this._dshStatusTimer) { clearInterval(this._dshStatusTimer); this._dshStatusTimer = null; }
+  },
+
+  /** DSH 面板懒绑定（✕ / 重启 / Esc）。 */
+  _bindDshPanelOnce() {
+    if (this._dshBound) return;
+    this._dshBound = true;
+    const closeBtn = document.getElementById('dsh-embed-close');
+    if (closeBtn) closeBtn.addEventListener('click', () => this.toggleDshMode(false));
+    const restartBtn = document.getElementById('dsh-embed-restart');
+    if (restartBtn) {
+      restartBtn.addEventListener('click', async () => {
+        const statusEl = document.getElementById('dsh-embed-status');
+        if (statusEl) { statusEl.textContent = '🔄 正在重启…'; statusEl.dataset.state = 'starting'; }
+        try {
+          await fetch('/api/dsh/restart', { method: 'POST' });
+          const st = await (await fetch('/api/dsh/status')).json();
+          const frame = document.getElementById('dsh-embed-frame');
+          if (st.running && st.port && frame) {
+            frame.setAttribute('src', `http://127.0.0.1:${st.port}/`);
+            if (statusEl) {
+              statusEl.textContent = `🟢 已重启 · 端口 ${st.port}`;
+              statusEl.dataset.state = 'running';
+            }
+          } else if (statusEl) {
+            statusEl.textContent = '❌ 重启失败：' + (st.error || '未知错误');
+            statusEl.dataset.state = 'error';
+          }
+        } catch { /* ignore */ }
+      });
+    }
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        const drawer = document.getElementById('chat-drawer');
+        if (drawer && drawer.classList.contains('dsh-mode')) this.toggleDshMode(false);
+      }
+    });
+  },
+
+  /** 后台刷新引擎状态（仅更新状态条，不重载 iframe）。 */
+  async _refreshDshStatus() {
+    const statusEl = document.getElementById('dsh-embed-status');
+    if (!statusEl) return;
+    try {
+      const st = await (await fetch('/api/dsh/status')).json();
+      if (st.running) {
+        statusEl.textContent = st.keyConfigured
+          ? `🟢 运行中 · 端口 ${st.port}`
+          : `🟡 运行中（未配置 DeepSeek Key）· 端口 ${st.port}`;
+        statusEl.dataset.state = 'running';
+      } else {
+        statusEl.textContent = '⏹ 引擎未运行';
+        statusEl.dataset.state = 'idle';
+      }
+    } catch { /* ignore */ }
+  },
+
   // ── Drawer resize: 右侧抽屉可拖拽改变宽度，localStorage 记忆 ──
   bindDrawerResize(panelId, storageKey) {
     const panel = document.getElementById(panelId);

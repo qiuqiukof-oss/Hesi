@@ -115,6 +115,10 @@
           <span class="stb-icon">🤖</span>
           <span class="stb-label">模型服务</span>
         </button>
+        <button class="sidebar-tool-btn" data-tool="dsh-engine" title="DeepSeek Harness（DSH）引擎 — 与 AI 助手并行，随时切换（🐋）">
+          <span class="stb-icon">🐋</span>
+          <span class="stb-label">DSH引擎</span>
+        </button>
         <button class="sidebar-tool-btn" data-tool="tools-page" title="全部工具">
           <span class="stb-icon">🧰</span>
           <span class="stb-label">工具箱</span>
@@ -237,6 +241,7 @@
               </span>
               <span class="savings-pct">--</span>
             </button>
+            <button id="chat-dsh-btn" class="chat-action-btn" title="DeepSeek Harness（DSH）引擎 — 与 AI 助手并行，点击随时切换">🐋</button>
             <button id="chat-clear-btn" class="chat-action-btn" data-i18n-title="chat.clear">🗑</button>
             <button id="chat-close-btn" class="chat-action-btn" data-i18n-title="chat.close">✕</button>
           </div>
@@ -300,6 +305,18 @@
           <input type="file" id="chat-file-input" multiple
             accept="image/*,video/*,.pdf,.txt,.md,.markdown,.json,.csv,.log,.js,.mjs,.ts,.tsx,.jsx,.py,.yaml,.yml,.xml,.html,.htm,.css,.scss,.sh,.bash,.sql,.java,.go,.rs,.c,.cpp,.h,.hpp,.rb,.php,.swift,.kt,.lua"
             style="display:none" aria-label="上传附件（图片/视频/文件）" />
+        </div>
+
+        <!-- ====== DSH（DeepSeek Harness）引擎模式：切换后替代 AI 聊天区 ====== -->
+        <div id="dsh-embed">
+          <div class="dsh-embed-bar">
+            <span class="dsh-embed-title">🐋 DeepSeek Harness</span>
+            <span id="dsh-embed-status" data-state="idle">⚙️ 初始化…</span>
+            <a id="dsh-embed-open" class="bb-embed-open" href="#" target="_blank" rel="noopener noreferrer" title="新标签页打开 DSH">⛶</a>
+            <button id="dsh-embed-restart" class="chat-action-btn" title="重启 DSH 引擎">🔄</button>
+            <button id="dsh-embed-close" class="chat-action-btn" title="切回 AI 助手">✕</button>
+          </div>
+          <iframe id="dsh-embed-frame" title="DeepSeek Harness"></iframe>
         </div>
       </div>
       </chat-panel>

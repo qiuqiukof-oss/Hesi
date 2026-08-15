@@ -36,6 +36,7 @@ const { createRouter: createTtsRouter } = require('./tts');
 const { createRouter: createRateLimiterRouter } = require('./rate-limiter');
 const { createRouter: createBotsRouter } = require('./bots');
 const { createRouter: createLlmProvidersRouter } = require('./llm-providers');
+const { createRouter: createDshRouter } = require('./dsh');
 const { PluginLoader } = require('./plugin-loader');
 const { ToolRegistry } = require('./ai-tools/registry');
 // ── Platform routers (auth / telemetry / metrics / blackboard / roundtable) ──
@@ -137,6 +138,8 @@ function setupRoutes(app, opts = {}) {
   if (mcpStatusOpts) {
     app.use('/api', createMcpStatusRouter(mcpStatusOpts));
   }
+  // ── DSH（DeepSeek Harness）引擎：并行引擎的进程生命周期管理 ──
+  app.use('/api', createDshRouter());
   setupFinancePageRoutes(app);
 
   // ── Initialize plugin system ──

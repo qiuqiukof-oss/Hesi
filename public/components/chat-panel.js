@@ -146,6 +146,7 @@ class ChatPanel extends HTMLElement {
     this.exportBtn = document.getElementById('chat-export-btn');
     this.blackboardBtn = document.getElementById('chat-blackboard-btn');
     this.roundtableBtn = document.getElementById('chat-roundtable-btn');
+    this.dshBtn = document.getElementById('chat-dsh-btn');
     this.planBtn = null; // P7：抽屉已移除
     this.savingsBtn = document.getElementById('chat-savings-btn');
     this.contextBtn = document.getElementById('chat-context-btn'); // P0.6 占用率圆环
@@ -210,6 +211,8 @@ class ChatPanel extends HTMLElement {
       if (!Q.ChatUI._patched) {
         Q.ChatUI.sendChatMessage = (text) => { if (typeof text === 'string' && this.input) this.input.value = text; this.sendMessage(); };
         Q.ChatUI.toggleChat = () => this.toggle();
+        Q.ChatUI.toggleDshMode = (force) => this.toggleDshMode(force);
+        Q.ChatUI.isChatOpen = () => this.open === true;
         Q.ChatUI.clearChatHistory = () => this.clearHistory();
         Q.ChatUI.appendMessageToDOM = (msg, animate) => this.appendToDOM(msg, animate);
         Q.ChatUI.showThinkingIndicator = () => this.showThinking();
@@ -366,6 +369,9 @@ class ChatPanel extends HTMLElement {
     }
     if (this.roundtableBtn) {
       this.roundtableBtn.addEventListener('click', () => this.toggleMahjongPanel(undefined, 'hearth'));
+    }
+    if (this.dshBtn) {
+      this.dshBtn.addEventListener('click', () => this.toggleDshMode());
     }
     // ── Drag resize via resize handle ──
     if (this.resizeHandle) {

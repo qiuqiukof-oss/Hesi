@@ -6,6 +6,15 @@ use `vMAJOR.MINOR.PATCH-<tag>`.
 
 ---
 
+## [Unreleased]
+
+### 🐋 DeepSeek Harness（DSH）引擎并行集成（Phase 1）
+
+- **DSH 引擎托管**：Hesi 将最新版 DSH（`@deepseek-ai/dsh@0.1.0-rc.6`）作为子进程托管（`lib/dsh/runtime.js`），自动注入 Hesi 的 DeepSeek 凭据（`DEEPSEEK_API_KEY` / `DEEPSEEK_BASE_URL`）与工作目录，崩溃自动重启、退出自动回收。
+- **并行切换**：聊天区头部新增 🐋 按钮，随时在「💬 AI 助手 ⇄ 🐋 DSH」之间切换；DSH 模式下聊天区嵌入 DSH 官方 Web UI（iframe，端口默认 3080，`HESI_DSH_PORT` 可改），状态条实时显示运行状态 / 端口 / 版本 / Key 是否配置。
+- **生命周期 API**：`GET /api/dsh/status`、`POST /api/dsh/start`、`POST /api/dsh/stop`、`POST /api/dsh/restart`。
+- **说明**：Phase 1 为「Web 引擎内嵌」形态——DSH 全部能力（插件市场 / 思考模式 / 预设 / 工具链）即刻可用且随官方版本更新；Phase 2 将 vendor 源码做进程内深度集成，把 DSH 会话事件渲染进 Hesi 聊天框。
+
 ## [v1.0.0] — 2026-08-15
 
 ### 🎉 Hesi 个人版（开源）首个发布
