@@ -12,6 +12,7 @@ const executeTools = require("./execute");
 const registryTools = require("./registry");
 const browserTools = require("./browser");
 const workbuddyTools = require("./workbuddy");
+const roundtableTools = require("./roundtable");
 const connectorsTools = require("./connectors");
 
 // All tool definitions combined (for ListToolsRequestSchema)
@@ -20,7 +21,8 @@ const allToolDefinitions = [].concat(
   executeTools.toolDefinitions,
   registryTools.toolDefinitions,
   browserTools.toolDefinitions,
-  workbuddyTools.toolDefinitions
+  workbuddyTools.toolDefinitions,
+  roundtableTools.toolDefinitions
 );
 
 // All tool handlers combined (for CallToolRequestSchema dispatch)
@@ -30,7 +32,8 @@ const allHandlers = Object.assign(
   executeTools.createHandlers(),
   registryTools.createHandlers(),
   browserTools.createHandlers(),
-  workbuddyTools.createHandlers()
+  workbuddyTools.createHandlers(),
+  roundtableTools.createHandlers()
 );
 
 module.exports = { allToolDefinitions, allHandlers, connectorsTools };

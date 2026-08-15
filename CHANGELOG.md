@@ -8,6 +8,26 @@ use `vMAJOR.MINOR.PATCH-<tag>`.
 
 ## [Unreleased]
 
+### 🐋 DeepSeek Harness（DSH）引擎并行集成（Phase 2b — Hesi 能力接入 DSH）
+
+- **Hesi MCP server 接入 DSH**：DSH 引擎经 `dsh-mcp-client`（stdio）拉起 Hesi 自身 MCP server，32+ 工具（CDP 浏览器 `browser_*` / 终端会话 `session_*` / CLI 执行 `execute_cli` / `cli_discover` / `workbuddy_execute`）以 `mcp__hesi__*` 形式成为 DSH 原生工具——DSH agent 可直接操控 Hesi 的浏览器、终端与工作区。
+- **圆桌讨论 MCP 工具**：新增 `roundtable_discuss`（`mcp/tools/roundtable.js`），封装 Hesi 圆桌内核 `runRoundtable`，DSH agent 可发起多 Agent 协作讨论并获取纪要/转录/统计；调用超时放宽至 10 分钟（`toolCallTimeoutMs`）。
+- **模型路由修复（两个坑）**：
+  - `routes/chat/discuss.js` `resolveConfig` 此前丢弃 `resolveForChat` 解析出的模型，固定回落 `gpt-4o-mini`，非 OpenAI 端点（如 Agnes 中转）报 `No available channel`——现透传解析模型；
+  - `provider-config.js` 新增 `HESI_LLM_<ID>_MODEL` env 覆盖（与 baseUrl 覆盖对称），`.env` 配置后 Hesi 聊天 / 圆桌 / DSH 引擎**全部共用同一模型**（如 `agnes-2.5-flash`）。
+- **MCP env 透传**：composition.yml 的 mcp-client 显式透传 `DEEPSEEK_API_KEY` / `HESI_LLM_DEEPSEEK_BASE_URL` / `HESI_LLM_DEEPSEEK_MODEL`（mcp-client 会 scrubbed 父进程 env，须显式注入）。
+- **存量修复**：`mcp/security/audit.js` 引用个人版已裁剪的 `lib/audit`，导致 MCP server 无法启动——改为有则用、无则 no-op 的优雅降级。
+- **实测**：DSH agent 真实调用 `browser_ping`（浏览器状态检查）✅；圆桌讨论完整跑通（AI 发言 + CLI 伙伴 + 纪要/统计）✅；「讨论 + 一键执行」一体化（讨论 → 写文件 → 运行验证 → 汇报）✅；相关测试 53/53 通过。
+
+### 🐋 DeepSeek Harness（DSH）引擎并行集成（Phase 2a — 进程内引擎原生聊天）
+
+- **进程内 DSH 引擎**：新增 `lib/dsh2/`（ESM，`engine.mjs`），把 DSH 核心（`@deepseek-ai/dsh-app-boot` + headless 组合）直接 boot 进 Hesi 进程，复用 Hesi-Q 依赖树中全部 37 个 `@deepseek-ai/*` 包（均 0.1.0-rc.6，版本一致，无需 vendor 85MB 仓库源码，保持一行升级）。
+- **原生引擎切换**：聊天区头部新增 🐋 引擎按钮（侧边栏「🐋 DSH引擎」同步进入），AI 助手 ⇄ DSH 随时切换（localStorage 记忆）；DSH 引擎模式下消息直达进程内 DSH，思考流 / 文本流 / 工具调用卡片全部渲染进 **Hesi 自己的聊天框**（与 /api/chat 同一 SSE 事件协议，前端管线零改动复用）。
+- **事件翻译**：`SessionEvent`（`assistant/chunk` 的 reasoning-delta / text-delta / usage、`tool/call`、`tool/result`）→ Hesi SSE（reasoning / token / tool_call_start / tool_call_end / usage / [DONE]）；工具结果递归提取文本、callId→名称反查、耗时计时。
+- **会话模型**：每个 Hesi 会话 ↔ 一个 DSH Agent（`agents.create`，多轮持续）；JSONL 持久化 + 自动上下文压缩随 DSH 原生获得；进程级唯一 sessionId 后缀避免跨重启磁盘 id 碰撞；`POST /api/dsh2/reset` 开新上下文。
+- **API**：`GET /api/dsh2/status`、`POST /api/dsh2/chat`（SSE）、`POST /api/dsh2/reset`。
+- **实测**：真实对话端到端通过——写文件 → bash 运行 → read 验证 → 汇报全流程（7 次工具调用均带 name/耗时/结果）；第二轮多轮持续正常；reset 后会话数归零。
+
 ### 🐋 DeepSeek Harness（DSH）引擎并行集成（Phase 1）
 
 - **DSH 引擎托管**：Hesi 将最新版 DSH（`@deepseek-ai/dsh@0.1.0-rc.6`）作为子进程托管（`lib/dsh/runtime.js`），自动注入 Hesi 的 DeepSeek 凭据（`DEEPSEEK_API_KEY` / `DEEPSEEK_BASE_URL`）与工作目录，崩溃自动重启、退出自动回收。

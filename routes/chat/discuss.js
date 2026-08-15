@@ -105,19 +105,24 @@ function resolveConfig({ apiKey, provider, baseUrl, model }) {
   let effBase = baseUrl;
   // bug 修复（2026-08-04）：provider+key 都给但 baseUrl 缺省时也要解析默认地址，
   // 否则 deepseek/qwen 等非 OpenAI/Anthropic provider 会打到 OpenAI 官方端点。
-  if (!effProvider || !effKey || !effBase) {
+  let effModel = model;
+  if (!effProvider || !effKey || !effBase || !effModel) {
     try {
       const { resolveForChat } = require('../../lib/llm-provider/provider-client');
       const r = resolveForChat(effProvider, effKey, effBase, 'discuss');
       effProvider = effProvider || r.providerId;
       effKey = effKey || r.apiKey;
       effBase = effBase || r.baseUrl;
+      // bug 修复（2026-08-15）：resolveForChat 已解析出 provider 的默认模型
+      // （如 deepseek-chat / agnes-2.5-flash），此前被丢弃导致固定回落 gpt-4o-mini，
+      // 非 OpenAI 端点（如 Agnes 中转）无此模型而报 "No available channel"。
+      effModel = effModel || r.model;
     } catch { /* 模块加载失败时回落旧逻辑 */ }
   }
   const p = effProvider || (process.env.ANTHROPIC_API_KEY ? 'anthropic' : 'openai');
   const key = effKey || process.env.OPENAI_API_KEY || process.env.ANTHROPIC_API_KEY || '';
   const url = effBase || (p === 'anthropic' ? 'https://api.anthropic.com' : 'https://api.openai.com/v1');
-  const m = model || (p === 'anthropic' ? 'claude-sonnet-4-20250514' : 'gpt-4o-mini');
+  const m = effModel || (p === 'anthropic' ? 'claude-sonnet-4-20250514' : 'gpt-4o-mini');
   // bug 修复（2026-08-04）：带出 provider 是否强制需 key——本地（lmstudio/ollama/
   // vllm）与自定义 provider（用户配置端点）不强制，调用方据此区分「云端缺 key
   // 报错」vs「本地/自定义空 key 直接调」，否则配置本地模型或自定义端点的讨论
@@ -511,7 +516,7 @@ async function runRoundtable({ message, partner, partners, maxTurns = 6, apiKey,
   // P1-5：收敛度指标
   /** @type {string[]} */ const roundTexts = [];
   let convergeRounds = 0; // [CONVERGE] 出现的轮次
-  let flipCount = 0; // 意见翻转次数（前后轮 conclusion 矛盾）
+  const flipCount = 0; // 意见翻转次数（前后轮 conclusion 矛盾）
   // 兼容 Anthropic / OpenAI 两套 usage 字段（见 usageFields）
   const recordAi = (u) => {
     const f = usageFields(u);
