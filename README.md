@@ -1,5 +1,5 @@
 <p align="center">
-  <strong>Hesi（合思）个人版 v1.0.0 — 浏览器里的终端 + AI 智能体中枢</strong><br>
+  <strong>Hesi（合思）个人版 v1.1.0 — 浏览器里的终端 + AI 智能体中枢</strong><br>
   <em>AI 讨论 → 制定方案 → AI 讨论审查 → 实施 → AI 讨论审核 → 报告 · 一条聊天消息全自动跑完</em>
 </p>
 
@@ -57,7 +57,7 @@
 | 你想… | 怎么做 |
 |------|--------|
 | 🖥️ **先看效果**（无需安装） | [▶ 在线体验圆桌 Demo](https://qiuqiukof-oss.github.io/Hesi-Q/) |
-| 💻 **零安装试用**（推荐新手） | 下载 [v1.0.0 桌面托盘版](https://github.com/qiuqiukof-oss/Hesi-Q/releases/tag/v1.0.0)，解压后双击 `tray.bat`（Windows）/ `./tray.sh`（macOS/Linux），浏览器自动打开 `http://127.0.0.1:4264` |
+| 💻 **零安装试用**（推荐新手） | 下载 [v1.1.0 桌面托盘版](https://github.com/qiuqiukof-oss/Hesi-Q/releases/tag/v1.1.0)，解压后双击 `tray.bat`（Windows）/ `./tray.sh`（macOS/Linux），浏览器自动打开 `http://127.0.0.1:4264` |
 | 📦 **一键安装**（推荐开发者） | `npm install -g hesi-q` → 敲 `hesi` 启动，浏览器打开 `http://127.0.0.1:4264`（已发布 npmjs，`npx hesi-q` 亦可免安装直跑） |
 | 🛠️ **从源码运行**（开发者） | `git clone` → `npm install` → `npm run build` → `npm start`，打开 `http://127.0.0.1:4264` |
 | 🤖 **多 Agent 围桌讨论** | 在「设置」里填入 LLM API Key → 聊天框勾选 💬 AI讨论 → 选 1–4 个 CLI Agent（opencode / codex / aider） → 输入议题 |

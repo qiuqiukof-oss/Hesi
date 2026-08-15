@@ -40,7 +40,7 @@
 | Goal | Action |
 |------|--------|
 | 🖥️ **See it in action** (no install) | [▶ Live Round-Table Demo](https://qiuqiukof-oss.github.io/Hesi-Q/) |
-| 💻 **Try offline** (recommended) | Download the [v1.0.0 Desktop Tray Bundle](https://github.com/qiuqiukof-oss/Hesi-Q/releases/tag/v1.0.0), extract, double-click `tray.bat` (Windows) / `./tray.sh` (macOS/Linux), browser opens `http://127.0.0.1:4264` |
+| 💻 **Try offline** (recommended) | Download the [v1.1.0 Desktop Tray Bundle](https://github.com/qiuqiukof-oss/Hesi-Q/releases/tag/v1.1.0), extract, double-click `tray.bat` (Windows) / `./tray.sh` (macOS/Linux), browser opens `http://127.0.0.1:4264` |
 | 🛠️ **Run from source** (devs) | `git clone` → `npm install` → `npm run build` → `npm start`, then open `http://127.0.0.1:4264` |
 | 📦 **One-command install** (devs) | `npm install -g hesi-q` → run `hesi`, browser opens `http://127.0.0.1:4264` (published on npmjs; `npx hesi-q` works too, no install needed) |
 | 🤖 **Start a round-table** | Add `OPENAI_API_KEY` or `ANTHROPIC_API_KEY` in Settings, click "Discuss" in the chat, pick 2–4 CLI agents, and enter your topic |

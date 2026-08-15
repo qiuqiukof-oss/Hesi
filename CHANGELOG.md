@@ -6,7 +6,7 @@ use `vMAJOR.MINOR.PATCH-<tag>`.
 
 ---
 
-## [Unreleased]
+## [v1.1.0] — 2026-08-15
 
 ### 🐋 DeepSeek Harness（DSH）引擎并行集成（Phase 2b — Hesi 能力接入 DSH）
 
