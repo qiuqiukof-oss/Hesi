@@ -6,6 +6,14 @@ use `vMAJOR.MINOR.PATCH-<tag>`.
 
 ---
 
+## [v1.1.1] — 2026-08-15
+
+### 🛠️ 跨平台修复
+
+- **Windows 兼容（DSH 引擎运行时）**：`lib/dsh/runtime.js` 适配 Windows——可执行文件改用 `.bin/dsh.cmd` shim、全局查找改用 `where`（原 `command -v` 在 cmd 下必失败）、监听端口进程查询改用 `netstat -ano`、`spawn` 加 `shell:true`（`.cmd` 需 shell 才能执行）、孤儿进程回收在 Windows 早退（`/proc` 仅 Linux 存在）。
+- **引擎健壮性**：`routes/dsh2.js` 引擎加载失败后清空缓存，允许下次请求重试（此前 rejected Promise 永久缓存）；`lib/dsh2/engine.mjs` `getStatus` 透出 boot 错误到前端（此前被 `catch(()=>null)` 吞掉）。
+- **MCP 地址推导**：`lib/dsh2/composition.yml` 移除硬编码 `127.0.0.1:4264` 的 `QCLI_API_URL`/`QCLI_WS_URL`，交由 `mcp/config.js` 按 `isHttps()` + `process.env.PORT` 推导——Hesi 跑非默认端口或 HTTPS 时，DSH 内部 MCP 桥接不再断裂。
+
 ## [v1.1.0] — 2026-08-15
 
 ### 🐋 DeepSeek Harness（DSH）引擎并行集成（Phase 2b — Hesi 能力接入 DSH）
