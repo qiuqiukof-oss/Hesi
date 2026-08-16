@@ -1,5 +1,5 @@
 <p align="center">
-  <strong>Hesi（合思）个人版 v1.1.0 — 浏览器里的终端 + AI 智能体中枢</strong><br>
+  <strong>Hesi（合思）个人版 v1.1.1 — 浏览器里的终端 + AI 智能体中枢</strong><br>
   <em>AI 讨论 → 制定方案 → AI 讨论审查 → 实施 → AI 讨论审核 → 报告 · 一条聊天消息全自动跑完</em>
 </p>
 
@@ -16,7 +16,11 @@
 </p>
 
 <p align="center">
-  <b>个人版核心：同时勾选 💬 AI讨论 + ⚡ 自动执行 → 多 Agent 先讨论再实施方案，</b>从目标输入到交付报告一条 SSE 流跑通，所有结果沉淀在聊天框中。
+  <b>个人版核心：同时勾选 💬 AI讨论 + ⚡ 自动执行 → 多 Agent 先讨论再实施方案</b> 
+<p align="center">
+  <b>从目标输入到交付报告一条 SSE 流跑通，所有结果沉淀在聊天框中</b> 
+<p align="center">
+  <b>已集成Deepseek harness Preview，npx hesi-q 一条命令即可体验</b> 
 </p>
 <img width="2549" height="1191" alt="31e29b87b924e056bb0e65791cf2756b" src="https://github.com/user-attachments/assets/3035a6af-1216-403a-b998-8f6e68c4644c" />
 
