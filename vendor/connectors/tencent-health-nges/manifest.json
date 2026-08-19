@@ -1,0 +1,8 @@
+{
+  "id": "tencent-health-nges",
+  "name": "tencent-health-nges",
+  "category": "integration",
+  "enterprise": true,
+  "authType": "token",
+  "description": "tencent-health-nges connector for Hesi"
+}

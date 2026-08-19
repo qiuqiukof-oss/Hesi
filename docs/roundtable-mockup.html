@@ -1,0 +1,206 @@
+<!--
+  Copyright (c) 2026 qiuqiukof-oss
+  Licensed under the MIT License. See LICENSE for details.
+-->
+
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>围炉圆桌 · 多 Agent 协作可视化（概念稿 v2）</title>
+<style>
+  body{font-family:"PingFang SC","Microsoft YaHei",sans-serif;background:#f6f7f9;color:#23272e;margin:0;padding:24px;display:flex;justify-content:center}
+  .card{background:#fff;border:1px solid #e3e6ea;border-radius:14px;padding:18px 22px;max-width:640px;width:100%}
+  h1{font-size:16px;font-weight:600;margin:0 0 4px}
+  .sub{font-size:12.5px;color:#7a828c;margin:0 0 14px;line-height:1.6}
+  .rt{position:relative;height:440px;background:#eef0f2;border-radius:12px}
+  .rtseat{position:absolute;text-align:center;width:108px;transition:opacity .2s}
+  .rtav{width:56px;height:56px;margin:0 auto;border-radius:50%;background:#fff;border:2px solid #c9ced4;display:flex;align-items:center;justify-content:center;overflow:hidden}
+  .rtname{font-size:12px;font-weight:600;margin-top:4px}
+  .rtrole{font-size:11px;color:#7a828c}
+  .rtst{display:inline-block;margin-top:3px;font-size:11px;padding:1px 8px;border-radius:999px;color:#fff}
+  .empty .rtav{border-style:dashed;border-color:#b9c0c8;background:#f3f4f6}
+  .empty .rtname{color:#9aa1a9}
+  .empty .seatchair{font-size:11px;color:#9aa1a9;margin-top:3px}
+  .center{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:150px;height:150px;border-radius:50%;background:#fff;border:1px solid #c9ced4;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center}
+  .center .t{font-size:12px;color:#7a828c}
+  .center .n{font-size:14px;font-weight:600;margin:2px 0}
+  .center .r{font-size:11px;color:#9aa1a9}
+  .bub{position:absolute;background:#fff;border:1px solid #c9ced4;border-radius:10px;padding:6px 9px;font-size:11px;max-width:130px;color:#23272e;line-height:1.4}
+  .bar{margin-top:14px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+  button{padding:6px 14px;border:1px solid #c9ced4;border-radius:6px;background:#fff;color:#23272e;cursor:pointer;font-size:13px}
+  button:hover{border-color:#3b7dd8;color:#3b7dd8}
+  select{padding:6px 10px;border:1px solid #c9ced4;border-radius:6px;font-size:13px;background:#fff}
+  .tip{font-size:12px;color:#9aa1a9}
+  .mj .rt{background:#EAF3DE}
+  .mj .rtav{border-color:#3B6D11}
+  .mj #lbl{display:none}.mj #mjlbl{display:block}
+  #mjlbl{display:none}
+  @media (prefers-reduced-motion:no-preference){.rtav{animation:bob 2.4s ease-in-out infinite}@keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-3px)}}}
+  /* customize modal */
+  .modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.35);align-items:center;justify-content:center;z-index:50}
+  .modal.show{display:flex}
+  .mpanel{background:#fff;border-radius:12px;padding:18px 20px;width:320px;box-shadow:0 10px 30px rgba(0,0,0,.2)}
+  .mpanel h3{margin:0 0 12px;font-size:14px}
+  .field{margin-bottom:10px}
+  .field label{display:block;font-size:12px;color:#7a828c;margin-bottom:3px}
+  .field input[type=text]{width:100%;box-sizing:border-box;padding:6px 8px;border:1px solid #c9ced4;border-radius:6px;font-size:13px}
+  .field .row{display:flex;gap:8px;align-items:center}
+  .field input[type=color]{width:36px;height:30px;border:1px solid #c9ced4;border-radius:6px;padding:0}
+  .radios{display:flex;gap:12px;font-size:12px;color:#23272e}
+  .uphint{font-size:11px;color:#9aa1a9;margin-top:3px}
+  .mclose{margin-top:8px;text-align:right}
+  /* transcript card */
+  .memo{margin-top:16px;border:1px solid #e3e6ea;border-radius:12px;padding:12px 14px;background:#fbfcfd}
+  .memo h3{margin:0 0 8px;font-size:13px}
+  .ml{font-size:12px;line-height:1.7;border-left:3px solid #c9ced4;padding-left:10px;margin:4px 0}
+  .ml .who{font-weight:600}
+  .ml.speaking{border-left-color:#BA7517}
+</style>
+</head>
+<body>
+<div class="card">
+  <h1>围炉圆桌 · 多 Agent 协作可视化（概念稿 v2）</h1>
+  <p class="sub">回应三点诉求：① 头像/名字可自定义（⚙）② 少于 4 个 Agent 时其余显示为空座（虚位，可隐藏）③ 讨论结果除气泡外，自动归档为对话内的「圆桌纪要」可回看 + 导出。</p>
+
+  <div class="rt" id="rt">
+    <div class="center">
+      <div class="t" id="lbl">共享桌布</div>
+      <div class="t" id="mjlbl">牌桌中心</div>
+      <div class="n">任务 3 · 文件 5</div>
+      <div class="r">第 2 回合</div>
+    </div>
+
+    <!-- 主持人 -->
+    <div class="rtseat" style="left:50%;top:8px;transform:translateX(-50%)">
+      <div class="rtav" style="border-color:#BA7517">
+        <svg width="56" height="56" viewBox="0 0 56 56"><circle cx="28" cy="32" r="19" fill="#B5D4F4"/><circle cx="21" cy="30" r="3" fill="#042C53"/><circle cx="35" cy="30" r="3" fill="#042C53"/><path d="M22 39 q6 5 12 0" fill="none" stroke="#042C53" stroke-width="2"/><polygon points="28,4 31,11 38,11 32,15 34,22 28,18 22,22 24,15 18,11 25,11" fill="#BA7517"/></svg>
+      </div>
+      <div class="rtname">你 · 主持人</div>
+      <div class="rtrole">落座 / 抛话题 / 审批</div>
+    </div>
+
+    <!-- 小狐 -->
+    <div class="rtseat" data-seat="1" style="left:14px;top:130px">
+      <div class="rtav" style="border-color:#BA7517">
+        <svg width="56" height="56" viewBox="0 0 56 56"><polygon points="14,8 23,27 7,27" fill="#BA7517"/><polygon points="42,8 49,27 33,27" fill="#BA7517"/><circle cx="28" cy="33" r="20" fill="#EF9F27"/><ellipse cx="28" cy="41" rx="11" ry="9" fill="#FAEEDA"/><circle cx="21" cy="31" r="3" fill="#412402"/><circle cx="35" cy="31" r="3" fill="#412402"/><polygon points="28,36 25,40 31,40" fill="#412402"/><circle cx="15" cy="37" r="2.5" fill="#F09595"/><circle cx="41" cy="37" r="2.5" fill="#F09595"/></svg>
+      </div>
+      <div class="rtname">小狐 Foxy</div>
+      <div class="rtrole">前端 Frontend</div>
+      <div class="rtst" style="background:#BA7517">思考中</div>
+      <div class="seatchair" style="display:none">空座</div>
+    </div>
+
+    <!-- 胖达 -->
+    <div class="rtseat" data-seat="2" style="right:14px;top:130px">
+      <div class="rtav" style="border-color:#2C2C2A">
+        <svg width="56" height="56" viewBox="0 0 56 56"><circle cx="16" cy="14" r="7" fill="#2C2C2A"/><circle cx="40" cy="14" r="7" fill="#2C2C2A"/><circle cx="28" cy="33" r="20" fill="#FFFFFF" stroke="#B4B2A9" stroke-width="1"/><ellipse cx="21" cy="31" rx="5" ry="7" fill="#2C2C2A"/><ellipse cx="35" cy="31" rx="5" ry="7" fill="#2C2C2A"/><circle cx="21" cy="32" r="2" fill="#FFFFFF"/><circle cx="35" cy="32" r="2" fill="#FFFFFF"/><ellipse cx="28" cy="41" rx="3" ry="2" fill="#2C2C2A"/></svg>
+      </div>
+      <div class="rtname">胖达 Panda</div>
+      <div class="rtrole">后端 Backend</div>
+      <div class="rtst" style="background:#5F5E5A">发言中</div>
+      <div class="seatchair" style="display:none">空座</div>
+    </div>
+
+    <!-- 博士 -->
+    <div class="rtseat" data-seat="3" style="left:14px;top:300px">
+      <div class="rtav" style="border-color:#534AB7">
+        <svg width="56" height="56" viewBox="0 0 56 56"><polygon points="18,9 23,25 13,25" fill="#534AB7"/><polygon points="38,9 43,25 33,25" fill="#534AB7"/><circle cx="28" cy="33" r="20" fill="#7F77DD"/><circle cx="21" cy="31" r="8" fill="#FFFFFF"/><circle cx="35" cy="31" r="8" fill="#FFFFFF"/><circle cx="21" cy="32" r="3.5" fill="#26215C"/><circle cx="35" cy="32" r="3.5" fill="#26215C"/><polygon points="28,35 25,41 31,41" fill="#BA7517"/><circle cx="16" cy="39" r="2.5" fill="#ED93B1"/><circle cx="40" cy="39" r="2.5" fill="#ED93B1"/><circle cx="21" cy="31" r="9" fill="none" stroke="#26215C" stroke-width="1"/><circle cx="35" cy="31" r="9" fill="none" stroke="#26215C" stroke-width="1"/><line x1="30" y1="31" x2="26" y2="31" stroke="#26215C" stroke-width="1"/></svg>
+      </div>
+      <div class="rtname">博士 Owl</div>
+      <div class="rtrole">架构师 Architect</div>
+      <div class="rtst" style="background:#534AB7">工作中</div>
+      <div class="seatchair" style="display:none">空座</div>
+    </div>
+
+    <!-- 查查 -->
+    <div class="rtseat" data-seat="4" style="right:14px;top:300px">
+      <div class="rtav" style="border-color:#3B6D11">
+        <svg width="56" height="56" viewBox="0 0 56 56"><ellipse cx="21" cy="9" rx="4" ry="11" fill="#97C459"/><ellipse cx="35" cy="9" rx="4" ry="11" fill="#97C459"/><ellipse cx="21" cy="9" rx="2" ry="6" fill="#ED93B1"/><ellipse cx="35" cy="9" rx="2" ry="6" fill="#ED93B1"/><circle cx="28" cy="35" r="18" fill="#C0DD97"/><circle cx="22" cy="33" r="3" fill="#173404"/><circle cx="34" cy="33" r="3" fill="#173404"/><ellipse cx="28" cy="41" rx="2.5" ry="1.8" fill="#D4537E"/><circle cx="17" cy="39" r="2.5" fill="#F09595"/><circle cx="39" cy="39" r="2.5" fill="#F09595"/><circle cx="43" cy="45" r="6" fill="none" stroke="#3B6D11" stroke-width="2"/><line x1="47" y1="49" x2="51" y2="53" stroke="#3B6D11" stroke-width="2"/></svg>
+      </div>
+      <div class="rtname">查查 Bunny</div>
+      <div class="rtrole">测试 QA</div>
+      <div class="rtst" style="background:#9aa1a9">待命</div>
+      <div class="seatchair" style="display:none">空座</div>
+    </div>
+
+    <div class="bub" style="left:118px;top:150px">这个按钮圆角我再调下</div>
+    <div class="bub" style="right:118px;top:150px">接口校验我先补上</div>
+  </div>
+
+  <div class="bar">
+    <button onclick="document.getElementById('rt').classList.toggle('mj')">麻将皮肤</button>
+    <label class="tip">参与 Agent：</label>
+    <select id="seatSel" onchange="applySeats(this.value)">
+      <option value="4">4 席全坐</option>
+      <option value="2">只坐 2 席（其余空座）</option>
+      <option value="1">只坐 1 席（其余空座）</option>
+      <option value="2hide">只坐 2 席（隐藏空座）</option>
+    </select>
+    <button onclick="openModal()">⚙ 自定义</button>
+    <span class="tip">彩蛋：麻将皮肤把圆桌变牌桌，呼应"麻将闲谈"</span>
+  </div>
+
+  <!-- 圆桌纪要卡 -->
+  <div class="memo">
+    <h3>📜 圆桌纪要（已存入当前对话，可回看 / 导出 .md）</h3>
+    <div class="ml speaking"><span class="who" style="color:#BA7517">小狐 Foxy：</span>登录按钮圆角我从 6px 调到 8px，更柔和。</div>
+    <div class="ml"><span class="who" style="color:#5F5E5A">胖达 Panda：</span>已补 /api/login 的参数校验，空密码直接 400。</div>
+    <div class="ml"><span class="who" style="color:#534AB7">博士 Owl：</span>建议把鉴权逻辑抽到 middleware，避免每个路由重复。</div>
+    <div class="ml"><span class="who" style="color:#9aa1a9">查查 Bunny：</span>补了 3 个单测覆盖异常分支，全绿。</div>
+    <div class="bar" style="margin-top:10px">
+      <button onclick="alert('导出 roundtable-summary.md（发言顺序+结论+黑板摘要+待办）')">导出纪要 .md</button>
+    </div>
+  </div>
+</div>
+
+<!-- 自定义模态 -->
+<div class="modal" id="modal">
+  <div class="mpanel">
+    <h3>⚙ 自定义席位（小狐 Foxy）</h3>
+    <div class="field">
+      <label>名字</label>
+      <input type="text" value="小狐 Foxy">
+    </div>
+    <div class="field">
+      <label>角色标签</label>
+      <input type="text" value="前端 Frontend">
+    </div>
+    <div class="field">
+      <label>主题色</label>
+      <div class="row"><input type="color" value="#BA7517"><span class="tip">琥珀色</span></div>
+    </div>
+    <div class="field">
+      <label>头像来源</label>
+      <div class="radios">
+        <label><input type="radio" name="av" checked> 内置 SVG 库</label>
+        <label><input type="radio" name="av"> Emoji</label>
+        <label><input type="radio" name="av"> 上传图</label>
+      </div>
+      <div class="uphint">上传图将转 base64 存 config.json，随离线包带走（不写 data/）。</div>
+    </div>
+    <div class="mclose"><button onclick="closeModal()">完成</button></div>
+  </div>
+</div>
+
+<script>
+function applySeats(v){
+  const hide = v==='2hide';
+  const n = v==='4' ? 4 : (v==='1' ? 1 : 2);
+  document.querySelectorAll('.rtseat[data-seat]').forEach(s=>{
+    const id = +s.getAttribute('data-seat');
+    const empty = id > n;
+    s.classList.toggle('empty', empty);
+    s.querySelector('.seatchair').style.display = empty ? 'block' : 'none';
+    s.querySelector('.rtst').style.display = empty ? 'none' : 'inline-block';
+    s.style.opacity = (empty && hide) ? '0' : '1';
+    s.style.pointerEvents = (empty && hide) ? 'none' : 'auto';
+  });
+}
+function openModal(){document.getElementById('modal').classList.add('show')}
+function closeModal(){document.getElementById('modal').classList.remove('show')}
+document.getElementById('modal').addEventListener('click',e=>{if(e.target.id==='modal')closeModal()});
+</script>
+</body>
+</html>

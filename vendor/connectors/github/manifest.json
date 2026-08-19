@@ -1,0 +1,8 @@
+{
+  "id": "github",
+  "name": "github",
+  "category": "dev-tools",
+  "enterprise": false,
+  "authType": "oauth",
+  "description": "github connector for Hesi"
+}

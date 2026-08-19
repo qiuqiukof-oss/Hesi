@@ -1,0 +1,8 @@
+{
+  "id": "kdocs",
+  "name": "kdocs",
+  "category": "documentation",
+  "enterprise": false,
+  "authType": "token",
+  "description": "kdocs connector for Hesi"
+}

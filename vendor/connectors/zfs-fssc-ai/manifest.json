@@ -1,0 +1,8 @@
+{
+  "id": "zfs-fssc-ai",
+  "name": "zfs-fssc-ai",
+  "category": "integration",
+  "enterprise": false,
+  "authType": "token",
+  "description": "zfs-fssc-ai connector for Hesi"
+}

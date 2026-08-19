@@ -1,0 +1,63 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node-version: [18.x, 20.x, 22.x]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Use Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: npm
+
+      # --ignore-scripts skips native builds (e.g. node-pty's gyp step) which are only
+      # needed at runtime. CI only runs the frontend build + backend syntax checks + the
+      # pure-logic unit tests (none of which touch node-pty), so the prebuilt esbuild
+      # binary (pulled in via optionalDependencies) is sufficient.
+      - name: Install dependencies
+        run: npm ci --ignore-scripts
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Build frontend bundle
+        run: npm run build
+
+      - name: Backend syntax checks
+        run: npm run check:server
+
+      - name: Unit tests
+        run: npm test
+
+      - name: Regression plans
+        run: npm run plans
+
+  coverage:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Use Node.js 22.x
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.x
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci --ignore-scripts
+
+      # Node's built-in coverage (no external c8 dependency). Reports per-file
+      # line/branch/function coverage for the unit test suite.
+      - name: Test coverage
+        run: npm run test:coverage

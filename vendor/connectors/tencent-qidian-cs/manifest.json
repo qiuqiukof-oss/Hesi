@@ -1,0 +1,8 @@
+{
+  "id": "tencent-qidian-cs",
+  "name": "tencent-qidian-cs",
+  "category": "integration",
+  "enterprise": false,
+  "authType": "token",
+  "description": "tencent-qidian-cs connector for Hesi"
+}

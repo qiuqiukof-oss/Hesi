@@ -1,0 +1,21 @@
+{
+  "name": "hesi-switch",
+  "version": "1.0.0",
+  "description": "Hesi 模型网关：对外 OpenAI 兼容 API（/v1/chat/completions），复用 Hesi 12 家 provider + ⭐默认/角色路由 + 自动故障转移。让 Claude Code 等外部 Agent 直接调用 Hesi 的模型体系。",
+  "author": "Hesi",
+  "license": "MIT",
+  "homepage": "/api/plugins/hesi-switch/admin/ui",
+  "routes": [
+    { "method": "POST", "path": "/api/plugins/hesi-switch/v1/chat/completions", "handler": "handlers/gateway.js" },
+    { "method": "GET",  "path": "/api/plugins/hesi-switch/v1/models", "handler": "handlers/gateway.js" },
+    { "method": "GET",  "path": "/api/plugins/hesi-switch/health", "handler": "handlers/gateway.js" },
+    { "method": "GET",  "path": "/api/plugins/hesi-switch/admin/keys", "handler": "handlers/admin.js" },
+    { "method": "POST", "path": "/api/plugins/hesi-switch/admin/keys", "handler": "handlers/admin.js" },
+    { "method": "DELETE", "path": "/api/plugins/hesi-switch/admin/keys", "handler": "handlers/admin.js" },
+    { "method": "GET",  "path": "/api/plugins/hesi-switch/admin/usage", "handler": "handlers/admin.js" },
+    { "method": "GET",  "path": "/api/plugins/hesi-switch/admin/ui", "handler": "handlers/admin.js" }
+  ],
+  "lifecycle": {
+    "onLoad": "handlers/init.js"
+  }
+}

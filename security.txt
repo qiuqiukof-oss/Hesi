@@ -1,0 +1,5 @@
+Contact: mailto:security@hesi.example
+Expires: 2027-07-21T00:00:00.000Z
+Preferred-Languages: zh, en
+Canonical: https://github.com/qiuqiukof-oss/Hesi/security.txt
+Policy: https://github.com/qiuqiukof-oss/Hesi/security/advisories

@@ -1,0 +1,8 @@
+{
+  "id": "cnb-woa",
+  "name": "cnb-woa",
+  "category": "dev-tools",
+  "enterprise": true,
+  "authType": "token",
+  "description": "cnb-woa connector for Hesi"
+}

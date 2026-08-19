@@ -1,0 +1,8 @@
+{
+  "id": "wk-workbuddy",
+  "name": "wk-workbuddy",
+  "category": "project-management",
+  "enterprise": true,
+  "authType": "token",
+  "description": "wk-workbuddy connector for Hesi"
+}

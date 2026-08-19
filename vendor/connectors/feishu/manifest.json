@@ -1,0 +1,8 @@
+{
+  "id": "feishu",
+  "name": "feishu",
+  "category": "messaging",
+  "enterprise": true,
+  "authType": "oauth",
+  "description": "feishu connector for Hesi"
+}

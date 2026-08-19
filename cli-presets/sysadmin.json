@@ -1,0 +1,977 @@
+{
+  "name": "sysadmin",
+  "label": "系统管理员",
+  "labelEn": "System Admin",
+  "description": "系统运维 — 监控、网络、包管理、容器编排、安全审计",
+  "descriptionEn": "System administration — monitoring, networking, package management, container orchestration, security auditing",
+  "icon": "🖥️",
+  "extends": [
+    "shared"
+  ],
+  "categories": {
+    "sys": "⚙️ 系统工具",
+    "net": "🌐 网络工具",
+    "pkg": "📦 包管理",
+    "container": "🐳 容器 & 编排",
+    "security": "🔒 安全工具",
+    "monitor": "📈 监控 & 日志",
+    "tool": "🔧 辅助工具"
+  },
+  "tools": {
+    "systemctl": {
+      "category": "sys",
+      "type": "batch"
+    },
+    "journalctl": {
+      "category": "sys",
+      "type": "batch"
+    },
+    "systemd-analyze": {
+      "category": "sys",
+      "type": "batch"
+    },
+    "systemd-cat": {
+      "category": "sys",
+      "type": "batch"
+    },
+    "timedatectl": {
+      "category": "sys",
+      "type": "batch"
+    },
+    "hostnamectl": {
+      "category": "sys",
+      "type": "batch"
+    },
+    "localectl": {
+      "category": "sys",
+      "type": "batch"
+    },
+    "loginctl": {
+      "category": "sys",
+      "type": "batch"
+    },
+    "df": {
+      "category": "sys",
+      "type": "batch"
+    },
+    "du": {
+      "category": "sys",
+      "type": "batch"
+    },
+    "lsblk": {
+      "category": "sys",
+      "type": "batch"
+    },
+    "blkid": {
+      "category": "sys",
+      "type": "batch"
+    },
+    "fdisk": {
+      "category": "sys",
+      "type": "batch"
+    },
+    "parted": {
+      "category": "sys",
+      "type": "batch"
+    },
+    "mount": {
+      "category": "sys",
+      "type": "batch"
+    },
+    "umount": {
+      "category": "sys",
+      "type": "batch"
+    },
+    "mkfs": {
+      "category": "sys",
+      "type": "batch"
+    },
+    "fsck": {
+      "category": "sys",
+      "type": "batch"
+    },
+    "lvm": {
+      "category": "sys",
+      "type": "batch"
+    },
+    "pvdisplay": {
+      "category": "sys",
+      "type": "batch"
+    },
+    "vgdisplay": {
+      "category": "sys",
+      "type": "batch"
+    },
+    "lvdisplay": {
+      "category": "sys",
+      "type": "batch"
+    },
+    "smartctl": {
+      "category": "sys",
+      "type": "batch"
+    },
+    "lsusb": {
+      "category": "sys",
+      "type": "batch"
+    },
+    "lspci": {
+      "category": "sys",
+      "type": "batch"
+    },
+    "lscpu": {
+      "category": "sys",
+      "type": "batch"
+    },
+    "lshw": {
+      "category": "sys",
+      "type": "batch"
+    },
+    "dmesg": {
+      "category": "sys",
+      "type": "batch"
+    },
+    "uptime": {
+      "category": "sys",
+      "type": "batch"
+    },
+    "who": {
+      "category": "sys",
+      "type": "batch"
+    },
+    "last": {
+      "category": "sys",
+      "type": "batch"
+    },
+    "w": {
+      "category": "sys",
+      "type": "batch"
+    },
+    "ps": {
+      "category": "sys",
+      "type": "batch"
+    },
+    "kill": {
+      "category": "sys",
+      "type": "batch"
+    },
+    "pkill": {
+      "category": "sys",
+      "type": "batch"
+    },
+    "nice": {
+      "category": "sys",
+      "type": "batch"
+    },
+    "renice": {
+      "category": "sys",
+      "type": "batch"
+    },
+    "crontab": {
+      "category": "sys",
+      "type": "batch"
+    },
+    "at": {
+      "category": "sys",
+      "type": "batch"
+    },
+    "rsync": {
+      "category": "sys",
+      "type": "batch"
+    },
+    "dd": {
+      "category": "sys",
+      "type": "batch"
+    },
+    "screen": {
+      "category": "sys",
+      "type": "interactive"
+    },
+    "iptables": {
+      "category": "net",
+      "type": "batch"
+    },
+    "nft": {
+      "category": "net",
+      "type": "batch"
+    },
+    "ufw": {
+      "category": "net",
+      "type": "batch"
+    },
+    "firewalld": {
+      "category": "net",
+      "type": "batch"
+    },
+    "nmap": {
+      "category": "net",
+      "type": "batch"
+    },
+    "netstat": {
+      "category": "net",
+      "type": "batch"
+    },
+    "ss": {
+      "category": "net",
+      "type": "batch"
+    },
+    "tcpdump": {
+      "category": "net",
+      "type": "batch"
+    },
+    "traceroute": {
+      "category": "net",
+      "type": "batch"
+    },
+    "mtr": {
+      "category": "net",
+      "type": "batch"
+    },
+    "dig": {
+      "category": "net",
+      "type": "batch"
+    },
+    "nslookup": {
+      "category": "net",
+      "type": "batch"
+    },
+    "host": {
+      "category": "net",
+      "type": "batch"
+    },
+    "ping": {
+      "category": "net",
+      "type": "batch"
+    },
+    "ip": {
+      "category": "net",
+      "type": "batch"
+    },
+    "ifconfig": {
+      "category": "net",
+      "type": "batch"
+    },
+    "iwconfig": {
+      "category": "net",
+      "type": "batch"
+    },
+    "iw": {
+      "category": "net",
+      "type": "batch"
+    },
+    "ethtool": {
+      "category": "net",
+      "type": "batch"
+    },
+    "tc": {
+      "category": "net",
+      "type": "batch"
+    },
+    "socat": {
+      "category": "net",
+      "type": "batch"
+    },
+    "nc": {
+      "category": "net",
+      "type": "batch"
+    },
+    "netcat": {
+      "category": "net",
+      "type": "batch"
+    },
+    "whois": {
+      "category": "net",
+      "type": "batch"
+    },
+    "apt": {
+      "category": "pkg",
+      "type": "batch"
+    },
+    "apt-get": {
+      "category": "pkg",
+      "type": "batch"
+    },
+    "apt-cache": {
+      "category": "pkg",
+      "type": "batch"
+    },
+    "dpkg": {
+      "category": "pkg",
+      "type": "batch"
+    },
+    "snap": {
+      "category": "pkg",
+      "type": "batch"
+    },
+    "yum": {
+      "category": "pkg",
+      "type": "batch"
+    },
+    "dnf": {
+      "category": "pkg",
+      "type": "batch"
+    },
+    "rpm": {
+      "category": "pkg",
+      "type": "batch"
+    },
+    "pacman": {
+      "category": "pkg",
+      "type": "batch"
+    },
+    "paru": {
+      "category": "pkg",
+      "type": "batch"
+    },
+    "yay": {
+      "category": "pkg",
+      "type": "batch"
+    },
+    "zypper": {
+      "category": "pkg",
+      "type": "batch"
+    },
+    "emerge": {
+      "category": "pkg",
+      "type": "batch"
+    },
+    "nix": {
+      "category": "pkg",
+      "type": "batch"
+    },
+    "flatpak": {
+      "category": "pkg",
+      "type": "batch"
+    },
+    "brew": {
+      "category": "pkg",
+      "type": "batch"
+    },
+    "winget": {
+      "category": "pkg",
+      "type": "batch"
+    },
+    "choco": {
+      "category": "pkg",
+      "type": "batch"
+    },
+    "scoop": {
+      "category": "pkg",
+      "type": "batch"
+    },
+    "docker": {
+      "category": "container",
+      "type": "batch"
+    },
+    "docker-compose": {
+      "category": "container",
+      "type": "batch"
+    },
+    "podman": {
+      "category": "container",
+      "type": "batch"
+    },
+    "kubectl": {
+      "category": "container",
+      "type": "batch"
+    },
+    "helm": {
+      "category": "container",
+      "type": "batch"
+    },
+    "minikube": {
+      "category": "container",
+      "type": "batch"
+    },
+    "kind": {
+      "category": "container",
+      "type": "batch"
+    },
+    "nerdctl": {
+      "category": "container",
+      "type": "batch"
+    },
+    "ctr": {
+      "category": "container",
+      "type": "batch"
+    },
+    "crictl": {
+      "category": "container",
+      "type": "batch"
+    },
+    "lazydocker": {
+      "category": "container",
+      "type": "interactive"
+    },
+    "k9s": {
+      "category": "container",
+      "type": "interactive"
+    },
+    "stern": {
+      "category": "container",
+      "type": "batch"
+    },
+    "kubectx": {
+      "category": "container",
+      "type": "batch"
+    },
+    "kubens": {
+      "category": "container",
+      "type": "batch"
+    },
+    "openssl": {
+      "category": "security",
+      "type": "batch"
+    },
+    "gpg": {
+      "category": "security",
+      "type": "batch"
+    },
+    "age": {
+      "category": "security",
+      "type": "batch"
+    },
+    "sops": {
+      "category": "security",
+      "type": "batch"
+    },
+    "vault": {
+      "category": "security",
+      "type": "batch"
+    },
+    "acme.sh": {
+      "category": "security",
+      "type": "batch"
+    },
+    "certbot": {
+      "category": "security",
+      "type": "batch"
+    },
+    "step": {
+      "category": "security",
+      "type": "batch"
+    },
+    "ssh-keygen": {
+      "category": "security",
+      "type": "batch"
+    },
+    "ssh-copy-id": {
+      "category": "security",
+      "type": "batch"
+    },
+    "ssh-agent": {
+      "category": "security",
+      "type": "batch"
+    },
+    "fail2ban-client": {
+      "category": "security",
+      "type": "batch"
+    },
+    "clamscan": {
+      "category": "security",
+      "type": "batch"
+    },
+    "rkhunter": {
+      "category": "security",
+      "type": "batch"
+    },
+    "lynis": {
+      "category": "security",
+      "type": "batch"
+    },
+    "auditctl": {
+      "category": "security",
+      "type": "batch"
+    },
+    "ausearch": {
+      "category": "security",
+      "type": "batch"
+    },
+    "htop": {
+      "category": "monitor",
+      "type": "interactive"
+    },
+    "btop": {
+      "category": "monitor",
+      "type": "interactive"
+    },
+    "nvtop": {
+      "category": "monitor",
+      "type": "interactive"
+    },
+    "iotop": {
+      "category": "monitor",
+      "type": "interactive"
+    },
+    "iftop": {
+      "category": "monitor",
+      "type": "interactive"
+    },
+    "nethogs": {
+      "category": "monitor",
+      "type": "interactive"
+    },
+    "glances": {
+      "category": "monitor",
+      "type": "interactive"
+    },
+    "dust": {
+      "category": "monitor",
+      "type": "batch"
+    },
+    "duf": {
+      "category": "monitor",
+      "type": "batch"
+    },
+    "gdu": {
+      "category": "monitor",
+      "type": "batch"
+    },
+    "ncdu": {
+      "category": "monitor",
+      "type": "interactive"
+    },
+    "procs": {
+      "category": "monitor",
+      "type": "batch"
+    },
+    "bpytop": {
+      "category": "monitor",
+      "type": "interactive"
+    },
+    "bashtop": {
+      "category": "monitor",
+      "type": "interactive"
+    },
+    "lnav": {
+      "category": "monitor",
+      "type": "interactive"
+    },
+    "multitail": {
+      "category": "monitor",
+      "type": "interactive"
+    },
+    "prometheus": {
+      "category": "monitor",
+      "type": "batch"
+    },
+    "node_exporter": {
+      "category": "monitor",
+      "type": "batch"
+    },
+    "grafana-cli": {
+      "category": "monitor",
+      "type": "batch"
+    },
+    "telegraf": {
+      "category": "monitor",
+      "type": "batch"
+    },
+    "influx": {
+      "category": "monitor",
+      "type": "batch"
+    },
+    "python3": {
+      "category": "tool",
+      "type": "batch"
+    },
+    "node": {
+      "category": "tool",
+      "type": "batch"
+    },
+    "git": {
+      "category": "tool",
+      "type": "batch"
+    },
+    "gh": {
+      "category": "tool",
+      "type": "batch"
+    },
+    "jq": {
+      "category": "tool",
+      "type": "batch"
+    },
+    "yq": {
+      "category": "tool",
+      "type": "batch"
+    },
+    "bat": {
+      "category": "tool",
+      "type": "batch"
+    },
+    "ripgrep": {
+      "category": "tool",
+      "type": "batch"
+    },
+    "fd": {
+      "category": "tool",
+      "type": "batch"
+    },
+    "fzf": {
+      "category": "tool",
+      "type": "batch"
+    },
+    "tmux": {
+      "category": "tool",
+      "type": "interactive"
+    }
+  },
+  "names": [
+    "systemctl",
+    "journalctl",
+    "systemd-analyze",
+    "timedatectl",
+    "hostnamectl",
+    "localectl",
+    "loginctl",
+    "df",
+    "du",
+    "lsblk",
+    "blkid",
+    "fdisk",
+    "parted",
+    "mount",
+    "umount",
+    "mkfs",
+    "fsck",
+    "smartctl",
+    "lvm",
+    "pvdisplay",
+    "vgdisplay",
+    "lvdisplay",
+    "lsusb",
+    "lspci",
+    "lscpu",
+    "lshw",
+    "dmesg",
+    "uptime",
+    "who",
+    "last",
+    "w",
+    "ps",
+    "kill",
+    "pkill",
+    "nice",
+    "renice",
+    "crontab",
+    "at",
+    "rsync",
+    "dd",
+    "iptables",
+    "nft",
+    "ufw",
+    "firewalld",
+    "nmap",
+    "netstat",
+    "ss",
+    "tcpdump",
+    "traceroute",
+    "mtr",
+    "dig",
+    "nslookup",
+    "host",
+    "ping",
+    "ip",
+    "ifconfig",
+    "ethtool",
+    "tc",
+    "socat",
+    "nc",
+    "netcat",
+    "whois",
+    "apt",
+    "apt-get",
+    "apt-cache",
+    "dpkg",
+    "snap",
+    "yum",
+    "dnf",
+    "rpm",
+    "pacman",
+    "paru",
+    "yay",
+    "zypper",
+    "emerge",
+    "nix",
+    "flatpak",
+    "brew",
+    "winget",
+    "choco",
+    "scoop",
+    "docker",
+    "docker-compose",
+    "podman",
+    "kubectl",
+    "helm",
+    "minikube",
+    "kind",
+    "nerdctl",
+    "ctr",
+    "crictl",
+    "lazydocker",
+    "k9s",
+    "stern",
+    "kubectx",
+    "kubens",
+    "openssl",
+    "gpg",
+    "age",
+    "sops",
+    "vault",
+    "acme.sh",
+    "certbot",
+    "step",
+    "ssh-keygen",
+    "ssh-copy-id",
+    "ssh-agent",
+    "fail2ban-client",
+    "clamscan",
+    "rkhunter",
+    "lynis",
+    "auditctl",
+    "ausearch",
+    "htop",
+    "btop",
+    "nvtop",
+    "iotop",
+    "iftop",
+    "nethogs",
+    "glances",
+    "dust",
+    "duf",
+    "gdu",
+    "ncdu",
+    "procs",
+    "lnav",
+    "multitail",
+    "prometheus",
+    "node_exporter",
+    "grafana-cli",
+    "telegraf",
+    "influx",
+    "python3",
+    "node",
+    "git",
+    "gh",
+    "jq",
+    "yq",
+    "bat",
+    "ripgrep",
+    "fd",
+    "fzf"
+  ],
+  "welcome": {
+    "quickStart": [
+      {
+        "icon": "1",
+        "title": {
+          "zh": "系统监控",
+          "en": "System monitoring"
+        },
+        "desc": {
+          "zh": "用 htop/btop/glances 实时监控系统资源",
+          "en": "Monitor system resources in real time with htop/btop/glances"
+        }
+      },
+      {
+        "icon": "2",
+        "title": {
+          "zh": "网络诊断",
+          "en": "Network diagnostics"
+        },
+        "desc": {
+          "zh": "使用 ping/traceroute/ss/nmap 排查网络问题",
+          "en": "Troubleshoot networks with ping/traceroute/ss/nmap"
+        }
+      },
+      {
+        "icon": "3",
+        "title": {
+          "zh": "容器管理",
+          "en": "Container management"
+        },
+        "desc": {
+          "zh": "通过 docker/kubectl 管理容器和集群",
+          "en": "Manage containers and clusters via docker/kubectl"
+        }
+      }
+    ],
+    "features": [
+      {
+        "icon": "📈",
+        "iconColor": "#22c55e",
+        "title": {
+          "zh": "系统监控",
+          "en": "System monitoring"
+        },
+        "desc": {
+          "zh": "htop、btop、glances、iotop 等实时监控工具",
+          "en": "htop, btop, glances, iotop real-time monitors"
+        }
+      },
+      {
+        "icon": "🌐",
+        "iconColor": "#0ea5e9",
+        "title": {
+          "zh": "网络工具",
+          "en": "Network tools"
+        },
+        "desc": {
+          "zh": "nmap、tcpdump、ss、mtr、dig 网络诊断全套",
+          "en": "nmap, tcpdump, ss, mtr, dig full diagnostics"
+        }
+      },
+      {
+        "icon": "🐳",
+        "iconColor": "#6366f1",
+        "title": {
+          "zh": "容器编排",
+          "en": "Container orchestration"
+        },
+        "desc": {
+          "zh": "Docker、Podman、Kubernetes 集群管理",
+          "en": "Docker, Podman, Kubernetes cluster management"
+        }
+      },
+      {
+        "icon": "🔒",
+        "iconColor": "#ef4444",
+        "title": {
+          "zh": "安全审计",
+          "en": "Security audit"
+        },
+        "desc": {
+          "zh": "openssl、lynis、clamav、fail2ban 安全扫描",
+          "en": "openssl, lynis, clamav, fail2ban security scans"
+        }
+      }
+    ],
+    "tips": [
+      {
+        "zh": "使用 <strong>journalctl -xe</strong> 查看系统日志中的详细错误",
+        "en": "Use <strong>journalctl -xe</strong> to see detailed errors in system logs"
+      },
+      {
+        "zh": "用 <strong>du -sh * | sort -rh</strong> 快速找出大文件",
+        "en": "Use <strong>du -sh * | sort -rh</strong> to find large files fast"
+      },
+      {
+        "zh": "<strong>ss -tuln</strong> 列出所有监听端口，替代 netstat",
+        "en": "<strong>ss -tuln</strong> lists all listening ports, replaces netstat"
+      },
+      {
+        "zh": "按 <kbd>Ctrl+L</kbd> 随时清屏，保持终端整洁",
+        "en": "Press <kbd>Ctrl+L</kbd> anytime to clear the screen"
+      }
+    ],
+    "shortcuts": [
+      {
+        "key": "Ctrl+Shift+R",
+        "desc": {
+          "zh": "重新连接",
+          "en": "Reconnect"
+        }
+      },
+      {
+        "key": "Ctrl+K",
+        "desc": {
+          "zh": "命令面板",
+          "en": "Command palette"
+        }
+      },
+      {
+        "key": "Ctrl+Shift+F",
+        "desc": {
+          "zh": "终端内搜索",
+          "en": "Search in terminal"
+        }
+      },
+      {
+        "key": "Ctrl+L",
+        "desc": {
+          "zh": "清屏",
+          "en": "Clear screen"
+        }
+      },
+      {
+        "key": "Ctrl+B",
+        "desc": {
+          "zh": "切换侧边栏",
+          "en": "Toggle sidebar"
+        }
+      },
+      {
+        "key": "Ctrl+I",
+        "desc": {
+          "zh": "AI 对话",
+          "en": "AI chat"
+        }
+      }
+    ],
+    "installTools": [
+      {
+        "icon": "🐳",
+        "iconColor": "#0ea5e9",
+        "name": "Docker",
+        "desc": "容器引擎",
+        "methods": [
+          {
+            "label": "Windows",
+            "code": "winget install Docker.DockerDesktop"
+          },
+          {
+            "label": "macOS",
+            "code": "brew install --cask docker"
+          }
+        ]
+      },
+      {
+        "icon": "☁️",
+        "iconColor": "#6366f1",
+        "name": "kubectl",
+        "desc": "Kubernetes CLI",
+        "methods": [
+          {
+            "label": "Windows",
+            "code": "winget install Kubernetes.kubectl"
+          },
+          {
+            "label": "macOS",
+            "code": "brew install kubectl"
+          }
+        ]
+      },
+      {
+        "icon": "🔍",
+        "iconColor": "#22c55e",
+        "name": "htop",
+        "desc": "进程监控",
+        "methods": [
+          {
+            "label": "macOS",
+            "code": "brew install htop"
+          },
+          {
+            "label": "Linux",
+            "code": "sudo apt install htop"
+          }
+        ]
+      },
+      {
+        "icon": "🔧",
+        "iconColor": "#f59e0b",
+        "name": "jq",
+        "desc": "JSON 处理利器",
+        "methods": [
+          {
+            "label": "Windows",
+            "code": "winget install jqlang.jq"
+          },
+          {
+            "label": "macOS",
+            "code": "brew install jq"
+          }
+        ]
+      }
+    ]
+  }
+}

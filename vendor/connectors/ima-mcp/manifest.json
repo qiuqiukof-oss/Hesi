@@ -1,0 +1,8 @@
+{
+  "id": "ima-mcp",
+  "name": "ima-mcp",
+  "category": "messaging",
+  "enterprise": false,
+  "authType": "token",
+  "description": "ima-mcp connector for Hesi"
+}

@@ -1,0 +1,247 @@
+/*
+ * Copyright (c) 2026 qiuqiukof-oss
+ * Licensed under the MIT License. See LICENSE for details.
+ */
+
+/* ============================================================
+   MCP Monitor — Sparkline, Tool Bars, Event Log
+   ============================================================ */
+
+/* ── MCP Section Title Row ── */
+.mcp-section-title-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* ── Status Badge (enabled / running / disabled) ── */
+.mcp-status-badge {
+  font-size: 10px;
+  font-weight: 600;
+  padding: 1px 7px;
+  border-radius: 999px;
+  line-height: 1.5;
+  white-space: nowrap;
+  flex-shrink: 0;
+  background: var(--bg-tertiary, #2a2a33);
+  color: var(--text-tertiary, #71717a);
+  border: 1px solid transparent;
+}
+.mcp-status-badge.is-running {
+  background: rgba(34, 197, 94, 0.15);
+  color: #22c55e;
+  border-color: rgba(34, 197, 94, 0.35);
+}
+.mcp-status-badge.is-enabled {
+  background: rgba(234, 179, 8, 0.15);
+  color: #eab308;
+  border-color: rgba(234, 179, 8, 0.35);
+}
+.mcp-status-badge.is-off {
+  background: var(--bg-tertiary, #2a2a33);
+  color: var(--text-tertiary, #71717a);
+}
+.mcp-status-badge.is-error {
+  background: rgba(239, 68, 68, 0.15);
+  color: #ef4444;
+  border-color: rgba(239, 68, 68, 0.35);
+}
+
+/* ── Pulse Dot (active indicator) ── */
+.mcp-pulse-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+  opacity: 0.3;
+  transition: opacity 0.2s;
+  flex-shrink: 0;
+}
+
+.mcp-pulse-dot.active {
+  opacity: 1;
+  animation: mcp-pulse 0.6s ease-in-out;
+}
+
+@keyframes mcp-pulse {
+  0%   { transform: scale(1); box-shadow: 0 0 0 0 rgba(99,102,241,0.5); }
+  50%  { transform: scale(1.4); box-shadow: 0 0 0 4px rgba(99,102,241,0); }
+  100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(99,102,241,0); }
+}
+
+/* ── Rate Badge ── */
+.mcp-rate-badge {
+  font-size: 9px;
+  padding: 1px 6px;
+  border-radius: 8px;
+  background: var(--bg-hover);
+  color: var(--text-tertiary);
+  font-family: var(--font-mono);
+  font-weight: 500;
+  flex-shrink: 0;
+}
+
+/* ── Sparkline ── */
+.mcp-sparkline-wrap {
+  margin-top: 4px;
+  padding: 4px 0;
+}
+
+.mcp-sparkline {
+  width: 100%;
+  height: 36px;
+  display: block;
+  border-radius: var(--radius-sm);
+}
+
+/* ── Tool Bars (horizontal bar chart of tool call distribution) ── */
+.mcp-tool-bars {
+  margin-top: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.mcp-tool-bar-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 4px;
+  border-radius: 3px;
+  font-size: 10px;
+  transition: background 0.12s;
+}
+
+.mcp-tool-bar-row:hover {
+  background: var(--bg-hover);
+}
+
+.mcp-tool-bar-label {
+  flex-shrink: 0;
+  width: 48px;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.mcp-tool-bar-track {
+  flex: 1;
+  height: 6px;
+  background: var(--bg-hover);
+  border-radius: 3px;
+  overflow: hidden;
+  min-width: 40px;
+}
+
+.mcp-tool-bar-fill {
+  height: 100%;
+  background: var(--accent);
+  border-radius: 3px;
+  transition: width 0.3s ease;
+}
+
+.mcp-tool-bar-count {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 600;
+  color: var(--text-primary);
+  min-width: 20px;
+  text-align: right;
+  flex-shrink: 0;
+}
+
+.mcp-tool-bar-pct {
+  font-size: 8px;
+  color: var(--text-tertiary);
+  min-width: 28px;
+  text-align: right;
+  flex-shrink: 0;
+}
+
+/* ── MCP Event Log ── */
+.dash-mcp-log {
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px solid var(--border-subtle);
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  max-height: 180px;
+  overflow-y: auto;
+}
+
+.dash-mcp-log::-webkit-scrollbar {
+  width: 2px;
+}
+.dash-mcp-log::-webkit-scrollbar-track {
+  background: transparent;
+}
+.dash-mcp-log::-webkit-scrollbar-thumb {
+  background: var(--bg-hover);
+  border-radius: 2px;
+}
+
+/* ── MCP Log Entry ── */
+.mcp-log-entry {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 4px;
+  border-radius: 3px;
+  font-size: 10px;
+  font-family: var(--font-mono);
+  color: var(--text-secondary);
+  transition: background 0.12s;
+}
+
+.mcp-log-entry:hover {
+  background: var(--bg-hover);
+}
+
+.mcp-entry-name {
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.mcp-saved {
+  font-size: 8px;
+  color: var(--success);
+  font-weight: 500;
+  flex-shrink: 0;
+}
+
+.mcp-entry-new {
+  animation: mcp-entry-slide-in 0.25s ease-out;
+}
+
+@keyframes mcp-entry-slide-in {
+  from { opacity: 0; transform: translateX(-6px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+/* ── Light Theme Overrides ── */
+[data-scheme="light"] .mcp-rate-badge {
+  background: var(--shadow-light);
+}
+
+[data-scheme="light"] .mcp-tool-bar-track {
+  background: var(--shadow-ambient);
+}
+
+[data-scheme="light"] .mcp-tool-bar-row:hover {
+  background: var(--shadow-light);
+}
+
+[data-scheme="light"] .dash-mcp-log {
+  border-top-color: var(--shadow-ambient);
+}
+
+[data-scheme="light"] .mcp-log-entry:hover {
+  background: var(--shadow-light);
+}

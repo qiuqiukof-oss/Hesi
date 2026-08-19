@@ -1,0 +1,8 @@
+{
+  "id": "cnb-api",
+  "name": "cnb-api",
+  "category": "dev-tools",
+  "enterprise": false,
+  "authType": "token",
+  "description": "cnb-api connector for Hesi"
+}

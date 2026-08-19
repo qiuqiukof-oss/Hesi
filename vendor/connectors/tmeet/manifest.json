@@ -1,0 +1,8 @@
+{
+  "id": "tmeet",
+  "name": "tmeet",
+  "category": "finance",
+  "enterprise": true,
+  "authType": "token",
+  "description": "tmeet connector for Hesi"
+}

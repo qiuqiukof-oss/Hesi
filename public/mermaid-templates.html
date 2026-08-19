@@ -1,0 +1,627 @@
+<!--
+  Copyright (c) 2026 qiuqiukof-oss
+  Licensed under the MIT License. See LICENSE for details.
+-->
+
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Mermaid 图表模板 — Hesi</title>
+  <link rel="stylesheet" href="/css/theme.css" />
+  <link rel="stylesheet" href="/css/standalone-nav.css" />
+  <script src="/lib/standalone-theme.js"></script>
+  <style>
+    /* ── 自包含样式（不依赖 right-panel.css / mermaid.css 的脆弱 DOM 契约）── */
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body {
+      height: 100%;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg-ground, #0a0a0b);
+      color: var(--text-primary, #f5f5f7);
+    }
+    .mt-wrap {
+      display: flex;
+      flex-direction: column;
+      height: calc(100vh - 48px); /* 减去导航栏高度 */
+      max-width: 960px;
+      margin: 0 auto;
+      padding: 8px;
+      overflow: hidden;
+    }
+    .mt-header {
+      padding: 14px 16px 10px;
+      flex-shrink: 0;
+    }
+    .mt-title { font-size: 16px; font-weight: 600; color: var(--text-primary); }
+    .mt-desc { font-size: 12px; color: var(--text-tertiary); margin-top: 2px; }
+
+    .mt-categories {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      padding: 8px 14px;
+      border-bottom: 1px solid var(--border-subtle);
+      flex-shrink: 0;
+    }
+    .mt-cat-btn {
+      padding: 4px 12px;
+      border-radius: 14px;
+      border: 1px solid var(--border-default);
+      background: transparent;
+      color: var(--text-secondary);
+      font-size: 12px;
+      cursor: pointer;
+      transition: all 0.15s;
+      white-space: nowrap;
+    }
+    .mt-cat-btn:hover { background: var(--bg-hover); color: var(--text-primary); }
+    .mt-cat-btn.active { background: var(--accent, #6366f1); color: #fff; border-color: var(--accent, #6366f1); }
+
+    .mt-content {
+      flex: 1;
+      overflow-y: auto;
+      overflow-x: hidden;
+      padding: 12px 14px;
+    }
+    .mt-grid { display: flex; flex-direction: column; gap: 12px; }
+
+    .mt-card {
+      background: var(--bg-surface, #1c1c1e);
+      border: 1px solid var(--border-subtle, rgba(255,255,255,0.08));
+      border-radius: 10px;
+      overflow: hidden;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    .mt-card:hover { border-color: var(--border-strong); box-shadow: 0 2px 10px rgba(0,0,0,0.12); }
+    .mt-card[draggable="true"] { cursor: grab; user-select: none; }
+    .mt-card[draggable="true"]:active { cursor: grabbing; }
+
+    .mt-card-header { padding: 10px 12px 4px; }
+    .mt-card-badge {
+      display: inline-block; font-size: 10px; padding: 1px 6px; border-radius: 4px;
+      background: rgba(234,179,8,0.10); color: #eab308; margin-bottom: 4px;
+    }
+    .mt-card-name { font-size: 13px; font-weight: 600; color: var(--text-primary); display: block; }
+    .mt-card-desc { font-size: 11px; color: var(--text-tertiary); display: block; margin-top: 2px; }
+
+    .mt-card-preview {
+      padding: 10px 12px;
+      min-height: 70px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--bg-ground, #0a0a0b);
+    }
+    /* 渲染结果 / loading / 错误 都放在这个容器里，由 JS 直接控制 innerHTML */
+    .mt-diagram { width: 100%; text-align: center; }
+    .mt-diagram svg { max-height: 200px; width: auto; max-width: 100%; height: auto; }
+    .mt-card-loading { color: var(--text-tertiary); font-size: 12px; animation: mt-pulse 1.5s ease-in-out infinite; }
+    .mt-error { color: #ef4444; font-size: 12px; padding: 8px; }
+    @keyframes mt-pulse { 0%,100% { opacity: 0.4; } 50% { opacity: 1; } }
+
+    .mt-card-actions { display: flex; gap: 6px; padding: 6px 12px 10px; flex-wrap: wrap; }
+    .mt-btn {
+      padding: 4px 10px; border-radius: 5px; border: 1px solid var(--border-default);
+      background: var(--bg-hover); color: var(--text-secondary); font-size: 11px;
+      cursor: pointer; transition: all 0.12s; line-height: 1.4; font-family: inherit;
+    }
+    .mt-btn:hover { background: var(--bg-active); color: var(--text-primary); border-color: var(--border-strong); }
+    .mt-btn-copy:hover { background: rgba(99,102,241,0.12); color: var(--accent, #6366f1); border-color: var(--accent, #6366f1); }
+    .mt-btn-chat:hover { background: rgba(34,197,94,0.12); color: #22c55e; border-color: #22c55e; }
+    .mt-btn-expand:hover { background: rgba(234,179,8,0.12); color: #eab308; border-color: #eab308; }
+    .mt-btn-edit:hover { background: rgba(99,102,241,0.12); color: var(--accent, #6366f1); border-color: var(--accent, #6366f1); }
+    .mt-btn-delete:hover { background: rgba(239,68,68,0.12); color: #ef4444; border-color: #ef4444; }
+
+    .mt-card-source { border-top: 1px solid var(--border-subtle); padding: 10px 12px; background: var(--bg-ground, #0a0a0b); }
+    .mt-card-source pre {
+      margin: 0; overflow-x: auto; font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 11px; line-height: 1.5; color: var(--text-secondary); white-space: pre-wrap;
+      word-break: break-word; max-height: 220px; overflow-y: auto;
+    }
+    .mt-card-source.hidden { display: none; }
+
+    .mt-custom-header { display: flex; align-items: center; justify-content: space-between; padding: 0 0 12px; gap: 10px; }
+    .mt-btn-new { padding: 6px 14px; background: var(--accent, #6366f1); color: #fff; border-color: var(--accent, #6366f1); font-weight: 600; }
+    .mt-btn-new:hover { background: var(--accent-hover, #4f46e5); color: #fff; }
+    .mt-custom-count { font-size: 11px; color: var(--text-tertiary); }
+    .mt-custom-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 40px 20px; text-align: center; }
+    .mt-custom-empty-icon { font-size: 48px; opacity: 0.3; margin-bottom: 12px; }
+    .mt-custom-empty-text { font-size: 14px; font-weight: 600; color: var(--text-secondary); margin-bottom: 4px; }
+    .mt-custom-empty-hint { font-size: 12px; color: var(--text-tertiary); line-height: 1.5; max-width: 240px; }
+
+    /* 模态框 */
+    .mt-modal-overlay {
+      position: fixed; inset: 0; z-index: 9999; background: rgba(0,0,0,0.5);
+      display: flex; align-items: center; justify-content: center; opacity: 0;
+      transition: opacity 0.2s; backdrop-filter: blur(2px);
+    }
+    .mt-modal-overlay.open { opacity: 1; }
+    .mt-modal {
+      background: var(--bg-elevated, #2c2c2e); border: 1px solid var(--border-strong);
+      border-radius: 12px; width: 520px; max-width: 92vw; max-height: 86vh;
+      display: flex; flex-direction: column; box-shadow: 0 16px 48px rgba(0,0,0,0.3);
+      transform: scale(0.95) translateY(8px); transition: transform 0.2s ease-out;
+    }
+    .mt-modal-overlay.open .mt-modal { transform: scale(1) translateY(0); }
+    .mt-modal-header { display: flex; align-items: center; justify-content: space-between; padding: 14px 16px; border-bottom: 1px solid var(--border-default); flex-shrink: 0; }
+    .mt-modal-title { font-size: 15px; font-weight: 600; color: var(--text-primary); }
+    .mt-modal-close { background: none; border: none; color: var(--text-tertiary); font-size: 16px; cursor: pointer; padding: 4px; line-height: 1; border-radius: 4px; }
+    .mt-modal-close:hover { background: var(--bg-hover); color: var(--text-primary); }
+    .mt-modal-body { padding: 16px; overflow-y: auto; flex: 1; display: flex; flex-direction: column; gap: 14px; }
+    .mt-field { display: flex; flex-direction: column; gap: 4px; }
+    .mt-field-label { font-size: 12px; font-weight: 500; color: var(--text-secondary); }
+    .mt-input, .mt-textarea {
+      padding: 8px 10px; border-radius: 6px; border: 1px solid var(--border-default);
+      background: var(--bg-ground, #0a0a0b); color: var(--text-primary);
+      font-size: 13px; font-family: inherit; outline: none; transition: border-color 0.15s;
+    }
+    .mt-input:focus, .mt-textarea:focus { border-color: var(--accent, #6366f1); }
+    .mt-textarea { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; resize: vertical; min-height: 140px; }
+    .mt-modal-footer { display: flex; justify-content: flex-end; gap: 8px; padding: 12px 16px; border-top: 1px solid var(--border-default); flex-shrink: 0; }
+    .mt-modal-cancel { background: var(--bg-hover); color: var(--text-secondary); border-color: var(--border-default); }
+    .mt-modal-cancel:hover { background: var(--bg-active); color: var(--text-primary); }
+    .mt-modal-submit { background: var(--accent, #6366f1); color: #fff; border-color: var(--accent, #6366f1); font-weight: 600; }
+    .mt-modal-submit:hover { background: var(--accent-hover, #4f46e5); color: #fff; }
+
+    [data-theme="light"] .mt-card { background: #fff; }
+    [data-theme="light"] .mt-modal { background: #fff; }
+    [data-theme="light"] .mt-input, [data-theme="light"] .mt-textarea { background: #f8f9fa; }
+  </style>
+</head>
+<body class="sa-page">
+  <nav class="sa-nav">
+    <a class="sa-nav-back" href="/" onclick="event.preventDefault(); location.href='/';">&larr; 返回主应用</a>
+    <span class="sa-nav-title">📊 Mermaid 图表模板</span>
+    <span class="sa-nav-subtitle">浏览、复制、发送到聊天</span>
+    <span class="sa-nav-spacer"></span>
+    <span class="sa-nav-status">独立页面</span>
+  </nav>
+
+  <div class="mt-wrap">
+    <div class="mt-header">
+      <div class="mt-title">📊 Mermaid 图表模板</div>
+      <div class="mt-desc">点击预览，一键复制源码 · 可拖拽到聊天输入框</div>
+    </div>
+    <div class="mt-categories" id="mt-categories"></div>
+    <div class="mt-content" id="mt-content">
+      <div class="mt-card-loading">加载中...</div>
+    </div>
+  </div>
+
+  <!-- Mermaid 图表库：多 CDN 镜像回退，不本地化（避免仓库增重 3M+） -->
+  <script>
+  (function () {
+    'use strict';
+    var MERMAID_CDN_URLS = [
+      'https://cdn.jsdelivr.net/npm/mermaid@11.4.0/dist/mermaid.min.js',
+      'https://fastly.jsdelivr.net/npm/mermaid@11.4.0/dist/mermaid.min.js',
+      'https://gcore.jsdelivr.net/npm/mermaid@11.4.0/dist/mermaid.min.js',
+      'https://testingcf.jsdelivr.net/npm/mermaid@11.4.0/dist/mermaid.min.js',
+      'https://cdn.staticfile.org/mermaid/11.4.0/mermaid.min.js',
+      'https://cdn.staticfile.net/mermaid/11.4.0/mermaid.min.js',
+      'https://cdn.bootcdn.net/ajax/libs/mermaid/11.4.0/mermaid.min.js'
+    ];
+    var TIMEOUT_PER_URL = 6000;
+    window.MT_LOAD_DONE = false;
+    window.MT_LOAD_ERROR = null;
+
+    function tryLoad(urls, cb) {
+      if (!urls || !urls.length) {
+        window.MT_LOAD_DONE = true;
+        window.MT_LOAD_ERROR = 'all CDN fallbacks failed';
+        cb(false);
+        return;
+      }
+      var url = urls[0];
+      var s = document.createElement('script');
+      s.async = true;
+      s.src = url;
+      var done = false, timer = null;
+      function finish(ok, reason) {
+        if (done) return;
+        done = true;
+        if (timer) { clearTimeout(timer); timer = null; }
+        s.onload = s.onerror = null;
+        if (ok && window.mermaid) {
+          window.MT_LOAD_DONE = true;
+          cb(true);
+        } else {
+          window.MT_LOAD_ERROR = (reason || 'load failed') + ': ' + url;
+          tryLoad(urls.slice(1), cb);
+        }
+      }
+      s.onload = function () {
+        setTimeout(function () { finish(!!window.mermaid, 'script loaded but mermaid not exposed'); }, 60);
+      };
+      s.onerror = function () { finish(false, 'script error'); };
+      timer = setTimeout(function () { finish(false, 'timeout'); }, TIMEOUT_PER_URL);
+      document.head.appendChild(s);
+    }
+
+    window.mtRetryLoadMermaid = function () {
+      if (window.mermaid) return true;
+      window.MT_LOAD_ERROR = null;
+      window.MT_LOAD_DONE = false;
+      tryLoad(MERMAID_CDN_URLS, function () {});
+      return false;
+    };
+
+    window.mtRetryAll = function () {
+      window.mtRetryLoadMermaid();
+      setTimeout(function () {
+        if (window.MT_RENDER_ALL) window.MT_RENDER_ALL();
+      }, 500);
+    };
+
+    tryLoad(MERMAID_CDN_URLS, function () {});
+  })();
+  </script>
+
+  <script>
+  (function () {
+    'use strict';
+
+    var startTime = Date.now();
+    var savedTheme = localStorage.getItem('qcli-theme') || 'dark';
+    document.documentElement.setAttribute('data-theme', savedTheme);
+
+    // ──────────────────────────────────────────────
+    // 内置模板数据（从插件 TEMPLATES_BUILTIN 提炼，独立自包含）
+    // ──────────────────────────────────────────────
+    var TEMPLATES_BUILTIN = {
+      flowchart: {
+        label: '流程图', icon: '🔀', items: [
+          { name: '基本流程', desc: '开始 → 判断 → 分支 → 结束', source: 'graph TD\n    A([开始]) --> B{条件判断}\n    B -->|是| C[处理逻辑]\n    B -->|否| D[备选路径]\n    C --> E([结束])\n    D --> E' },
+          { name: '业务流程', desc: '订单从创建到完成的完整流程', source: 'graph LR\n    A[创建订单] --> B{支付成功?}\n    B -->|是| C[确认订单]\n    B -->|否| D[取消订单]\n    C --> E[仓库发货]\n    E --> F[物流配送]\n    F --> G[客户签收]\n    G --> H[交易完成]' },
+          { name: '系统架构', desc: '前端 → API → 微服务 → 数据库', source: 'graph TB\n    subgraph 前端\n        A[Web App]\n        B[Mobile App]\n    end\n    subgraph 网关\n        C[API Gateway]\n    end\n    subgraph 微服务\n        D[用户服务]\n        E[订单服务]\n        F[支付服务]\n    end\n    subgraph 存储\n        G[(MySQL)]\n        H[(Redis)]\n        I[(MongoDB)]\n    end\n    A --> C\n    B --> C\n    C --> D & E & F\n    D --> G & H\n    E --> G\n    F --> G & I' },
+          { name: 'CI/CD 流水线', desc: '代码提交到部署的自动化流程', source: 'graph LR\n    A[Git Push] --> B[代码检查]\n    B --> C{测试通过?}\n    C -->|是| D[构建镜像]\n    C -->|否| E[通知失败]\n    D --> F[部署到 Staging]\n    F --> G{验收测试?}\n    G -->|是| H[生产部署]\n    G -->|否| I[回滚]\n    H --> J[监控告警]' }
+        ]
+      },
+      sequence: {
+        label: '时序图', icon: '⏱️', items: [
+          { name: '用户登录', desc: '客户端 ↔ 服务端认证过程', source: 'sequenceDiagram\n    participant U as 用户\n    participant C as 客户端\n    participant S as 服务端\n    participant DB as 数据库\n    U->>C: 输入用户名密码\n    C->>S: POST /api/login\n    S->>DB: 查询用户\n    DB-->>S: 返回用户信息\n    S->>S: 验证密码\n    S-->>C: 返回 JWT Token\n    C-->>U: 登录成功\n    Note over C,U: Token 存储在 localStorage' },
+          { name: 'API 调用链', desc: '服务间调用关系追踪', source: 'sequenceDiagram\n    participant App as App\n    participant GW as API Gateway\n    participant Auth as Auth Service\n    participant User as User Service\n    participant Order as Order Service\n    App->>GW: GET /api/orders\n    GW->>Auth: 验证 Token\n    Auth-->>GW: user_id: 123\n    GW->>User: 获取用户信息\n    User-->>GW: user data\n    GW->>Order: 查询订单列表\n    Order-->>GW: order list\n    GW-->>App: 200 OK + data' },
+          { name: 'WebSocket 握手', desc: '建立 WebSocket 连接的完整过程', source: 'sequenceDiagram\n    participant C as Client\n    participant S as Server\n    participant W as WSServer\n    C->>S: HTTP Upgrade Request\n    S->>S: 验证 Sec-WebSocket-Key\n    S-->>C: 101 Switching Protocols\n    Note over C,W: WebSocket 连接已建立\n    C->>W: { type: "ping" }\n    W-->>C: { type: "pong" }\n    C->>W: { type: "message", data }\n    W-->>C: { type: "ack" }\n    C->>W: Close Frame\n    W-->>C: Close Frame' }
+        ]
+      },
+      classDiagram: {
+        label: '类图', icon: '🏗️', items: [
+          { name: '设计模式 — 观察者', desc: 'Observer 模式类结构', source: 'classDiagram\n    class Subject { +attach(observer) +detach(observer) +notify() -observers: List }\n    class ConcreteSubject { +getState() +setState(state) -state: State }\n    class Observer { +update(subject) }\n    class ConcreteObserver { +update(subject) -observerState: State }\n    Subject <|-- ConcreteSubject\n    Observer <|-- ConcreteObserver\n    Subject o--> Observer' },
+          { name: '实体关系 — 电商', desc: '电商系统核心实体关系', source: 'classDiagram\n    class User { +id: UUID +name: string +email: string +createOrder() }\n    class Order { +id: UUID +total: Money +status: OrderStatus +addItem() +pay() }\n    class OrderItem { +productId: UUID +quantity: int +price: Money }\n    class Product { +id: UUID +name: string +price: Money +stock: int }\n    class Payment { +id: UUID +method: PaymentMethod +amount: Money +status: PaymentStatus }\n    User "1" --> "*" Order\n    Order "1" --> "*" OrderItem\n    OrderItem "1" --> "1" Product\n    Order "1" --> "1" Payment' }
+        ]
+      },
+      stateDiagram: {
+        label: '状态图', icon: '🔄', items: [
+          { name: '订单状态机', desc: '订单从创建到完成的状态流转', source: 'stateDiagram-v2\n    [*] --> 待支付\n    待支付 --> 已取消: 用户取消\n    待支付 --> 已支付: 支付成功\n    已支付 --> 已发货: 商家发货\n    已发货 --> 配送中: 快递揽收\n    配送中 --> 已签收: 客户签收\n    已签收 --> 已完成: 自动确认\n    已签收 --> 退货中: 申请退款\n    退货中 --> 已退款: 退款完成\n    已退款 --> [*]\n    已完成 --> [*]' },
+          { name: 'TCP 连接状态', desc: 'TCP 三次握手与四次挥手', source: 'stateDiagram-v2\n    [*] --> CLOSED\n    CLOSED --> SYN_SENT: 主动打开\n    CLOSED --> LISTEN: 被动打开\n    LISTEN --> SYN_RCVD: 收到 SYN\n    SYN_SENT --> ESTABLISHED: 收到 SYN+ACK\n    SYN_RCVD --> ESTABLISHED: 发送 ACK\n    ESTABLISHED --> FIN_WAIT_1: 主动关闭\n    ESTABLISHED --> CLOSE_WAIT: 收到 FIN\n    FIN_WAIT_1 --> FIN_WAIT_2: 收到 ACK\n    FIN_WAIT_2 --> TIME_WAIT: 收到 FIN\n    CLOSE_WAIT --> LAST_ACK: 关闭\n    LAST_ACK --> CLOSED: 收到 ACK\n    TIME_WAIT --> CLOSED: 超时' }
+        ]
+      },
+      gantt: {
+        label: '甘特图', icon: '📅', items: [
+          { name: '项目里程碑', desc: '6 个月项目进度规划', source: 'gantt\n    title 项目里程碑计划\n    dateFormat  YYYY-MM-DD\n    axisFormat  %m/%d\n    section 需求\n    需求调研      :a1, 2024-01-01, 30d\n    需求评审      :a2, after a1, 14d\n    section 开发\n    架构设计      :b1, after a2, 21d\n    前端开发      :b2, after b1, 60d\n    后端开发      :b3, after b1, 60d\n    联调测试      :b4, after b2, 21d\n    section 测试\n    功能测试      :c1, after b4, 14d\n    性能测试      :c2, after c1, 7d\n    UAT 验收      :c3, after c2, 14d\n    section 上线\n    预发布部署    :d1, after c3, 3d\n    生产发布      :d2, after d1, 2d\n    线上监控      :d3, after d2, 14d' }
+        ]
+      },
+      pie: {
+        label: '饼图', icon: '🥧', items: [
+          { name: '技术栈占比', desc: '项目技术组成分布', source: 'pie title 技术栈分布\n    "前端" : 35\n    "后端" : 30\n    "数据库" : 15\n    "基础设施" : 12\n    "测试" : 8' },
+          { name: '资源分配', desc: '云资源成本分布', source: 'pie title 月度云资源成本\n    "计算实例" : 45\n    "存储服务" : 25\n    "网络流量" : 15\n    "数据库" : 10\n    "其他" : 5' }
+        ]
+      },
+      journey: {
+        label: '用户旅程', icon: '🚀', items: [
+          { name: '用户注册流程', desc: '新用户从了解到注册的体验旅程', source: 'journey\n    title 新用户注册体验\n    section 发现\n      看到广告: 5: 用户\n      访问官网: 4: 用户\n      浏览功能: 3: 用户\n    section 注册\n      填写信息: 2: 用户\n      邮箱验证: 1: 用户, 系统\n      设置密码: 3: 用户\n    section 上手\n      引导教程: 4: 用户, 系统\n      首次操作: 5: 用户\n      完成设置: 5: 用户' }
+        ]
+      }
+    };
+
+    var STORAGE_KEY = 'qcli-custom-templates';
+    function loadCustom() {
+      try { var v = JSON.parse(localStorage.getItem(STORAGE_KEY)); return Array.isArray(v) ? v : []; }
+      catch (e) { return []; }
+    }
+    function saveCustom(list) {
+      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(list)); } catch (e) {}
+    }
+    function addCustom(t) {
+      var list = loadCustom();
+      list.unshift({ id: 'cst_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8), name: t.name, desc: t.desc, source: t.source, createdAt: Date.now() });
+      saveCustom(list); return list;
+    }
+    function updateCustom(id, t) {
+      var list = loadCustom(); var i = list.findIndex(function (x) { return x.id === id; });
+      if (i >= 0) { Object.assign(list[i], t); saveCustom(list); } return list;
+    }
+    function deleteCustom(id) {
+      var list = loadCustom().filter(function (x) { return x.id !== id; }); saveCustom(list); return list;
+    }
+
+    // ──────────────────────────────────────────────
+    // 轻量提示
+    // ──────────────────────────────────────────────
+    var toastEl = null, toastTimer = null;
+    function toast(msg, type) {
+      if (!toastEl) {
+        toastEl = document.createElement('div');
+        toastEl.style.cssText = 'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);padding:8px 16px;border-radius:8px;font-size:13px;z-index:10000;background:var(--bg-elevated,#2c2c2e);border:1px solid var(--border-default,#38383a);color:var(--text-primary,#f5f5f7);box-shadow:0 4px 12px rgba(0,0,0,0.3);transition:opacity 0.2s;opacity:0;pointer-events:none;';
+        document.body.appendChild(toastEl);
+      }
+      var bc = type === 'success' ? '#22c55e' : type === 'error' ? '#ef4444' : type === 'warning' ? '#eab308' : 'transparent';
+      toastEl.style.borderColor = bc || 'var(--border-default,#38383a)';
+      toastEl.textContent = msg; toastEl.style.opacity = '1';
+      clearTimeout(toastTimer); toastTimer = setTimeout(function () { toastEl.style.opacity = '0'; }, 2500);
+    }
+
+    // ──────────────────────────────────────────────
+    // Mermaid 渲染（自主控制，不依赖外部 CSS 契约）
+    // ──────────────────────────────────────────────
+    var mermaidInited = false;
+    function ensureMermaid(cb) {
+      if (window.mermaid) {
+        if (!mermaidInited) {
+          try {
+            window.mermaid.initialize({ startOnLoad: false, theme: savedTheme === 'dark' ? 'dark' : 'default', securityLevel: 'loose' });
+            mermaidInited = true;
+          } catch (e) { /* 初始化失败也尝试渲染 */ }
+        }
+        cb(true);
+      } else if (Date.now() - startTime > 35000) {
+        cb(false); // 超时：所有 CDN 镜像均无法加载
+      } else {
+        setTimeout(function () { ensureMermaid(cb); }, 200);
+      }
+    }
+
+    function renderDiagram(el) {
+      var source = el.getAttribute('data-source');
+      if (!source) return;
+      el.innerHTML = '<div class="mt-card-loading">⏳ 渲染中...</div>';
+      ensureMermaid(function (ok) {
+        if (!ok) {
+          el.innerHTML = '<div class="mt-error">⚠️ 多 CDN 镜像均无法加载 mermaid（' + (window.MT_LOAD_ERROR || '网络超时') + '）<br><button class="mt-btn mt-btn-retry" onclick="window.mtRetryAll()">🔄 重试</button></div>';
+          return;
+        }
+        var id = 'mmd-' + Math.random().toString(36).slice(2, 10);
+        try {
+          var p = window.mermaid.render(id, source);
+          if (p && typeof p.then === 'function') {
+            p.then(function (r) { el.innerHTML = (r && r.svg) || '渲染结果为空'; })
+             .catch(function (err) { el.innerHTML = '<div class="mt-error">⚠️ ' + (err && err.message || err) + '</div>'; });
+          } else {
+            el.innerHTML = (p && p.svg) || '渲染结果为空';
+          }
+        } catch (err) {
+          el.innerHTML = '<div class="mt-error">⚠️ ' + (err && err.message || err) + '</div>';
+        }
+      });
+    }
+
+    // Expose global re-render helper so the retry button can refresh all previews
+    window.MT_RENDER_ALL = function () {
+      var els = document.querySelectorAll('.mt-diagram');
+      for (var i = 0; i < els.length; i++) { renderDiagram(els[i]); }
+    };
+
+    // ──────────────────────────────────────────────
+    // 渲染 UI
+    // ──────────────────────────────────────────────
+    var catsEl = document.getElementById('mt-categories');
+    var contentEl = document.getElementById('mt-content');
+
+    function getCategoryKeys() { return ['custom'].concat(Object.keys(TEMPLATES_BUILTIN)); }
+    function getCategory(key) {
+      if (key === 'custom') return { label: '自定义', icon: '⭐', items: loadCustom() };
+      return TEMPLATES_BUILTIN[key];
+    }
+
+    var activeCategory = 'custom';
+
+    function renderCategories() {
+      catsEl.innerHTML = '';
+      getCategoryKeys().forEach(function (key) {
+        var cat = getCategory(key); if (!cat) return;
+        var btn = document.createElement('button');
+        btn.className = 'mt-cat-btn' + (key === activeCategory ? ' active' : '');
+        btn.textContent = cat.icon + ' ' + cat.label;
+        btn.addEventListener('click', function () { activeCategory = key; renderCategories(); renderTemplates(); });
+        catsEl.appendChild(btn);
+      });
+    }
+
+    function renderTemplates() {
+      var cat = getCategory(activeCategory); if (!cat) return;
+      contentEl.scrollTop = 0;
+      var isCustom = activeCategory === 'custom';
+
+      var frag = document.createDocumentFragment();
+
+      if (isCustom) {
+        var ch = document.createElement('div');
+        ch.className = 'mt-custom-header';
+        var newBtn = document.createElement('button');
+        newBtn.className = 'mt-btn mt-btn-new'; newBtn.textContent = '✨ 新建模板';
+        newBtn.addEventListener('click', function () { openModal('new'); });
+        var cnt = document.createElement('span');
+        cnt.className = 'mt-custom-count'; cnt.textContent = '共 ' + cat.items.length + ' 个模板';
+        ch.appendChild(newBtn); ch.appendChild(cnt);
+        frag.appendChild(ch);
+        if (cat.items.length === 0) {
+          var empty = document.createElement('div');
+          empty.className = 'mt-custom-empty';
+          empty.innerHTML = '<div class="mt-custom-empty-icon">📭</div><div class="mt-custom-empty-text">还没有自定义模板</div><div class="mt-custom-empty-hint">点击上方「新建模板」创建你的第一个图表模板</div>';
+          frag.appendChild(empty);
+        }
+      }
+
+      var grid = document.createElement('div');
+      grid.className = 'mt-grid';
+      cat.items.forEach(function (item) {
+        var isCustomItem = isCustom && item.id;
+        var card = document.createElement('div');
+        card.className = 'mt-card' + (isCustomItem ? ' mt-card-custom' : '');
+        card.setAttribute('draggable', 'true');
+
+        var header = document.createElement('div');
+        header.className = 'mt-card-header';
+        if (isCustomItem) { var badge = document.createElement('span'); badge.className = 'mt-card-badge'; badge.textContent = '⭐ 自定义'; header.appendChild(badge); }
+        var name = document.createElement('span'); name.className = 'mt-card-name'; name.textContent = item.name; header.appendChild(name);
+        var desc = document.createElement('span'); desc.className = 'mt-card-desc'; desc.textContent = item.desc || ''; header.appendChild(desc);
+        card.appendChild(header);
+
+        var preview = document.createElement('div');
+        preview.className = 'mt-card-preview';
+        var diagram = document.createElement('div');
+        diagram.className = 'mt-diagram';
+        diagram.setAttribute('data-source', item.source);
+        preview.appendChild(diagram);
+        card.appendChild(preview);
+        renderDiagram(diagram);
+
+        var actions = document.createElement('div');
+        actions.className = 'mt-card-actions';
+        var copyBtn = mkBtn('📋 复制源码', 'mt-btn-copy', function () {
+          navigator.clipboard.writeText(item.source).catch(function () {});
+          copyBtn.textContent = '✅ 已复制'; setTimeout(function () { copyBtn.textContent = '📋 复制源码'; }, 2000);
+        });
+        var chatBtn = mkBtn('💬 发送到聊天', 'mt-btn-chat', function () { sendToChat(item.source); });
+        var expandBtn = mkBtn('📄 源码', 'mt-btn-expand', function () {
+          var hidden = sourceBlock.classList.contains('hidden');
+          sourceBlock.classList.toggle('hidden');
+          expandBtn.textContent = hidden ? '🙈 收起' : '📄 源码';
+        });
+        actions.appendChild(copyBtn); actions.appendChild(chatBtn); actions.appendChild(expandBtn);
+        if (isCustomItem) {
+          var editBtn = mkBtn('✏️ 编辑', 'mt-btn-edit', function () { openModal('edit', item); });
+          var delBtn = mkBtn('🗑️ 删除', 'mt-btn-delete', function () {
+            if (confirm('确定要删除模板「' + item.name + '」吗？')) { deleteCustom(item.id); afterCustomChange(); }
+          });
+          actions.appendChild(editBtn); actions.appendChild(delBtn);
+        }
+        card.appendChild(actions);
+
+        var sourceBlock = document.createElement('div');
+        sourceBlock.className = 'mt-card-source hidden';
+        var pre = document.createElement('pre'); var code = document.createElement('code');
+        code.textContent = item.source; pre.appendChild(code); sourceBlock.appendChild(pre);
+        card.appendChild(sourceBlock);
+
+        card.addEventListener('dragstart', function (e) {
+          e.dataTransfer.setData('text/plain', item.source);
+          e.dataTransfer.setData('text/x-mermaid', item.source);
+          e.dataTransfer.effectAllowed = 'copy';
+        });
+
+        grid.appendChild(card);
+      });
+      frag.appendChild(grid);
+      contentEl.innerHTML = '';
+      contentEl.appendChild(frag);
+    }
+
+    function mkBtn(text, cls, fn) {
+      var b = document.createElement('button');
+      b.className = 'mt-btn ' + cls; b.textContent = text;
+      b.addEventListener('click', fn);
+      return b;
+    }
+
+    function afterCustomChange() {
+      if (activeCategory !== 'custom') { activeCategory = 'custom'; renderCategories(); }
+      renderTemplates();
+    }
+
+    function sendToChat(source) {
+      var input = document.getElementById('chat-input');
+      if (input) {
+        input.value = '请帮我生成以下 Mermaid 图表：\n\n```mermaid\n' + source + '\n```';
+        input.dispatchEvent(new Event('input'));
+        if (window.QCLI && window.QCLI.ChatUI && window.QCLI.ChatUI.toggleChat) window.QCLI.ChatUI.toggleChat();
+        setTimeout(function () { input.focus(); }, 300);
+      } else {
+        navigator.clipboard.writeText(source).catch(function () {});
+        toast('已复制到剪贴板（聊天面板未打开）', 'info');
+      }
+    }
+
+    // ──────────────────────────────────────────────
+    // 自定义模板模态框
+    // ──────────────────────────────────────────────
+    function openModal(mode, existing) {
+      var isEdit = mode === 'edit';
+      var overlay = document.createElement('div');
+      overlay.className = 'mt-modal-overlay';
+      var modal = document.createElement('div');
+      modal.className = 'mt-modal';
+      var header = document.createElement('div');
+      header.className = 'mt-modal-header';
+      var title = document.createElement('span');
+      title.className = 'mt-modal-title'; title.textContent = isEdit ? '✏️ 编辑模板' : '🆕 新建模板';
+      var closeBtn = document.createElement('button');
+      closeBtn.className = 'mt-modal-close'; closeBtn.textContent = '✕';
+      header.appendChild(title); header.appendChild(closeBtn);
+      modal.appendChild(header);
+
+      var body = document.createElement('div');
+      body.className = 'mt-modal-body';
+      var fName = field('模板名称', '例如：微服务架构图', isEdit ? existing.name : '');
+      var fDesc = field('描述（可选）', '例如：展示微服务之间的调用关系', isEdit ? existing.desc : '');
+      var fSrc = document.createElement('label'); fSrc.className = 'mt-field';
+      var sLabel = document.createElement('span'); sLabel.className = 'mt-field-label'; sLabel.textContent = 'Mermaid 源码';
+      var ta = document.createElement('textarea'); ta.className = 'mt-textarea'; ta.rows = 10;
+      ta.placeholder = '在此粘贴 Mermaid 图表源代码…'; ta.value = isEdit ? existing.source : '';
+      fSrc.appendChild(sLabel); fSrc.appendChild(ta);
+      body.appendChild(fName); body.appendChild(fDesc); body.appendChild(fSrc);
+      modal.appendChild(body);
+
+      var footer = document.createElement('div');
+      footer.className = 'mt-modal-footer';
+      var cancel = document.createElement('button'); cancel.className = 'mt-btn mt-modal-cancel'; cancel.textContent = '取消';
+      var submit = document.createElement('button'); submit.className = 'mt-btn mt-modal-submit'; submit.textContent = isEdit ? '💾 保存修改' : '✅ 创建模板';
+      footer.appendChild(cancel); footer.appendChild(submit);
+      modal.appendChild(footer);
+
+      overlay.appendChild(modal);
+      document.body.appendChild(overlay);
+      requestAnimationFrame(function () { overlay.classList.add('open'); });
+      setTimeout(function () { ta.focus(); }, 50);
+
+      function close() {
+        overlay.classList.remove('open');
+        setTimeout(function () { overlay.remove(); }, 200);
+      }
+      overlay.addEventListener('click', function (e) { if (e.target === overlay) close(); });
+      closeBtn.addEventListener('click', close);
+      cancel.addEventListener('click', close);
+      document.addEventListener('keydown', function esc(e) { if (e.key === 'Escape') { close(); document.removeEventListener('keydown', esc); } });
+
+      submit.addEventListener('click', function () {
+        var nm = fName.querySelector('input').value.trim();
+        var ds = fDesc.querySelector('input').value.trim();
+        var sc = ta.value.trim();
+        if (!nm) { fName.querySelector('input').focus(); fName.querySelector('input').style.borderColor = '#ef4444'; setTimeout(function () { fName.querySelector('input').style.borderColor = ''; }, 1500); return; }
+        if (!sc) { ta.focus(); ta.style.borderColor = '#ef4444'; setTimeout(function () { ta.style.borderColor = ''; }, 1500); return; }
+        if (isEdit) { updateCustom(existing.id, { name: nm, desc: ds, source: sc }); toast('✅ 模板已更新', 'success'); }
+        else { addCustom({ name: nm, desc: ds, source: sc }); toast('✅ 模板已保存', 'success'); }
+        close(); afterCustomChange();
+      });
+    }
+
+    function field(labelText, placeholder, value) {
+      var f = document.createElement('label'); f.className = 'mt-field';
+      var l = document.createElement('span'); l.className = 'mt-field-label'; l.textContent = labelText;
+      var i = document.createElement('input'); i.className = 'mt-input'; i.type = 'text'; i.placeholder = placeholder; i.value = value || '';
+      f.appendChild(l); f.appendChild(i); return f;
+    }
+
+    // ──────────────────────────────────────────────
+    // 启动
+    // ──────────────────────────────────────────────
+    var custom = loadCustom();
+    activeCategory = custom.length > 0 ? 'custom' : Object.keys(TEMPLATES_BUILTIN)[0];
+    renderCategories();
+    renderTemplates();
+  })();
+  </script>
+</body>
+</html>

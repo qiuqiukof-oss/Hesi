@@ -1,0 +1,8 @@
+{
+  "id": "zsxq",
+  "name": "zsxq",
+  "category": "integration",
+  "enterprise": false,
+  "authType": "token",
+  "description": "zsxq connector for Hesi"
+}

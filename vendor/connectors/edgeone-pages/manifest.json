@@ -1,0 +1,8 @@
+{
+  "id": "edgeone-pages",
+  "name": "edgeone-pages",
+  "category": "integration",
+  "enterprise": false,
+  "authType": "token",
+  "description": "edgeone-pages connector for Hesi"
+}

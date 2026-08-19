@@ -1,0 +1,332 @@
+/*
+ * Copyright (c) 2026 qiuqiukof-oss
+ * Licensed under the MIT License. See LICENSE for details.
+ */
+
+/* ============================================================
+   CLI Process Monitor — Running Process Items & Detail Modal
+   ============================================================ */
+
+/* ════════════════════════════════════════════════════════════
+   Process List
+   ════════════════════════════════════════════════════════════ */
+
+.dash-process-list {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+/* ── Process Item ── */
+.dash-process-item {
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  transition: border-color 0.15s, box-shadow 0.15s;
+  cursor: pointer;
+}
+
+.dash-process-item:hover {
+  border-color: var(--border-default);
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.1);
+}
+
+.dash-process-item.active {
+  border-color: var(--accent);
+  border-left: 2px solid var(--accent);
+}
+
+.dash-process-item-main {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+}
+
+.dash-process-item-icon {
+  font-size: 14px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.dash-process-item-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.dash-process-item-name {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dash-process-item-meta {
+  font-size: 8px;
+  color: var(--text-tertiary);
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  white-space: nowrap;
+}
+
+.dash-process-item-status {
+  font-size: 9px;
+  padding: 1px 6px;
+  border-radius: 8px;
+  flex-shrink: 0;
+  font-weight: 500;
+}
+
+.dash-process-item-status.online {
+  background: rgba(34, 197, 94, 0.1);
+  color: var(--success);
+}
+
+.dash-process-item-status.offline {
+  background: var(--bg-hover);
+  color: var(--text-tertiary);
+}
+
+/* ── Process Resource Bars ── */
+.dash-process-resources {
+  padding: 4px 8px 6px;
+  border-top: 1px solid var(--border-subtle);
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.dash-process-resource-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.dash-process-resource-icon {
+  font-size: 9px;
+  width: 14px;
+  text-align: center;
+  flex-shrink: 0;
+  line-height: 1;
+}
+
+.dash-process-resource-track {
+  flex: 1;
+  height: 4px;
+  background: var(--bg-hover);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.dash-process-resource-fill {
+  height: 100%;
+  background: var(--success);
+  border-radius: 2px;
+  transition: width 0.3s ease;
+}
+
+.dash-process-resource-fill.mem-fill {
+  background: var(--accent);
+}
+
+.dash-process-resource-value {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  min-width: 40px;
+  text-align: right;
+  flex-shrink: 0;
+}
+
+/* ── Process Sparklines ── */
+.dash-proc-sparklines {
+  display: flex;
+  gap: 6px;
+  margin-top: 4px;
+  padding-top: 4px;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.dash-proc-sparkline {
+  flex: 1;
+  height: 14px;
+  display: block;
+}
+
+/* ── Process PID ── */
+.dash-process-pid {
+  font-family: var(--font-mono);
+  font-size: 8px;
+  color: var(--text-tertiary);
+  background: var(--bg-hover);
+  padding: 1px 5px;
+  border-radius: 3px;
+  align-self: flex-start;
+  margin-top: 2px;
+}
+
+/* ════════════════════════════════════════════════════════════
+   Process Detail Modal
+   ════════════════════════════════════════════════════════════ */
+
+.dash-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease;
+}
+
+.dash-modal-overlay.active {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.dash-modal {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
+  width: 90%;
+  max-width: 440px;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+  animation: dash-modal-enter 0.2s ease-out;
+}
+
+@keyframes dash-modal-enter {
+  from { opacity: 0; transform: translateY(12px) scale(0.96); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.dash-modal-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.dash-modal-title {
+  flex: 1;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.dash-modal-close {
+  font-size: 14px;
+  line-height: 1;
+  color: var(--text-tertiary);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 2px 4px;
+  border-radius: 4px;
+  transition: background 0.12s, color 0.12s;
+}
+
+.dash-modal-close:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.dash-modal-body {
+  padding: 14px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.dash-modal-body::-webkit-scrollbar {
+  width: 2px;
+}
+.dash-modal-body::-webkit-scrollbar-track {
+  background: transparent;
+}
+.dash-modal-body::-webkit-scrollbar-thumb {
+  background: var(--bg-hover);
+  border-radius: 2px;
+}
+
+.dash-modal-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.dash-modal-field {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.dash-modal-field-label {
+  font-size: 8px;
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.dash-modal-field-value {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-primary);
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* ════════════════════════════════════════════════════════════
+   Light Theme Overrides
+   ════════════════════════════════════════════════════════════ */
+
+[data-scheme="light"] .dash-process-item {
+  background: #fafafa;
+}
+
+[data-scheme="light"] .dash-process-item:hover {
+  box-shadow: 0 1px 4px var(--shadow-ambient);
+}
+
+[data-scheme="light"] .dash-process-item.active {
+  background: rgba(99, 102, 241, 0.03);
+}
+
+[data-scheme="light"] .dash-process-resources {
+  border-top-color: var(--shadow-ambient);
+}
+
+[data-scheme="light"] .dash-process-resource-track {
+  background: var(--shadow-ambient);
+}
+
+[data-scheme="light"] .dash-process-pid {
+  background: var(--shadow-light);
+}
+
+[data-scheme="light"] .dash-modal {
+  background: #fafafa;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+}
+
+[data-scheme="light"] .dash-modal-header {
+  border-bottom-color: var(--shadow-ambient);
+}
+
+[data-scheme="light"] .dash-modal-overlay {
+  background: rgba(0, 0, 0, 0.25);
+}

@@ -1,0 +1,1489 @@
+/*
+ * Copyright (c) 2026 qiuqiukof-oss
+ * Licensed under the MIT License. See LICENSE for details.
+ */
+
+/* ============================================================
+   Main / Terminal
+   ============================================================ */
+#main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  min-width: 0;
+}
+
+#terminal-container {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  background: var(--tc-outer-bg, var(--bg-ground));
+  overflow: hidden;
+}
+
+/* Subtle ambient glow — only visible behind welcome or empty terminal */
+#terminal-container::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 60% 40% at 30% 20%, rgba(99, 102, 241, 0.05) 0%, transparent 60%),
+    radial-gradient(ellipse 40% 30% at 80% 80%, rgba(6, 182, 212, 0.03) 0%, transparent 50%);
+  pointer-events: none;
+  z-index: 0;
+  transition: opacity 0.5s;
+}
+
+/* Dim ambient glow when terminal is active */
+#terminal-container:has(#welcome-overlay.hidden)::before {
+  opacity: 0.3;
+}
+
+#terminal {
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  position: relative;
+  z-index: 1;
+}
+
+#terminal .xterm {
+  height: 100%;
+  padding: 4px;
+}
+
+/* ── Terminal scrollbar — must be visible for users to scroll back ── */
+#terminal .xterm-viewport {
+  overflow-y: scroll !important;
+  scrollbar-width: auto;
+  scrollbar-color: rgba(255, 255, 255, 0.3) transparent;
+  scroll-behavior: smooth;
+}
+
+#terminal .xterm-viewport::-webkit-scrollbar {
+  width: 12px;
+}
+
+#terminal .xterm-viewport::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+#terminal .xterm-viewport::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.3);
+  border-radius: 6px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+  min-height: 32px;
+}
+
+#terminal .xterm-viewport::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.5);
+  background-clip: content-box;
+}
+
+#terminal .xterm-viewport::-webkit-scrollbar-thumb:active {
+  background: rgba(255, 255, 255, 0.65);
+  background-clip: content-box;
+}
+
+/* ── Terminal Search Bar ── */
+#terminal-search-bar {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 50;
+  min-width: 320px;
+  max-width: 480px;
+}
+#terminal-search-bar.hidden {
+  display: none;
+}
+.tsb-wrap {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: rgba(20, 21, 24, 0.95);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  padding: 4px 8px;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+}
+.tsb-icon {
+  opacity: 0.5;
+  font-size: 13px;
+  flex-shrink: 0;
+}
+#terminal-search-input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--text-primary, #e4e4e7);
+  font-size: 13px;
+  font-family: inherit;
+  padding: 4px 6px;
+  min-width: 0;
+}
+#terminal-search-input::placeholder {
+  color: rgba(255,255,255,0.3);
+}
+.tsb-results {
+  font-size: 11px;
+  color: rgba(255,255,255,0.4);
+  min-width: 32px;
+  text-align: center;
+  flex-shrink: 0;
+  font-variant-numeric: tabular-nums;
+}
+.tsb-btn {
+  background: transparent;
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 4px;
+  color: rgba(255,255,255,0.6);
+  cursor: pointer;
+  padding: 2px 6px;
+  font-size: 11px;
+  line-height: 1.4;
+  transition: background 0.15s, color 0.15s;
+  flex-shrink: 0;
+}
+.tsb-btn:hover {
+  background: rgba(255,255,255,0.1);
+  color: #fff;
+}
+.tsb-btn:active {
+  background: rgba(255,255,255,0.15);
+}
+.tsb-close {
+  background: transparent;
+  border: none;
+  color: rgba(255,255,255,0.35);
+  cursor: pointer;
+  padding: 2px 4px;
+  font-size: 14px;
+  line-height: 1;
+  transition: color 0.15s;
+  flex-shrink: 0;
+}
+.tsb-close:hover {
+  color: rgba(255,255,255,0.8);
+}
+
+/* ============================================================
+   Tab Bar — Vertical Tabs on Terminal Left Side
+   ============================================================ */
+#terminal-area {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  position: relative;
+}
+
+#tab-bar {
+  display: flex;
+  flex-direction: column;
+  width: 0;
+  min-width: 0;
+  overflow: hidden;
+  background: var(--bg-elevated);
+  border-right: 1px solid var(--border-default);
+  flex-shrink: 0;
+  transition: width 0.15s var(--ease-out), min-width 0.15s var(--ease-out);
+  padding: 0;
+  gap: 1px;
+  position: relative;
+  z-index: 3;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+/* Custom scrollbar for tab bar */
+#tab-bar::-webkit-scrollbar {
+  width: 2px;
+}
+#tab-bar::-webkit-scrollbar-track {
+  background: transparent;
+}
+#tab-bar::-webkit-scrollbar-thumb {
+  background: var(--bg-active);
+  border-radius: 1px;
+}
+
+#tab-bar.has-tabs {
+  width: 40px;
+  min-width: 40px;
+  padding: 2px 0;
+}
+
+.tab-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  padding: 6px 2px;
+  border-radius: var(--radius-md);
+  font-size: 10px;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  user-select: none;
+  flex-shrink: 0;
+  background: transparent;
+  border: 1px solid transparent;
+  transition: background 0.12s, color 0.12s, border-color 0.12s;
+  position: relative;
+  min-height: 36px;
+  writing-mode: horizontal-tb;
+}
+
+.tab-item:hover {
+  background: var(--bg-hover);
+  color: var(--text-secondary);
+}
+
+.tab-item.dragging {
+  opacity: 0.4;
+  border-color: var(--accent);
+}
+
+.tab-item.drag-over {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 15%, transparent);
+  transform: scale(1.02);
+}
+
+.tab-item.active {
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  border-color: var(--border-default);
+}
+
+/* Left accent bar for active tab */
+.tab-item.active::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 4px;
+  bottom: 4px;
+  width: 2px;
+  background: var(--accent);
+  border-radius: 0 2px 2px 0;
+  box-shadow: 0 0 6px rgba(99, 102, 241, 0.4);
+}
+
+.tab-icon {
+  font-size: 14px;
+  flex-shrink: 0;
+  line-height: 1;
+  width: 20px;
+  text-align: center;
+}
+
+/* ── Category color accents on tabs ── */
+.tab-item::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 4px;
+  bottom: 4px;
+  width: 2px;
+  border-radius: 1px;
+  background: transparent;
+  transition: background 0.2s;
+}
+.tab-item[data-category="agent"]::before { background: #a78bfa; }   /* purple */
+.tab-item[data-category="directory"]::before { background: #34d399; } /* green */
+.tab-item[data-category="tool"]::before { background: #fbbf24; }     /* amber */
+.tab-item[data-category="environment"]::before { background: #60a5fa; } /* blue */
+
+.tab-name {
+  font-family: var(--font-mono);
+  font-size: 7px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 36px;
+  text-align: center;
+  line-height: 1.2;
+}
+
+.tab-pin {
+  position: absolute;
+  top: 1px;
+  right: 14px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 7px;
+  padding: 0;
+  line-height: 1;
+  opacity: 0;
+  transition: opacity 0.12s;
+  z-index: 1;
+  width: 12px;
+  height: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.tab-pin.pinned {
+  opacity: 0.8;
+}
+.tab-item:hover .tab-pin {
+  opacity: 0.5;
+}
+.tab-pin:hover {
+  opacity: 1 !important;
+}
+
+.tab-close {
+  position: absolute;
+  top: 1px;
+  right: 1px;
+  background: none;
+  border: none;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  font-size: 8px;
+  padding: 0;
+  line-height: 1;
+  border-radius: 2px;
+  opacity: 0;
+  transition: opacity 0.12s, color 0.12s, background 0.12s;
+  flex-shrink: 0;
+  width: 12px;
+  height: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1;
+}
+
+.tab-item:hover .tab-close {
+  opacity: 0.4;
+}
+
+.tab-close:hover {
+  opacity: 1 !important;
+  color: var(--danger) !important;
+  background: rgba(239, 68, 68, 0.15);
+}
+
+/* ── Light theme ── */
+[data-scheme="light"] .tab-item.active {
+  background: var(--bg-surface);
+}
+
+[data-scheme="light"] .tab-item.active::after {
+  box-shadow: 0 0 4px rgba(99, 102, 241, 0.2);
+}
+
+/* ── Responsive ── */
+@media (max-width: 600px) {
+  #tab-bar.has-tabs {
+    width: 34px;
+    min-width: 34px;
+  }
+  .tab-item {
+    min-height: 30px;
+    padding: 4px 1px;
+  }
+  .tab-icon {
+    font-size: 12px;
+  }
+  .tab-name {
+    font-size: 6px;
+    max-width: 30px;
+  }
+}
+[data-scheme="light"] .tab-item.active::after {
+  box-shadow: 0 0 4px rgba(99, 102, 241, 0.2);
+}
+
+/* ── Responsive ── */
+@media (max-width: 600px) {
+  #tab-bar.has-tabs {
+    height: 28px;
+    min-height: 28px;
+  }
+  .tab-item {
+    max-width: 100px;
+    padding: 2px 4px 2px 6px;
+    font-size: 10px;
+  }
+  .tab-name {
+    max-width: 50px;
+  }
+}
+
+/* ── Tab Terminal Container — per-tab xterm.js instance ── */
+.tab-terminal {
+  position: absolute;
+  inset: 0;
+  display: none;
+  z-index: 1;
+}
+
+.tab-terminal[style*="display: block"],
+.tab-terminal.active {
+  display: block;
+}
+
+/* Ensure xterm fills its tab-terminal container */
+.tab-terminal .xterm {
+  height: 100%;
+  width: 100%;
+}
+
+.tab-terminal .xterm-viewport {
+  overflow-y: scroll !important;
+  scrollbar-width: auto;
+  scrollbar-color: rgba(255, 255, 255, 0.3) transparent;
+  scroll-behavior: smooth;
+}
+
+/* ============================================================
+   Terminal Mermaid — Floating Diagram Panel
+   ============================================================ */
+
+.terminal-mermaid-float {
+  position: absolute;
+  bottom: 8px;
+  right: 8px;
+  z-index: 20;
+  width: min(480px, calc(100% - 16px));
+  max-height: 60vh;
+  background: rgba(20, 21, 24, 0.96);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 10px;
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  transition: opacity 0.5s ease, transform 0.3s ease;
+  animation: tmf-slide-in 0.3s var(--ease-out);
+}
+
+.terminal-mermaid-float.hidden {
+  display: none;
+}
+
+@keyframes tmf-slide-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.tmf-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  flex-shrink: 0;
+  user-select: none;
+}
+
+.tmf-title {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-primary, #e4e4e7);
+  white-space: nowrap;
+}
+
+.tmf-tab {
+  font-size: 9px;
+  color: var(--text-tertiary, #71717a);
+  flex: 1;
+  font-family: var(--font-mono, monospace);
+  opacity: 0.5;
+}
+
+.tmf-actions {
+  display: flex;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+.tmf-btn {
+  background: transparent;
+  border: none;
+  color: rgba(255, 255, 255, 0.4);
+  cursor: pointer;
+  padding: 2px 5px;
+  font-size: 11px;
+  border-radius: 4px;
+  line-height: 1;
+  transition: background 0.15s, color 0.15s;
+}
+
+.tmf-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.tmf-btn-close:hover {
+  background: rgba(239, 68, 68, 0.15);
+  color: #ef4444;
+}
+
+.tmf-body {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 8px 10px;
+  min-height: 60px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.tmf-body .mermaid-container,
+.tmf-body .diagram-container {
+  margin: 0;
+  max-width: 100%;
+}
+
+/* Type badge in floating panel header */
+.tmf-type-badge {
+  font-size: 9px;
+  font-family: var(--font-mono, monospace);
+  padding: 1px 5px;
+  border-radius: 3px;
+  background: rgba(99, 102, 241, 0.15);
+  color: #818cf8;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  flex-shrink: 0;
+}
+
+/* Generic diagram containers */
+.tmf-body .diagram-container svg {
+  max-width: 100%;
+  height: auto;
+  display: inline-block;
+}
+
+.tmf-body .diagram-container svg.diagram-zoomed {
+  max-width: none;
+}
+
+/* Diagram error state */
+.diagram-error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 12px;
+  color: var(--text-secondary, #a1a1aa);
+  font-size: 12px;
+}
+
+.diagram-error-icon { font-size: 18px; }
+.diagram-error-text { font-weight: 500; }
+.diagram-error-details { width: 100%; margin-top: 4px; font-size: 11px; }
+.diagram-error-details summary {
+  cursor: pointer;
+  color: var(--text-tertiary, #71717a);
+  text-align: center;
+  padding: 2px;
+}
+.diagram-error-details pre {
+  margin: 4px 0 0;
+  padding: 6px 8px;
+  background: var(--bg-hover, #1a1b1e);
+  border-radius: 4px;
+  overflow-x: auto;
+  font-size: 11px;
+  line-height: 1.4;
+  color: var(--text-secondary, #a1a1aa);
+}
+.diagram-error-details code {
+  background: none;
+  padding: 0;
+  font-family: var(--font-mono, monospace);
+}
+
+/* Export toolbar on diagram containers */
+.diagram-container .diagram-export-bar {
+  display: flex;
+  gap: 4px;
+  justify-content: flex-end;
+  padding: 4px 0 0;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.diagram-container:hover .diagram-export-bar {
+  opacity: 1;
+}
+
+.de-btn {
+  padding: 2px 8px;
+  border-radius: 4px;
+  border: 1px solid var(--border-default, rgba(255,255,255,0.12));
+  background: var(--bg-hover, #1a1b1e);
+  color: var(--text-tertiary, #71717a);
+  font-size: 10px;
+  cursor: pointer;
+  font-family: var(--font-ui, sans-serif);
+  line-height: 1.5;
+  transition: all 0.12s;
+}
+
+.de-btn:hover {
+  background: var(--bg-active, #27272a);
+  color: var(--text-primary, #e4e4e7);
+  border-color: var(--border-strong, rgba(255,255,255,0.2));
+}
+
+.de-btn-svg:hover {
+  color: #f59e0b;
+  border-color: #f59e0b;
+  background: rgba(245, 158, 11, 0.1);
+}
+
+.de-btn-png:hover {
+  color: #22c55e;
+  border-color: #22c55e;
+  background: rgba(34, 197, 94, 0.1);
+}
+
+/* Light theme for diagram containers */
+[data-scheme="light"] .terminal-mermaid-float {
+  background: rgba(250, 250, 250, 0.97);
+  border-color: rgba(0, 0, 0, 0.1);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+}
+
+[data-scheme="light"] .tmf-btn {
+  color: rgba(0, 0, 0, 0.4);
+}
+
+[data-scheme="light"] .tmf-btn:hover {
+  background: rgba(0, 0, 0, 0.06);
+  color: rgba(0, 0, 0, 0.8);
+}
+
+[data-scheme="light"] .tmf-header {
+  border-bottom-color: rgba(0, 0, 0, 0.06);
+}
+
+/* ============================================================
+   Status Bar
+   ============================================================ */
+#status-bar {
+  height: var(--status-bar-height);
+  min-height: var(--status-bar-height);
+  background: var(--bg-elevated);
+  border-top: 1px solid var(--border-default);
+  display: flex;
+  align-items: center;
+  padding: 0 var(--space-3);
+  font-size: 11px;
+  color: var(--text-tertiary);
+  gap: var(--space-4);
+  position: relative;
+  z-index: 2;
+}
+
+/* Left section — CLI identity */
+#active-cli-label {
+  font-family: var(--font-mono);
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  gap: var(--radius-md);
+}
+
+#active-cli-label::before {
+  content: '▶';
+  font-size: 8px;
+  color: var(--success);
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+
+/* Show play icon when a CLI is running */
+#active-cli-label:not(:empty):not(.starting)::before {
+  opacity: 0.6;
+}
+
+#active-cli-label.starting {
+  animation: pulse-text 1.2s var(--ease-in-out) infinite;
+}
+
+@keyframes pulse-text {
+  0%, 100% { opacity: 0.6; }
+  50% { opacity: 1; }
+}
+
+#active-cli-version {
+  font-size: 10px;
+  color: var(--text-tertiary);
+  opacity: 0.7;
+}
+
+/* Terminal dimension indicator (cols × rows) — pushed to right */
+#terminal-dims {
+  margin-left: auto;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-tertiary);
+  letter-spacing: 0.3px;
+  opacity: 0.6;
+  display: flex;
+  align-items: center;
+  gap: var(--radius-md);
+}
+
+#terminal-dims::before {
+  content: '';
+  display: inline-block;
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: var(--text-tertiary);
+  opacity: 0.3;
+}
+
+/* Terminal font size indicator */
+#terminal-font-size {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-tertiary);
+  opacity: 0.5;
+}
+
+/* ============================================================
+   Voice Input Button — Web Speech API
+   ============================================================ */
+.voice-btn {
+  background: none;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  color: var(--text-tertiary);
+  cursor: pointer;
+  font-size: 14px;
+  padding: 2px 6px;
+  line-height: 1.4;
+  transition: background 0.15s, color 0.15s, border-color 0.15s, box-shadow 0.15s;
+  flex-shrink: 0;
+  position: relative;
+}
+
+.voice-btn:hover {
+  background: var(--bg-hover);
+  color: var(--text-secondary);
+  border-color: var(--border-strong);
+}
+
+/* Recording state — pulsing glow */
+.voice-btn.recording {
+  color: var(--danger);
+  border-color: var(--danger);
+  background: rgba(239, 68, 68, 0.1);
+  box-shadow: 0 0 8px rgba(239, 68, 68, 0.25);
+  animation: voice-glow 1.2s ease-in-out infinite;
+}
+
+@keyframes voice-glow {
+  0%, 100% { box-shadow: 0 0 8px rgba(239, 68, 68, 0.25); }
+  50% { box-shadow: 0 0 16px rgba(239, 68, 68, 0.4); }
+}
+
+/* Voice status indicator in status bar */
+.voice-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  color: var(--danger);
+  font-family: var(--font-mono);
+  flex-shrink: 0;
+}
+
+.voice-status .voice-indicator {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--danger);
+  animation: voice-record-pulse 1s ease-in-out infinite;
+}
+
+@keyframes voice-record-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.4; transform: scale(0.7); }
+}
+
+.voice-status .voice-text {
+  white-space: nowrap;
+}
+
+/* ── Language Toggle Button ── */
+.lang-toggle {
+  background: none;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  color: var(--text-tertiary);
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  padding: 2px 6px;
+  line-height: 1.4;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+  flex-shrink: 0;
+  font-family: var(--font-ui);
+}
+
+.lang-toggle:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+  border-color: var(--border-strong);
+}
+
+.lang-toggle.active {
+  color: var(--accent-hover);
+  border-color: var(--accent);
+  background: var(--accent-glow);
+}
+
+/* ── Theme Toggle Button ── */
+.theme-toggle {
+  background: none;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  color: var(--text-tertiary);
+  cursor: pointer;
+  font-size: 13px;
+  padding: 2px 6px;
+  line-height: 1.4;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+  flex-shrink: 0;
+}
+
+.theme-toggle:hover {
+  background: var(--bg-hover);
+  color: var(--text-secondary);
+  border-color: var(--border-strong);
+}
+
+/* ============================================================
+   Connection Lost Overlay + Reconnection Animations
+   ============================================================ */
+#connection-lost {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-4);
+  background: rgba(10, 10, 11, 0.92);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  z-index: 10;
+  cursor: pointer;
+  /* Transition-based hiding instead of display:none */
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.5s var(--ease-out), backdrop-filter 0.5s var(--ease-out);
+}
+
+#connection-lost.visible {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+#connection-lost p {
+  color: var(--text-secondary);
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+/* Reconnecting spinner icon in connection-lost */
+#connection-lost .reconnect-spinner {
+  display: inline-block;
+  font-size: 18px;
+  animation: reconnect-spin 1s linear infinite;
+}
+
+@keyframes reconnect-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* Reconnecting pulsing dot on status indicator */
+.status-indicator.reconnecting .status-dot {
+  background: var(--warning);
+  animation: reconnect-pulse 1.2s var(--ease-in-out) infinite;
+}
+
+.status-indicator.reconnecting .status-text {
+  color: var(--warning);
+}
+
+@keyframes reconnect-pulse {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.4);
+    transform: scale(1);
+  }
+  50% {
+    box-shadow: 0 0 0 6px rgba(245, 158, 11, 0);
+    transform: scale(1.3);
+  }
+}
+
+/* Connection-lost overlay body layout */
+#connection-lost .cl-body {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+#connection-lost .cl-icon {
+  font-size: 36px;
+  opacity: 0.6;
+  margin-bottom: var(--space-1);
+}
+
+#connection-lost .cl-hint {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  opacity: 0.5;
+}
+
+/* ============================================================
+   Phase 2.5: Visual Effects — Terminal Beautification
+   ============================================================ */
+
+/* ── Animated gradient border on terminal container ── */
+#terminal-container::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 0;
+  padding: 1px;
+  background: linear-gradient(
+    135deg,
+    var(--accent) 0%,
+    var(--accent-sub) 25%,
+    #a78bfa 50%,
+    var(--accent-sub) 75%,
+    var(--accent) 100%
+  );
+  background-size: 400% 400%;
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0;
+  transition: opacity 0.6s var(--ease-out);
+  animation: border-glow 4s ease-in-out infinite;
+}
+
+/* Only show the border glow when a CLI is launched */
+#terminal-container:has(#welcome-overlay.hidden)::after {
+  opacity: 0.6;
+}
+
+/* Dim glow on hover */
+#terminal-container:hover::after {
+  opacity: 0.8;
+}
+
+@keyframes border-glow {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+}
+
+/* ── Power-on scan-line animation ── */
+@keyframes power-on-scan {
+  0% {
+    opacity: 1;
+    clip-path: inset(0 0 100% 0);
+    filter: brightness(3) saturate(0);
+  }
+  10% {
+    opacity: 1;
+    clip-path: inset(0 0 0 0);
+    filter: brightness(3) saturate(0);
+  }
+  15% {
+    filter: brightness(1.5) saturate(0.5);
+  }
+  30% {
+    filter: brightness(1) saturate(1);
+    opacity: 1;
+  }
+  40% {
+    opacity: 0;
+  }
+  50% {
+    opacity: 1;
+  }
+  55% {
+    opacity: 0;
+  }
+  60% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 1;
+    clip-path: inset(0 0 0 0);
+    filter: brightness(1) saturate(1);
+  }
+}
+
+.terminal-power-on {
+  animation: power-on-scan 0.8s var(--ease-out) forwards;
+  pointer-events: none;
+}
+
+/* ── Enhanced terminal scrollbar ── */
+#terminal .xterm-viewport::-webkit-scrollbar {
+  width: 10px;
+}
+
+#terminal .xterm-viewport::-webkit-scrollbar-track {
+  background: transparent;
+  border-left: 1px solid var(--border-subtle);
+}
+
+#terminal .xterm-viewport::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, var(--accent) 0%, var(--accent-sub) 100%);
+  border-radius: 5px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+  min-height: 40px;
+  opacity: 0.5;
+}
+
+#terminal .xterm-viewport::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, var(--accent-hover) 0%, var(--accent-sub) 100%);
+  background-clip: content-box;
+  border-width: 1px;
+}
+
+/* ── Terminal corner indicator ── */
+#terminal-container .terminal-corner {
+  position: absolute;
+  bottom: 8px;
+  right: 8px;
+  z-index: 2;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  color: var(--text-tertiary);
+  opacity: 0.15;
+  pointer-events: none;
+  letter-spacing: 1px;
+  user-select: none;
+  transition: opacity 0.3s;
+}
+
+#terminal-container:hover .terminal-corner {
+  opacity: 0.3;
+}
+
+/* ── Ambient glow effect (enhanced) ── */
+#terminal-container::before {
+  background:
+    radial-gradient(ellipse 60% 40% at 30% 20%, rgba(99, 102, 241, 0.08) 0%, transparent 60%),
+    radial-gradient(ellipse 40% 30% at 80% 80%, rgba(6, 182, 212, 0.05) 0%, transparent 50%),
+    radial-gradient(ellipse 30% 50% at 50% 50%, rgba(167, 139, 250, 0.03) 0%, transparent 40%);
+  transition: opacity 0.8s var(--ease-out);
+}
+
+/* ============================================================
+   TTS (Text-to-Speech) — Voice Output
+   ============================================================ */
+
+/* ── TTS Toggle Button in Status Bar ── */
+#tts-toggle-btn {
+  background: none;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  color: var(--text-tertiary);
+  cursor: pointer;
+  font-size: 13px;
+  padding: 2px 6px;
+  line-height: 1.4;
+  transition: background 0.15s, color 0.15s, border-color 0.15s, box-shadow 0.15s;
+  flex-shrink: 0;
+  position: relative;
+}
+
+#tts-toggle-btn:hover {
+  background: var(--bg-hover);
+  color: var(--text-secondary);
+  border-color: var(--border-strong);
+}
+
+/* Enabled state — accent border */
+#tts-toggle-btn.tts-enabled {
+  color: #22c55e;
+  border-color: rgba(34, 197, 94, 0.4);
+  background: rgba(34, 197, 94, 0.08);
+}
+
+#tts-toggle-btn.tts-enabled:hover {
+  background: rgba(34, 197, 94, 0.15);
+  border-color: rgba(34, 197, 94, 0.6);
+}
+
+/* Speaking state — pulsing glow */
+#tts-toggle-btn.speaking {
+  color: #22c55e;
+  border-color: #22c55e;
+  background: rgba(34, 197, 94, 0.12);
+  box-shadow: 0 0 8px rgba(34, 197, 94, 0.3);
+  animation: tts-speak-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes tts-speak-pulse {
+  0%, 100% { box-shadow: 0 0 8px rgba(34, 197, 94, 0.3); }
+  50% { box-shadow: 0 0 16px rgba(34, 197, 94, 0.5); }
+}
+
+/* ── TTS Speaking Indicator ── */
+#tts-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: #22c55e;
+  flex-shrink: 0;
+}
+
+#tts-indicator.hidden {
+  display: none;
+}
+
+.tts-indicator-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #22c55e;
+  animation: tts-indicator-pulse 0.8s ease-in-out infinite;
+}
+
+@keyframes tts-indicator-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.4; transform: scale(0.7); }
+}
+
+.tts-indicator-text {
+  white-space: nowrap;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.5px;
+}
+
+/* ── TTS Settings Panel (Dropdown) ── */
+.tts-settings-panel {
+  position: fixed;
+  bottom: 40px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 300;
+  width: 360px;
+  max-width: calc(100vw - 24px);
+  max-height: 70vh;
+  overflow-y: auto;
+  background: rgba(24, 25, 28, 0.97);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.5);
+  animation: tts-panel-slide-in 0.25s var(--ease-out);
+}
+
+.tts-settings-panel.hidden {
+  display: none;
+}
+
+@keyframes tts-panel-slide-in {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(12px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0) scale(1);
+  }
+}
+
+.tts-settings-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border-subtle);
+  flex-shrink: 0;
+}
+
+.tts-settings-icon {
+  font-size: 16px;
+}
+
+.tts-settings-title {
+  flex: 1;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.tts-settings-close {
+  background: none;
+  border: none;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  font-size: 14px;
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+  line-height: 1;
+  transition: background 0.12s, color 0.12s;
+}
+
+.tts-settings-close:hover {
+  background: rgba(239, 68, 68, 0.12);
+  color: #ef4444;
+}
+
+.tts-settings-body {
+  padding: 10px 14px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* ── Setting Row ── */
+.tts-setting-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.tts-setting-label {
+  font-size: 12px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  flex-shrink: 0;
+  min-width: 72px;
+}
+
+/* ── Toggle Switch ── */
+.tts-toggle {
+  position: relative;
+  display: inline-block;
+  width: 36px;
+  height: 20px;
+  flex-shrink: 0;
+}
+
+.tts-toggle input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+  position: absolute;
+}
+
+.tts-toggle-slider {
+  position: absolute;
+  cursor: pointer;
+  inset: 0;
+  background: var(--bg-active);
+  border-radius: 20px;
+  transition: background 0.2s;
+}
+
+.tts-toggle-slider::before {
+  content: '';
+  position: absolute;
+  left: 2px;
+  top: 2px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--text-tertiary);
+  transition: transform 0.2s, background 0.2s;
+}
+
+.tts-toggle input:checked + .tts-toggle-slider {
+  background: rgba(34, 197, 94, 0.3);
+}
+
+.tts-toggle input:checked + .tts-toggle-slider::before {
+  transform: translateX(16px);
+  background: #22c55e;
+}
+
+/* ── Slider Group ── */
+.tts-slider-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+}
+
+.tts-slider-group input[type="range"] {
+  flex: 1;
+  min-width: 0;
+  height: 4px;
+  -webkit-appearance: none;
+  appearance: none;
+  background: var(--bg-active);
+  border-radius: 2px;
+  outline: none;
+  cursor: pointer;
+}
+
+.tts-slider-group input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--accent);
+  border: 2px solid var(--bg-surface);
+  cursor: pointer;
+  transition: transform 0.12s;
+}
+
+.tts-slider-group input[type="range"]::-webkit-slider-thumb:hover {
+  transform: scale(1.15);
+}
+
+.tts-slider-group input[type="range"]::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--accent);
+  border: 2px solid var(--bg-surface);
+  cursor: pointer;
+}
+
+.tts-value {
+  font-size: 11px;
+  font-family: var(--font-mono);
+  color: var(--text-tertiary);
+  min-width: 36px;
+  text-align: right;
+  flex-shrink: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Select Dropdown ── */
+.tts-select {
+  flex: 1;
+  min-width: 0;
+  padding: 4px 8px;
+  background: var(--bg-hover);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  font-size: 12px;
+  font-family: var(--font-ui);
+  cursor: pointer;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.tts-select:hover {
+  border-color: var(--border-strong);
+}
+
+.tts-select:focus {
+  border-color: var(--accent);
+}
+
+/* ── Divider ── */
+.tts-setting-divider {
+  height: 1px;
+  background: var(--border-subtle);
+  margin: 2px 0;
+}
+
+/* ── Test Button ── */
+.tts-test-btn {
+  width: 100%;
+  padding: 8px 16px;
+  background: var(--accent);
+  border: none;
+  border-radius: var(--radius-md);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s, transform 0.12s;
+  font-family: var(--font-ui);
+}
+
+.tts-test-btn:hover {
+  background: var(--accent-hover);
+  transform: translateY(-1px);
+}
+
+.tts-test-btn:active {
+  transform: translateY(0);
+}
+
+/* ── Light theme overrides ── */
+[data-scheme="light"] .tts-settings-panel {
+  background: rgba(250, 250, 252, 0.98);
+  border-color: var(--border-default);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+}
+
+[data-scheme="light"] .tts-toggle-slider::before {
+  background: var(--text-tertiary);
+}
+
+[data-scheme="light"] .tts-slider-group input[type="range"]::-webkit-slider-thumb {
+  border-color: #fff;
+}
+
+[data-scheme="light"] .tts-slider-group input[type="range"]::-moz-range-thumb {
+  border-color: #fff;
+}
+
+[data-scheme="light"] #tts-toggle-btn.tts-enabled {
+  color: #16a34a;
+  border-color: rgba(22, 163, 74, 0.4);
+  background: rgba(22, 163, 74, 0.06);
+}
+
+[data-scheme="light"] #tts-toggle-btn.speaking {
+  color: #16a34a;
+  border-color: #16a34a;
+  background: rgba(22, 163, 74, 0.08);
+  box-shadow: 0 0 6px rgba(22, 163, 74, 0.2);
+}
+
+[data-scheme="light"] .tts-indicator-dot {
+  background: #16a34a;
+}
+
+[data-scheme="light"] #tts-indicator {
+  color: #16a34a;
+}
+
+/* ============================================================

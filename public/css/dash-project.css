@@ -1,0 +1,234 @@
+/*
+ * Copyright (c) 2026 qiuqiukof-oss
+ * Licensed under the MIT License. See LICENSE for details.
+ */
+
+/* ============================================================
+   Project Analysis & Activity Timeline — Dashboard Cards
+   ============================================================ */
+
+/* ════════════════════════════════════════════════════════════
+   Project Analysis — File Type Distribution Grid
+   ════════════════════════════════════════════════════════════ */
+
+.dash-project-type-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 4px;
+  margin-top: 4px;
+}
+
+.dash-project-type-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 6px 4px;
+  background: var(--bg-ground);
+  border-radius: 6px;
+  border: 1px solid var(--border-subtle);
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.dash-project-type-item:hover {
+  background: var(--bg-hover);
+  border-color: var(--border-default);
+}
+
+.dash-project-type-icon {
+  font-size: 14px;
+  line-height: 1;
+}
+
+.dash-project-type-value {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-primary);
+  line-height: 1.2;
+}
+
+.dash-project-type-label {
+  font-size: 8px;
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+/* ════════════════════════════════════════════════════════════
+   Project Analysis — Key Config Files
+   ════════════════════════════════════════════════════════════ */
+
+.dash-project-keyfiles {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-top: 6px;
+}
+
+.dash-project-section-label {
+  font-size: 9px;
+  font-weight: 600;
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  margin-bottom: 2px;
+}
+
+.dash-project-kf-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 6px;
+  border-radius: 4px;
+  font-size: 10px;
+  color: var(--text-secondary);
+  transition: background 0.12s, color 0.12s;
+}
+
+.dash-project-kf-item:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.dash-project-kf-name {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  flex-shrink: 0;
+}
+
+.dash-project-kf-label {
+  font-size: 9px;
+  color: var(--text-tertiary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Project refresh button */
+.dash-project-refresh-btn {
+  margin-top: 6px;
+  padding: 3px 10px;
+  font-size: 9px;
+  border-radius: 6px;
+  background: transparent;
+  border: 1px solid var(--border-subtle);
+  color: var(--text-tertiary);
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s, border-color 0.12s;
+  font-family: var(--font-ui);
+  font-weight: 500;
+  align-self: flex-start;
+}
+
+.dash-project-refresh-btn:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+  border-color: var(--accent);
+}
+
+.dash-project-refresh-btn:active {
+  background: var(--bg-active);
+}
+
+/* ════════════════════════════════════════════════════════════
+   Activity Timeline
+   ════════════════════════════════════════════════════════════ */
+
+.dash-timeline {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: 160px;
+  overflow-y: auto;
+}
+
+.dash-timeline::-webkit-scrollbar {
+  width: 2px;
+}
+.dash-timeline::-webkit-scrollbar-track {
+  background: transparent;
+}
+.dash-timeline::-webkit-scrollbar-thumb {
+  background: var(--bg-hover);
+  border-radius: 2px;
+}
+
+.dash-timeline-item {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 4px;
+  border-radius: 3px;
+  font-size: 10px;
+  color: var(--text-secondary);
+  transition: background 0.12s;
+  animation: tl-fade-in 0.3s ease-out;
+}
+
+.dash-timeline-item:hover {
+  background: var(--bg-hover);
+}
+
+.dash-timeline-icon {
+  font-size: 10px;
+  flex-shrink: 0;
+  line-height: 1;
+  width: 14px;
+  text-align: center;
+}
+
+.dash-timeline-time {
+  font-family: var(--font-mono);
+  font-size: 8px;
+  color: var(--text-tertiary);
+  flex-shrink: 0;
+  min-width: 44px;
+}
+
+.dash-timeline-text {
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Timeline entry animation for new items */
+.timeline-new {
+  animation: tl-slide-in 0.3s ease-out;
+}
+
+@keyframes tl-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes tl-slide-in {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ════════════════════════════════════════════════════════════
+   Light Theme Adjustments
+   ════════════════════════════════════════════════════════════ */
+
+[data-scheme="light"] .dash-project-type-item {
+  background: var(--shadow-light);
+}
+
+[data-scheme="light"] .dash-project-type-item:hover {
+  background: var(--shadow-ambient);
+}
+
+[data-scheme="light"] .dash-project-kf-item:hover {
+  background: var(--shadow-light);
+}
+
+[data-scheme="light"] .dash-project-refresh-btn {
+  border-color: var(--shadow-ambient);
+}
+
+[data-scheme="light"] .dash-timeline-item:hover {
+  background: var(--shadow-light);
+}

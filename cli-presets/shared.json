@@ -1,0 +1,68 @@
+{
+  "name": "shared",
+  "label": "通用工具",
+  "labelEn": "Shared Tools",
+  "categories": {
+    "directory": "📂 Shell / Runtime",
+    "tool": "🔧 通用工具",
+    "agent": "🤖 AI Agent"
+  },
+  "tools": {
+    "bash": { "category": "directory", "type": "interactive" },
+    "zsh": { "category": "directory", "type": "interactive" },
+    "fish": { "category": "directory", "type": "interactive" },
+    "pwsh": { "category": "directory", "type": "interactive" },
+    "powershell": { "category": "directory", "type": "interactive" },
+    "cmd": { "category": "directory", "type": "interactive" },
+    "wsl": { "category": "directory", "type": "interactive" },
+
+    "git": { "category": "tool", "type": "batch" },
+    "gh": { "category": "tool", "type": "batch" },
+    "curl": { "category": "tool", "type": "batch" },
+    "wget": { "category": "tool", "type": "batch" },
+    "ssh": { "category": "tool", "type": "interactive" },
+    "telnet": { "category": "tool", "type": "interactive" },
+    "vim": { "category": "tool", "type": "interactive" },
+    "nvim": { "category": "tool", "type": "interactive" },
+    "nano": { "category": "tool", "type": "interactive" },
+    "tmux": { "category": "tool", "type": "interactive" },
+    "screen": { "category": "tool", "type": "interactive" },
+    "htop": { "category": "tool", "type": "interactive" },
+    "top": { "category": "tool", "type": "interactive" },
+    "btop": { "category": "tool", "type": "interactive" },
+    "nvtop": { "category": "tool", "type": "interactive" },
+    "jq": { "category": "tool", "type": "batch" },
+    "yq": { "category": "tool", "type": "batch" },
+    "bat": { "category": "tool", "type": "batch" },
+    "ripgrep": { "category": "tool", "type": "batch" },
+    "fd": { "category": "tool", "type": "batch" },
+    "fzf": { "category": "tool", "type": "batch" },
+    "tldr": { "category": "tool", "type": "batch" },
+    "cheat": { "category": "tool", "type": "batch" },
+
+    "docker": { "category": "tool", "type": "batch" },
+    "kubectl": { "category": "tool", "type": "batch" },
+    "aws": { "category": "tool", "type": "batch" },
+    "gcloud": { "category": "tool", "type": "batch" },
+
+    "opencode": { "category": "agent", "type": "batch" },
+    "codebuff": { "category": "agent", "type": "batch" },
+    "freebuff": { "category": "agent", "type": "batch" },
+    "codux": { "category": "agent", "type": "batch" },
+    "codex": { "category": "agent", "type": "batch" },
+    "codex-cli": { "category": "agent", "type": "batch" },
+    "trae-cli": { "category": "agent", "type": "batch" },
+    "mimo": { "category": "agent", "type": "batch" },
+    "opencli": { "category": "agent", "type": "batch" }
+  },
+  "names": [
+    "bash","zsh","fish","pwsh","powershell","cmd","wsl",
+    "git","gh","curl","wget","ssh","telnet",
+    "vim","nvim","nano","tmux","screen",
+    "htop","top","btop","nvtop",
+    "jq","yq","bat","ripgrep","fd","fzf","tldr","cheat",
+    "docker","kubectl","aws","gcloud",
+    "opencode","codebuff","freebuff","codux","codex","codex-cli",
+    "trae-cli","mimo","opencli"
+  ]
+}

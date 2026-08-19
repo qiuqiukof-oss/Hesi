@@ -1,0 +1,40 @@
+{
+  "id": "expert-team-research",
+  "name": "深度研究专家团",
+  "description": "由「通用助手→AI专家团→通用助手」组成的深度研究小队：收集资料、专家级论证分析、产出结构化研究报告。",
+  "icon": "🎓",
+  "kind": "dag",
+  "maxConcurrency": 2,
+  "tasks": [
+    {
+      "id": "collect",
+      "label": "收集原始资料",
+      "agentId": "opencode",
+      "task": "围绕本次研究主题，收集权威、可引用的原始资料（数据源、报告、关键事实），列出来源清单。",
+      "role": "assistant",
+      "roleName": "通用AI助手",
+      "persona": "你是高效的通用AI助手，擅长信息检索、任务执行与总结，准确、简洁、条理清晰，不臆测。",
+      "dependsOn": []
+    },
+    {
+      "id": "analyze",
+      "label": "专家级深度分析",
+      "agentId": "opencode",
+      "task": "基于收集到的资料，进行严谨论证与结构化分析：先界定问题边界与关键假设，再给出有依据、有洞察、可追溯的结论与风险点。",
+      "role": "expert",
+      "roleName": "AI专家团",
+      "persona": "你是行业资深专家，擅长深度研究、严谨论证与结构化报告，先界定问题边界与假设，再给出有依据、有洞察、可追溯的结论。",
+      "dependsOn": ["collect"]
+    },
+    {
+      "id": "report",
+      "label": "撰写研究报告",
+      "agentId": "opencode",
+      "task": "将分析结论整理为一份结构化研究报告（背景、方法、发现、结论、建议），语言精炼、可执行。",
+      "role": "assistant",
+      "roleName": "通用AI助手",
+      "persona": "你是高效的通用AI助手，擅长信息检索、任务执行与总结，准确、简洁、条理清晰，不臆测。",
+      "dependsOn": ["analyze"]
+    }
+  ]
+}

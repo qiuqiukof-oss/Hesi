@@ -1,0 +1,8 @@
+{
+  "id": "awesun",
+  "name": "awesun",
+  "category": "integration",
+  "enterprise": false,
+  "authType": "token",
+  "description": "awesun connector for Hesi"
+}

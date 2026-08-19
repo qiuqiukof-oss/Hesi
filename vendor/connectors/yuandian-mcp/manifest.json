@@ -1,0 +1,8 @@
+{
+  "id": "yuandian-mcp",
+  "name": "yuandian-mcp",
+  "category": "documentation",
+  "enterprise": false,
+  "authType": "token",
+  "description": "yuandian-mcp connector for Hesi"
+}

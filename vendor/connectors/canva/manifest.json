@@ -1,0 +1,8 @@
+{
+  "id": "canva",
+  "name": "canva",
+  "category": "integration",
+  "enterprise": false,
+  "authType": "token",
+  "description": "canva connector for Hesi"
+}

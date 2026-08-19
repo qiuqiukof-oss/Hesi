@@ -1,0 +1,27 @@
+{
+  "name": "netforge-plugin",
+  "version": "0.1.0",
+  "description": "NetForge Browser Engine — plugin for oh-my-openagent (Hesi)",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "build": "tsc",
+    "preinstall": "node scripts/install.mjs",
+    "postinstall": "node scripts/register-plugin.mjs"
+  },
+  "dependencies": {
+    "@opencode-ai/plugin": "^1.15.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.0.0"
+  },
+  "keywords": [
+    "opencode",
+    "claude-code",
+    "cliq",
+    "plugin",
+    "browser",
+    "mcp",
+    "automation"
+  ]
+}

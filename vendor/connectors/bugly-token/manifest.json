@@ -1,0 +1,8 @@
+{
+  "id": "bugly-token",
+  "name": "bugly-token",
+  "category": "compliance",
+  "enterprise": true,
+  "authType": "token",
+  "description": "bugly-token connector for Hesi"
+}

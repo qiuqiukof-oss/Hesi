@@ -1,0 +1,55 @@
+{
+  "name": "agnes-ai",
+  "version": "1.0.0",
+  "description": "Agnes AI 全能创作平台（对话 / 图像 / 视频 / 故事板），经 Hesi 本地代理安全调用。零额外依赖，不引入 Python。",
+  "author": "Hesi × Agnes",
+  "license": "MIT",
+  "routes": [
+    {
+      "method": "GET",
+      "path": "/api/plugins/agnes-ai/proxy/*",
+      "handler": "handlers/proxy.js"
+    },
+    {
+      "method": "POST",
+      "path": "/api/plugins/agnes-ai/proxy/*",
+      "handler": "handlers/proxy.js"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/plugins/agnes-ai/proxy/*",
+      "handler": "handlers/proxy.js"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/plugins/agnes-ai/proxy/*",
+      "handler": "handlers/proxy.js"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/plugins/agnes-ai/proxy/*",
+      "handler": "handlers/proxy.js"
+    },
+    {
+      "method": "GET",
+      "path": "/api/plugins/agnes-ai/config",
+      "handler": "handlers/config.js"
+    },
+    {
+      "method": "POST",
+      "path": "/api/plugins/agnes-ai/config",
+      "handler": "handlers/config.js"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/plugins/agnes-ai/config",
+      "handler": "handlers/config.js"
+    }
+  ],
+  "ui": {
+    "scripts": [
+      "ui/panel.js"
+    ]
+  },
+  "homepage": "/api/plugins/agnes-ai/doc"
+}

@@ -1,0 +1,706 @@
+/*
+ * Copyright (c) 2026 qiuqiukof-oss
+ * Licensed under the MIT License. See LICENSE for details.
+ */
+
+/* ============================================================
+   System Resources Tab — Clean Card-Style Design
+   ============================================================ */
+
+/* ============================================================
+   Keyframe Animations
+   ============================================================ */
+
+/* ── Card entrance: fade in + slide up ── */
+@keyframes sr-card-enter {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ── Value data pulse (live data feel) ── */
+@keyframes sr-data-pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.7;
+  }
+}
+
+/* ── Icon pulse on card hover ── */
+@keyframes sr-icon-pulse {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.12);
+  }
+}
+
+/* ── Section title shimmer ── */
+@keyframes sr-shimmer {
+  0% {
+    background-position: -200% center;
+  }
+  100% {
+    background-position: 200% center;
+  }
+}
+
+/* ── Badge scale on chart hover ── */
+@keyframes sr-badge-pop {
+  0% {
+    transform: scale(1);
+  }
+  40% {
+    transform: scale(1.2);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+/* ── Table count number pop ── */
+@keyframes sr-count-pop {
+  0% {
+    transform: scale(1);
+  }
+  30% {
+    transform: scale(1.3);
+    color: var(--accent);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+/* ── Empty state shimmer ── */
+@keyframes sr-empty-shimmer {
+  0%, 100% {
+    opacity: 0.4;
+  }
+  50% {
+    opacity: 0.8;
+  }
+}
+
+/* ── Live data breathing indicator ── */
+@keyframes sr-breathing {
+  0%, 100% {
+    box-shadow: 0 0 0 rgba(var(--accent-rgb, 99, 102, 241), 0);
+  }
+  50% {
+    box-shadow: 0 0 6px rgba(var(--accent-rgb, 99, 102, 241), 0.15);
+  }
+}
+
+/* ── Chart canvas draw visualization ── */
+@keyframes sr-chart-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* ============================================================
+   Main Container
+   ============================================================ */
+.sr-content {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.sr-content::-webkit-scrollbar {
+  width: 3px;
+}
+.sr-content::-webkit-scrollbar-track {
+  background: transparent;
+}
+.sr-content::-webkit-scrollbar-thumb {
+  background: var(--bg-hover);
+  border-radius: 3px;
+}
+
+/* ── Section title with shimmer animation ── */
+.sr-content .dash-section-title {
+  position: relative;
+  overflow: hidden;
+}
+
+.sr-content .dash-section-title::after {
+  content: '';
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: 60px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.06) 50%,
+    transparent
+  );
+  background-size: 200% 100%;
+  animation: sr-shimmer 3s ease-in-out infinite;
+  pointer-events: none;
+  border-radius: 4px;
+}
+
+[data-scheme="light"] .sr-content .dash-section-title::after {
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(0, 0, 0, 0.04) 50%,
+    transparent
+  );
+}
+
+/* ── Summary Cards Grid ── */
+.sr-summary-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+/* ── Summary Card with staggered entrance animation ── */
+.sr-summary-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+  cursor: default;
+  animation: sr-card-enter 0.4s var(--ease-out) both;
+  transition:
+    border-color 0.25s var(--ease-out),
+    box-shadow 0.25s var(--ease-out),
+    transform 0.2s var(--ease-spring, ease-out),
+    background 0.2s ease;
+}
+
+/* Staggered entrance: each card enters with incremental delay */
+.sr-summary-card:nth-child(1) { animation-delay: 0.00s; }
+.sr-summary-card:nth-child(2) { animation-delay: 0.05s; }
+.sr-summary-card:nth-child(3) { animation-delay: 0.10s; }
+.sr-summary-card:nth-child(4) { animation-delay: 0.15s; }
+.sr-summary-card:nth-child(5) { animation-delay: 0.20s; }
+.sr-summary-card:nth-child(6) { animation-delay: 0.25s; }
+
+.sr-summary-card:hover {
+  border-color: var(--border-default);
+  box-shadow:
+    0 4px 16px rgba(0, 0, 0, 0.10),
+    0 0 0 1px rgba(255, 255, 255, 0.03);
+  transform: translateY(-2px);
+  background: var(--bg-elevated);
+}
+
+/* ── Summary card icon with hover pulse ── */
+.sr-summary-icon {
+  font-size: 20px;
+  line-height: 1;
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-ground);
+  border-radius: 8px;
+  transition:
+    transform 0.25s var(--ease-spring, ease-out),
+    background 0.25s ease,
+    box-shadow 0.25s ease;
+  will-change: transform;
+}
+
+.sr-summary-card:hover .sr-summary-icon {
+  animation: sr-icon-pulse 0.6s var(--ease-spring, ease-out);
+  background: var(--bg-hover);
+  box-shadow: 0 0 12px rgba(255, 255, 255, 0.05);
+}
+
+.sr-summary-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.sr-summary-label {
+  font-size: 9px;
+  font-weight: 600;
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+/* ── Current value with subtle live-data pulse ── */
+.sr-summary-current {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  line-height: 1.3;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  animation: sr-data-pulse 3s ease-in-out infinite;
+  animation-delay: 1s;
+}
+
+/* Pause pulse on hover for readability */
+.sr-summary-card:hover .sr-summary-current {
+  animation-play-state: paused;
+}
+
+.sr-summary-stats {
+  display: flex;
+  gap: 8px;
+  margin-top: 2px;
+}
+
+.sr-stat-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 9px;
+  color: var(--text-tertiary);
+  transition: color 0.2s ease;
+}
+
+.sr-summary-card:hover .sr-stat-item {
+  color: var(--text-secondary);
+}
+
+.sr-stat-label {
+  opacity: 0.7;
+  transition: opacity 0.2s ease;
+}
+
+.sr-summary-card:hover .sr-stat-label {
+  opacity: 1;
+}
+
+.sr-stat-val {
+  font-family: var(--font-mono);
+  font-weight: 600;
+  color: var(--text-secondary);
+  font-size: 10px;
+  transition: color 0.2s ease;
+}
+
+.sr-summary-card:hover .sr-stat-val {
+  color: var(--text-primary);
+}
+
+/* ── Charts Grid ── */
+.sr-charts-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 8px;
+}
+
+/* ── Chart card with entrance animation ── */
+.sr-chart-card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+  overflow: hidden;
+  animation: sr-card-enter 0.4s var(--ease-out) both;
+  animation-delay: 0.3s;
+  transition:
+    border-color 0.25s var(--ease-out),
+    box-shadow 0.3s var(--ease-out),
+    transform 0.25s var(--ease-spring, ease-out),
+    background 0.2s ease;
+}
+
+.sr-chart-card:nth-child(1) { animation-delay: 0.30s; }
+.sr-chart-card:nth-child(2) { animation-delay: 0.35s; }
+.sr-chart-card:nth-child(3) { animation-delay: 0.40s; }
+.sr-chart-card:nth-child(4) { animation-delay: 0.45s; }
+.sr-chart-card:nth-child(5) { animation-delay: 0.50s; }
+.sr-chart-card:nth-child(6) { animation-delay: 0.55s; }
+
+.sr-chart-card:hover {
+  border-color: var(--border-default);
+  box-shadow:
+    0 4px 16px rgba(0, 0, 0, 0.10),
+    0 0 0 1px rgba(255, 255, 255, 0.03);
+  transform: translateY(-1px);
+  background: var(--bg-elevated);
+}
+
+.sr-chart-card .dash-card-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border-subtle);
+  user-select: none;
+  transition: border-color 0.2s ease;
+}
+
+.sr-chart-card:hover .dash-card-header {
+  border-bottom-color: var(--border-default);
+}
+
+.sr-chart-card .dash-card-icon {
+  font-size: 14px;
+  line-height: 1;
+  flex-shrink: 0;
+  transition: transform 0.25s var(--ease-spring, ease-out);
+}
+
+.sr-chart-card:hover .dash-card-icon {
+  transform: scale(1.15);
+}
+
+.sr-chart-card .dash-card-title {
+  flex: 1;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+/* ── Chart badge with hover pop animation ── */
+.sr-chart-card .dash-card-badge {
+  font-size: 9px;
+  padding: 1px 6px;
+  border-radius: 8px;
+  background: var(--bg-ground);
+  color: var(--text-secondary);
+  font-weight: 500;
+  font-family: var(--font-mono);
+  flex-shrink: 0;
+  transition:
+    background 0.2s ease,
+    color 0.2s ease,
+    transform 0.2s var(--ease-spring, ease-out);
+}
+
+.sr-chart-card:hover .dash-card-badge {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+  animation: sr-badge-pop 0.4s var(--ease-spring, ease-out);
+}
+
+.sr-chart-body {
+  padding: 4px 8px 8px;
+}
+
+/* ── Chart canvas with fade-in ── */
+.sr-chart-wrap {
+  width: 100%;
+  height: 100px;
+  position: relative;
+  overflow: hidden;
+}
+
+.sr-chart-canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+  border-radius: 6px;
+  background: var(--bg-ground);
+  animation: sr-chart-fade-in 0.6s ease both;
+  transition: opacity 0.3s ease;
+}
+
+/* Canvas breathing glow on parent hover */
+.sr-chart-card:hover .sr-chart-canvas {
+  animation: sr-breathing 2s ease-in-out infinite;
+}
+
+/* ── History Data Table ── */
+.sr-table-wrap {
+  overflow-x: auto;
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.sr-table-wrap::-webkit-scrollbar {
+  width: 3px;
+  height: 3px;
+}
+.sr-table-wrap::-webkit-scrollbar-track {
+  background: transparent;
+}
+.sr-table-wrap::-webkit-scrollbar-thumb {
+  background: var(--bg-hover);
+  border-radius: 3px;
+}
+
+.sr-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 10px;
+  font-family: var(--font-mono);
+}
+
+/* ── Sticky table header ── */
+.sr-table thead {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+.sr-table th {
+  padding: 6px 8px;
+  text-align: left;
+  font-weight: 600;
+  font-size: 9px;
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  background: var(--bg-surface);
+  border-bottom: 1px solid var(--border-subtle);
+  white-space: nowrap;
+  transition: color 0.2s ease;
+}
+
+.sr-table th:hover {
+  color: var(--text-secondary);
+}
+
+/* ── Table data cells ── */
+.sr-table td {
+  padding: 4px 8px;
+  color: var(--text-secondary);
+  border-bottom: 1px solid var(--border-subtle);
+  white-space: nowrap;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease,
+    padding-left 0.15s ease;
+}
+
+/* ── Table row hover with slide-in accent ── */
+.sr-table tbody tr {
+  transition: background 0.15s ease;
+}
+
+.sr-table tbody tr:hover td {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+  padding-left: 12px;
+}
+
+/* First cell (time) gets extra left padding on hover */
+.sr-table tbody tr:hover td:first-child {
+  padding-left: 14px;
+  border-left: 2px solid var(--accent);
+}
+
+.sr-td-time {
+  color: var(--text-tertiary) !important;
+  font-size: 9px;
+  transition: color 0.15s ease;
+}
+
+.sr-table tbody tr:hover .sr-td-time {
+  color: var(--text-secondary) !important;
+}
+
+/* ── Empty state with shimmer ── */
+.sr-empty {
+  text-align: center;
+  padding: 20px;
+  color: var(--text-tertiary);
+  font-style: italic;
+  font-size: 11px;
+  font-family: var(--font-ui);
+  animation: sr-empty-shimmer 2s ease-in-out infinite;
+}
+
+/* ── CSV Export Button with ripple ── */
+.dash-chip-btn {
+  font-size: 9px;
+  padding: 2px 8px;
+  border-radius: 6px;
+  background: transparent;
+  border: 1px solid var(--border-subtle);
+  color: var(--text-tertiary);
+  cursor: pointer;
+  flex-shrink: 0;
+  line-height: 1.5;
+  font-family: var(--font-ui);
+  font-weight: 500;
+  position: relative;
+  overflow: hidden;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease,
+    border-color 0.15s ease,
+    transform 0.12s var(--ease-spring, ease-out);
+}
+
+.dash-chip-btn:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+  border-color: var(--accent);
+  transform: translateY(-1px);
+}
+
+.dash-chip-btn:active {
+  background: var(--bg-active);
+  transform: translateY(0) scale(0.97);
+  transition-duration: 0.05s;
+}
+
+/* Ripple effect on click */
+.dash-chip-btn::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at 50% 50%, rgba(255,255,255,0.15) 0%, transparent 60%);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  pointer-events: none;
+}
+
+.dash-chip-btn:active::after {
+  opacity: 1;
+  transition: opacity 0s;
+}
+
+[data-scheme="light"] .dash-chip-btn:active::after {
+  background: radial-gradient(circle at 50% 50%, rgba(0,0,0,0.08) 0%, transparent 60%);
+}
+
+/* ── Table count badge with number pop ── */
+#sr-table-count {
+  font-size: 9px;
+  padding: 1px 6px;
+  border-radius: 8px;
+  background: var(--bg-ground);
+  color: var(--text-secondary);
+  font-weight: 500;
+  font-family: var(--font-mono);
+  flex-shrink: 0;
+  margin-left: auto;
+  transition:
+    background 0.2s ease,
+    color 0.2s ease;
+}
+
+/* Count pop animation triggered via JS class */
+#sr-table-count.pop {
+  animation: sr-count-pop 0.4s var(--ease-spring, ease-out);
+}
+
+/* ── Responsive: wider layout for wider panels ── */
+@media (min-width: 500px) {
+  .sr-summary-grid {
+    grid-template-columns: 1fr 1fr 1fr;
+  }
+
+  .sr-charts-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (min-width: 700px) {
+  .sr-summary-grid {
+    grid-template-columns: 1fr 1fr 1fr;
+  }
+
+  .sr-charts-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+/* ── Light theme adjustments ── */
+[data-scheme="light"] .sr-summary-card {
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+[data-scheme="light"] .sr-summary-card:hover {
+  box-shadow:
+    0 2px 10px rgba(0, 0, 0, 0.06),
+    0 0 0 1px rgba(0, 0, 0, 0.02);
+}
+
+[data-scheme="light"] .sr-chart-card {
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+[data-scheme="light"] .sr-chart-card:hover {
+  box-shadow:
+    0 2px 10px rgba(0, 0, 0, 0.06),
+    0 0 0 1px rgba(0, 0, 0, 0.02);
+}
+
+[data-scheme="light"] .sr-summary-card:hover .sr-summary-icon {
+  box-shadow: 0 0 12px rgba(0, 0, 0, 0.04);
+}
+
+/* ── Reduced motion preference ── */
+@media (prefers-reduced-motion: reduce) {
+  .sr-summary-card,
+  .sr-chart-card {
+    animation: none;
+  }
+
+  .sr-summary-card:hover {
+    transform: none !important;
+  }
+
+  .sr-chart-card:hover {
+    transform: none !important;
+  }
+
+  .sr-summary-current {
+    animation: none;
+  }
+
+  .sr-summary-card:hover .sr-summary-icon {
+    animation: none;
+  }
+
+  .sr-content .dash-section-title::after {
+    animation: none;
+    display: none;
+  }
+
+  .sr-chart-card:hover .sr-chart-canvas {
+    animation: none;
+  }
+
+  .sr-chart-card:hover .dash-card-icon {
+    transform: none !important;
+  }
+
+  .sr-chart-card:hover .dash-card-badge {
+    animation: none;
+  }
+
+  .dash-chip-btn:hover {
+    transform: none !important;
+  }
+
+  .dash-chip-btn:active {
+    transform: none !important;
+  }
+
+  .sr-empty {
+    animation: none;
+  }
+}

@@ -1,0 +1,40 @@
+{
+  "id": "video-compress",
+  "name": "🎬 视频压缩",
+  "nameEn": "Video Compress",
+  "description": "分析源文件 → H.265 转码 → 对比压缩效果（码率、体积、质量）",
+  "descriptionEn": "Analyze source → H.265 transcode → Compare compression ratio, bitrate, quality",
+  "icon": "🎬",
+  "presets": ["media-engineer"],
+  "category": "media",
+  "variables": {
+    "input": { "label": "输入文件", "labelEn": "Input file", "type": "string", "required": true, "placeholder": "input.mp4" },
+    "crf": { "label": "CRF 质量 (18-28)", "labelEn": "CRF quality (18-28)", "type": "number", "default": 23, "min": 0, "max": 51 },
+    "preset": { "label": "编码预设", "labelEn": "Encode preset", "type": "select", "default": "medium", "options": ["ultrafast","superfast","veryfast","faster","fast","medium","slow","slower","veryslow"] },
+    "audio_bitrate": { "label": "音频码率", "labelEn": "Audio bitrate", "type": "string", "default": "128k" },
+    "output_suffix": { "label": "输出后缀", "labelEn": "Output suffix", "type": "string", "default": "-compressed" }
+  },
+  "steps": [
+    {
+      "id": "analyze-source",
+      "label": "分析源文件",
+      "labelEn": "Analyze source file",
+      "agentId": "bash",
+      "task": "# Step 1: Analyze source file\nINPUT=\"{{INPUT}}\"\nffprobe -v quiet -print_format json -show_format -show_streams \"$INPUT\""
+    },
+    {
+      "id": "transcode",
+      "label": "H.265 转码",
+      "labelEn": "H.265 transcode",
+      "agentId": "bash",
+      "task": "# Step 2: Transcode to H.265\nINPUT=\"{{INPUT}}\"\nCRF={{CRF}}\nPRESET=\"{{PRESET}}\"\nAUDIO_BITRATE=\"{{AUDIO_BITRATE}}\"\nOUTPUT_SUFFIX=\"{{OUTPUT_SUFFIX}}\"\nOUTPUT=\"${INPUT%.*}${OUTPUT_SUFFIX}.${INPUT##*.}\"\n\nffmpeg -i \"$INPUT\" -c:v libx265 -crf $CRF -preset $PRESET -c:a aac -b:a $AUDIO_BITRATE -movflags +faststart \"$OUTPUT\" -y 2>&1 | tail -20\necho \"\"\necho \"Output: $OUTPUT\""
+    },
+    {
+      "id": "compare",
+      "label": "对比结果",
+      "labelEn": "Compare results",
+      "agentId": "bash",
+      "task": "# Step 3: Compare source vs compressed\nINPUT=\"{{INPUT}}\"\nOUTPUT_SUFFIX=\"{{OUTPUT_SUFFIX}}\"\nOUTPUT=\"${INPUT%.*}${OUTPUT_SUFFIX}.${INPUT##*.}\"\n\necho \"===== Source: $INPUT =====\"\nffprobe -v quiet -print_format json -show_format \"$INPUT\" 2>&1 | node -e \"\nconst d=require('fs').readFileSync('/dev/stdin','utf-8');\nconst j=JSON.parse(d);\nconst f=j.format;\nconsole.log('Size: '+(f.size/1048576).toFixed(1)+' MB');\nconsole.log('Duration: '+f.duration+'s');\nconsole.log('Bitrate: '+(f.bit_rate/1000).toFixed(0)+' kbps');\n\"\n\necho \"\"\necho \"===== Compressed: $OUTPUT =====\"\nffprobe -v quiet -print_format json -show_format \"$OUTPUT\" 2>&1 | node -e \"\nconst d=require('fs').readFileSync('/dev/stdin','utf-8');\nconst j=JSON.parse(d);\nconst f=j.format;\nconsole.log('Size: '+(f.size/1048576).toFixed(1)+' MB');\nconsole.log('Duration: '+f.duration+'s');\nconsole.log('Bitrate: '+(f.bit_rate/1000).toFixed(0)+' kbps');\n\"\n\necho \"\"\nsource_size=$(ffprobe -v quiet -print_format json -show_format \"$INPUT\" 2>&1 | node -e \"const d=require('fs').readFileSync('/dev/stdin','utf-8');const j=JSON.parse(d);console.log(j.format.size)\")\ncomp_size=$(ffprobe -v quiet -print_format json -show_format \"$OUTPUT\" 2>&1 | node -e \"const d=require('fs').readFileSync('/dev/stdin','utf-8');const j=JSON.parse(d);console.log(j.format.size)\")\nif [ -n \"$source_size\" ] && [ -n \"$comp_size\" ] && [ \"$comp_size\" -gt 0 ] 2>/dev/null; then\n  reduction=$(echo \"scale=1; (1 - $comp_size / $source_size) * 100\" | bc 2>/dev/null || echo \"?\")\n  echo \"📊 压缩率: ${reduction}% 减小\"\nfi"
+    }
+  ]
+}

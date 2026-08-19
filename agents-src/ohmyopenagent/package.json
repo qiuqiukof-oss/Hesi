@@ -1,0 +1,16 @@
+{
+  "name": "ohmyopenagent",
+  "version": "0.1.0",
+  "description": "OhMyOpenAgent — 多 Agent 编排平台（U 盘智能体内置框架，可替换为你的实现）",
+  "bin": {
+    "oma": "./bin/oma.js"
+  },
+  "main": "index.js",
+  "scripts": {
+    "test": "node -e \"require('./index.js'); console.log('ok')\""
+  },
+  "license": "MIT",
+  "engines": {
+    "node": ">=18"
+  }
+}

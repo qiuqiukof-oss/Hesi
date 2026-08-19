@@ -1,0 +1,12 @@
+# Auto-detect text files and normalize to LF on commit
+* text=auto eol=lf
+
+# Windows batch files keep CRLF so they run correctly on Windows
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# Binary assets
+*.png binary
+*.jpg binary
+*.ico binary
+*.svg text

@@ -1,0 +1,8 @@
+{
+  "id": "zhiyan-cicd",
+  "name": "zhiyan-cicd",
+  "category": "integration",
+  "enterprise": true,
+  "authType": "token",
+  "description": "zhiyan-cicd connector for Hesi"
+}

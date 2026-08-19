@@ -1,0 +1,8 @@
+{
+  "id": "tencent-docs",
+  "name": "tencent-docs",
+  "category": "documentation",
+  "enterprise": false,
+  "authType": "token",
+  "description": "tencent-docs connector for Hesi"
+}

@@ -1,0 +1,8 @@
+{
+  "id": "qcc-company",
+  "name": "qcc-company",
+  "category": "cloud-crm",
+  "enterprise": true,
+  "authType": "token",
+  "description": "qcc-company connector for Hesi"
+}

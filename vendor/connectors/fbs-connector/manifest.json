@@ -1,0 +1,8 @@
+{
+  "id": "fbs-connector",
+  "name": "fbs-connector",
+  "category": "integration",
+  "enterprise": false,
+  "authType": "token",
+  "description": "fbs-connector connector for Hesi"
+}

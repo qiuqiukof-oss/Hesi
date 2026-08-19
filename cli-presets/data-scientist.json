@@ -1,0 +1,75 @@
+{
+  "name": "data-scientist",
+  "label": "数据科学家",
+  "labelEn": "Data Scientist",
+  "description": "数据科学 & ML — Python 科学计算、R、Julia、Jupyter、数据库查询",
+  "descriptionEn": "Data science & ML — Python scientific computing, R, Julia, Jupyter, database queries",
+  "icon": "📊",
+  "extends": ["shared"],
+  "categories": {
+    "data": "📊 数据科学",
+    "ml": "🧠 机器学习",
+    "db": "🗄️ 数据库",
+    "directory": "📂 运行环境",
+    "tool": "🔧 辅助工具"
+  },
+  "tools": {
+    "python": { "category": "directory", "type": "batch" },
+    "python3": { "category": "directory", "type": "batch" },
+    "pip": { "category": "tool", "type": "batch" },
+    "pip3": { "category": "tool", "type": "batch" },
+    "conda": { "category": "tool", "type": "batch" },
+    "mamba": { "category": "tool", "type": "batch" },
+    "uv": { "category": "tool", "type": "batch" },
+    "poetry": { "category": "tool", "type": "batch" },
+
+    "jupyter": { "category": "data", "type": "batch" },
+    "jupyter-lab": { "category": "data", "type": "batch" },
+    "jupyter-notebook": { "category": "data", "type": "batch" },
+    "ipython": { "category": "data", "type": "interactive" },
+    "nbconvert": { "category": "data", "type": "batch" },
+
+    "R": { "category": "data", "type": "interactive" },
+    "Rscript": { "category": "data", "type": "batch" },
+    "rstudio": { "category": "data", "type": "interactive" },
+    "radian": { "category": "data", "type": "interactive" },
+
+    "julia": { "category": "data", "type": "batch" },
+
+    "node": { "category": "directory", "type": "batch" },
+    "deno": { "category": "directory", "type": "batch" },
+
+    "sqlite3": { "category": "db", "type": "batch" },
+    "duckdb": { "category": "db", "type": "batch" },
+    "psql": { "category": "db", "type": "interactive" },
+    "mysql": { "category": "db", "type": "interactive" },
+    "mongosh": { "category": "db", "type": "interactive" },
+    "redis-cli": { "category": "db", "type": "interactive" },
+    "clickhouse-client": { "category": "db", "type": "interactive" },
+
+    "ollama": { "category": "ml", "type": "batch" },
+    "llama-cli": { "category": "ml", "type": "batch" },
+
+    "csvkit": { "category": "data", "type": "batch" },
+    "csvlook": { "category": "data", "type": "batch" },
+    "xsv": { "category": "data", "type": "batch" },
+    "qsv": { "category": "data", "type": "batch" },
+    "visidata": { "category": "data", "type": "interactive" },
+    "datasette": { "category": "data", "type": "batch" },
+
+    "gnuplot": { "category": "data", "type": "interactive" },
+    "graphviz": { "category": "data", "type": "batch" },
+    "dot": { "category": "data", "type": "batch" }
+  },
+  "names": [
+    "python","python3","pip","pip3","conda","mamba","uv","poetry",
+    "jupyter","jupyter-lab","jupyter-notebook","ipython","nbconvert",
+    "R","Rscript","rstudio","radian",
+    "julia",
+    "node","deno",
+    "sqlite3","duckdb","psql","mysql","mongosh","redis-cli","clickhouse-client",
+    "csvkit","csvlook","xsv","qsv","visidata","datasette",
+    "gnuplot","graphviz","dot",
+    "ollama","llama-cli"
+  ]
+}

@@ -1,0 +1,2045 @@
+/**
+ * Copyright (c) 2026 qiuqiukof-oss
+ * Licensed under the MIT License. See LICENSE for details.
+ */
+
+// @ts-check
+// ============================================================
+// Plan 执行器（Phase 0 — 全自动闭环的"手脚"）
+//
+// 把通过 gate 的 plan 真正跑起来：
+//   1. gatePlan 闸门（决策①）                 —— 不可机器验证即拒收
+//   2. 非破坏性快照（git stash create 悬空 commit） —— 爆震半径容器
+//   3. 逐步：
+//        a. budget.tickRound()                 —— 经济/轮数预算
+//        b. checkInterception()                —— #34 scope/forbidden 真实前置拦截
+//        c. snapshotStep() 步前快照            —— 失败可 rollback 到上锚点
+//        d. checkpoint 步 → resolveCheckpoint  —— 决策② 圆桌推导验收（roundtableFn 注入）
+//        e. workflowManager 单步执行 + 轮询     —— 复用现有 DAG 引擎
+//        f. 失败 → rollbackTo(本步快照)         —— 仅撤销本步改动
+//   4. 闭环结束（最终快照，无分支切换）
+//   5. runAcceptance() 跑验收命令              —— 机器可验证闭环
+//   6. reflectPlan() → done/partial/diverged   —— #36 反思残差
+//
+// 解耦：roundtableFn 由调用方注入（路由层用 discuss.runRoundtable 包装），
+//       便于单测 mock，避免本文件硬依赖 discuss.js。
+// ============================================================
+
+const { execFileSync } = require('child_process');
+const path = require('path');
+const fs = require('fs');
+const crypto = require('crypto');
+const { gatePlan, resolveCheckpoint } = require('./plan-contract');
+const { planToWorkflowTasks, inScope, isForbidden } = require('./plan-to-workflow');
+const { PlanBudget } = require('../../lib/plan-budget');
+const { ReplanController } = require('../../lib/replan-controller');
+// P2：Verifier 盲审 + 探索型双轨收敛（纯函数，见 lib/verifier.js / lib/exploration-verdict.js）
+const { verifyItem, deltaList } = require('../../lib/verifier');
+const { explorationVerdict } = require('../../lib/exploration-verdict');
+// C9：命令失败模式看门狗（防死循环物理防线，跨任务共享单例）
+const { sharedWatchdog } = require('../../lib/command-watchdog');
+const { snapshotStep, rollbackTo, isRepo } = require('../../lib/plan-git');
+const { revisePlan: defaultRevisePlan } = require('./plan-from-nl');
+
+// ── P4-4：步骤/结果输出落盘 ──
+function resolvePlanOutputDir() {
+  if (process.env.HESI_PLAN_OUTPUT_DIR) return path.resolve(process.env.HESI_PLAN_OUTPUT_DIR);
+  return path.join(process.cwd(), 'data', 'plan-outputs');
+}
+function ensureDir(dir) { if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true }); }
+function writeStepOutput(execId, stepId, output, stack) {
+  if (!execId || !stepId) return;
+  try {
+    const d = resolvePlanOutputDir();
+    ensureDir(d);
+    const content = String(output || '') + (stack ? '\n\n---\nStack:\n' + stack : '');
+    fs.writeFileSync(path.join(d, `${execId}-${stepId}.log`), content, 'utf8');
+  } catch { /* 写盘失败不影响主流程 */ }
+}
+function writePlanSummary(execId, plan, result) {
+  if (!execId) return;
+  try {
+    const d = resolvePlanOutputDir();
+    ensureDir(d);
+    fs.writeFileSync(path.join(d, `${execId}-plan.json`), JSON.stringify(plan, null, 2), 'utf8');
+    fs.writeFileSync(path.join(d, `${execId}-result.json`), JSON.stringify(result, null, 2), 'utf8');
+  } catch { /* ignore */ }
+}
+
+// P4-5（P0-2）：步骤级断点续跑状态
+function _statePath(execId) { return path.join(resolvePlanOutputDir(), `${execId}-state.json`); }
+function writePlanState(execId, state) {
+  if (!execId) return;
+  try {
+    ensureDir(resolvePlanOutputDir());
+    // 原子写：先写 .tmp 再 rename，防止崩溃留下半截文件
+    const target = _statePath(execId);
+    const tmp = target + '.tmp';
+    fs.writeFileSync(tmp, JSON.stringify(state), 'utf8');
+    fs.renameSync(tmp, target);
+  } catch { /* ignore */ }
+}
+function readPlanState(execId) {
+  if (!execId) return null;
+  try { return JSON.parse(fs.readFileSync(_statePath(execId), 'utf8')); } catch { return null; }
+}
+function clearPlanState(execId) {
+  if (!execId) return;
+  try { fs.unlinkSync(_statePath(execId)); } catch { /* ignore */ }
+}
+
+// P1-4：plan-outputs 自动清理（7 天 TTL，保留 plan.json + result.json 摘要）
+function cleanupPlanOutputs(maxAgeMs = 7 * 24 * 3600 * 1000) {
+  try {
+    const d = resolvePlanOutputDir();
+    if (!fs.existsSync(d)) return;
+    const now = Date.now();
+    let removed = 0;
+    for (const f of fs.readdirSync(d)) {
+      if (f.endsWith('.log') || f.endsWith('-state.json') || f.endsWith('.tmp')) {
+        const fp = path.join(d, f);
+        try { if (now - fs.statSync(fp).mtimeMs > maxAgeMs) { fs.unlinkSync(fp); removed++; } } catch { /* skip */ }
+      }
+    }
+    if (removed > 0) console.log(`[plan-outputs] 清理了 ${removed} 个过期文件（TTL=${Math.round(maxAgeMs / 86400000)}天）`);
+  } catch { /* ignore */ }
+}
+// 每 24h 检查一次
+setInterval(cleanupPlanOutputs, 24 * 3600 * 1000).unref();
+// ── 复用 AI 助手已调好的 LLM 工具环（不重新实现）──
+// nonStreamingChat = QCLI_TOOLS + executeToolCall + 3min 熔断 + pruneToolContext
+// （与 /api/chat/tools、MCP ai_chat 同一套，踩坑调试好的核心）。
+// 注意：chat 模块体量大（memory / context-window / tools / discuss 等），故延迟
+// require，仅在 AI 助手步骤真正执行时才加载，避免拖慢 plan 模块加载与测试。
+
+// Plan 步骤执行时使用的工具子集：剔除 agent_* 委派类工具，避免 LLM 在步骤内
+// 递归把任务委派回外部 CLI agent（正是全自动 Phase 1 要绕开的路径）；其余本地
+// 动作/文件/终端工具全保留 → 100% 复用 AI 助手管线。
+const AGENT_DELEGATE_TOOLS = new Set([
+  'agent_delegate', 'agent_start', 'agent_poll', 'agent_send', 'agent_cancel', 'agent_list', 'agent_callbacks',
+]);
+let _planStepToolsCache = null;
+function planStepTools() {
+  if (!_planStepToolsCache) {
+    const { QCLI_TOOLS } = require('../chat/tools');
+    _planStepToolsCache = QCLI_TOOLS.filter((t) => !AGENT_DELEGATE_TOOLS.has(t && t.function && t.function.name));
+  }
+  return _planStepToolsCache;
+}
+
+// Plan 步骤的 AI 助手系统提示：把自然语言步骤变成「用工具完成」的 agent 任务。
+const PLAN_STEP_SYSTEM_PROMPT = `你正在执行一个自动化计划（Plan）中的某一个步骤。你拥有与「AI 助手」完全相同的工具能力（执行终端命令、读写文件、搜索代码等）。
+要求：
+1. 聚焦完成「步骤目标」，不要做与目标无关的事。
+2. 优先用工具（exec_terminal / write_file / read_file 等）真实完成工作，而不是只描述方案。
+3. 严格遵守给定的 scope_paths（仅可在白名单路径内操作）与 forbidden（禁止执行的命令/模式）；越界或命中黑名单会导致步骤失败。
+4. 完成后，用简体中文一句话说明你做了什么、结果如何。不要输出多余的前言或总结。`;
+
+// ── 工具 ──
+
+/** 从圆桌 summary 文本里抽取 {kind,command,expect} JSON（容错：宽松匹配首个 JSON 块） */
+function parseVerifyFromSummary(text) {
+  if (!text) return null;
+  const s = String(text);
+  // 先尝试整段 JSON
+  try {
+    const o = JSON.parse(s.trim());
+    if (o && o.kind) return normalizeVerify(o);
+  } catch { /* not a bare JSON */ }
+  // 再尝试抠出 ```json ... ``` 或 { ... }
+  const m = s.match(/\{[\s\S]*?"kind"[\s\S]*?\}/);
+  if (m) {
+    try {
+      const o = JSON.parse(m[0]);
+      if (o && o.kind) return normalizeVerify(o);
+    } catch { /* ignore */ }
+  }
+  return null;
+}
+
+function normalizeVerify(o) {
+  return {
+    kind: String(o.kind),
+    command: typeof o.command === 'string' ? o.command : '',
+    expect: typeof o.expect === 'string' ? o.expect : '',
+  };
+}
+
+/**
+ * 判断路径 token 是否属于系统临时目录或系统命令目录。
+ * /tmp、/var/tmp、os.tmpdir() 是操作系统的临时工作区；/usr/bin、/bin、
+ * /usr/local/bin 等是系统命令目录。调用这些路径中的可执行文件不属于
+ * scope 越界（与 /dev/null 同类豁免）。统一反斜杠后比较，兼容 Windows。
+ * @param {string} t 路径 token
+ * @returns {boolean}
+ */
+function isSystemPath(t) {
+  let norm = String(t || '').replace(/\\/g, '/');
+  // 归一化消除 ../ 等穿越片段：避免 /tmp/../etc/passwd 被误判为系统路径而豁免拦截（目录穿越绕过）
+  try { norm = require('path').posix.normalize(norm); } catch { /* 保持原样 */ }
+  // 系统临时目录
+  if (/^\/tmp(\/|$)/.test(norm) || /^\/var\/tmp(\/|$)/.test(norm)) return true;
+  const tmp = require('os').tmpdir().replace(/\\/g, '/').replace(/\/+$/, '');
+  if (!!tmp && (norm === tmp || norm.startsWith(`${tmp}/`))) return true;
+  // 系统命令目录：调用系统工具（如 /usr/bin/git）不是文件越界访问
+  return /^\/(usr\/(bin|sbin|local\/bin|local\/sbin)|bin|sbin|opt\/bin|opt\/local\/bin|opt\/homebrew\/bin|snap\/bin)(\/|$)/.test(norm);
+}
+
+/** 抽出文本里疑似文件路径的 token（含 '/'，用于 scope 校验）；排除 shell 重定向、相对路径与 HTTP URL 路径 */
+function _pathTokens(text) {
+  if (!text) return [];
+  // P2.8 修复：剥离 heredoc 块（<< 'EOF' ... EOF）——内容是被写入文件的数据/代码，
+  // 其中的字符串字面量（如 app.get('/protected')）不是文件系统路径，不应参与 scope 校验
+  const heredocStripped = String(text).replace(/<<\s*['"]?([A-Za-z_][\w-]*)['"]?[\s\S]*?^([ \t]*)\1[ \t]*$/gm, ' ');
+  const tokens = heredocStripped.split(/[\s"'`|;]+/);
+  const REDIR_RE = /^(?:[0-9&]?>+|<?&|>\||<)$/;
+  // 合并型重定向：N>/path、>>/path、>/path 等（split 未在 > 处切开）
+  const COMBINED_REDIR = new RegExp('^[0-9&]?>+[\\/]|^>>?[\\/]|^<[\\/]');
+  // HTTP URL 路由前缀：/api/*、/static/*、/v1/*、/ws/* 等是 Web 端点路径，不是文件系统路径
+  const WEB_ROUTE_RE = /^\/(api|static|assets|public|ws|socket\.io|v\d+|health|status|metrics|ready|live|js|css|img|fonts|media|_next|_nuxt|graphql|rest|rpc|admin|dashboard|auth|login|logout|register|signup|user|users|settings|config|version|docs|help|faq|search|upload|download|export|import|webhook|callback|oauth|token|pay|payment|order|cart|checkout|notification|mail|log|logs|debug|test|tests|dev|staging|prod|protected|refresh|verify|me|profile|sessions)(\/|$)/i;
+  const result = [];
+  let prevWasRedir = false;
+  for (const t of tokens) {
+    if (!t) { prevWasRedir = false; continue; }
+    // 跳过重定向操作符本身
+    if (REDIR_RE.test(t)) { prevWasRedir = true; continue; }
+    // 跳过合并型重定向（2>/dev/null, >/tmp/out 等）
+    if (COMBINED_REDIR.test(t)) { prevWasRedir = false; continue; }
+    // 跳过重定向目标文件
+    if (prevWasRedir) { prevWasRedir = false; continue; }
+    prevWasRedir = false;
+    if (!t.includes('/')) continue;
+    // 排除纯符号 token（/> </ /* */ // 等 JSX/注释语法，不可能是路径）
+    if (!/[A-Za-z0-9]/.test(t)) continue;
+    // 排除 HTML/JSX/XML 标签片段（/<div, /<span, /<p 等——来自 echo 写入模板的命令）
+    if (/^<\/?[a-zA-Z][\w.-]*>?$/.test(t)) continue;
+    // 排除完整 URL（http(s)、ws(s) 等 → 非 filesystem path）
+    if (/^(?:https?|wss?):\/\//i.test(t)) continue;
+    // 排除 HTTP URL 路由路径（/api/registers、/static/bundle.js 等 → 非 filesystem path）
+    if (WEB_ROUTE_RE.test(t)) continue;
+    // 排除相对路径 — 天然在 cwd 内，不存在越界风险
+    // ./ ../ 开头 → 显式相对
+    if (/^\.\.[\\/]/.test(t) || /^\.[\\/]/.test(t)) continue;
+    // 裸路径（无前导 /、无 Windows 盘符）→ 项目相对路径（如 src/components/Gallery）
+    if (!/^[\\/]/.test(t) && !/^[A-Za-z]:[\\/]/.test(t)) continue;
+    // 排除 /dev/null 等系统设备
+    if (/^\/dev\/(null|stdout|stderr)$/.test(t)) continue;
+    // 排除系统路径（/tmp、/var/tmp、os.tmpdir()、/usr/bin/git 等）——
+    // 临时文件写入或调用系统命令不属于 scope 越界
+    if (isSystemPath(t)) continue;
+    result.push(t);
+  }
+  return result;
+}
+
+/**
+ * #34 真实前置拦截：scope_paths / forbidden。
+ * 返回 reason（被拦）或 null（放行）。
+ * @param {object} plan
+ * @param {object} step 含 action / verify
+ * @param {string} [cwd] 工作目录（用于解析项目相对路径）
+ */
+function checkInterception(plan, step, cwd) {
+  const candidate = [step.action, step.verify && step.verify.command]
+    .filter(Boolean)
+    .join(' ');
+  if (isForbidden(plan, candidate)) {
+    return { reason: `命中 forbidden 黑名单: ${candidate.slice(0, 100)}` };
+  }
+  const scopes = Array.isArray(plan.scope_paths) ? plan.scope_paths : [];
+  if (scopes.length) {
+    const baseDir = cwd || process.cwd();
+    for (const tok of _pathTokens(candidate)) {
+      // 将「裸斜杠开头的项目相对路径」解析为基于 cwd 的绝对路径
+      // 例如 /utils/registry-safe → {cwd}/utils/registry-safe
+      // （LLM 常用 Unix 风格写项目内路径，但 _pathTokens 会把它当绝对路径提取）
+      const resolved = resolveProjectRelativePath(tok, baseDir);
+      if (!inScope(plan, resolved)) {
+        return { reason: `路径越界（不在 scope_paths 内）: ${tok}` };
+      }
+    }
+  }
+  return null;
+}
+
+/**
+ * 解析可能的项目相对路径。
+ * 若 tok 以 / 开头但无盘符、且不像系统根目录（/dev/, /proc/ 等），
+ * 则视为「项目根相对路径」，去掉前导 / 后 join(cwd)。
+ * 否则原样返回。
+ *
+ * @param {string} tok _pathTokens 提取的路径 token
+ * @param {string} baseDir 基准目录（通常是 git 仓库根或 cwd）
+ * @returns {string} 解析后的路径
+ */
+function resolveProjectRelativePath(tok, baseDir) {
+  const path = require('path');
+  // 仅处理：以 / 或 \ 开头（Unix 风格绝对路径写法）+ 无 Windows 盘符 + 不像 Unix 系统目录
+  const startsWithSlash = tok.startsWith('/') || tok.startsWith('\\');
+  const noDriveLetter = !/^[A-Za-z]:[\\/]/.test(tok);
+  // 常见 Unix 系统根目录前缀（这些不是项目相对路径，不应重写）
+  const SYSTEM_ROOTS = /^(\/|\\)(dev|proc|sys|tmp|var|etc|opt|srv|root|run|mnt|usr|sbin|bin|lib|home)(\/|\\|$)/i;
+  const notSystemDir = !SYSTEM_ROOTS.test(tok);
+  if (startsWithSlash && noDriveLetter && notSystemDir) {
+    const stripped = tok.replace(/^[\\/]+/, ''); // 去掉前导 / 或 \
+    if (stripped) {
+      const joined = path.join(baseDir, stripped);
+      // 统一为正斜杠：inScope 用 s+'/' 做前缀匹配，Windows path.join 产生反斜杠会导致匹配失败
+      const normalized = joined.replace(/\\/g, '/');
+      console.log(`[resolveProjectPath] ${tok} → ${normalized}（项目相对路径解析）`);
+      return normalized;
+    }
+  }
+  return tok;
+}
+
+/**
+ * P2.6 审批闸：判断某步是否需要人工审批。
+ * @param {object} plan
+ * @param {object} step
+ * @returns {boolean}
+ */
+function stepRequiresApproval(plan, step) {
+  if (step && step.requireApproval === true) return true;
+  if (plan && plan.approvalPolicy === 'all') return true;
+  return false;
+}
+
+/**
+ * Plan B 写入护栏（根治 P0-A：cwd 恒为项目根导致的「误写宿主敏感文件」）。
+ *
+ * 当某步命令把文件写入「宿主项目根下的敏感文件」（.env / 密钥 / 包清单 / Agent 配置等）
+ * 且未在 step 上显式标记 requireApproval 时，判定为「疑似误写」——
+ * 因为 cwd 是项目根，LLM 往往以为自己在 /tmp 切换的目录里。
+ * 返回 { target, basename } 表示命中的敏感写入（须强制审批，不可被 always-allow 跳过）；否则 null。
+ *
+ * @param {object} plan
+ * @param {object} step 含 action / verify
+ * @param {string} [cwd] 工作目录（项目根）
+ */
+// 敏感扩展名：dotenv / 密钥 / 证书
+const SENSITIVE_HOST_RE = /\.(env|local|key|pem|p12|pfx|crt|cer|keystore|pfx)$/i;
+// 敏感文件名（精确匹配，小写）
+const SENSITIVE_HOST_NAMES = new Set([
+  'package.json', 'package-lock.json', 'pnpm-lock.yaml', 'yarn.lock',
+  'agents.md', 'claude.md', 'memory.md', '.gitignore',
+]);
+function detectSensitiveHostWrite(plan, step, cwd) {
+  const candidate = [step.action, step.verify && step.verify.command].filter(Boolean).join(' ');
+  if (!candidate) return null;
+  const baseDir = (cwd || process.cwd()).replace(/\\/g, '/');
+  // 宽松切词：按空白/引号/重定向/管道/分号拆分，覆盖 `>`、`>>`、`cat >`、重定向目标等
+  const rawTokens = candidate.split(/[\s"'|;>&]+/).filter(Boolean);
+  for (const raw of rawTokens) {
+    let t = raw.replace(/^[0-9&]?>+/, '').replace(/^<+/, ''); // 剥离重定向符号
+    t = t.replace(/^["']|["']$/g, ''); // 剥离引号
+    if (!t || /[<>|&;(){}]/.test(t)) continue;
+    if (!/[A-Za-z0-9._\-/\\]/.test(t)) continue;
+    const abs = path.isAbsolute(t) ? t : path.resolve(baseDir, t);
+    const norm = abs.replace(/\\/g, '/');
+    // 仅关心项目根内（含直接落在根目录）的写入
+    if (norm !== baseDir && !norm.startsWith(`${baseDir}/`)) continue;
+    const base = path.basename(norm).toLowerCase();
+    if (SENSITIVE_HOST_NAMES.has(base) || SENSITIVE_HOST_RE.test(base)) {
+      return { target: norm, basename: base };
+    }
+  }
+  // npm init / npm init -y 必然写出 package.json
+  if (/\bnpm\s+init\b/.test(candidate)) {
+    return { target: path.resolve(baseDir, 'package.json').replace(/\\/g, '/'), basename: 'package.json' };
+  }
+  return null;
+}
+
+/**
+ * Plan C：cwd 延续——从步骤命令中解析「顶层无条件 cd」目标，作为后续步骤的 cwd。
+ *
+ * 仅识别：行首 `cd <path>`、或语句分隔符（换行 / && / ;）后的 `cd <path>`。
+ * 跳过：heredoc 块内的 cd（被写入文件的数据）、管道（|）后的 cd（子 shell）、
+ * 控制结构（if/while/for/(/{/function）后的 cd（语义不确定）。
+ * 解析出的目标目录必须真实存在才生效（与 shell 行为一致）；否则不改 cwd。
+ * 解析不确定时返回 null（沿用上一步 cwd）。
+ *
+ * @param {string} action 步骤命令
+ * @param {string} baseCwd 当前 cwd（解析相对路径的基准）
+ * @returns {string|null} 新的 cwd（归一化为正斜杠）或 null
+ */
+function deriveWorkdir(action, baseCwd) {
+  if (!action || typeof action !== 'string') return null;
+  const os = require('os');
+  // 1) 剥离 heredoc 块（内容是被写入文件的数据，其中的 cd 不是切换目录）
+  const stripped = action.replace(/<<\s*['"]?([A-Za-z_][\w-]*)['"]?[\s\S]*?^([ \t]*)\1[ \t]*$/gm, ' ');
+  // 2) 按语句边界切分（换行 / && / ;）。不切 ||（条件 cd 跳过）也不切 |（管道）
+  const statements = stripped.split(/\r?\n|&&|;/);
+  let cwd = baseCwd;
+  let changed = false;
+  for (const raw of statements) {
+    const stmt = raw.trim();
+    if (!stmt) continue;
+    // 仅处理「语句以 cd 开头」的顶层 cd
+    const m = stmt.match(/^cd\s+(?:'([^']+)'|"([^"]+)"|(\S+))/);
+    if (!m) continue;
+    const p = m[1] || m[2] || m[3];
+    if (!p) continue;
+    if (p === '-' || p === '~' || p === '$HOME') continue; // 切换到 home / 上一目录 → 跳过
+    let resolved;
+    if (/^[A-Za-z]:[\\/]/.test(p) || p.startsWith('/')) {
+      // 绝对路径（含 MSYS /tmp、/c/x）
+      if (p === '/tmp' || p.startsWith('/tmp/')) {
+        resolved = path.join(os.tmpdir(), p.slice(4).replace(/^[/\\]+/, ''));
+      } else {
+        const dm = p.match(/^\/([a-zA-Z])\/(.*)$/);
+        if (dm) resolved = path.join(`${dm[1].toUpperCase()}:\\`, dm[2].replace(/\//g, '\\'));
+        else resolved = path.resolve(cwd, p.replace(/^\/+/, '')); // Unix 风格绝对 → 视为项目根相对
+      }
+    } else {
+      resolved = path.resolve(cwd, p);
+    }
+    if (resolved && fs.existsSync(resolved)) {
+      cwd = resolved.replace(/\\/g, '/');
+      changed = true;
+    }
+  }
+  return changed ? cwd : null;
+}
+
+
+// ── 单步工作流执行 + 轮询 ──
+
+const POLL_MS = 1000;
+// 单步执行超时：默认 10 分钟，env HESI_PLAN_STEP_TIMEOUT_MS 可调
+// （复杂任务按复杂度动态调整；总时长由每步累计，无整体硬顶）。
+const STEP_TIMEOUT_MS = (() => {
+  const v = Number(process.env.HESI_PLAN_STEP_TIMEOUT_MS);
+  return Number.isFinite(v) && v > 0 ? v : 10 * 60 * 1000;
+})();
+
+/**
+ * 解析当前平台可用的 POSIX 兼容 shell（bash/sh）。
+ *
+ * Windows 下**不再「首个命中即返回」**，而是对全部候选 bash 做**能力打分择优**：
+ * 收集 PATH（where）+ 环境变量构造的全部候选，逐个探测其可达命令目录下
+ * 关键命令（sleep/chmod/curl/kill 等验收脚本标配）覆盖率，选覆盖率最高者。
+ * 这样可避开 WorkBuddy 内嵌的「精简版 PortableGit（仅 84 命令，缺 sleep/curl/kill）」，
+ * 而优先选用本机完整的 Git for Windows。
+ *
+ * 结果进程级缓存（_resolvedShellCache），避免每步重复探测。
+ *
+ * @returns {{ shell: string, foundVia?: string, missingCmds?: string[] }}
+ */
+let _resolvedShellCache = null;
+function resolveShell() {
+  if (process.platform !== 'win32') return { shell: '/bin/sh', foundVia: 'posix-default' };
+  if (_resolvedShellCache) return _resolvedShellCache;
+
+  const { execSync } = require('child_process');
+  const fs = require('fs');
+  const path = require('path');
+  const existsSync = fs.existsSync;
+
+  // ── 候选路径：全部由环境变量动态构造，绝不写死盘符/安装目录 ──
+  // 注意：WSL bash（System32\bash.exe）是 Windows「应用执行别名」，不是真正的 .exe 文件。
+  // Node.js 直接 spawn 它会 ENOENT，必须通过 cmd.exe 中转。因此放在最后。
+  const env = process.env;
+  const REAL_BASH_PATHS = [
+    // Git for Windows — 用环境变量动态定位（ProgramFiles/ProgramFiles(x86)/LOCALAPPDATA）
+    path.join(env.ProgramFiles || '', 'Git', 'bin', 'bash.exe'),
+    path.join(env['ProgramFiles(x86)'] || '', 'Git', 'bin', 'bash.exe'),
+    path.join(env.LOCALAPPDATA || '', 'Programs', 'Git', 'bin', 'bash.exe'),
+    // WorkBuddy 内嵌 PortableGit（路径相对 USERPROFILE，跨机器一致，非用户环境特定）
+    path.join(env.USERPROFILE || '', '.workbuddy', 'vendor', 'PortableGit', 'usr', 'bin', 'bash.exe'),
+    path.join(env.USERPROFILE || '', '.workbuddy', 'vendor', 'PortableGit', 'bin', 'bash.exe'),
+    // Scoop（默认在 USERPROFILE/scoop，也支持 SCOOP 环境变量覆盖）
+    path.join(env.SCOOP || env.USERPROFILE || '', 'scoop', 'shims', 'bash.exe'),
+    // MSYS2 / Cygwin — 可选环境变量（用户自行设置，避免写死 C:\\msys64 等）
+    path.join(env.MSYS2_ROOT || '', 'usr', 'bin', 'bash.exe'),
+    path.join(env.CYGWIN_ROOT || '', 'bin', 'bash.exe'),
+  ].filter(Boolean);
+
+  // WSL bash 放在最后（仅当没有真实 bash 可用时才考虑）
+  const WSL_BASH_PATH = path.join(
+    env.SystemRoot || env.WINDIR || 'C:\\Windows', 'System32', 'bash.exe'
+  );
+
+  // 关键命令集：验收脚本（起服务→sleep 等待→curl 冒烟→kill 清理）标配；
+  // 精简版 PortableGit 恰好缺 sleep/chmod/curl/kill，是本次打分的核心区分点
+  const KEY_CMDS = ['sleep', 'chmod', 'curl', 'kill', 'sed', 'awk', 'grep', 'find', 'xargs', 'tar'];
+
+  // 给定 bash.exe 路径，返回其可达命令目录（覆盖 Git for Windows 与 PortableGit 两种布局）
+  // 额外纳入 Windows System32（curl 等系统内置命令所在地，bash 运行时 PATH 可达），
+  // 仅用于命令覆盖率统计与缺失报告，不影响打分择优的正确性。
+  function cmdSearchDirs(bashPath) {
+    const bashDir = path.dirname(bashPath);
+    const dirs = [bashDir, path.join(bashDir, '..', 'usr', 'bin')];
+    const sysRoot = env.SystemRoot || env.WINDIR || 'C:\\Windows';
+    if (sysRoot) {
+      dirs.push(path.join(sysRoot, 'System32'));
+      dirs.push(path.join(sysRoot, 'Sysnative'));
+    }
+    return dirs;
+  }
+
+  // 直接 spawn 验证：Node.js 必须能直接 spawn 该路径（排除 WSL 应用执行别名）
+  // 注意：必须走 execFileSync（不经 shell），否则含空格路径（如 C:\Program Files\...）
+  // 会被 cmd.exe /c 按空格拆词 → "C:\Program 不是内部或外部命令"。这正是旧实现
+  // 永远选不到完整 Git for Windows（路径含空格）而退化为精简 PortableGit 的根因。
+  function canSpawn(shellCmd) {
+    if (!existsSync(shellCmd)) return false;
+    try {
+      const { execFileSync } = require('child_process');
+      execFileSync(shellCmd, ['--version'], { encoding: 'utf8', timeout: 3000, stdio: 'ignore' });
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  // 对单个候选 bash 打分：可 spawn（非 WSL 别名）+ 关键命令覆盖率
+  function scoreShell(bashPath) {
+    if (!canSpawn(bashPath)) return -1;
+    const dirs = cmdSearchDirs(bashPath);
+    let score = 0;
+    for (const cmd of KEY_CMDS) {
+      for (const d of dirs) {
+        if (existsSync(path.join(d, `${cmd}.exe`)) || existsSync(path.join(d, cmd))) {
+          score++;
+          break;
+        }
+      }
+    }
+    return score;
+  }
+
+  /** 用 where 查找（纯动态，依赖用户 PATH），自动跳过 WSL bash（非真实 .exe） */
+  function findInPath(name) {
+    try {
+      const out = execSync(`where ${name}`, { encoding: 'utf8', timeout: 3000, stdio: 'pipe' });
+      const candidates = out.trim().split(/\r?\n/);
+      // 过滤掉 WSL bash（应用执行别名，Node.js 无法直接 spawn）
+      const real = candidates.filter((c) => !isWslBashPath(c));
+      return real[0] || null; // 返回第一个非 WSL 匹配
+    } catch {
+      return null;
+    }
+  }
+
+  // 收集全部候选（PATH where 全部结果 + env 构造路径），去重保序
+  const candidates = [];
+  for (const name of ['bash', 'sh']) {
+    try {
+      const out = execSync(`where ${name}`, { encoding: 'utf8', timeout: 3000, stdio: 'pipe' });
+      for (const raw of out.trim().split(/\r?\n/)) {
+        const c = raw.trim();
+        if (c && !isWslBashPath(c)) candidates.push(c);
+      }
+    } catch { /* PATH 中无此命令，跳过 */ }
+  }
+  for (const p of REAL_BASH_PATHS) candidates.push(p);
+  const uniqueCandidates = [...new Set(candidates)];
+
+  // 打分择优：严格大于才更新 → 同分保留先出现的候选（REAL_BASH_PATHS 已把完整 Git 放前）
+  let best = null;
+  let bestScore = -1;
+  for (const c of uniqueCandidates) {
+    const s = scoreShell(c);
+    if (s > bestScore) {
+      bestScore = s;
+      best = c;
+    }
+  }
+
+  if (best && bestScore >= 0) {
+    const dirs = cmdSearchDirs(best);
+    const missing = KEY_CMDS.filter(
+      (cmd) => !dirs.some((d) => existsSync(path.join(d, `${cmd}.exe`)) || existsSync(path.join(d, cmd)))
+    );
+    console.log(
+      `[resolveShell] 选定 ${best}（关键命令 ${bestScore}/${KEY_CMDS.length}${missing.length ? `，缺失: ${missing.join(',')}` : ''}）`
+    );
+    return (_resolvedShellCache = { shell: best, foundVia: 'scored', missingCmds: missing });
+  }
+
+  // ── 兜底：无可用真实 bash 时，退回 WSL / cmd（保持原行为） ──
+  // 纯命令名再试一次（可能 PATH 在不同上下文有差异）
+  for (const name of ['bash', 'sh']) {
+    if (canSpawn(name)) {
+      const where = findInPath(name);
+      if (where && isWslBashPath(where)) {
+        console.log(`[resolveShell] ${name} 解析为 WSL bash (${where})，将通过 cmd.exe 中转`);
+        return (_resolvedShellCache = { shell: name, foundVia: 'bare-name-wsl', isWsl: true });
+      }
+      console.log(`[resolveShell] 找到 ${name}: via bare name fallback`);
+      return (_resolvedShellCache = { shell: name, foundVia: 'bare-name', isWsl: false });
+    }
+  }
+
+  // WSL bash 兜底（仅当没有真实 bash 可用时，须通过 cmd.exe 中转）
+  if (existsSync(WSL_BASH_PATH)) {
+    console.log(`[resolveShell] 仅找到 WSL bash: ${WSL_BASH_PATH}（将通过 cmd.exe 中转）`);
+    return (_resolvedShellCache = { shell: WSL_BASH_PATH, foundVia: 'wsl-fallback', isWsl: true });
+  }
+
+  console.warn('[resolveShell] 未找到 bash/sh，将使用 cmd.exe（heredoc 等语法将被自动重写）');
+  return (_resolvedShellCache = { shell: 'cmd.exe', foundVia: 'cmd-fallback', isWsl: false });
+}
+
+/**
+ * 检测给定路径是否为 WSL bash（应用执行别名，非真实 .exe）。
+ * WSL bash 不能被 Node.js 直接 spawn（ENOENT），必须通过 cmd.exe 中转。
+ *
+ * @param {string} shellPath
+ * @returns {boolean}
+ */
+function isWslBashPath(shellPath) {
+  const normalized = shellPath.replace(/\\/g, '/').toLowerCase();
+  return normalized.includes('/system32/') && (normalized.includes('bash.exe') || normalized.endsWith('/bash'));
+}
+
+/**
+ * 检测 shell 是否为 WSL bash（C:\Windows\System32\bash.exe），
+ * 若是，将 Windows 路径转换为 /mnt/c/... 格式供 WSL 使用。
+ *
+ * @param {string} shellPath resolveShell 返回的 shell 路径
+ * @param {string} winPath 需要转换的 Windows 风格路径
+ * @returns {string} 转换后的路径（非 WSL bash 原样返回）
+ */
+function maybeConvertToWslPath(shellPath, winPath) {
+  // WSL bash 特征：安装在 System32 目录下（Git Bash 在 ProgramFiles/AppData 等）
+  const normalizedShell = shellPath.replace(/\\/g, '/').toLowerCase();
+  if (normalizedShell.includes('/system32/') && normalizedShell.includes('bash')) {
+    // C:\Users\xxx → /mnt/c/Users/xxx
+    // D:\Projects\xxx → /mnt/d/Projects/xxx
+    let wsl = winPath.replace(/\\/g, '/');
+    const driveMatch = wsl.match(/^([a-z]):\//i);
+    if (driveMatch) {
+      wsl = `/mnt/${driveMatch[1].toLowerCase()}/${wsl.slice(driveMatch[0].length)}`;
+      console.log(`[WSL Path] ${winPath} → ${wsl}`);
+      return wsl;
+    }
+  }
+  return winPath;
+}
+
+/**
+ * 检测命令是否包含 cmd.exe 不支持的 POSIX 语法（heredoc、$(( )) 等）。
+ * 若检测到且当前 shell 为 cmd.exe，返回重写后的命令；否则原样返回。
+ *
+ * @param {string} command 原始命令
+ * @param {string} shell 当前使用的 shell
+ * @returns {string} 可能被重写的命令
+ */
+function rewriteForWindows(command, shell) {
+  if (shell !== 'cmd.exe') return command;
+  // heredoc 检测: cat << 'EOF' 或 cat << EOF 或 cat >file << 'DELIM'
+  const HEREDOC_RE = /<<-?\s*['"]?(\w+)['"]?/;
+  if (!HEREDOC_RE.test(command)) return command;
+
+  // 简单重写策略：用 PowerShell 替代执行（PowerShell 支持 heredoc 语法 @"..."@）
+  // 或者更安全地：提示用户此命令需要 bash
+  console.warn('[rewriteForWindows] 命令包含 heredoc 语法，但仅有 cmd.exe 可用，尝试通过 PowerShell 执行');
+  return `powershell -NoProfile -Command "${command.replace(/"/g, '\\"')}"`;
+}
+
+/**
+ * 直执模式：对「命令型」步骤（action 是可执行 shell 命令）绕过 agentPool，
+ * 直接用 child_process.execSync 执行，避免无 Agent 时整步 FAILED。
+ *
+ * 判定标准复用 isPossibleCommand()（已知命令名 / 含 shell 元字符）。
+ * 通过 resolveShell() 自动选择最佳 shell（Windows 下优先 bash）。
+ *
+ * 多行命令（含裸换行但非 heredoc）会自动写入临时脚本执行，避免换行被当命令分隔符。
+ *
+ * @param {object} step  plan.steps[i]（含 action）
+ * @param {string} [cwd] 工作目录
+ * @returns {{ status: string, output: string }}
+ */
+/**
+ * 直执模式：对「命令型」步骤（action 是可执行 shell 命令）绕过 agentPool，
+ * 用 child_process.spawn 异步执行，并增量把 stdout/stderr 通过 onChunk 推流，
+ * 支持 shouldAbort()/AbortSignal 在用户断开时立即杀掉子进程（决策③真流式 + 决策①取消生效）。
+ *
+ * 判定标准复用 isPossibleCommand()；通过 resolveShell() 自动选择最佳 shell。
+ * 多行命令（含裸换行但非 heredoc）自动写入临时脚本执行。
+ *
+ * @param {object} step  plan.steps[i]（含 action）
+ * @param {string} [cwd] 工作目录
+ * @param {object} [opts]
+ * @param {Function} [opts.onChunk]   (chunk: string, stream: 'stdout'|'stderr') => void  增量输出
+ * @param {Function} [opts.shouldAbort] () => boolean  用户中止轮询
+ * @param {AbortSignal} [opts.signal]  中止信号
+ * @returns {Promise<{status: string, output: string}>}
+ */
+async function execStepDirectly(step, cwd, opts = {}) {
+  const { onChunk, shouldAbort, signal } = opts;
+  const action = String(step.action || '').trim();
+  if (!action) return { status: 'error', output: '步骤 action 为空' };
+  // 占位符步骤 → 返回 error（LLM 未能生成有效内容，不应静默通过）
+  if (step.type === 'skip' || step._isPlaceholder) {
+    console.log('[execStepDirectly] 占位符步骤（LLM 输出为空）:', (step.goal || '').slice(0, 60));
+    return {
+      status: 'error',
+      output: `⚠️ LLM 未能为此步骤生成可执行内容（goal/action 均为占位符「${step.goal || '?'}」）。` +
+        `这通常意味着模型输出不稳定或 API 配置有误。请检查模型设置后重试，或尝试切换更强大的模型。`,
+    };
+  }
+  try {
+    const { spawn, execSync, execFileSync } = require('child_process');
+    const fs = require('fs');
+    const path = require('path');
+    const os = require('os');
+    const { shell, isWsl } = resolveShell();
+    const effectiveCwd = cwd || process.cwd();
+
+    // ── 构建执行选项（含 WSL 路径转换）──
+    const baseOpts = {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+      timeout: STEP_TIMEOUT_MS,
+    };
+    const execOpts = { ...baseOpts, cwd: effectiveCwd };
+
+    // PATH 丰富：确保 shell 自身的 bin 目录在 PATH 中
+    if (shell !== 'cmd.exe' && (shell.includes('/') || shell.includes('\\'))) {
+      const enrichedEnv = { ...process.env };
+      const shellDir = path.dirname(shell);
+      const shellParent = path.dirname(shellDir);
+      const shellRoot = path.dirname(shellParent);
+      const extraPaths = [shellDir];
+      const candidates = [
+        path.join(shellRoot, 'mingw64', 'bin'),
+        path.join(shellRoot, 'mingw32', 'bin'),
+        path.join(shellRoot, 'bin'),
+      ];
+      for (const c of candidates) {
+        if (!extraPaths.includes(c) && fs.existsSync(c)) extraPaths.push(c);
+      }
+      const currentPath = enrichedEnv.PATH || '';
+      const existing = new Set(currentPath.split(';').map((p) => p.toLowerCase().replace(/\\/g, '/')));
+      const toAdd = extraPaths.filter((p) => !existing.has(p.toLowerCase().replace(/\\/g, '/')));
+      if (toAdd.length > 0) {
+        enrichedEnv.PATH = `${toAdd.join(';')};${currentPath}`;
+        execOpts.env = enrichedEnv;
+        console.log('[execStepDirectly] PATH 已丰富 (+', toAdd.length, '个目录):', toAdd.join(', '));
+      }
+    }
+
+    if (isWsl) {
+      const wslCwd = maybeConvertToWslPath(shell, effectiveCwd);
+      if (wslCwd !== effectiveCwd) {
+        execOpts.cwd = wslCwd;
+        console.log('[execStepDirectly] WSL cwd 转换:', effectiveCwd, '→', wslCwd);
+      }
+    }
+    console.log('[execStepDirectly]', JSON.stringify({
+      shell, isWsl, cwd: effectiveCwd, actionPreview: action.slice(0, 200),
+      actionLength: action.length, hasNewline: action.includes('\n'),
+      isMultiline: action.includes('\n'), execViaTempScript: action.includes('\n'),
+    }));
+
+    // ── spawn 执行器（异步 + 增量 + 中止）──
+    const runSpawn = (cmd, args, spawnOpts) => new Promise((resolve) => {
+      if (shouldAbort && shouldAbort()) { resolve({ code: null, killed: true, output: '' }); return; }
+      // backgroundGraceMs：后台启动命令（node xxx &> log &）的宽限——主 shell 退出后
+      // 后台孙进程仍持有管道时 close 永不触发；宽限到点视为「启动成功」放养进程。
+      const { backgroundGraceMs = 0, ...restOpts } = spawnOpts || {};
+      let child;
+      let manuallyKilled = false;
+      try {
+        child = spawn(cmd, args, { ...restOpts, timeout: STEP_TIMEOUT_MS });
+      } catch (spawnErr) {
+        resolve({ code: null, killed: false, error: spawnErr.message, output: '' });
+        return;
+      }
+      const acc = { out: '', err: '' };
+      const onData = (buf, stream) => {
+        const s = buf.toString('utf8');
+        if (stream === 'stdout') acc.out += s; else acc.err += s;
+        if (onChunk) { try { onChunk(s, stream); } catch { /* 忽略渲染层异常 */ } }
+      };
+      if (child.stdout) child.stdout.on('data', (d) => onData(d, 'stdout'));
+      if (child.stderr) child.stderr.on('data', (d) => onData(d, 'stderr'));
+      child.on('error', (e) => { acc.err += `\n[spawn error] ${e.message}`; });
+      // 进程树强杀（Windows: taskkill /T；POSIX: 负 pid 杀进程组）
+      const killTree = (pid) => {
+        try {
+          if (process.platform === 'win32') {
+            execFileSync('taskkill', ['/PID', String(pid), '/T', '/F'], { stdio: 'ignore' });
+          } else {
+            try { process.kill(-pid, 'SIGKILL'); } catch { child && child.kill('SIGKILL'); }
+          }
+        } catch { /* 进程可能已退出 */ }
+      };
+      const watch = setInterval(() => {
+        if (shouldAbort && shouldAbort() && child && !child.killed) {
+          manuallyKilled = true;
+          killTree(child.pid);
+        }
+      }, 200);
+      let onAbort = null;
+      if (signal && typeof signal.addEventListener === 'function') {
+        onAbort = () => {
+          manuallyKilled = true;
+          if (child && !child.killed) killTree(child.pid);
+        };
+        signal.addEventListener('abort', onAbort, { once: true });
+      }
+      let settled = false;
+      // ⚠️ 兜底：spawn 的 timeout 只杀「直接子进程」——若命令内启动后台进程
+      // （node server.js & 等）且孙进程持有 stdout/stderr 管道，close 事件永不触发，
+      // 步骤会永久 running（球总实测「跑不完」根因）。此处做 Promise 级竞速强制收尾。
+      const forceMs = backgroundGraceMs || (STEP_TIMEOUT_MS + 3000);
+      const forceTimer = setTimeout(() => {
+        if (settled) return;
+        settled = true;
+        clearInterval(watch);
+        if (onAbort && signal) signal.removeEventListener('abort', onAbort);
+        if (backgroundGraceMs) {
+          // 后台启动模式：shell 已退出但后台进程持有管道 → 视为启动成功，放养进程
+          if (child && !child.killed) { try { child.unref(); } catch { /* ignore */ } }
+          resolve({ code: 0, background: true, killed: false, timedOut: false, output: `${acc.out}${acc.err ? `\n${acc.err}` : ''}`.slice(0, 5000) });
+        } else {
+          if (child && !child.killed) killTree(child.pid);
+          resolve({ code: null, killed: true, timedOut: true, output: `${acc.out}${acc.err ? `\n${acc.err}` : ''}`.slice(0, 5000) });
+        }
+      }, forceMs);
+      child.on('close', (code, sig) => {
+        if (settled) return;
+        settled = true;
+        clearInterval(watch);
+        if (onAbort && signal) signal.removeEventListener('abort', onAbort);
+        clearTimeout(forceTimer);
+        // spawn timeout 默认发 SIGTERM（killed=true, 非手动）；abort 用 SIGKILL（manuallyKilled）
+        const killed = manuallyKilled || sig === 'SIGKILL';
+        const timedOut = !manuallyKilled && sig === 'SIGTERM';
+        const output = `${acc.out}${acc.err ? `\n${acc.err}` : ''}`.slice(0, 5000);
+        resolve({ code, killed, timedOut, output });
+      });
+    });
+
+    // 安全读取临时脚本内容（失败时回传）；finally 才 unlink，catch 时仍可读
+    const safeReadTmpScript = (f) => { try { return f ? fs.readFileSync(f, 'utf8') : ''; } catch { return ''; } };
+
+    // 把 spawn 结果（非 0 退出）转成与旧 execSync catch 一致的失败对象
+    const buildExecError = (code, output, { isMultiline, tmpFile }) => {
+      const failedScript = isMultiline ? safeReadTmpScript(tmpFile) : '';
+      return {
+        status: 'error',
+        output: [
+          `命令执行失败（exit code ${code ?? '?'}，shell=${shell}${isMultiline ? ', via-temp-script' : ''}）`,
+          `cwd: ${effectiveCwd}`,
+          `命令: ${action.slice(0, 300)}`,
+          output ? `输出:\n${output.slice(0, 2000)}` : null,
+          failedScript ? `脚本内容:\n${failedScript.slice(0, 3000)}` : null,
+        ].filter(Boolean).join('\n'),
+      };
+    };
+
+    const isMultiline = action.includes('\n');
+    let tmpFile = null;
+    let out;
+
+    // ── MSYS 风格路径 → Windows 绝对路径（Node fs 不认 /tmp、/c/ 前缀）──
+    // 例：/tmp/foo → %TEMP%/foo（MSYS /tmp = Windows TEMP，已验证与服务 TMP 一致）；
+    //     /c/foo → C:\foo；其他 /xxx 保持原样（相对路径由 path.resolve 处理）。
+    const msysToWinPath = (p) => {
+      const s = String(p || '').trim();
+      if (!s) return s;
+      if (s === '/tmp' || s.startsWith('/tmp/')) {
+        return path.join(os.tmpdir(), s.slice(4).replace(/^[/\\]+/, ''));
+      }
+      const m = s.match(/^\/([a-zA-Z])\/(.*)$/);
+      if (m) return path.join(`${m[1].toUpperCase()}:\\`, m[2].replace(/\//g, '\\'));
+      return s;
+    };
+
+    // ── heredoc 文件写入：Node.js 原生 fs（绕过 cat 依赖，同旧逻辑）──
+    const heredocWriteMatch = action.match(
+      /^cat\s+>\s*['"]?([^'"\s]+)['"]?\s*<<\s*['"]?(\w+)['"]?\s*([\s\S]*?)\s*\2\s*$/
+    );
+    if (heredocWriteMatch) {
+      const heredocTarget = heredocWriteMatch[1].trim();
+      const heredocContent = heredocWriteMatch[3];
+      if (heredocTarget && !heredocTarget.startsWith('/dev/') && heredocTarget !== 'NUL') {
+        const targetFullPath = path.resolve(effectiveCwd, msysToWinPath(heredocTarget));
+        const targetDir = path.dirname(targetFullPath);
+        console.log('[execStepDirectly] heredoc 文件写入（Node.js 原生）:', heredocTarget);
+        try {
+          fs.mkdirSync(targetDir, { recursive: true });
+          fs.writeFileSync(targetFullPath, heredocContent, 'utf8');
+          const size = Buffer.byteLength(heredocContent, 'utf8');
+          console.log('[execStepDirectly] 文件写入成功:', heredocTarget, `(${size} bytes)`);
+          return { status: 'done', output: `已写入 ${heredocTarget}（${size} bytes）` };
+        } catch (writeErr) {
+          console.warn('[execStepDirectly] Node.js 文件写入失败，回退到 shell 执行:', writeErr.message);
+        }
+      }
+    }
+
+    // ── 文件写入预检：自动创建目标文件的父目录（同旧逻辑）──
+    const fileWriteMatch = action.match(/(?:cat|echo|tee|cp|mv)\s+(?:['"]?[^>'"`\s]+['"]?\s*)*(?:>|>>)\s*['"]?([^'"\s]+)['"]?/i)
+      || action.match(/cat\s+['"]?([^'"\s]+)['"]?\s*<<\s*/i);
+    if (fileWriteMatch && fileWriteMatch[1]) {
+      let targetPath = fileWriteMatch[1].trim();
+      targetPath = targetPath.split(/\s/)[0];
+      if (targetPath && !targetPath.startsWith('/dev/') && targetPath !== 'NUL') {
+        const targetFullPath = path.resolve(effectiveCwd, msysToWinPath(targetPath));
+        const targetDir = path.dirname(targetFullPath);
+        if (!fs.existsSync(targetDir)) {
+          console.log('[execStepDirectly] 自动创建父目录:', targetDir, '(目标文件:', targetPath, ')');
+          try {
+            fs.mkdirSync(targetDir, { recursive: true });
+            console.log('[execStepDirectly] 父目录创建成功');
+          } catch (mkdirErr) {
+            console.warn('[execStepDirectly] 父目录创建失败（继续执行原命令）:', mkdirErr.message);
+          }
+        }
+      }
+    }
+
+    try {
+      if (isMultiline) {
+        if (shell === 'cmd.exe') {
+          // 无 bash 可用 → PowerShell 执行 .ps1
+          tmpFile = path.join(os.tmpdir(), `hesi-step-${Date.now()}-${Math.random().toString(36).slice(2, 6)}.ps1`);
+          fs.writeFileSync(tmpFile, action, 'utf8');
+          console.log('[execStepDirectly] 多行命令已写入 PowerShell 临时脚本:', tmpFile);
+          const r = await runSpawn('powershell.exe', [
+            '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', tmpFile,
+          ], execOpts);
+          if (r.timedOut) return { status: 'error', output: `命令执行超时（超过 ${STEP_TIMEOUT_MS}ms）\n命令: ${action.slice(0, 200)}\n${r.output.slice(0, 1000)}` };
+          if (r.killed) return { status: 'aborted', output: `执行已被取消（用户断开）\n命令: ${action.slice(0, 200)}\n${r.output.slice(0, 1000)}` };
+          if (r.error) return { status: 'error', output: `命令启动失败: ${r.error}` };
+          if (r.code !== 0) return buildExecError(r.code, r.output, { isMultiline, tmpFile });
+          out = r.output;
+        } else if (isWsl) {
+          tmpFile = path.join(os.tmpdir(), `hesi-step-${Date.now()}-${Math.random().toString(36).slice(2, 6)}.sh`);
+          // Plan E：多行临时脚本启用 set -e（与单行一致），避免中间命令失败被掩盖
+          fs.writeFileSync(tmpFile, `set -e\n${action}`, 'utf8');
+          const wslScript = maybeConvertToWslPath(shell, tmpFile);
+          // WSL 语法预检（同真实 bash 分支）
+          try {
+            execSync('cmd.exe', ['/c', 'bash', '-n', wslScript], { ...execOpts, stdio: ['ignore', 'ignore', 'pipe'] });
+          } catch (syntaxErr) {
+            const scriptContent = safeReadTmpScript(tmpFile);
+            return {
+              status: 'error',
+              output: [
+                `Shell 脚本语法预检失败（WSL bash -n）：${String(syntaxErr.stderr || syntaxErr.message).trim().slice(0, 500)}`,
+                `脚本路径: ${tmpFile}`,
+                `脚本内容:\n${scriptContent.slice(0, 3000)}`,
+                `建议：检查单引号/双引号与 heredoc 定界符是否配对闭合。`,
+              ].join('\n'),
+            };
+          }
+          console.log('[execStepDirectly] WSL 多行临时脚本:', tmpFile, '→', wslScript);
+          const r = await runSpawn('cmd.exe', ['/c', 'bash', wslScript], execOpts);
+          if (r.timedOut) return { status: 'error', output: `命令执行超时（超过 ${STEP_TIMEOUT_MS}ms）\n命令: ${action.slice(0, 200)}\n${r.output.slice(0, 1000)}` };
+          if (r.killed) return { status: 'aborted', output: `执行已被取消（用户断开）\n命令: ${action.slice(0, 200)}\n${r.output.slice(0, 1000)}` };
+          if (r.error) return { status: 'error', output: `命令启动失败: ${r.error}` };
+          if (r.code !== 0) return buildExecError(r.code, r.output, { isMultiline, tmpFile });
+          out = r.output;
+        } else {
+          // 真实 Git Bash / MSYS2 等：直接 spawn 临时脚本
+          tmpFile = path.join(os.tmpdir(), `hesi-step-${Date.now()}-${Math.random().toString(36).slice(2, 6)}.sh`);
+          // Plan E：多行临时脚本启用 set -e（与单行 `set -e; ${action}` 一致），
+          // 避免中间命令失败（如 chmod 127）被后续成功命令掩盖 → 步骤误判完成
+          fs.writeFileSync(tmpFile, `set -e\n${action}`, 'utf8');
+          console.log('[execStepDirectly] 多行命令已写入临时脚本:', tmpFile);
+          try {
+            execFileSync(shell, ['-n', tmpFile], { ...execOpts, stdio: ['ignore', 'ignore', 'pipe'] });
+          } catch (syntaxErr) {
+            const scriptContent = safeReadTmpScript(tmpFile);
+            return {
+              status: 'error',
+              output: [
+                `Shell 脚本语法预检失败（${shell} -n）：${String(syntaxErr.stderr || syntaxErr.message).trim().slice(0, 500)}`,
+                `脚本路径: ${tmpFile}`,
+                `脚本内容:\n${scriptContent.slice(0, 3000)}`,
+                `建议：检查单引号/双引号与 heredoc 定界符是否配对闭合。`,
+              ].join('\n'),
+            };
+          }
+          console.log('[execStepDirectly] 执行方式: spawn(', shell, ',', tmpFile, ')');
+          const r = await runSpawn(shell, [tmpFile], execOpts);
+          if (r.timedOut) return { status: 'error', output: `命令执行超时（超过 ${STEP_TIMEOUT_MS}ms）\n命令: ${action.slice(0, 200)}\n${r.output.slice(0, 1000)}` };
+          if (r.killed) return { status: 'aborted', output: `执行已被取消（用户断开）\n命令: ${action.slice(0, 200)}\n${r.output.slice(0, 1000)}` };
+          if (r.error) return { status: 'error', output: `命令启动失败: ${r.error}` };
+          if (r.code !== 0) return buildExecError(r.code, r.output, { isMultiline, tmpFile });
+          out = r.output;
+        }
+      } else {
+        // 单行命令直执
+        if (shell === 'cmd.exe') {
+          const finalAction = rewriteForWindows(action, shell);
+          const r = await runSpawn(finalAction, [], { ...execOpts, shell: 'cmd.exe' });
+          if (r.timedOut) return { status: 'error', output: `命令执行超时（超过 ${STEP_TIMEOUT_MS}ms）\n命令: ${action.slice(0, 200)}\n${r.output.slice(0, 1000)}` };
+          if (r.killed) return { status: 'aborted', output: `执行已被取消（用户断开）\n命令: ${action.slice(0, 200)}\n${r.output.slice(0, 1000)}` };
+          if (r.error) return { status: 'error', output: `命令启动失败: ${r.error}` };
+          if (r.code !== 0) return buildExecError(r.code, r.output, { isMultiline, tmpFile });
+          out = r.output;
+        } else if (isWsl) {
+          tmpFile = path.join(os.tmpdir(), `hesi-step-${Date.now()}-${Math.random().toString(36).slice(2, 6)}.sh`);
+          // Plan E：单行临时脚本同样启用 set -e（WSL 分支经 bash 执行）
+          fs.writeFileSync(tmpFile, `set -e\n${action}\n`, 'utf8');
+          const wslScript = maybeConvertToWslPath(shell, tmpFile);
+          console.log('[execStepDirectly] WSL 单行→临时脚本:', tmpFile, '→', wslScript);
+          const r = await runSpawn('cmd.exe', ['/c', 'bash', wslScript], execOpts);
+          if (r.timedOut) return { status: 'error', output: `命令执行超时（超过 ${STEP_TIMEOUT_MS}ms）\n命令: ${action.slice(0, 200)}\n${r.output.slice(0, 1000)}` };
+          if (r.killed) return { status: 'aborted', output: `执行已被取消（用户断开）\n命令: ${action.slice(0, 200)}\n${r.output.slice(0, 1000)}` };
+          if (r.error) return { status: 'error', output: `命令启动失败: ${r.error}` };
+          if (r.code !== 0) return buildExecError(r.code, r.output, { isMultiline, tmpFile });
+          out = r.output;
+        } else {
+          // 真实 bash/sh：正常 spawn（shell 选项走 set -e）
+          // 后台启动命令（node xxx &> log & 等）→ backgroundGraceMs 宽限：主 shell 退出后
+          // 后台孙进程持有管道导致 close 永不触发，宽限到点视为启动成功放养（根治「跑不完」）
+          const isBg = isBackgroundStart(action);
+          if (isBg) console.log('[execStepDirectly] 后台启动命令 → backgroundGraceMs 宽限模式');
+          const r = await runSpawn(`set -e; ${action}`, [], { ...execOpts, shell, backgroundGraceMs: isBg ? 15000 : 0 });
+          if (r.background) {
+            // 后台启动成功（进程放养中），步骤视为完成
+            out = r.output || '后台进程已启动（detached 放养，输出重定向到命令指定位置）';
+          } else {
+            if (r.timedOut) return { status: 'error', output: `命令执行超时（超过 ${STEP_TIMEOUT_MS}ms）\n命令: ${action.slice(0, 200)}\n${r.output.slice(0, 1000)}` };
+            if (r.killed) return { status: 'aborted', output: `执行已被取消（用户断开）\n命令: ${action.slice(0, 200)}\n${r.output.slice(0, 1000)}` };
+            if (r.error) return { status: 'error', output: `命令启动失败: ${r.error}` };
+            if (r.code !== 0) return buildExecError(r.code, r.output, { isMultiline, tmpFile });
+            out = r.output;
+          }
+        }
+      }
+    } finally {
+      // 清理临时脚本
+      if (tmpFile) { try { fs.unlinkSync(tmpFile); } catch { /* ignore */ } }
+    }
+    return { status: 'done', output: String(out).slice(0, 5000) };
+  } catch (e) {
+    return { status: 'error', output: `直执异常: ${e.message}`, stack: e.stack || null };
+  }
+}
+
+
+/**
+ * 判断任务是否应走「直执模式」（绕过 agentPool）。
+ * 条件：task.task（即 step.action）是可执行命令 OR 步骤显式声明 type:'command'。
+ */
+function shouldExecDirectly(task, step) {
+  // type:'command' 只是 LLM 的"建议标签"，不能盲信——LLM 可能给自然语言步骤误标 command。
+  // 因此即使 type=command，仍需验证 action 内容确实像可执行命令（含 shell 元字符或已知命令名）。
+  // 真正的 shell 命令走轨道 A（execSync 直执）；自然语言/模糊指令走轨道 B（AI LLM 管线）。
+  const action = String(task && task.task || '').trim();
+  const typeTag = step && step.type;
+  const result = (typeTag === 'command' && isPossibleCommand(action)) || isPossibleCommand(action);
+  // 诊断日志：确认判定结果与输入（稳定后可移除）
+  console.log('[shouldExecDirectly]', JSON.stringify({ action: action.slice(0, 120), typeTag, result }));
+  return result;
+}
+
+async function runSingleTask(wf, task) {
+  let startJson;
+  try {
+    startJson = JSON.parse(await wf.start(`plan-step-${task.id}`, [task], { maxConcurrency: 1 }));
+  } catch (e) {
+    return { status: 'error', output: `workflow start 异常: ${e.message}`, stack: e.stack || null };
+  }
+  if (!startJson.ok) return { status: 'error', output: startJson.error || 'start failed' };
+  const wfId = startJson.workflowId;
+  const t0 = Date.now();
+  while (Date.now() - t0 < STEP_TIMEOUT_MS) {
+    let st;
+    try {
+      st = JSON.parse(await wf.status(wfId));
+    } catch (e) {
+      return { status: 'error', output: `workflow status 异常: ${e.message}` };
+    }
+    if (!st.ok) return { status: 'error', output: st.error || 'status failed' };
+    const t = (st.tasks || []).find((x) => x.id === task.id);
+    if (t && ['completed', 'failed', 'skipped'].includes(t.status)) {
+      return { status: t.status, output: t.output || '', error: t.error || '' };
+    }
+    await new Promise((r) => { setTimeout(r, POLL_MS); });
+  }
+  return { status: 'timeout', output: '' };
+}
+
+/**
+ * 轨道 B（Agent 型步骤）：复用 AI 助手已调好的 LLM 工具环执行。
+ * 不重新实现流式/工具调用——直接调 nonStreamingChat（QCLI_TOOLS + executeToolCall
+ * + 3min 熔断 + pruneToolContext），仅剔除 agent_* 委派工具避免递归回外部 agent。
+ *
+ * @param {object} task   planToWorkflowTasks 产出的 task
+ * @param {object} step   plan.steps[i]
+ * @param {object} plan   原始 plan（取 scope_paths/forbidden 作约束提示）
+ * @param {object} runtime { apiKey, provider, baseUrl, model }
+ * @param {{ broadcastFn?: Function, sessionId?: string }} [extra]
+ * @returns {Promise<{ status: string, output: string }>}
+ */
+async function runStepViaChatLLM(task, step, plan, runtime, extra = {}) {
+  const goal = step.goal || task.label || task.id || '未命名步骤';
+  const actionHint = step.action || '';
+  const scope = Array.isArray(plan && plan.scope_paths) ? plan.scope_paths : [];
+  const forbidden = Array.isArray(plan && plan.forbidden) ? plan.forbidden : [];
+  const user = [
+    `步骤目标：${goal}`,
+    actionHint ? `参考动作/指令：${actionHint}` : '',
+    `计划约束：scope_paths=${JSON.stringify(scope)}，forbidden=${JSON.stringify(forbidden)}`,
+    `请用可用工具完成该目标，完成后用中文简述你做了什么。`,
+  ].filter(Boolean).join('\n');
+  const messages = [
+    { role: 'system', content: PLAN_STEP_SYSTEM_PROMPT },
+    { role: 'user', content: user },
+  ];
+  try {
+    // 延迟加载 chat 管线（避免拖慢 plan 模块与测试）
+    const { nonStreamingChat } = require('../chat');
+    const result = await nonStreamingChat(
+      messages,
+      runtime.apiKey,
+      runtime.model,
+      runtime.provider,
+      runtime.baseUrl,
+      extra.broadcastFn || null,
+      extra.sessionId || '',
+      planStepTools(),
+    );
+    const output = String((result && result.content) ? result.content : '').slice(0, 5000);
+    if (result && result.timedout && !output) {
+      return { status: 'error', output: 'AI 助手执行超时（3 分钟），未产出结果' };
+    }
+    if (!output) {
+      return { status: 'error', output: 'AI 助手未产出任何结果（可能工具调用未达成目标）' };
+    }
+    return { status: 'done', output };
+  } catch (e) {
+    return { status: 'error', output: `AI 助手执行异常: ${e.message}`, stack: e.stack || null };
+  }
+}
+
+// ── 验收执行（机器可验证闭环） ──
+
+/**
+ * 跑 plan.acceptance 里的机器可验证项，返回通过情况。
+ * command/script 走 child_process；http 走原生 fetch（node18+）。
+ * @param {object} plan
+ * @param {{ cwd?: string }} [opts]
+ */
+function runAcceptance(plan, opts = {}) {
+  const acc = Array.isArray(plan && plan.acceptance) ? plan.acceptance : [];
+  const cwd = opts.cwd || process.cwd();
+  const results = acc.map(async (a) => {
+    const base = { id: a.id || '?', kind: a.kind, command: a.command || a.expect || '' };
+    if ((a.kind === 'command' || a.kind === 'script') && typeof opts.securityCheck === 'function') {
+      if (!opts.securityCheck(a.command)) {
+        return { ...base, pass: false, error: '被运行时策略拦截（HESI_PLAN_RUNTIME_INTERCEPT）', blocked: true };
+      }
+    }
+    try {
+      if (a.kind === 'command' || a.kind === 'script') {
+        const { shell: accShell } = resolveShell();
+        const isCmd = accShell === 'cmd.exe';
+        const finalCmd = isCmd ? rewriteForWindows(a.command, accShell) : a.command;
+
+        // PATH 丰富（与 execStepDirectly 一致）
+        const accOpts = { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] };
+        if (!isCmd && (accShell.includes('/') || accShell.includes('\\'))) {
+          const fs2 = require('fs');
+          const path2 = require('path');
+          const shellDir = path2.dirname(accShell);
+          const shellParent = path2.dirname(shellDir);
+          const shellRoot = path2.dirname(shellParent);
+          const extraPaths = [shellDir];
+          [path2.join(shellRoot, 'mingw64', 'bin'), path2.join(shellRoot, 'bin')].forEach(c => {
+            if (fs2.existsSync(c) && !extraPaths.includes(c)) extraPaths.push(c);
+          });
+          const existing = new Set((process.env.PATH || '').split(';').map(p => p.toLowerCase().replace(/\\/g, '/')));
+          const toAdd = extraPaths.filter(p => !existing.has(p.toLowerCase().replace(/\\/g, '/')));
+          if (toAdd.length > 0) {
+            accOpts.env = { ...process.env, PATH: toAdd.join(';') + ';' + (process.env.PATH || '') };
+          }
+        }
+
+        const out = execFileSync(isCmd ? 'cmd.exe' : accShell, isCmd ? ['/c', finalCmd] : ['-c', finalCmd], accOpts);
+        const pass = !a.expect || out.includes(a.expect);
+        return { ...base, pass, output: String(out).slice(0, 500) };
+      }
+      if (a.kind === 'http') {
+        // 简易 GET + expect 命中（AbortController 做超时）
+        const url = String(a.command || '').trim();
+        if (!/^https?:\/\//.test(url)) return { ...base, pass: false, error: 'http 验收需合法 URL' };
+        try {
+          const controller = new AbortController();
+          const timer = setTimeout(() => controller.abort(), 10000);
+          const res = await fetch(url, { signal: controller.signal });
+          const body = await res.text();
+          clearTimeout(timer);
+          const pass = res.ok && (!a.expect || body.includes(a.expect));
+          return { ...base, pass, output: body.slice(0, 500) };
+        } catch (e) {
+          return { ...base, pass: false, error: e.message };
+        }
+      }
+      if (a.kind === 'manual') {
+        // 人工验收无法自动判定 → 默认通过（用户可在 UI 上手动确认/拒绝）
+        return { ...base, pass: true, output: `(人工验收: ${a.description || a.command || '待确认'})`, manual: true };
+      }
+      // 兜底：未知 kind（含 undefined/null/空）→ 视为 manual 默认通过
+      // LLM 常遗漏 kind 字段，sanitizePlan 应已修复，但运行时再兜底一次
+      console.warn(`[runAcceptance] 未知 kind="${a.kind}"，按 manual 处理: ${a.description || a.command || '?'}`);
+      return { ...base, pass: true, output: `(人工验收: ${a.description || a.command || '待确认'})`, manual: true };
+    } catch (e) {
+      return { ...base, pass: false, error: e.message };
+    }
+  });
+  // 同步/异步归一
+  return Promise.all(results).then((rs) => {
+    // 空验收列表 → 视为全部通过（无验收项不构成失败理由）
+    const allPass = rs.length === 0 || rs.every((r) => r.pass);
+    return { results: rs, allPass };
+  });
+}
+
+// ── P2：DoD（Definition of Done）盲审补充判定 ──
+// plan.dod 存在时对每项做二值判定：
+//   - functional / quality：执行 check 命令取原始输出（与 runAcceptance 同 shell 解析）
+//   - semantic：evidence 路径必须真实存在（fs 检查），否则判缺失
+// 产出 delta list（可机读缺失清单），供 Executor 按单修；有缺失 → 验收不过。
+async function runDodVerification(plan, cwd) {
+  const dod = Array.isArray(plan && plan.dod) ? plan.dod : [];
+  if (dod.length === 0) return null;
+  const outputs = new Map();
+  const normalized = dod.map((d) => {
+    const copy = { ...d };
+    const key = copy.id || copy.check || copy.question || '';
+    if ((copy.type === 'functional' || copy.type === 'quality') && copy.check) {
+      // 执行检查命令（真实输出，与 runAcceptance 同款 shell）
+      try {
+        const { shell } = resolveShell();
+        const isCmd = shell === 'cmd.exe';
+        const out = execFileSync(isCmd ? 'cmd.exe' : shell, isCmd ? ['/c', copy.check] : ['-c', copy.check], {
+          cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'],
+        });
+        outputs.set(key, String(out));
+      } catch (e) {
+        outputs.set(key, (e.stdout || '').toString()); // 非零退出也保留输出，由判定兜底
+      }
+    } else if (copy.type === 'semantic' && copy.evidence) {
+      // semantic：evidence 是断言路径（如 tests/auth.spec.ts:42），取路径部分检查存在性
+      const ev = String(copy.evidence);
+      const p = ev.split(':')[0].trim();
+      copy.evidence = (p && fs.existsSync(path.resolve(cwd, p))) ? ev : null; // 不存在 → null → Verifier 判缺失
+    } else {
+      outputs.set(key, '');
+    }
+    return copy;
+  });
+  // 扁平 dod 包成单 item 交给 Verifier
+  const item = { id: '__dod__', name: 'DoD', dod: normalized };
+  const r = verifyItem(item, { outputs, artifacts: [] });
+  return { delta: deltaList([r]), pass: r.pass };
+}
+
+// ── 反思残差（#36） ──
+
+/**
+ * 根据逐步结果与验收，判定闭环状态。
+ * @returns {{ status: 'done'|'partial'|'diverged', reason?: string, stepsDone: number, stepsTotal: number, acceptancePassRate: number|null, budget?: object }}
+ */
+function reflectPlan(plan, stepResults, budget, acceptance, opts) {
+  const total = stepResults.length;
+  const done = stepResults.filter((s) => s.status === 'done').length;
+  const blocked = stepResults.filter((s) => s.status === 'blocked');
+  const fatal = stepResults.filter((s) =>
+    ['loop', 'budget', 'timeout', 'rejected'].includes(s.status)
+  );
+  const diverged =
+    blocked.some((b) => b.needsAcceptance) || fatal.length > 0;
+
+  let status;
+  let reason;
+  if (total === 0) {
+    status = 'rejected';
+    reason = '无步骤被执行（plan 为空或被闸门拒收）';
+  } else if (diverged) {
+    status = 'diverged';
+    reason = fatal.length
+      ? `执行异常需人工干预: ${fatal[0].reason || fatal[0].status}`
+      : '存在需人工补充 acceptance 的 checkpoint 断点';
+  } else if (done === total) {
+    status = 'done';
+  } else {
+    status = 'partial';
+    reason = `部分步骤未完成（done=${done}/${total}）`;
+  }
+
+  let acceptancePassRate = null;
+  if (acceptance) {
+    const n = acceptance.results.length;
+    acceptancePassRate = n ? acceptance.results.filter((r) => r.pass).length / n : null;
+    // 验收结果仅作为信息展示，不阻塞最终状态
+    // （LLM 生成的验收命令常依赖用户环境不一定有的工具如 tsc，
+    //   真实失败不应将 done 降级为 partial）
+    // 若需严格验收模式，可通过 opts.strictAcceptance 开启
+    if (opts && opts.strictAcceptance && status === 'done' && !acceptance.allPass) {
+      status = 'partial';
+      reason = '步骤全部完成，但机器验收未全部通过（严格模式）';
+    }
+    // P2：确定性判定（DoD 盲审 / 探索型收敛）失败 → 强制 partial（不依赖 strictAcceptance）
+    const deterministicFail = (acceptance.results || []).some((r) =>
+      (r.id === '__dod__' || r.id === '__exploration__') && r.pass !== true);
+    if (deterministicFail && status === 'done') {
+      status = 'partial';
+      reason = '步骤完成，但 DoD 盲审/探索型收敛未通过';
+    }
+  }
+
+  const out = { status, reason, stepsDone: done, stepsTotal: total, acceptancePassRate };
+  if (budget) out.budget = { rounds: budget.rounds, tokens: budget.tokens };
+  return out;
+}
+
+// ── 主入口 ──
+
+/**
+ * 执行一个通过合约的 plan。
+ * @param {object} plan
+ * @param {object} opts
+ * @param {string} [opts.cwd]                 git 仓库根（无则降级为无快照执行）
+ * @param {Function} [opts.roundtableFn]      async ({question,transcript,rounds}) => ({kind,command,expect}|null)
+ * @param {object} [opts.workflowManager]     workflow-manager 实例（start/status）
+ * @param {object} [opts.budget]              覆盖 plan.budget（测试注入）
+ * @param {boolean} [opts.dryRun]             不真正跑 workflow（仅校验/快照演示）
+ * @param {boolean} [opts.runAcceptance]      结束后跑验收（默认 true；dryRun 时强制 false）
+ * @param {Function} [opts.onStep]            async (ev) => {} 逐步事件（UI 流式）
+ * @param {Function} [opts.shouldAbort]       () => boolean 人工中止
+ * @param {string} [opts.execId]              执行实例 ID（审批闸关联用）
+ * @param {Function} [opts.requestApproval]   async (req)=>boolean 审批闸：暂停等待人工决议（true=通过 / false=驳回）
+ * @param {string} [opts.executorAgentId]     步骤默认执行方：'ai'（默认，复用 AI 助手 LLM 工具环）或外部 CLI agent id（走旧 agentPool 回退）。每步可用 step.agentId 覆盖。
+ * @param {object} [opts.permissions]         个性化「权限设置」下钻：
+ *        { mode?: 'ask'|'auto'|'strict', autoReview?: boolean, fullAuto?: boolean }
+ *        - autoReview=false → 跳过 gatePlan 可验证性闸门（危险，默认开启）
+ *        - fullAuto=true     → 置 plan.allow_external=true（开启外部副作用，Phase 1 运行时拦截消费）
+ *        - mode 当前仅落库，chat Agent HITL 留 Phase 1
+ * @returns {Promise<{ ok: boolean, status: string, branch: string|null, steps: object[], reflection: object }>}
+ */
+/**
+ * M4/C1：失败分类——区分「可重试」与「致命（重试无意义）」。
+ * @param {object} body  runOneAttempt 返回（含 results / reflection）
+ * @returns {'retryable'|'fatal'}
+ */
+function classifyFailure(body) {
+  const results = (body && body.results) || [];
+  for (const r of results) {
+    const st = r.status;
+    const err = String(r.error || r.output || '');
+    // 注意：'blocked'（运行时拦截 / forbidden / scope 越界）不归入 fatal——
+    // 它是「可被 autoReplan 修订修复」的（如 LLM 修正 scope_paths / 去掉危险命令），
+    // 故视为 retryable，由 maxRetries + 无进展早停防止死循环。fatal 仅保留给真正的
+    // 执行层致命错误（权限 / 语法 / 逻辑），避免「假装修好」式无限重试。
+    if (/permission denied|EACCES|EPERM/i.test(err)) return 'fatal';
+    if (/syntax error|SyntaxError|TypeError|ReferenceError|Unexpected token/i.test(err)) return 'fatal';
+    if (/command not found|not recognized as|ENOENT|No such file/i.test(err)) return 'retryable';
+    if (/timeout|ETIMEDOUT|timed out|aborted/i.test(err)) return 'retryable';
+    if (st === 'error' || st === 'failed') return 'retryable';
+  }
+  return 'retryable';
+}
+
+/** M4/C2：构造精简失败上下文（失败步骤 id + 错误 + 输出末尾），供 revisePlan 精准修复。 */
+function buildFailureContext(body) {
+  const results = (body && body.results) || [];
+  const lines = [];
+  for (const r of results) {
+    if (r.status === 'error' || r.status === 'blocked' || r.status === 'failed') {
+      const tail = String(r.output || r.error || '').trim().split('\n').slice(-8).join('\n');
+      lines.push(`- 步骤 ${r.id || '?'} [${r.status}]: ${r.goal || ''}\n  错误/输出末尾: ${tail}`);
+    }
+  }
+  return lines.join('\n') || '(无明确失败步骤，但整体未达 done)';
+}
+
+/** M4/C5：为「重试时间线」生成一句话失败摘要（供前端展示，不堆砌原始输出）。 */
+// 真正有信息量的错误行特征（跨语言/跨工具的通用信号）
+const ERR_SIGNAL_RE = /(\w*Error|Exception|Traceback)\b|Cannot find|ENOENT|EACCES|EADDRINUSE|no such file|not found|Permission denied|is not recognized|fatal:|failed|错误|失败|异常/i;
+// 纯噪声行：Node 版本尾行、孤立括号/插入符、堆栈帧
+const NOISE_LINE_RE = /^(Node\.js v[\d.]+|[{}()[\]^~]+|at\s.*)$/;
+
+/**
+ * 从命令输出里挑出最能说明「为什么失败」的几行。
+ * 直接取尾部 N 行是错的：Node 的错误输出尾部恰好是 `}` / 空行 / `Node.js v22.x`，
+ * 真正的 `Error: Cannot find module ...` 在中间，会被整段丢掉，前端只显示一堆噪声。
+ * @param {string} raw
+ * @returns {string}
+ */
+function pickErrorLines(raw) {
+  const all = String(raw || '').split('\n').map((s) => s.trim()).filter(Boolean);
+  if (!all.length) return '';
+  const meaningful = all.filter((s) => !NOISE_LINE_RE.test(s));
+  const hits = meaningful.filter((s) => ERR_SIGNAL_RE.test(s));
+  // 全是噪声时宁可返回空串（前端只显示步骤名），也不要把 `}` / `Node.js v22.x` 当失败原因
+  const picked = hits.length ? hits : meaningful.slice(-3);
+  return picked.slice(0, 3).join(' ');
+}
+
+function summarizeAttemptReason(body) {
+  const results = (body && body.results) || [];
+  for (const r of results) {
+    if (r.status === 'error' || r.status === 'blocked' || r.status === 'failed') {
+      const tail = pickErrorLines(r.output || r.error || '');
+      const head = `步骤 ${r.id || '?'}（${r.goal || ''}）${r.status}`;
+      return tail ? `${head}：${tail.slice(0, 160)}` : head;
+    }
+  }
+  return '整体未达 done（未识别到明确失败步骤）';
+}
+
+/** M4/C4：Plan 步骤结构签名，用于「无进展早停」判定（防修订死循环烧 token）。 */
+function planStepSig(plan) {
+  const steps = (plan && plan.steps) || [];
+  return JSON.stringify(steps.map((s) => ({ goal: s.goal, action: s.action, type: s.type })));
+}
+
+async function runPlan(plan, opts = {}) {
+  const cwd = opts.cwd;
+  const wf = opts.workflowManager;
+  const roundtableFn = opts.roundtableFn;
+  const onStep = typeof opts.onStep === 'function' ? opts.onStep : () => {};
+  const dryRun = !!opts.dryRun;
+  const runAcc = opts.runAcceptance !== false && !dryRun;
+
+  // 个性化权限下钻（来自 /api/plan/execute 的 body.permissions）
+  const perms = opts.permissions || null;
+  if (perms && perms.fullAuto) plan.allow_external = true; // 开启外部副作用（Phase 1 运行时拦截消费）
+  const skipGate = !!(perms && perms.autoReview === false);
+
+  // 决策①：可验证性闸门
+  const gate = skipGate ? { ok: true } : gatePlan(plan);
+  if (!gate.ok) {
+    const ev = { status: 'rejected', reason: gate.reason, missing: gate.missing };
+    await onStep(ev);
+    return {
+      ok: false,
+      status: 'rejected',
+      branch: null,
+      missing: gate.missing,
+      steps: [ev],
+      reflection: reflectPlan(plan, [ev], null, null),
+    };
+  }
+
+  // ── P0 终止机制：冻结 acceptance + 预算，创建确定性收敛判断器 ──
+  // 原则：执行者不得自判完成、不得改写自己的验收标准。gatePlan 通过后把
+  // acceptance hash 与预算副本冻结，修订产出若篡改 → ESCALATE。
+  const runStartedAt = Date.now();
+  const frozenAccHash = Array.isArray(plan.acceptance) && plan.acceptance.length
+    ? crypto.createHash('sha256').update(JSON.stringify(plan.acceptance)).digest('hex')
+    : null;
+  const controller = new ReplanController({ accHash: frozenAccHash, budgetFrozen: plan.budget || opts.budget || null });
+  let stopKind = null;   // 终止信号（STALL/OSCILL/DRIFT/ESCALATE/STALLED）
+  let stopReason = '';   // 终止原因（供 SSE/报告展示）
+
+  // ── ② 反思重规划环：熔断/diverged 时自动修订重跑，上限 maxRetries ──
+  const maxRetries = Number.isFinite(Number(opts.maxRetries)) && opts.maxRetries >= 0 ? opts.maxRetries : 0;
+  const plannerRuntime = opts.plannerRuntime || null;
+  const reviseFn = typeof opts.revisePlanFn === 'function' ? opts.revisePlanFn : defaultRevisePlan;
+
+  let currentPlan = plan;
+  let lastBody = null;
+  const attempts = [];
+  let fatalReason = null;
+  let noProgress = false;
+  let lastPlanSig = null;
+  let reviseFailed = false; // autoReplan 修订抛异常 → 终止且明确标记 rejected
+  let reviseErrMsg = ''; // 修订异常原文，用于区分「LLM 超时」与「Plan 真的没救」
+  // C6：同一 runPlan（同 execId）内，首次已审批的步骤在重试时复用审批结论，不再重复弹窗打扰。
+  const runOpts = Object.assign({}, opts, { approvedSteps: new Set() });
+  // P0-2：断点续跑——从 state.json 回放审批缓存
+  if (typeof opts.initApprovedStepIds === 'function') {
+    const cachedIds = opts.initApprovedStepIds();
+    if (Array.isArray(cachedIds)) cachedIds.forEach((id) => runOpts.approvedSteps.add(id));
+  }
+  for (let attempt = 0; ; attempt++) {
+    const body = await runOneAttempt(currentPlan, { cwd, wf, roundtableFn, onStep, dryRun, runAcc, skipGate, opts: runOpts });
+    lastBody = body;
+    const st = body.reflection.status;
+    // P1：diverged（需人工审批的 checkpoint / fatal 步骤异常）→ terminal，
+    // 不再自动修订重跑（autoReplan 修不了「等人工介入」的场景）
+    const terminal = st === 'done' || st === 'rejected' || st === 'diverged';
+    const failureKind = terminal ? 'terminal' : classifyFailure(body);
+    // C5：记录每轮轨迹（轮次 / 状态 / 失败原因），供前端「重试时间线」展示
+    attempts.push({
+      n: attempt + 1,
+      planId: currentPlan.id,
+      status: st,
+      kind: failureKind,
+      reason: terminal ? '' : summarizeAttemptReason(body).slice(0, 300),
+      // C8 失败指纹：失败步骤的 {命令, 状态, 输出摘要} + 时间——落盘后重启可查失败历史
+      failures: (body.results || []).filter((r) => ['failed', 'error', 'blocked', 'timeout', 'rejected'].includes(r.status))
+        .map((r) => {
+          const step = (currentPlan.steps || []).find((s) => s.id === r.id);
+          return {
+            id: r.id,
+            status: r.status,
+            action: (step && step.action || '').slice(0, 200),
+            output: (r.output || '').slice(0, 200),
+          };
+        }),
+      ts: Date.now(),
+    });
+    // C8：每轮把 attempts（含失败指纹）落盘到 state.json——重启后第一步读 state
+    // 就知道「这条命令失败过几次、为什么」，不再从零重蹈失败路径
+    if (opts && opts.execId) {
+      try {
+        const prev = readPlanState(opts.execId) || {};
+        writePlanState(opts.execId, { ...prev, attempts: attempts.slice() });
+      } catch { /* 落盘失败不影响主流程 */ }
+    }
+    if (terminal) break;
+    // C1：致命性失败（权限/语法/逻辑）→ 重试无意义，直接失败（避免「假装修好」）
+    if (failureKind === 'fatal') {
+      fatalReason = '检测到致命性失败（权限不足 / 语法错误 / 逻辑错误），自动重试无意义，请手动修正 Plan';
+      break;
+    }
+    if (attempt >= maxRetries) break;
+    // P0：确定性收敛判定（零 LLM）——取代「仅靠 maxRetries + 单步签名」的兜底。
+    // 每轮用「plan 签名 + 步骤状态序列（近似地面变化）+ 验收通过率」判定，
+    // 检测 STALL（原地重复）/ OSCILL（A→B→A）/ DRIFT（计划漂移）/ ESCALATE（篡改或预算耗尽）。
+    const verdict = controller.decide({
+      planHash: planStepSig(currentPlan),
+      gitDiff: JSON.stringify((lastBody.results || []).map((r) => `${r.id || r.stepId || '?'}:${r.status}`)),
+      // 硬收敛用 reflectPlan 综合判定（steps + acceptance），而非 acceptancePassRate 单值——
+      // 后者在「步骤失败但验收命令恰好通过」时误判 DONE（测试实证）。
+      acceptanceAllPass: lastBody.reflection && lastBody.reflection.status === 'done',
+      acceptanceResults: null,
+      accHash: Array.isArray(currentPlan.acceptance) && currentPlan.acceptance.length
+        ? crypto.createHash('sha256').update(JSON.stringify(currentPlan.acceptance)).digest('hex')
+        : null,
+      budget: currentPlan.budget || opts.budget,
+      elapsedMs: Date.now() - runStartedAt,
+    });
+    if (verdict.v !== 'CONTINUE') {
+      stopKind = verdict.v;
+      stopReason = verdict.why || '';
+      break;
+    }
+    let revised = null;
+    try { revised = await reviseFn(currentPlan, body, plannerRuntime, buildFailureContext(body)); }
+    catch (e) {
+      revised = null;
+      reviseFailed = true;
+      reviseErrMsg = (e && e.message) ? String(e.message) : '';
+      console.warn('[runPlan] autoReplan 修订失败:', reviseErrMsg);
+    }
+    if (!revised) break;
+    // 标记上一轮已触发修订（供前端展示「已修订」）
+    attempts[attempts.length - 1].revised = true;
+    // C4：无进展早停——连续修订产出的 Plan 结构完全相同则判定死循环，停止以避免烧 token
+    const sig = planStepSig(revised);
+    if (lastPlanSig !== null && sig === lastPlanSig) {
+      noProgress = true;
+      break;
+    }
+    lastPlanSig = sig;
+    currentPlan = revised;
+  }
+
+  // 若因 autoReplan 修订失败（而非正常收敛/达上限）终止且未完成 → 明确标记 rejected，
+  // 避免前端把「修订异常中断」误显示为 partial（部分成功）误导用户。
+  let finalStatus = lastBody.reflection.status;
+  let finalReason = undefined;
+  // P1：diverged 终止时给出明确原因（需人工介入），避免 reason 悬空
+  if (finalStatus === 'diverged') {
+    finalReason = lastBody.reflection.reason || '执行偏离预期（diverged），需人工介入';
+  }
+  if (reviseFailed && finalStatus !== 'done' && finalStatus !== 'rejected') {
+    finalStatus = 'rejected';
+    // 区分「LLM 超时/不可达」与「Plan 真的没救」：前者笼统报「无法自动优化」会误导用户
+    // 去改本来没问题的 Plan（实测本地小模型改写 Plan 常超过默认 5 分钟）。
+    if (/timeout|abort|超时|ECONNREFUSED|fetch failed/i.test(reviseErrMsg)) {
+      const { LLM_BRIDGE_TIMEOUT_MS } = require('../../lib/memory/llm-bridge');
+      finalReason = `autoReplan 修订未完成：调用大模型超时或不可达（当前上限 ${Math.round(LLM_BRIDGE_TIMEOUT_MS / 1000)}s）。`
+        + 'Plan 本身未必有问题——请调大环境变量 HESI_LLM_API_TIMEOUT_MS，或改用更快的模型后重试。'
+        + `原始错误：${reviseErrMsg}`;
+    } else {
+      finalReason = `autoReplan 修订失败：Plan 无法自动优化，请手动调整 Plan 或重试${reviseErrMsg ? `（${reviseErrMsg}）` : ''}`;
+    }
+  }
+  if (fatalReason && finalStatus !== 'done' && finalStatus !== 'rejected') {
+    finalStatus = 'rejected';
+    finalReason = fatalReason;
+  }
+  if (noProgress && finalStatus !== 'done' && finalStatus !== 'rejected') {
+    finalStatus = 'rejected';
+    finalReason = '自动重试未产生新方案（连续修订无进展），已停止以避免死循环';
+  }
+  // P0：确定性收敛信号终止（STALL/OSCILL/DRIFT/ESCALATE/STALLED）
+  // DONE 是成功信号（防御分支：terminal break 前被 decide 判到）→ 视为 done，不是失败
+  if (stopKind && finalStatus !== 'done' && finalStatus !== 'rejected') {
+    if (stopKind === 'DONE') {
+      finalStatus = 'done';
+      finalReason = stopReason || '验收全部通过';
+    } else {
+      finalStatus = 'rejected';
+      finalReason = `收敛判定终止（${stopKind}）：${stopReason || '已停止以避免无限循环'}。`;
+    }
+  }
+  const finalResult = {
+    ok: finalStatus === 'done' || (finalStatus === 'partial' && !reviseFailed),
+    status: finalStatus,
+    // partial 等未走赋值分支的状态：兜底用 reflectPlan 的 reason（如 DoD/探索型缺答原因）
+    reason: finalReason || (lastBody && lastBody.reflection && lastBody.reflection.reason) || null,
+    branch: lastBody.branch,
+    steps: lastBody.results,
+    reflection: lastBody.reflection,
+    attempts,
+    revised: attempts.length > 1,
+    // P0：确定性收敛信号（前端可展示终止原因）
+    stopKind: stopKind || null,
+    stopReason: stopReason || null,
+  };
+  // P4-4：最终结果落盘（execId 来自 opts）
+  writePlanSummary((opts && opts.execId) || null, plan, finalResult);
+  return finalResult;
+}
+
+// ── 单次尝试：开分支 → 逐步执行 → 验收 → 反思 ──
+async function runOneAttempt(plan, ctx) {
+  // Plan C：cwd 设为可变——每步执行后若命令含顶层 cd，则作为后续步骤的 cwd 延续
+  let { cwd, wf, roundtableFn, onStep, dryRun, runAcc, opts } = ctx;
+  const haveGit = !!cwd && isRepo(cwd);
+  const branch = null; // P4-1：取消 auto 分支，runPlan 全程留在用户当前分支；branch 仅保留返回字段兼容
+  const interceptEnabled = !!(plan.runtimeIntercept || (opts && opts.runtimeIntercept) || process.env.HESI_PLAN_RUNTIME_INTERCEPT === '1');
+  const evalCmd = interceptEnabled ? makeEvalCmd() : null;
+
+  const budget = new PlanBudget(opts.budget || plan.budget || {});
+  // 关键修复（球总定位）：外部 CLI 执行 Agent 的 id 只进了 executorAgentId（用于轨道派发判断），
+  // 却没被注入 task.agentId，导致 runSingleTask→agentPool.start(undefined) 找不到 Agent。
+  // 这里把 executorAgentId 作为 defaultAgentId 的兜底注入；step.agentId 仍优先。'ai' 时无副作用（轨道 B 不消费 task.agentId）。
+  const tasks = planToWorkflowTasks(plan, { defaultAgentId: (opts && (opts.defaultAgentId || opts.executorAgentId)) || undefined });
+  const results = [];
+  const rounds = (plan.budget && plan.budget.maxRounds) || 3;
+
+  // P4-5（P0-2）：断点续跑——跳过已完成的步骤
+  let resumeFrom = 0;
+  const _resumeExecId = (opts && opts.execId) || null;
+  if (_resumeExecId) {
+    const _st = readPlanState(_resumeExecId);
+    if (_st && Array.isArray(_st.completedStepIds)) {
+      resumeFrom = _st.completedStepIds.length;
+      // 恢复 budget 余量
+      if (_st.budget && typeof _st.budget.remainingRounds === 'number') {
+        budget.remainingRounds = _st.budget.remainingRounds;
+      }
+      // 恢复审批缓存
+      if (_st.approvalCache && Array.isArray(_st.approvalCache) && opts && typeof opts.initApprovedStepIds === 'function') {
+        opts.initApprovedStepIds(_st.approvalCache);
+      }
+    }
+  }
+
+  for (let i = resumeFrom; i < tasks.length; i++) {
+    const task = tasks[i];
+    const step = plan.steps[i] || {};
+    const ev = { index: i, id: task.id, goal: task.label, status: 'start', cwd };
+
+    // 人工中止
+    if (typeof opts.shouldAbort === 'function' && opts.shouldAbort()) {
+      ev.status = 'aborted';
+      ev.reason = '人工中止';
+      results.push(ev);
+      await onStep(ev);
+      break;
+    }
+
+    // 预算轮数
+    const tick = budget.tickRound();
+    if (!tick.ok) {
+      ev.status = 'budget';
+      ev.reason = tick.reason;
+      results.push(ev);
+      await onStep(ev);
+      break;
+    }
+
+    // #34 真实前置拦截
+    const intercept = checkInterception(plan, step, cwd);
+    if (intercept) {
+      ev.status = 'blocked';
+      ev.reason = intercept.reason;
+      results.push(ev);
+      await onStep(ev);
+      if (!step.on_fail || step.on_fail === 'stop') break;
+      continue;
+    }
+
+    // ── 幂等校验（序1/C10）──
+    // resume 恢复时，第一个待重跑的步骤可能已「部分执行」（中断点恰在附近）。
+    // 若命令不可重入（git commit / >> 追加 / INSERT 等），重跑 = 重复副作用 →
+    // 跳过并警告，请人工确认；而非盲目重跑。
+    if (_resumeExecId && i === resumeFrom && resumeFrom > 0 && isNonIdempotentAction(step.action)) {
+      ev.status = 'skipped';
+      ev.reason = '不可重入命令（中断恢复时该步骤可能已部分执行），跳过以避免重复副作用；请人工确认后手动处理';
+      results.push(ev);
+      await onStep(ev);
+      if (!step.on_fail || step.on_fail === 'stop') break;
+      continue;
+    }
+
+    // ④ 运行时逐工具强制拦截（接 mcp/security/policy.evaluateAiExec）
+    // 注意：仅对「直执模式」（轨道 A）生效——AI 聊天管线（轨道 B）内部已有
+    // executeToolCall 工具级安全检查，不需要双重拦截。
+    const stepAgent = step.agentId || (opts && opts.executorAgentId) || null;
+    const useAi = !stepAgent || stepAgent === 'ai';
+    const runtime = (opts && opts.plannerRuntime) || null;
+    const hasLLM = !!(runtime && runtime.apiKey);
+    const willUseChatPipeline = useAi && hasLLM;
+    if (evalCmd && !willUseChatPipeline) {
+      const secReason = evaluateStepSecurity(step, evalCmd);
+      if (secReason) {
+        ev.status = 'blocked';
+        ev.reason = secReason;
+        results.push(ev);
+        await onStep(ev);
+        if (!step.on_fail || step.on_fail === 'stop') break;
+        continue;
+      }
+    }
+
+    // 步前快照（失败可 rollback）
+    let snapSha = null;
+    if (haveGit) {
+      try {
+        snapSha = snapshotStep(cwd, `plan: step ${i + 1} ${task.label}`, plan.scope_paths);
+      } catch { /* 忽略 */ }
+    }
+    ev.snapshot = snapSha;
+
+    // 决策②：checkpoint 软断点 → 圆桌推导验收
+    let effectiveStep = step;
+    if (step.checkpoint) {
+      const cp = await resolveCheckpoint(plan, step, { rounds, roundtableFn });
+      ev.checkpoint = cp;
+      if (!cp.ok) {
+        ev.status = 'blocked';
+        ev.reason = cp.reason;
+        ev.needsAcceptance = cp.needsAcceptance;
+        results.push(ev);
+        await onStep(ev);
+        if (!step.on_fail || step.on_fail === 'stop') break;
+        continue;
+      }
+      if (cp.derivedVerify) effectiveStep = { ...step, verify: cp.derivedVerify };
+    }
+
+    // 决策③（P2.6 审批闸）+ Plan B 宿主敏感写入护栏
+    // 命中「写入宿主项目根敏感文件」且未在 step 上显式标记 requireApproval → 强制审批（不可 always-allow 跳过）
+    const sensitiveWrite = detectSensitiveHostWrite(plan, step, cwd);
+    const mandatoryApproval = !!sensitiveWrite && !stepRequiresApproval(plan, step);
+    if (stepRequiresApproval(plan, step) || mandatoryApproval) {
+      ev.status = 'await-approval';
+      ev.requiresApproval = true;
+      ev.mandatoryApproval = mandatoryApproval;
+      if (sensitiveWrite) {
+        ev.approvalNotice =
+          `⚠️ 此命令将写入宿主项目根敏感文件 ${sensitiveWrite.target}（执行器 cwd 为项目根，` +
+          `LLM 可能误以为在其它目录）。请确认这是你的本意——误操作会覆盖重要配置或破坏仓库。`;
+      }
+      await onStep(ev); // 通知前端出闸门卡片
+      let approved = true;
+      const approvedSteps = opts && opts.approvedSteps;
+      // C6：同一 runPlan 内重试时，复用首次审批结论，不再重复打扰
+      if (approvedSteps && approvedSteps.has(task.id)) {
+        approved = true;
+      } else if (typeof opts.requestApproval === 'function') {
+        approved = await opts.requestApproval({
+          execId: opts.execId,
+          index: i,
+          id: task.id,
+          goal: task.label,
+          action: step.action,
+          risk: step.risk || (sensitiveWrite ? `写入宿主项目根敏感文件 ${sensitiveWrite.target}` : null),
+          mandatory: mandatoryApproval,
+        });
+      }
+      if (approved && approvedSteps) approvedSteps.add(task.id);
+      if (!approved) {
+        ev.status = 'rejected';
+        ev.reason = '人工驳回（审批闸）';
+        ev.requiresApproval = false;
+        results.push(ev);
+        await onStep(ev);
+        break;
+      }
+      ev.status = 'start'; // 审批通过，继续
+      ev.requiresApproval = false;
+      // 体验优化（球总实测反馈）：后台启动类步骤（node xxx &> log & 等）执行期间
+      // 无增量输出，宽限 10-15s 内前端「无反应」——带 notice 让用户知道在干活
+      if (isBackgroundStart(step.action || '')) {
+        ev.notice = '后台启动服务并执行测试（进程放养），输出约 10-15 秒后显示…';
+      }
+    }
+
+    // 真正执行（双轨：命令型直执 / Agent 型走 workflow / skip 占位符）
+    let exec;
+    if (dryRun) {
+      exec = { status: 'skipped', output: '(dryRun)' };
+    } else if (step.type === 'skip' || step._isPlaceholder) {
+      // 占位符步骤（LLM 输出为空，sanitizePlan 填充的假数据）→ 标记 error 而非静默 done
+      console.log(`[runPlan] 占位符步骤 ${step.id}（LLM 输出为空）: "${(step.goal || '').slice(0, 60)}"`);
+      exec = {
+        status: 'error',
+        output: `⚠️ LLM 未能为此步骤生成可执行内容（goal/action 均为占位符「${step.goal || '?'}」）。` +
+          `这通常意味着模型输出不稳定或 API 配置有误。请检查模型设置后重试，或尝试切换更强大的模型。`,
+      };
+    } else if (shouldExecDirectly(task, step)) {
+      // 轨道 A：直执模式 — action 是 shell 命令，绕过 agentPool
+      // P3：改用 spawn 异步执行 + 增量推流（onChunk→broadcastFn step_chunk）+ 断开即杀（shouldAbort/signal）
+      exec = await execStepDirectly(step, cwd, {
+        onChunk: typeof opts.broadcastFn === 'function'
+          ? (chunk, stream) => opts.broadcastFn({ type: 'step_chunk', stepId: task.id, stream, chunk })
+          : undefined,
+        shouldAbort: typeof opts.shouldAbort === 'function' ? opts.shouldAbort : undefined,
+        signal: opts.signal,
+      });
+    } else {
+      // 轨道 B：Agent 型步骤（自然语言指令）
+      // useAi / hasLLM / runtime / stepAgent 已在上方安全检查处计算，直接复用
+      if (willUseChatPipeline) {
+        // 默认（圆桌式）：复用 AI 助手 LLM 工具环——AI 助手为本地推理方，
+        // 通过已调好的 nonStreamingChat（QCLI_TOOLS+executeToolCall+熔断）完成步骤。
+        exec = await runStepViaChatLLM(task, step, plan, runtime, {
+          broadcastFn: (opts && opts.broadcastFn) || null,
+          sessionId: opts && opts.execId,
+        });
+      } else if (stepAgent && stepAgent !== 'ai' && wf) {
+        // 外部 CLI agent 执行：**默认禁用**（v0.7.0 CLI Agent 隔离安全设计）——
+        // opencode 等外部 agent 自主执行，其实际命令不受 Hesi 运行时拦截
+        // （evaluateStepSecurity）/审批闸约束（审批只拦「是否执行此步」，拦不住
+        // agent 内部自主行为），且每步启动 23-35s。
+        // 仅显式设 HESI_PLAN_ALLOW_CLI_EXECUTOR=1 才放行（极端场景兜底开关）。
+        if (process.env.HESI_PLAN_ALLOW_CLI_EXECUTOR === '1') {
+          exec = await runSingleTask(wf, { ...task, verify: effectiveStep.verify, checkpoint: !!effectiveStep.checkpoint });
+        } else {
+          exec = {
+            status: 'skipped',
+            output: '(CLI Agent 执行已禁用：执行阶段仅 AI 助手（安全设计）。如需显式放行设 HESI_PLAN_ALLOW_CLI_EXECUTOR=1)',
+          };
+        }
+      } else {
+        exec = { status: 'skipped', output: '(no LLM runtime / no workflowManager)' };
+      }
+    }
+    ev.status = exec.status === 'completed' ? 'done' : exec.status;
+    ev.output = exec.output || '';
+    ev.stack = exec.stack || null;
+
+    // P4-4：步骤输出落盘（execId 为流程级 ID，stepId 为步骤级 id）
+    writeStepOutput((opts && opts.execId) || null, task.id, ev.output, ev.stack);
+
+    // P3：命令执行被用户取消（断开连接）→ 标记 aborted，不再当 error 回滚
+    if (exec.status === 'aborted' || (typeof opts.shouldAbort === 'function' && opts.shouldAbort())) {
+      ev.status = 'aborted';
+      ev.reason = '用户取消（断开连接）';
+    }
+
+    // C9：命令失败模式看门狗——同一命令 10 分钟内失败 ≥3 次 → 升级人工介入（防死循环）
+    if (['failed', 'error', 'timeout', 'blocked'].includes(ev.status) && step.action) {
+      const wd = sharedWatchdog.record(step.action, false);
+      if (wd.escalate) {
+        ev.status = 'blocked';
+        ev.reason = `看门狗：命令「${String(step.action).slice(0, 60)}」${Math.round(wd.windowMs / 60000)} 分钟内失败 ${wd.failCount} 次，自动升级人工介入（疑似死循环）`;
+        ev.watchdogEscalated = true;
+      }
+    } else if (ev.status === 'done' && step.action) {
+      sharedWatchdog.record(step.action, true); // 成功清零（恢复正常信号）
+    }
+
+    // P4-5（P0-2）：步骤完成后写断点状态（供 resume 跳过已完成步骤）
+    if (ev.status === 'done' || ev.status === 'skipped') {
+      const _sid2 = (opts && opts.execId) || null;
+      if (_sid2) {
+        writePlanState(_sid2, {
+          execId: _sid2,
+          completedStepIds: results.filter((r) => r.status === 'done' || r.status === 'skipped').map((r) => r.id),
+          budget: { remainingRounds: budget.remainingRounds },
+          approvalCache: opts && opts.approvedSteps ? Array.from(opts.approvedSteps) : [],
+        });
+      }
+    }
+
+    // 连续重复熔断
+    const loop = budget.checkLoop(`${task.id}:${ev.status}`);
+    if (!loop.ok) {
+      ev.status = 'loop';
+      ev.reason = loop.reason;
+    }
+
+    results.push(ev);
+    await onStep(ev);
+
+    // Plan C：cwd 延续——本步命令中的顶层 cd 作为后续步骤的 cwd（仅目录真实存在时生效）
+    const nextCwd = deriveWorkdir(step.action, cwd);
+    if (nextCwd) cwd = nextCwd;
+
+    // P3：用户取消（断开连接）→ 立即中止后续步骤，不做错误回滚
+    if (ev.status === 'aborted') break;
+
+    // 失败 → 回滚到本步快照（仅撤销本步改动）
+    if (ev.status === 'failed' || ev.status === 'error') {
+      if (haveGit && snapSha) {
+        try { rollbackTo(cwd, snapSha); } catch { /* 忽略 */ }
+      }
+      if (!step.on_fail || step.on_fail === 'stop') break;
+    }
+    if (['loop', 'budget', 'timeout', 'aborted'].includes(ev.status)) break;
+  }
+
+  // 闭环：最终快照（stash create，悬空审计锚点，不切分支、不动工作树）
+  if (haveGit) {
+    try { snapshotStep(cwd, 'plan: final', plan.scope_paths); } catch { /* 忽略 */ }
+  }
+
+  // 验收（机器可验证闭环）
+  let acceptance = null;
+  if (runAcc) {
+    try {
+      const accOpts = { cwd: cwd || process.cwd() };
+      if (evalCmd) accOpts.securityCheck = (c) => evalCmd(c);
+      acceptance = await runAcceptance(plan, accOpts);
+    } catch {
+      acceptance = null;
+    }
+  }
+
+  // ── P2：探索型任务双轨收敛（mode=exploration → 不跑验收命令，改用「下游可决策」判据）──
+  if (plan && plan.mode === 'exploration' && Array.isArray(plan.questions)) {
+    const ev = explorationVerdict({
+      questions: plan.questions,
+      answers: Array.isArray(plan.answers) ? plan.answers : [],
+      round: 1,
+      maxRounds: (plan.budget && plan.budget.maxRounds) || 0,
+    });
+    acceptance = {
+      results: [{
+        id: '__exploration__',
+        kind: 'manual',
+        pass: ev.v === 'CONVERGED',
+        // CONVERGED → 通过；CONTINUE/ESCALATE → 缺失必需答案（附缺答清单）
+        error: ev.v === 'CONVERGED' ? undefined : `探索型收敛未达成（${ev.v}）：缺 ${(ev.missingRequired || []).length} 个必需问题可溯答案`,
+        output: JSON.stringify({ verdict: ev.v, missing: (ev.missingRequired || []).map((m) => m.text), futureWork: (ev.futureWork || []).map((f) => f.text) }),
+      }],
+      allPass: ev.v === 'CONVERGED',
+    };
+  }
+
+  // ── P2：Verifier 盲审补充——plan.dod 存在时逐项二值判定，有缺失 → 验收不过 ──
+  try {
+    const dodResult = await runDodVerification(plan, cwd || process.cwd());
+    if (dodResult && !dodResult.pass) {
+      if (!acceptance || !Array.isArray(acceptance.results)) acceptance = { results: [], allPass: true };
+      acceptance.results.push({
+        id: '__dod__',
+        kind: 'manual',
+        pass: false,
+        error: `DoD 缺失 ${dodResult.delta.length} 项`,
+        output: JSON.stringify(dodResult.delta).slice(0, 500),
+      });
+      acceptance.allPass = false;
+    }
+  } catch { /* DoD 判定失败不阻断主流程 */ }
+
+  const reflection = reflectPlan(plan, results, budget, acceptance);
+  return { branch, results, reflection };
+}
+
+// ── ④ 运行时策略评估（懒加载 policy，避免耦合与测试污染） ──
+let _policyMod = undefined;
+function makeEvalCmd() {
+  if (_policyMod === undefined) {
+    try { _policyMod = require('../../mcp/security/policy'); } catch { _policyMod = null; }
+  }
+  if (!_policyMod || typeof _policyMod.evaluateAiExec !== 'function') return () => true; // 降级放行
+  return (cmd) => { try { return _policyMod.evaluateAiExec(cmd).allowed !== false; } catch { return true; } };
+}
+
+const SHELL_METACHAR = /[;&|`$()<>#\n\r]/;
+const KNOWN_BASE = /^(rm|dd|mkfs|shutdown|reboot|halt|poweroff|chmod|chown|kill|pkill|sudo|su|reg|format|diskpart|fdisk|curl|wget|node|node\.exe|python|python3|npm|npx|sh|bash|cmd|powershell|git|docker|kubectl|ls|cat|echo|cp|mv|mkdir|touch|sed|awk|grep|find|tar|zip|unzip|gh|cargo|go|make|cmake|gcc|clang|ruby|perl|php|java|tsc|eslint|prettier)\b/i;
+
+function isPossibleCommand(s) {
+  if (!s) return false;
+  if (SHELL_METACHAR.test(s)) return true;
+  const trimmed = s.trim();
+  // ── 可执行脚本路径识别（P3）──
+  // 裸路径如 /tmp/jwt-demo-verify/test.sh、./run.sh、build.ps1 没有 shell 元字符，
+  // 也不命中 KNOWN_BASE → 原逻辑会误判为「自然语言」而走 Track B（LLM 工具循环，
+  // 慢且烧 token，实测 s6 因此卡 279s）。这里显式识别脚本扩展名 → 直接走 Track A 真执行。
+  if (/^\.{0,2}\/?\S+\.(sh|bash|bat|cmd|ps1)(\s|$)/i.test(trimmed)) return true;
+  const base = trimmed.split(/\s+/)[0] || '';
+  return KNOWN_BASE.test(base);
+}
+
+// ── 后台启动命令检测 ──
+// 目的：识别「启动常驻进程并立即返回」的步骤（node server.js &> log &、xxx & disown、
+// cmd /c start xxx 等）。这类命令的 spawn close 可能因后台孙进程持有管道而永不触发
+// （球总实测「跑不完」根因），需走 backgroundGraceMs 宽限路径：到点视为启动成功、放养进程。
+function isBackgroundStart(action) {
+  const s = String(action || '');
+  if (!s) return false;
+  // &> 重定向 + 后台（node xxx &> log &）／裸 & 后跟 echo $!/disown/cat log／cmd start／行尾 &
+  return /&\s*>|\&\s*echo\s+\$!|&\s*disown\b|&\s*cat\s+\S+\.log\b|(^|[;&|]\s*)start\s+["'\w]|\S+.*&\s*$/.test(s);
+}
+
+// ── 幂等校验（序1/C10）：判断命令是否可重入 ──
+// 目的：断点续跑（resume）时，中断点那一步可能已「部分执行」——若命令不可重入
+// （如 git commit 已提交、>> 已追加），重跑会产生重复副作用。命中不可重入模式 →
+// 跳过并警告，请人工确认，而不是盲目重跑。
+// 策略：只拦「明确不可重入」的模式（保守放行，避免误伤安全命令）。
+const NON_IDEMPOTENT_ACTION_RE = new RegExp([
+  /(^|[;&|]|\|\||&&)\s*git\s+(commit|push|merge|rebase|reset\s+--hard|clean\s+-[a-z]*f)/i, // git 写历史/远程
+  /(^|[;&|]|\|\||&&)\s*(cat|echo|printf)\s+.*(\s|^)>>/i,                                     // 追加写
+  /\bINSERT\s+INTO\b|\bUPDATE\s+\w+\s+SET\b/i,                                                // 数据库写
+  /\bcurl\b.*(-X\s+POST|-d\s)|\b(wget|iwr)\b/i,                                                // 网络 POST（有副作用）
+  /\bnpm\s+publish\b|\bdocker\s+(build|push|tag)\b/i,                                         // 发布/构建
+  /\bgit\s+commit\b/i,
+].map((r) => r.source).join('|'), 'i');
+
+/** @param {string} action @returns {boolean} true=不可重入（重跑有重复副作用风险） */
+function isNonIdempotentAction(action) {
+  if (!action || typeof action !== 'string') return false;
+  return NON_IDEMPOTENT_ACTION_RE.test(action);
+}
+
+function evaluateStepSecurity(step, evalCmd) {
+  const cand = [];
+  const action = step && step.action;
+  if (isPossibleCommand(action)) cand.push(action);
+  const vcmd = step && step.verify && step.verify.command;
+  if (vcmd) cand.push(vcmd);
+  for (const c of cand) {
+    if (!evalCmd(c)) return `运行时策略拦截（policy.evaluateAiExec 拒绝）: ${String(c).slice(0, 100)}`;
+  }
+  return null;
+}
+
+module.exports = {
+  runPlan,
+  parseVerifyFromSummary,
+  checkInterception,
+  runAcceptance,
+  reflectPlan,
+  stepRequiresApproval,
+  evaluateStepSecurity,
+  execStepDirectly,
+  shouldExecDirectly,
+  resolvePlanOutputDir,
+  readPlanState,
+  clearPlanState,
+  writePlanState,
+  cleanupPlanOutputs,
+  _pathTokens,
+  resolveShell,
+  rewriteForWindows,
+  resolveProjectRelativePath,
+  pickErrorLines,
+  summarizeAttemptReason,
+  _forTest: { resolvePlanOutputDir, writeStepOutput, writePlanSummary },
+};

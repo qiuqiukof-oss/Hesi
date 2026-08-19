@@ -1,0 +1,8 @@
+{
+  "id": "tencentads",
+  "name": "tencentads",
+  "category": "marketing",
+  "enterprise": true,
+  "authType": "token",
+  "description": "tencentads connector for Hesi"
+}

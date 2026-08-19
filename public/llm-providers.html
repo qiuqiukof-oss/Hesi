@@ -1,0 +1,421 @@
+<!--
+  Copyright (c) 2026 qiuqiukof-oss
+  Licensed under the MIT License. See LICENSE for details.
+-->
+
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>模型服务 — Hesi</title>
+  <link rel="stylesheet" href="/css/theme.css" />
+  <link rel="stylesheet" href="/css/standalone-nav.css" />
+  <link rel="stylesheet" href="/css/llm-providers.css" />
+  <script src="/lib/standalone-theme.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: var(--font-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, system-ui, sans-serif);
+      background: var(--bg-ground, #0a0a0b);
+      color: var(--text-primary, #f5f5f7);
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .lp-header { text-align: center; padding: 28px 24px 14px; border-bottom: 1px solid var(--border-default, #38383a); }
+    .lp-header h1 { font-size: 24px; font-weight: 700; }
+    .lp-header p { font-size: 13px; color: var(--text-tertiary, #98989d); margin-top: 4px; }
+    .lp-header p b { color: var(--accent, #6366f1); }
+
+    .lp-toolbar { display: flex; gap: 8px; align-items: center; padding: 14px 24px; max-width: 1080px; margin: 0 auto; width: 100%; flex-wrap: wrap; }
+    .lp-refresh-btn { background: var(--bg-overlay, #1c1c1e); color: var(--text-secondary, #98989d); border: 1px solid var(--border-default, #38383a); border-radius: 8px; padding: 8px 16px; font-size: 13px; cursor: pointer; }
+    .lp-refresh-btn:hover { color: var(--text-primary, #f5f5f7); border-color: var(--accent, #6366f1); }
+    .lp-hint { margin-left: auto; font-size: 11px; color: var(--text-tertiary, #98989d); }
+
+    .lp-scroll { flex: 1; overflow-y: auto; padding: 4px 24px 32px; }
+    .lp-grid { max-width: 1080px; margin: 0 auto; display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 16px; }
+    .lp-empty { text-align: center; color: var(--text-tertiary, #98989d); padding: 48px 0; font-size: 13px; }
+
+    /* ── 角色路由卡片（v0.8.0）── */
+    .lpr-card { background: var(--bg-surface, #161618); border: 1px solid var(--border-default, #38383a); border-radius: 12px; padding: 16px 18px; }
+    .lpr-head { font-size: 14px; font-weight: 600; color: var(--text-primary, #f5f5f7); display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+    .lpr-hint { font-size: 11px; color: var(--text-tertiary, #98989d); font-weight: 400; }
+    .lpr-default { display: flex; align-items: center; gap: 10px; margin: 12px 0 10px; font-size: 13px; color: var(--text-secondary, #98989d); flex-wrap: wrap; }
+    .lpr-default select { padding: 5px 8px; border: 1px solid var(--border-default, #38383a); border-radius: 8px; background: var(--bg-ground, #0a0a0b); color: var(--text-primary, #f5f5f7); font-size: 13px; min-width: 220px; }
+    .lpr-roles { display: flex; flex-direction: column; gap: 8px; }
+    .lpr-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 12px; }
+    .lpr-role { width: 64px; font-weight: 600; color: var(--text-primary, #f5f5f7); }
+    .lpr-desc { width: 110px; font-size: 11px; color: var(--text-tertiary, #98989d); }
+    .lpr-row select { padding: 4px 6px; border: 1px solid var(--border-default, #38383a); border-radius: 6px; background: var(--bg-ground, #0a0a0b); color: var(--text-primary, #f5f5f7); font-size: 12px; min-width: 180px; }
+    .lpr-row input { padding: 4px 6px; border: 1px solid var(--border-default, #38383a); border-radius: 6px; background: var(--bg-ground, #0a0a0b); color: var(--text-primary, #f5f5f7); font-size: 12px; flex: 1; min-width: 160px; max-width: 260px; }
+    .lpr-msg { font-size: 11px; }
+    .lpr-msg-ok { color: #34c759; }
+    .lpr-msg-err { color: #ff453a; }
+
+    .llmp-card { border-radius: 12px; padding: 16px; gap: 8px; }
+    .llmp-card-head { gap: 8px; }
+    .llmp-card-name { font-size: 15px; }
+    .llmp-badge { font-size: 11px; padding: 2px 8px; }
+    .llmp-card-fields label { gap: 3px; }
+    .llmp-card-fields input, .llmp-card-fields select { padding: 6px 8px; font-size: 13px; }
+    .llmp-btn { font-size: 12px; padding: 6px 12px; }
+    .llmp-btn-danger { background: rgba(220,38,38,.15); color: #f87171; border: 1px solid rgba(220,38,38,.3); }
+    .llmp-btn-danger:hover { background: rgba(220,38,38,.28); color: #fecaca; }
+  </style>
+</head>
+<body>
+  <div class="standalone-nav">
+    <a class="sn-link" href="/">← 返回控制台</a>
+    <span class="sn-sep">/</span>
+    <span class="sn-current">模型服务</span>
+    <a class="sn-link" href="/bots.html">通讯接入</a>
+  </div>
+
+  <div class="lp-header">
+    <h1>🤖 模型服务</h1>
+    <p>接入各家大模型（云端 + 本地）——<b>配置即用</b>，聊天 / Plan / 圆桌 / 记忆自动使用；环境变量优先，本页设置覆盖。</p>
+  </div>
+
+  <div class="lp-toolbar">
+    <button class="lp-refresh-btn" id="lp-refresh">🔄 刷新健康</button>
+    <span class="lp-hint">旧 OPENAI_API_KEY / ANTHROPIC_API_KEY / HESI_LLM_BASE_URL 无需改动，自动映射</span>
+  </div>
+
+  <div class="lp-scroll">
+    <div id="lp-routing" style="max-width:1080px;margin:0 auto 16px;"></div>
+    <div class="lp-grid" id="lp-grid"><div class="lp-empty">加载模型服务列表…</div></div>
+  </div>
+
+  <script>
+  (function() {
+    'use strict';
+
+    var STATUS_META = {
+      ok:          { label: '✓ 可用',      cls: 'llmp-ok',          icon: '🟢' },
+      degraded:    { label: '⚠ key 无效',   cls: 'llmp-degraded',    icon: '🟠' },
+      down:        { label: '✗ 不可达',     cls: 'llmp-down',        icon: '🔴' },
+      unconfigured:{ label: '未配置',       cls: 'llmp-unconfigured',icon: '⚪' },
+      unknown:     { label: '未探测',       cls: 'llmp-unconfigured',icon: '⚪' },
+    };
+
+    function statusBadge(status) {
+      var m = STATUS_META[status] || STATUS_META.unknown;
+      return '<span class="llmp-badge ' + m.cls + '">' + m.icon + ' ' + m.label + '</span>';
+    }
+
+    function esc(s) {
+      return String(s == null ? '' : s)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    }
+
+    function apiGet(url) {
+      return fetch(url).then(function(res) {
+        if (!res.ok) return res.text().then(function(t) { throw new Error('HTTP ' + res.status + ' ' + t.slice(0, 200)); });
+        return res.json();
+      });
+    }
+
+    function apiPost(url, body) {
+      return fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body || {}),
+      }).then(function(res) {
+        if (!res.ok) return res.text().then(function(t) { throw new Error('HTTP ' + res.status + ' ' + t.slice(0, 200)); });
+        return res.json();
+      });
+    }
+
+    function fetchModels(id) {
+      return apiGet('/api/llm-providers/' + encodeURIComponent(id) + '/models').then(function(d) {
+        return Array.isArray(d.models) ? d.models : [];
+      }).catch(function(e) {
+        console.warn('[llm-providers] fetchModels failed:', e && e.message);
+        return [];
+      });
+    }
+
+    // ── 渲染 ──
+    function render(html) {
+      document.getElementById('lp-grid').innerHTML = html;
+    }
+
+    // ── 角色路由卡片（⭐默认 + chat/plan/discuss/memory 分工，Claude Code 式）──
+    function renderRouting(providers, defaultProvider, roles) {
+      var el = document.getElementById('lp-routing');
+      if (!el) return;
+      var opts = '<option value="">（自动选择）</option>'
+        + providers.map(function(p) {
+            return '<option value="' + esc(p.id) + '">' + esc(p.name) + '</option>';
+          }).join('');
+      var roleMeta = [
+        { id: 'chat',    icon: '💬', label: '聊天',   desc: '主对话（默认）' },
+        { id: 'plan',    icon: '📋', label: 'Plan',   desc: '规划/核查' },
+        { id: 'discuss', icon: '🗣', label: '圆桌',   desc: '多 Agent 讨论' },
+        { id: 'memory',  icon: '🧠', label: '记忆',   desc: '事实抽取/压缩' },
+      ];
+      var roleRows = roleMeta.map(function(r) {
+        var rc = (roles && roles[r.id]) || {};
+        return '<div class="lpr-row" data-role="' + r.id + '">' +
+          '<span class="lpr-role">' + r.icon + ' ' + r.label + '</span>' +
+          '<span class="lpr-desc">' + r.desc + '</span>' +
+          '<select class="lpr-provider">' +
+            '<option value="">（跟随默认）</option>' +
+            providers.map(function(p) {
+              var sel = rc.provider === p.id ? ' selected' : '';
+              return '<option value="' + esc(p.id) + '"' + sel + '>' + esc(p.name) + '</option>';
+            }).join('') +
+          '</select>' +
+          '<input class="lpr-model" type="text" placeholder="模型（留空用 provider 默认）" value="' + esc(rc.model || '') + '" />' +
+          '<button class="lpr-save llmp-btn llmp-btn-primary" data-role="' + r.id + '">保存</button>' +
+          '<span class="lpr-msg"></span>' +
+        '</div>';
+      }).join('');
+      el.innerHTML =
+        '<div class="lpr-card">' +
+          '<div class="lpr-head">⭐ 模型路由 <span class="lpr-hint">不指定角色的任务用默认服务；角色留空跟随默认（Claude Code 式分工）</span></div>' +
+          '<div class="lpr-default">默认服务 <select id="lpr-default">' + opts + '</select>' +
+            '<span class="lpr-msg" id="lpr-default-msg"></span></div>' +
+          '<div class="lpr-roles">' + roleRows + '</div>' +
+        '</div>';
+      // 绑定：默认服务
+      var defSel = el.querySelector('#lpr-default');
+      if (defSel) {
+        defSel.value = defaultProvider || '';
+        defSel.addEventListener('change', function() {
+          var msg = el.querySelector('#lpr-default-msg');
+          apiPost('/api/llm-providers/default', { provider: defSel.value }).then(function() {
+            if (msg) { msg.textContent = '✓ 已设为默认'; msg.className = 'lpr-msg-ok'; }
+          }).catch(function(e) {
+            if (msg) { msg.textContent = '✗ ' + (e && e.message); msg.className = 'lpr-msg-err'; }
+          });
+        });
+      }
+      // 绑定：各角色保存
+      el.querySelectorAll('.lpr-save').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+          var row = btn.closest('.lpr-row');
+          var msg = row.querySelector('.lpr-msg');
+          var fields = {
+            provider: row.querySelector('.lpr-provider').value,
+            model: row.querySelector('.lpr-model').value.trim(),
+          };
+          apiPost('/api/llm-providers/role', { role: btn.dataset.role, fields: fields }).then(function() {
+            if (msg) { msg.textContent = '✓ 已保存'; msg.className = 'lpr-msg-ok'; }
+          }).catch(function(e) {
+            if (msg) { msg.textContent = '✗ ' + (e && e.message); msg.className = 'lpr-msg-err'; }
+          });
+        });
+      });
+    }
+
+    function renderAll() {
+      render('<div class="lp-empty">加载中…</div>');
+      apiGet('/api/llm-providers').then(function(data) {
+        var providers = data.providers || [];
+        renderRouting(providers, data.defaultProvider, data.roles);
+        if (!providers.length) {
+          render('<div class="lp-empty">暂无模型服务</div>');
+          return;
+        }
+        var html = providers.map(function(p) {
+          var cfgModel = p.model ? '<option value="' + esc(p.model) + '">' + esc(p.model) + '</option>' : '';
+          var customTag = p.custom ? '<span class="llmp-card-kind" style="background:rgba(139,92,246,.15);color:#a78bfa">自定义</span>' : '';
+          return '<div class="llmp-card" data-id="' + esc(p.id) + '"' + (p.custom ? ' data-custom="1"' : '') + '>' +
+            '<div class="llmp-card-head">' +
+              '<span class="llmp-card-name">' + esc(p.name) + '</span>' +
+              customTag +
+              '<span class="llmp-card-kind">' + (p.kind === 'local' ? '本地' : '云端') + '</span>' +
+              statusBadge(p.health) +
+            '</div>' +
+            '<div class="llmp-card-meta">' +
+              (p.source !== 'none'
+                ? '凭证 ' + (p.source === 'env' ? '环境变量' : (p.source === 'custom' ? '自定义' : '设置页')) + ' · ' +
+                  (p.maskedKey ? 'key ' + esc(p.maskedKey) : '无 key') + ' · '
+                : '') +
+              '<span class="llmp-base" title="' + esc(p.baseUrl) + '">' + esc(p.baseUrl) + '</span>' +
+            '</div>' +
+            '<div class="llmp-health-err">' + esc(p.healthError || '') + '</div>' +
+            '<div class="llmp-card-fields">' +
+              '<label>API Key<input class="llmp-key" type="password" placeholder="' +
+                (p.source === 'env' ? '已由环境变量提供（留空不变）' : '粘贴 API Key') +
+                '" autocomplete="off" /></label>' +
+              '<label>Base URL<input class="llmp-base-input" type="text" placeholder="' + esc(p.baseUrl) + '" /></label>' +
+              '<label>模型<select class="llmp-model">' + cfgModel + '<option value="">（使用默认）</option></select></label>' +
+            '</div>' +
+            '<div class="llmp-card-actions">' +
+              '<button class="llmp-btn llmp-btn-primary" data-act="save">💾 保存</button>' +
+              '<button class="llmp-btn" data-act="models">🔄 拉取模型</button>' +
+              '<button class="llmp-btn" data-act="clear">🗑 清空</button>' +
+              (p.custom ? '<button class="llmp-btn llmp-btn-danger" data-act="del">❌ 删除</button>' : '') +
+            '</div>' +
+            '<div class="llmp-msg"></div>' +
+          '</div>';
+        }).join('');
+
+        // 「➕ 添加自定义 provider」卡片（one-api / new-api / 内网中转等 OpenAI 兼容端点）
+        var addCard = '<div class="llmp-card llmp-custom-add" id="llmp-custom-add">' +
+          '<div class="llmp-card-head"><span class="llmp-card-name">➕ 添加自定义 Provider</span>' +
+          '<span class="llmp-card-kind" style="background:rgba(139,92,246,.15);color:#a78bfa">OpenAI 兼容</span></div>' +
+          '<div class="llmp-card-meta">支持 one-api / new-api / 内网中转等自建或私有 OpenAI 兼容端点</div>' +
+          '<div class="llmp-card-fields">' +
+            '<label>标识（id）<input class="cc-id" type="text" placeholder="如 my-proxy（小写字母/数字/连字符）" /></label>' +
+            '<label>显示名<input class="cc-name" type="text" placeholder="如 我的中转" /></label>' +
+            '<label>Base URL<input class="cc-base" type="text" placeholder="https://one-api.example.com/v1" /></label>' +
+            '<label>API Key<input class="cc-key" type="password" placeholder="sk-..." autocomplete="off" /></label>' +
+            '<label>默认模型<input class="cc-model" type="text" placeholder="如 gpt-4o（可选）" /></label>' +
+          '</div>' +
+          '<div class="llmp-card-actions">' +
+            '<button class="llmp-btn llmp-btn-primary" data-act="custom-add">✅ 添加</button>' +
+          '</div>' +
+          '<div class="llmp-msg"></div>' +
+        '</div>';
+
+        render(addCard + html);
+        bindAll();
+      }).catch(function(e) {
+        render('<div class="lp-empty">加载失败：' + esc(e.message) + '</div>');
+      });
+    }
+
+    // ── 卡片交互 ──
+    function bindAll() {
+      var grid = document.getElementById('lp-grid');
+      grid.querySelectorAll('.llmp-card').forEach(function(card) {
+        // 跳过「➕ 添加自定义」卡片（按钮 data-act 不同，单独在下方绑定）
+        if (card.id === 'llmp-custom-add') return;
+        var id = card.dataset.id;
+        var msgEl = card.querySelector('.llmp-msg');
+        var modelSel = card.querySelector('.llmp-model');
+        var saveBtn = card.querySelector('[data-act="save"]');
+        var clearBtn = card.querySelector('[data-act="clear"]');
+        var modelsBtn = card.querySelector('[data-act="models"]');
+
+        var say = function(text, type) {
+          msgEl.textContent = text;
+          msgEl.className = 'llmp-msg ' + (type === 'error' ? 'llmp-msg-error' : 'llmp-msg-ok');
+          if (window.QCLI && window.QCLI.showToast) window.QCLI.showToast(text, type === 'error' ? 'error' : 'success');
+        };
+
+        // 拉取模型列表
+        modelsBtn.addEventListener('click', function() {
+          modelSel.innerHTML = '<option value="">拉取中…</option>';
+          fetchModels(id).then(function(models) {
+            if (!models.length) {
+              modelSel.innerHTML = '<option value="">（无模型 / 服务未运行）</option>';
+              return;
+            }
+            modelSel.innerHTML = models.map(function(m) {
+              return '<option value="' + esc(m) + '">' + esc(m) + '</option>';
+            }).join('') + '<option value="">（使用默认）</option>';
+          });
+        });
+
+        // 保存
+        saveBtn.addEventListener('click', function() {
+          var fields = {};
+          var keyInput = card.querySelector('.llmp-key');
+          var baseInput = card.querySelector('.llmp-base-input');
+          if (keyInput && keyInput.value.trim()) fields.apiKey = keyInput.value.trim();
+          if (baseInput && baseInput.value.trim()) fields.baseUrl = baseInput.value.trim();
+          if (modelSel && modelSel.value) fields.model = modelSel.value;
+          if (!Object.keys(fields).length) {
+            say('没有可保存的内容（key 已由 env 提供时可留空）', 'error');
+            return;
+          }
+          saveBtn.disabled = true;
+          apiPost('/api/llm-providers/config', { provider: id, fields: fields }).then(function(d) {
+            say(d.warning ? '已保存（注意：' + d.warning + '）' : '已保存 ✓');
+            renderAll();
+          }).catch(function(e) {
+            say('保存失败：' + (e && e.message), 'error');
+          }).finally(function() {
+            saveBtn.disabled = false;
+          });
+        });
+
+        // 清空（恢复 env/默认）
+        clearBtn.addEventListener('click', function() {
+          clearBtn.disabled = true;
+          apiPost('/api/llm-providers/config', { provider: id, fields: { apiKey: '', baseUrl: '', model: '' } })
+            .then(function() {
+              say('已清空设置页配置（恢复 env/默认）✓');
+              renderAll();
+            }).catch(function(e) {
+              say('清空失败：' + (e && e.message), 'error');
+            }).finally(function() {
+              clearBtn.disabled = false;
+            });
+        });
+
+        // 删除自定义 provider
+        var delBtn = card.querySelector('[data-act="del"]');
+        if (delBtn) {
+          delBtn.addEventListener('click', function() {
+            if (!confirm('确定删除自定义 provider「' + id + '」？')) return;
+            delBtn.disabled = true;
+            apiPost('/api/llm-providers/custom', { action: 'remove', id: id })
+              .then(function() { say('已删除 ✓'); renderAll(); })
+              .catch(function(e) { say('删除失败：' + (e && e.message), 'error'); delBtn.disabled = false; });
+          });
+        }
+      });
+
+      // ── 添加自定义 provider ──
+      var addCard = grid.querySelector('#llmp-custom-add');
+      if (addCard) {
+        var addBtn = addCard.querySelector('[data-act="custom-add"]');
+        var addMsg = addCard.querySelector('.llmp-msg');
+        addBtn.addEventListener('click', function() {
+          var fields = {
+            id: (addCard.querySelector('.cc-id').value || '').trim(),
+            name: (addCard.querySelector('.cc-name').value || '').trim(),
+            baseUrl: (addCard.querySelector('.cc-base').value || '').trim(),
+            apiKey: (addCard.querySelector('.cc-key').value || '').trim(),
+            model: (addCard.querySelector('.cc-model').value || '').trim(),
+          };
+          if (!fields.id || !fields.baseUrl) {
+            addMsg.textContent = 'id 与 Base URL 必填';
+            addMsg.className = 'llmp-msg llmp-msg-error';
+            return;
+          }
+          addBtn.disabled = true;
+          apiPost('/api/llm-providers/custom', { action: 'add', fields: fields })
+            .then(function() {
+              addMsg.textContent = '已添加 ✓';
+              addMsg.className = 'llmp-msg llmp-msg-ok';
+              addCard.querySelector('.cc-id').value = '';
+              addCard.querySelector('.cc-name').value = '';
+              addCard.querySelector('.cc-base').value = '';
+              addCard.querySelector('.cc-key').value = '';
+              addCard.querySelector('.cc-model').value = '';
+              renderAll();
+            }).catch(function(e) {
+              addMsg.textContent = '添加失败：' + (e && e.message ? e.message : e);
+              addMsg.className = 'llmp-msg llmp-msg-error';
+              addBtn.disabled = false;
+            });
+        });
+      }
+    }
+
+    // ── 启动 ──
+    document.getElementById('lp-refresh').addEventListener('click', function() {
+      var btn = document.getElementById('lp-refresh');
+      btn.disabled = true;
+      btn.textContent = '刷新中…';
+      apiPost('/api/llm-providers/health', {}).finally(function() {
+        btn.disabled = false;
+        btn.textContent = '🔄 刷新健康';
+        renderAll();
+      });
+    });
+
+    renderAll();
+  })();
+  </script>
+</body>
+</html>

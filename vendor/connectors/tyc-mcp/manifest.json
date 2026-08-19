@@ -1,0 +1,8 @@
+{
+  "id": "tyc-mcp",
+  "name": "tyc-mcp",
+  "category": "cloud-crm",
+  "enterprise": true,
+  "authType": "token",
+  "description": "tyc-mcp connector for Hesi"
+}

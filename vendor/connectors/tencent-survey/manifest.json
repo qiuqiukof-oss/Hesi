@@ -1,0 +1,8 @@
+{
+  "id": "tencent-survey",
+  "name": "tencent-survey",
+  "category": "integration",
+  "enterprise": false,
+  "authType": "token",
+  "description": "tencent-survey connector for Hesi"
+}

@@ -1,0 +1,8 @@
+{
+  "id": "lexiang",
+  "name": "lexiang",
+  "category": "documentation",
+  "enterprise": true,
+  "authType": "token",
+  "description": "lexiang connector for Hesi"
+}

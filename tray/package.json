@@ -1,0 +1,14 @@
+{
+  "name": "hesi-tray",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Hesi（合思）系统托盘启动器（轻量，复用 hesi 自带便携 Node）",
+  "main": "tray.js",
+  "scripts": {
+    "start": "node tray.js",
+    "make-icon": "node make-icon.js"
+  },
+  "dependencies": {
+    "systray2": "^2.1.4"
+  }
+}

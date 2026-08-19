@@ -1,0 +1,375 @@
+{
+  "name": "media-engineer",
+  "label": "媒体工程师",
+  "labelEn": "Media Engineer",
+  "description": "音视频处理 — 转码、字幕、截图、音频编辑",
+  "descriptionEn": "Audio/Video processing — transcoding, subtitles, thumbnails, audio editing",
+  "icon": "🎬",
+  "extends": [
+    "shared"
+  ],
+  "categories": {
+    "media": "🎬 媒体工具",
+    "directory": "📂 运行环境",
+    "tool": "🔧 辅助工具"
+  },
+  "tools": {
+    "ffmpeg": {
+      "category": "media",
+      "type": "batch"
+    },
+    "ffprobe": {
+      "category": "media",
+      "type": "batch"
+    },
+    "ffplay": {
+      "category": "media",
+      "type": "interactive"
+    },
+    "magick": {
+      "category": "media",
+      "type": "batch"
+    },
+    "convert": {
+      "category": "media",
+      "type": "batch"
+    },
+    "identify": {
+      "category": "media",
+      "type": "batch"
+    },
+    "sox": {
+      "category": "media",
+      "type": "batch"
+    },
+    "soxi": {
+      "category": "media",
+      "type": "batch"
+    },
+    "whisper": {
+      "category": "media",
+      "type": "batch"
+    },
+    "whisper-cpp": {
+      "category": "media",
+      "type": "batch"
+    },
+    "youtube-dl": {
+      "category": "media",
+      "type": "batch"
+    },
+    "yt-dlp": {
+      "category": "media",
+      "type": "batch"
+    },
+    "exiftool": {
+      "category": "media",
+      "type": "batch"
+    },
+    "mediainfo": {
+      "category": "media",
+      "type": "batch"
+    },
+    "mpv": {
+      "category": "media",
+      "type": "interactive"
+    },
+    "vlc": {
+      "category": "media",
+      "type": "interactive"
+    },
+    "blender": {
+      "category": "media",
+      "type": "batch"
+    },
+    "gmic": {
+      "category": "media",
+      "type": "batch"
+    },
+    "handbrakecli": {
+      "category": "media",
+      "type": "batch"
+    },
+    "mkvmerge": {
+      "category": "media",
+      "type": "batch"
+    },
+    "mkvextract": {
+      "category": "media",
+      "type": "batch"
+    },
+    "node": {
+      "category": "directory",
+      "type": "batch"
+    },
+    "python": {
+      "category": "directory",
+      "type": "batch"
+    },
+    "python3": {
+      "category": "directory",
+      "type": "batch"
+    },
+    "npm": {
+      "category": "tool",
+      "type": "batch"
+    },
+    "pip3": {
+      "category": "tool",
+      "type": "batch"
+    },
+    "pip": {
+      "category": "tool",
+      "type": "batch"
+    }
+  },
+  "workflows": [
+    "video-compress",
+    "subtitle-gen",
+    "batch-thumbnails"
+  ],
+  "names": [
+    "ffmpeg",
+    "ffprobe",
+    "ffplay",
+    "magick",
+    "convert",
+    "identify",
+    "sox",
+    "soxi",
+    "whisper",
+    "whisper-cpp",
+    "youtube-dl",
+    "yt-dlp",
+    "exiftool",
+    "mediainfo",
+    "mpv",
+    "vlc",
+    "blender",
+    "gmic",
+    "handbrakecli",
+    "mkvmerge",
+    "mkvextract",
+    "node",
+    "python",
+    "python3",
+    "npm",
+    "pip3",
+    "pip"
+  ],
+  "welcome": {
+    "quickStart": [
+      {
+        "icon": "1",
+        "title": {
+          "zh": "分析媒体",
+          "en": "Analyze media"
+        },
+        "desc": {
+          "zh": "用 ffprobe 检查音视频文件的编码、格式、元数据",
+          "en": "Inspect audio/video encoding, format, metadata with ffprobe"
+        }
+      },
+      {
+        "icon": "2",
+        "title": {
+          "zh": "转码压缩",
+          "en": "Transcode & compress"
+        },
+        "desc": {
+          "zh": "用 ffmpeg 转换格式、压缩视频、提取音频",
+          "en": "Convert formats, compress video, extract audio with ffmpeg"
+        }
+      },
+      {
+        "icon": "3",
+        "title": {
+          "zh": "生成字幕",
+          "en": "Generate subtitles"
+        },
+        "desc": {
+          "zh": "用 whisper 自动识别语音生成字幕文件",
+          "en": "Auto-transcribe speech to subtitle files with whisper"
+        }
+      }
+    ],
+    "features": [
+      {
+        "icon": "🎬",
+        "iconColor": "#ef4444",
+        "title": {
+          "zh": "视频转码",
+          "en": "Video transcoding"
+        },
+        "desc": {
+          "zh": "ffmpeg 全格式支持：H.264/H.265/VP9/AV1 编码",
+          "en": "ffmpeg full-format: H.264/H.265/VP9/AV1 encoding"
+        }
+      },
+      {
+        "icon": "📝",
+        "iconColor": "#6366f1",
+        "title": {
+          "zh": "字幕生成",
+          "en": "Subtitle generation"
+        },
+        "desc": {
+          "zh": "Whisper AI 语音识别，支持多语言自动转录",
+          "en": "Whisper AI speech recognition, multilingual auto-transcription"
+        }
+      },
+      {
+        "icon": "🖼️",
+        "iconColor": "#22c55e",
+        "title": {
+          "zh": "批量缩略图",
+          "en": "Batch thumbnails"
+        },
+        "desc": {
+          "zh": "ffmpeg + ImageMagick 自动提取帧创建蒙太奇",
+          "en": "ffmpeg + ImageMagick auto frame-extraction montage"
+        }
+      },
+      {
+        "icon": "🔍",
+        "iconColor": "#f59e0b",
+        "title": {
+          "zh": "媒体分析",
+          "en": "Media analysis"
+        },
+        "desc": {
+          "zh": "ffprobe/mediainfo/exiftool 深度媒体元数据",
+          "en": "ffprobe/mediainfo/exiftool deep media metadata"
+        }
+      }
+    ],
+    "tips": [
+      {
+        "zh": "使用 <strong>ffprobe -v quiet -print_format json -show_format -show_streams input.mp4</strong> 获取完整媒体信息",
+        "en": "Use <strong>ffprobe -v quiet -print_format json -show_format -show_streams input.mp4</strong> for full media info"
+      },
+      {
+        "zh": "<strong>ffmpeg -i input.mp4 -c:v libx265 -crf 28 output.mp4</strong> H.265 压缩，体积减少 50%+",
+        "en": "<strong>ffmpeg -i input.mp4 -c:v libx265 -crf 28 output.mp4</strong> H.265 compression, 50%+ smaller"
+      },
+      {
+        "zh": "用 <strong>whisper audio.mp3 --model medium --language zh</strong> 生成中文字幕",
+        "en": "Use <strong>whisper audio.mp3 --model medium --language zh</strong> to make Chinese subtitles"
+      },
+      {
+        "zh": "按 <kbd>Ctrl+Shift+F</kbd> 在终端输出中搜索关键词",
+        "en": "Press <kbd>Ctrl+Shift+F</kbd> to search terminal output"
+      }
+    ],
+    "shortcuts": [
+      {
+        "key": "Ctrl+Shift+R",
+        "desc": {
+          "zh": "重新连接",
+          "en": "Reconnect"
+        }
+      },
+      {
+        "key": "Ctrl+K",
+        "desc": {
+          "zh": "命令面板",
+          "en": "Command palette"
+        }
+      },
+      {
+        "key": "Ctrl+Shift+F",
+        "desc": {
+          "zh": "终端内搜索",
+          "en": "Search in terminal"
+        }
+      },
+      {
+        "key": "Ctrl+L",
+        "desc": {
+          "zh": "清屏",
+          "en": "Clear screen"
+        }
+      },
+      {
+        "key": "Ctrl+B",
+        "desc": {
+          "zh": "切换侧边栏",
+          "en": "Toggle sidebar"
+        }
+      },
+      {
+        "key": "Ctrl+I",
+        "desc": {
+          "zh": "AI 对话",
+          "en": "AI chat"
+        }
+      }
+    ],
+    "installTools": [
+      {
+        "icon": "🎬",
+        "iconColor": "#ef4444",
+        "name": "FFmpeg",
+        "desc": "音视频处理瑞士军刀",
+        "methods": [
+          {
+            "label": "Windows",
+            "code": "winget install FFmpeg"
+          },
+          {
+            "label": "macOS",
+            "code": "brew install ffmpeg"
+          }
+        ]
+      },
+      {
+        "icon": "📝",
+        "iconColor": "#6366f1",
+        "name": "Whisper",
+        "desc": "OpenAI 语音识别",
+        "methods": [
+          {
+            "label": "pip",
+            "code": "pip install openai-whisper"
+          },
+          {
+            "label": "本地",
+            "code": "pip install whisper-cpp"
+          }
+        ]
+      },
+      {
+        "icon": "🖼️",
+        "iconColor": "#22c55e",
+        "name": "ImageMagick",
+        "desc": "图片处理工具集",
+        "methods": [
+          {
+            "label": "Windows",
+            "code": "winget install ImageMagick.ImageMagick"
+          },
+          {
+            "label": "macOS",
+            "code": "brew install imagemagick"
+          }
+        ]
+      },
+      {
+        "icon": "🎵",
+        "iconColor": "#f59e0b",
+        "name": "yt-dlp",
+        "desc": "视频下载工具",
+        "methods": [
+          {
+            "label": "pip",
+            "code": "pip install yt-dlp"
+          },
+          {
+            "label": "macOS",
+            "code": "brew install yt-dlp"
+          }
+        ]
+      }
+    ]
+  }
+}

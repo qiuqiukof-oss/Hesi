@@ -1,0 +1,8 @@
+{
+  "id": "region-insight",
+  "name": "region-insight",
+  "category": "marketing",
+  "enterprise": true,
+  "authType": "token",
+  "description": "region-insight connector for Hesi"
+}

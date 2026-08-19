@@ -1,0 +1,8 @@
+{
+  "id": "mastergo-vibe-mcp",
+  "name": "mastergo-vibe-mcp",
+  "category": "marketing",
+  "enterprise": true,
+  "authType": "token",
+  "description": "mastergo-vibe-mcp connector for Hesi"
+}

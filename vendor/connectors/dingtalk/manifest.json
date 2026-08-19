@@ -1,0 +1,8 @@
+{
+  "id": "dingtalk",
+  "name": "dingtalk",
+  "category": "messaging",
+  "enterprise": true,
+  "authType": "oauth",
+  "description": "dingtalk connector for Hesi"
+}

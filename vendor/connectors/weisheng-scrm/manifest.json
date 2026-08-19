@@ -1,0 +1,8 @@
+{
+  "id": "weisheng-scrm",
+  "name": "weisheng-scrm",
+  "category": "integration",
+  "enterprise": false,
+  "authType": "token",
+  "description": "weisheng-scrm connector for Hesi"
+}

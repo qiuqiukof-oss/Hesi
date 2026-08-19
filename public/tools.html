@@ -1,0 +1,224 @@
+<!--
+  Copyright (c) 2026 qiuqiukof-oss
+  Licensed under the MIT License. See LICENSE for details.
+-->
+
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>工具箱 — Hesi</title>
+  <link rel="stylesheet" href="/css/theme.css" />
+  <link rel="stylesheet" href="/css/standalone-nav.css" />
+  <script src="/lib/standalone-theme.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body.sa-page {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg-ground, #0a0a0b);
+      color: var(--text-primary, #f5f5f7);
+      overflow-y: auto;
+    }
+    .tools-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap: 16px;
+      padding: 24px;
+      max-width: 1000px;
+      margin: 0 auto;
+    }
+    @media (max-width: 600px) {
+      .tools-grid { grid-template-columns: 1fr; padding: 16px; }
+    }
+    .tool-card {
+      background: var(--bg-overlay, #1c1c1e);
+      border: 1px solid var(--border-default, #38383a);
+      border-radius: 12px;
+      padding: 20px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      gap: 10px;
+      text-decoration: none;
+      color: inherit;
+    }
+    .tool-card:hover {
+      transform: translateY(-4px);
+      border-color: var(--accent, #6366f1);
+      box-shadow: 0 8px 30px rgba(99, 102, 241, 0.15);
+      background: var(--bg-elevated, #2c2c2e);
+    }
+    .tool-card:active {
+      transform: translateY(-1px);
+    }
+    .tool-card .tc-icon {
+      font-size: 36px;
+      line-height: 1;
+      transition: transform 0.2s ease;
+    }
+    .tool-card:hover .tc-icon {
+      transform: scale(1.1);
+    }
+    .tool-card .tc-name {
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--text-primary, #f5f5f7);
+    }
+    .tool-card .tc-desc {
+      font-size: 12px;
+      color: var(--text-tertiary, #98989d);
+      line-height: 1.4;
+    }
+    .tool-card .tc-badge {
+      font-size: 10px;
+      padding: 2px 10px;
+      border-radius: 10px;
+      background: var(--accent-glow, rgba(99,102,241,0.15));
+      color: var(--accent-hover, #818cf8);
+      border: 1px solid rgba(99,102,241,0.2);
+    }
+    .page-header {
+      text-align: center;
+      padding: 40px 24px 20px;
+      border-bottom: 1px solid var(--border-default, #38383a);
+      margin-bottom: 24px;
+    }
+    .page-header h1 {
+      font-size: 24px;
+      font-weight: 700;
+      margin-bottom: 6px;
+    }
+    .page-header p {
+      font-size: 14px;
+      color: var(--text-tertiary, #98989d);
+    }
+  </style>
+</head>
+<script>
+  (function() {
+    var t = localStorage.getItem('qcli-theme') || 'dark';
+    document.documentElement.setAttribute('data-theme', t);
+  })();
+</script>
+<body class="sa-page">
+  <nav class="sa-nav">
+    <a class="sa-nav-back" href="/" onclick="event.preventDefault(); location.href='/';">&larr; 返回主应用</a>
+    <span class="sa-nav-title">🧰 工具箱</span>
+    <span class="sa-nav-subtitle">全部功能</span>
+    <span class="sa-nav-spacer"></span>
+    <span class="sa-nav-status">独立页面</span>
+  </nav>
+
+  <div class="page-header">
+    <h1>🧰 Hesi 工具箱</h1>
+    <p>所有功能一览 · 点击卡片打开</p>
+  </div>
+
+  <div class="tools-grid">
+    <a class="tool-card" href="/gallery.html" target="_blank" rel="noopener noreferrer" title="打开文档画廊独立页面 — 查看 AI 生成的 HTML 文档预览">
+      <span class="tc-icon">📄</span>
+      <span class="tc-name">文档画廊</span>
+      <span class="tc-desc">查看生成的 HTML 文档</span>
+      <span class="tc-badge">独立页面</span>
+    </a>
+    <a class="tool-card" href="/budget.html" target="_blank" rel="noopener noreferrer" title="打开预算管理独立页面 — 个人/家庭预算规划和 AI 建议">
+      <span class="tc-icon">💰</span>
+      <span class="tc-name">预算管理</span>
+      <span class="tc-desc">个人/家庭预算规划</span>
+      <span class="tc-badge">独立页面</span>
+    </a>
+    <a class="tool-card" href="/#browser-scripts" title="在 Hesi 主应用中打开「浏览器脚本」标签">
+      <span class="tc-icon">📜</span>
+      <span class="tc-name">浏览器脚本</span>
+      <span class="tc-desc">管理用户脚本（新建/编辑/启用）</span>
+      <span class="tc-badge">主应用侧边→脚本标签</span>
+    </a>
+    <a class="tool-card" href="/#network-monitor" title="在 Hesi 主应用中打开「网络监控」标签">
+      <span class="tc-icon">🌐</span>
+      <span class="tc-name">网络监控</span>
+      <span class="tc-desc">浏览器网络请求捕获与分析</span>
+      <span class="tc-badge">主应用侧边→网络标签</span>
+    </a>
+    <a class="tool-card" href="/#browser-farm" title="在 Hesi 主应用中打开「浏览器农场」标签">
+      <span class="tc-icon">🌾</span>
+      <span class="tc-name">浏览器农场</span>
+      <span class="tc-desc">跨会话隔离浏览器会话管理</span>
+      <span class="tc-badge">主应用侧边→农场标签</span>
+    </a>
+    <a class="tool-card" href="/#dom-diff" title="在 Hesi 主应用中打开「DOM 差异」标签">
+      <span class="tc-icon">📋</span>
+      <span class="tc-name">DOM 差异</span>
+      <span class="tc-desc">捕获和对比 DOM 结构差异</span>
+      <span class="tc-badge">主应用侧边→DOM标签</span>
+    </a>
+    <a class="tool-card" href="/#form-autofill" title="在 Hesi 主应用中打开「表单填表」标签">
+      <span class="tc-icon">📝</span>
+      <span class="tc-name">表单填表</span>
+      <span class="tc-desc">检测并自动填充表单字段</span>
+      <span class="tc-badge">主应用侧边→填表标签</span>
+    </a>
+    <a class="tool-card" href="/#accessibility" title="在 Hesi 主应用中打开「无障碍」标签">
+      <span class="tc-icon">♿</span>
+      <span class="tc-name">无障碍</span>
+      <span class="tc-desc">运行可访问性审核分析</span>
+      <span class="tc-badge">主应用侧边→无障碍标签</span>
+    </a>
+    <a class="tool-card" href="/#plugin-manager" title="在 Hesi 主应用中打开「插件管理」标签">
+      <span class="tc-icon">🔌</span>
+      <span class="tc-name">插件管理</span>
+      <span class="tc-desc">查看已安装插件，启用/禁用/卸载</span>
+      <span class="tc-badge">主应用侧边→插件标签</span>
+    </a>
+    <a class="tool-card" href="/mermaid-templates.html" target="_blank" rel="noopener noreferrer" title="打开 Mermaid 图表模板页面 — 浏览、复制、发送图表模板">
+      <span class="tc-icon">📊</span>
+      <span class="tc-name">Mermaid 图表模板</span>
+      <span class="tc-desc">浏览、复制、发送 Mermaid 图表模板</span>
+      <span class="tc-badge">独立页面</span>
+    </a>
+    <a class="tool-card" href="/blackboard.html" target="_blank" rel="noopener noreferrer" title="打开多 Agent 黑板面板 — 实时观测任务看板、文件状态、角色分配、依赖 DAG 与活动日志">
+      <span class="tc-icon">🧠</span>
+      <span class="tc-name">多 Agent 黑板</span>
+      <span class="tc-desc">任务看板 · 文件状态 · 角色 · 依赖 DAG · 日志</span>
+      <span class="tc-badge">独立页面</span>
+    </a>
+    <a class="tool-card" href="/index.html?view=roundtable" target="_blank" rel="noopener noreferrer" title="打开围炉圆桌 — 多 Agent 可视化协作：可爱 Agent 围坐、实时闲谈气泡、自定义席位、纪要存档">
+      <span class="tc-icon">🍵</span>
+      <span class="tc-name">围炉圆桌</span>
+      <span class="tc-desc">多 Agent 可视化协作 · 可爱形象 · 纪要存档</span>
+      <span class="tc-badge">独立页面</span>
+    </a>
+    <a class="tool-card" href="/plugin-plaza.html" target="_blank" rel="noopener noreferrer" title="打开插件广场独立页面 — 多源搜索、安装、创作社区插件">
+      <span class="tc-icon">🏪</span>
+      <span class="tc-name">插件广场</span>
+      <span class="tc-desc">发现·安装·创作 — 多源搜索、教程引导</span>
+      <span class="tc-badge">独立页面</span>
+    </a>
+    <a class="tool-card" href="/workbuddy-hub.html" target="_blank" rel="noopener noreferrer" title="打开 WorkBuddy 广场 — 链接 WorkBuddy 的专家/技能/连接器">
+      <span class="tc-icon">🧭</span>
+      <span class="tc-name">WorkBuddy 广场</span>
+      <span class="tc-desc">链接 WorkBuddy 专家 · 技能 · 连接器</span>
+      <span class="tc-badge">独立页面</span>
+    </a>
+    <a class="tool-card" href="/plugin-assets/agnes-ai/web/index.html" target="_blank" rel="noopener noreferrer" title="打开 Agnes AI 创作台独立页面 — 对话 / 图像 / 视频 / 故事板">
+      <span class="tc-icon">🎬</span>
+      <span class="tc-name">Agnes 创作台</span>
+      <span class="tc-desc">对话 · 图像 · 视频 · 故事板</span>
+      <span class="tc-badge">独立页面</span>
+    </a>
+    <a class="tool-card" href="https://github.com/qiuqiukof-oss/qterm" target="_blank" rel="noopener noreferrer" title="查看 GitHub 项目文档、README 和帮助信息">
+      <span class="tc-icon">📖</span>
+      <span class="tc-name">使用文档</span>
+      <span class="tc-desc">查看项目文档和帮助</span>
+      <span class="tc-badge">外部链接</span>
+    </a>
+  </div>
+
+  <script>
+    function Q() { return window.QCLI || {}; }
+  </script>
+</body>
+</html>

@@ -1,0 +1,8 @@
+{
+  "id": "neo-crm",
+  "name": "neo-crm",
+  "category": "cloud-crm",
+  "enterprise": true,
+  "authType": "token",
+  "description": "neo-crm connector for Hesi"
+}

@@ -1,0 +1,40 @@
+{
+  "id": "opc-sales-report",
+  "name": "📊 销售数据汇总工作流",
+  "description": "数字员工找真人员工要数据 → 汇总分析 → 生成汇报（含人机协作）",
+  "icon": "📊",
+  "category": "opc",
+  "variables": {
+    "report_period": {
+      "label": "报告周期",
+      "type": "select",
+      "options": ["上周", "上月", "本季度", "今年至今"],
+      "default": "上月",
+      "required": true
+    }
+  },
+  "steps": [
+    {
+      "id": "step1",
+      "label": "向销售经理获取数据",
+      "type": "await_human",
+      "agentId": "opencode",
+      "request": "销售经理你好，请提供上个月的销售数据：新客户数量、成交金额、回款率、主要丢失客户原因。",
+      "assignedTo": "销售经理",
+      "timeout": 3600000,
+      "expectedFormat": "text"
+    },
+    {
+      "id": "step2",
+      "label": "分析销售数据",
+      "agentId": "opencode",
+      "task": "基于以上销售数据，生成分析报告：1) 找出增长/下降趋势，2) 对比上月环比，3) 识别表现最好和最差的产品，4) 给出下月行动建议。"
+    },
+    {
+      "id": "step3",
+      "label": "生成汇报摘要",
+      "agentId": "opencode",
+      "task": "基于以上分析，生成一份给老板的简洁汇报摘要。包含：关键数字、核心发现、行动建议。不超过300字。"
+    }
+  ]
+}

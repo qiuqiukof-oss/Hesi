@@ -1,0 +1,35 @@
+{
+  "id": "workbuddy-batch",
+  "name": "📋 WorkBuddy 批量处理工作流",
+  "description": "批量调用 WorkBuddy 处理多个独立任务 → 汇总报告",
+  "icon": "📋",
+  "category": "opc",
+  "variables": {
+    "tasks": {
+      "label": "任务列表（每行一个）",
+      "type": "text",
+      "default": "查看最近的5个工单\n查询今天新增的客户\n检查待处理的审批",
+      "required": true
+    }
+  },
+  "steps": [
+    {
+      "id": "step1",
+      "label": "拆分任务",
+      "agentId": "opencode",
+      "task": "将以下任务列表拆分为独立的可执行任务项：\n\n{{tasks}}\n\n请：\n1. 解析每一行作为一个独立任务\n2. 判断每个任务适合使用 workbuddy 的哪个子命令（jobs、customers、items、agents、exports 等）\n3. 输出为 JSON 数组格式，每个元素包含：\n   - taskId: 唯一标识\n   - description: 任务描述\n   - wbCommand: 建议的 WorkBuddy 命令\n\n输出示例：\n```json\n[\n  {\"taskId\": \"task-1\", \"description\": \"查看最近的5个工单\", \"wbCommand\": \"jobs search --limit 5 --sort createdAt:desc\"},\n  {\"taskId\": \"task-2\", \"description\": \"查询今天新增的客户\", \"wbCommand\": \"customers list --createdAfter 2026-07-17\"}\n]\n```"
+    },
+    {
+      "id": "step2",
+      "label": "逐任务执行",
+      "agentId": "opencode",
+      "task": "现在逐个执行上一步拆分出来的 WorkBuddy 命令。\n\n请逐一：\n1. 查看 task 的 wbCommand\n2. 使用 workbuddy 工具执行该命令\n3. 记录每个任务的执行结果\n4. 执行完成后，将所有结果汇总输出\n\n输出格式：\n```\n## 执行结果汇总\n\n### task-1: 查看最近的5个工单\n- 命令: jobs search --limit 5 --sort createdAt:desc\n- 结果: [概要描述]\n\n### task-2: 查询今天新增的客户\n- 命令: customers list --createdAfter 2026-07-17\n- 结果: [概要描述]\n```\n\n如果某个命令执行失败，记录错误信息并继续执行下一个。"
+    },
+    {
+      "id": "step3",
+      "label": "汇总报告",
+      "agentId": "opencode",
+      "task": "汇总以上所有任务的执行结果，生成综合报告：\n\n## 📋 批量执行摘要\n- 总任务数: [数量]\n- 成功: [数量]\n- 失败: [数量]\n\n## 📊 各项详情\n[每项任务的名称、执行结果、关键数据]\n\n## 💡 综合发现\n- 跨任务的关联发现\n- 值得关注的异常或趋势\n- 建议后续操作\n\n格式要求：结构清晰的 Markdown，适合快速浏览。"
+    }
+  ]
+}

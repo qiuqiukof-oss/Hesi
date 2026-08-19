@@ -1,0 +1,1030 @@
+<!--
+  Copyright (c) 2026 qiuqiukof-oss
+  Licensed under the MIT License. See LICENSE for details.
+-->
+
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>插件广场 — Hesi</title>
+  <link rel="stylesheet" href="/css/theme.css" />
+  <link rel="stylesheet" href="/css/standalone-nav.css" />
+  <script src="/lib/standalone-theme.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg-ground, #0a0a0b);
+      color: var(--text-primary, #f5f5f7);
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ── Header ── */
+    .plaza-header {
+      text-align: center;
+      padding: 36px 24px 20px;
+      border-bottom: 1px solid var(--border-default, #38383a);
+    }
+    .plaza-header h1 { font-size: 28px; font-weight: 700; }
+    .plaza-header p { font-size: 14px; color: var(--text-tertiary, #98989d); margin-top: 4px; }
+
+    .plaza-stats {
+      display: flex; gap: 16px; justify-content: center; margin-top: 12px;
+      flex-wrap: wrap;
+    }
+    .plaza-stat {
+      font-size: 12px; color: var(--text-secondary, #98989d);
+      background: var(--bg-overlay, #1c1c1e);
+      border: 1px solid var(--border-default, #38383a);
+      border-radius: 8px; padding: 6px 14px;
+    }
+    .plaza-stat-value { font-weight: 600; color: var(--text-primary, #f5f5f7); }
+
+    /* ── Tabs ── */
+    .plaza-tabs {
+      display: flex; gap: 4px; padding: 16px 24px 0;
+      max-width: 1000px; margin: 0 auto; overflow-x: auto;
+    }
+    .plaza-tab {
+      background: none; border: none; color: var(--text-tertiary, #98989d);
+      padding: 8px 16px; border-radius: 8px 8px 0 0; cursor: pointer;
+      font-size: 13px; font-weight: 500; white-space: nowrap;
+      border-bottom: 2px solid transparent;
+      transition: all 0.2s ease;
+    }
+    .plaza-tab:hover { color: var(--text-primary, #f5f5f7); background: var(--bg-hover, rgba(255,255,255,0.04)); }
+    .plaza-tab.active { color: var(--accent, #6366f1); border-bottom-color: var(--accent, #6366f1); }
+    .plaza-tab-count {
+      font-size: 10px; background: var(--bg-hover, rgba(255,255,255,0.08));
+      border-radius: 10px; padding: 1px 7px; margin-left: 4px;
+    }
+    .plaza-tab.active .plaza-tab-count { background: var(--accent-glow, rgba(99,102,241,0.2)); }
+
+    /* ── Toolbar ── */
+    .plaza-toolbar {
+      display: flex; gap: 10px; padding: 12px 24px;
+      max-width: 1000px; margin: 0 auto; align-items: center;
+    }
+    .plaza-search-wrap {
+      flex: 1; position: relative; display: flex; align-items: center;
+    }
+    .plaza-search-icon {
+      position: absolute; left: 12px; font-size: 14px; pointer-events: none;
+    }
+    .plaza-search-input {
+      width: 100%; padding: 8px 12px 8px 36px;
+      background: var(--bg-overlay, #1c1c1e);
+      border: 1px solid var(--border-default, #38383a);
+      border-radius: 8px; color: var(--text-primary, #f5f5f7);
+      font-size: 13px; outline: none; transition: border-color 0.2s;
+    }
+    .plaza-search-input:focus { border-color: var(--accent, #6366f1); }
+    .plaza-search-input::placeholder { color: var(--text-tertiary, #98989d); }
+
+    .plaza-refresh-btn {
+      display: flex; align-items: center; gap: 6px;
+      padding: 8px 14px; background: var(--bg-overlay, #1c1c1e);
+      border: 1px solid var(--border-default, #38383a); border-radius: 8px;
+      color: var(--text-primary, #f5f5f7); cursor: pointer; font-size: 12px;
+      transition: all 0.2s; white-space: nowrap;
+    }
+    .plaza-refresh-btn:hover { border-color: var(--accent, #6366f1); }
+    .plaza-refresh-btn.spinning .plaza-refresh-icon { animation: plaza-spin 0.8s linear infinite; }
+
+    /* ── Content area ── */
+    .plaza-content {
+      max-width: 1000px; margin: 0 auto; padding: 0 24px 60px;
+    }
+    .plaza-tab-panel { display: none; }
+    .plaza-tab-panel.active { display: block; }
+
+    /* ── Grid ── */
+    .plaza-grid {
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      gap: 14px;
+    }
+    @media (max-width: 600px) {
+      .plaza-grid { grid-template-columns: 1fr; }
+    }
+
+    /* ── Cards ── */
+    .plaza-card {
+      background: var(--bg-overlay, #1c1c1e);
+      border: 1px solid var(--border-default, #38383a);
+      border-radius: 12px; padding: 16px;
+      transition: all 0.2s ease;
+    }
+    .plaza-card:hover {
+      border-color: var(--border-hover, #48484a);
+      background: var(--bg-elevated, #2c2c2e);
+    }
+    .plaza-card.installed { border-color: rgba(34, 197, 94, 0.3); }
+    .plaza-card.installed:hover { border-color: rgba(34, 197, 94, 0.5); }
+
+    .plaza-card-header { display: flex; gap: 12px; align-items: flex-start; margin-bottom: 10px; }
+    .plaza-card-icon {
+      font-size: 28px; width: 44px; height: 44px; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+      background: var(--bg-hover, rgba(255,255,255,0.04));
+      border-radius: 10px;
+    }
+    .plaza-card-info { flex: 1; min-width: 0; }
+    .plaza-card-name { font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .plaza-card-author { font-size: 11px; color: var(--text-tertiary, #98989d); margin-top: 2px; }
+    .plaza-card-desc { font-size: 12px; color: var(--text-secondary, #a1a1a6); line-height: 1.5; margin-bottom: 10px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+    .plaza-card-tags { display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 10px; }
+    .plaza-tag {
+      font-size: 10px; padding: 2px 8px; border-radius: 4px;
+      color: var(--text-tertiary, #98989d);
+      border: 1px solid var(--border-default, #38383a);
+    }
+    .plaza-tag.featured { border-color: rgba(250,204,21,0.3); color: #facc15; }
+    .plaza-tag.github { border-color: rgba(99,102,241,0.3); color: #818cf8; }
+    .plaza-tag.npm { border-color: rgba(203,56,55,0.3); color: #ef4444; }
+
+    .plaza-card-footer {
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 8px; flex-wrap: wrap;
+    }
+    .plaza-card-meta { display: flex; gap: 8px; align-items: center; font-size: 11px; color: var(--text-tertiary, #98989d); }
+    .plaza-card-actions { display: flex; gap: 6px; }
+
+    .plaza-action-btn {
+      padding: 5px 12px; border-radius: 6px; border: none;
+      font-size: 11px; font-weight: 500; cursor: pointer;
+      transition: all 0.15s; white-space: nowrap;
+    }
+    .plaza-action-btn.primary {
+      background: var(--accent, #6366f1); color: #fff;
+    }
+    .plaza-action-btn.primary:hover { background: var(--accent-hover, #818cf8); }
+    .plaza-action-btn.installed-btn { background: transparent; color: var(--success, #22c55e); cursor: default; }
+    .plaza-action-btn.danger { background: var(--danger-glow, rgba(239,68,68,0.15)); color: var(--danger, #ef4444); }
+    .plaza-action-btn.danger:hover { background: var(--danger, #ef4444); color: #fff; }
+
+    /* ── Loading / Empty ── */
+    .plaza-loading {
+      text-align: center; padding: 60px 20px; color: var(--text-tertiary, #98989d);
+    }
+    .plaza-loading-spinner {
+      display: inline-block; width: 24px; height: 24px;
+      border: 2px solid var(--border-default, #38383a);
+      border-top-color: var(--accent, #6366f1);
+      border-radius: 50%; animation: plaza-spin 0.6s linear infinite;
+      margin-bottom: 10px;
+    }
+    .plaza-empty {
+      text-align: center; padding: 60px 20px; color: var(--text-tertiary, #98989d);
+    }
+    .plaza-empty-icon { font-size: 40px; margin-bottom: 12px; }
+
+    /* ── Source selector ── */
+    .plaza-source-selector {
+      display: flex; gap: 8px; align-items: center; margin-left: auto;
+    }
+    .plaza-source-chip {
+      display: flex; align-items: center; gap: 4px;
+      padding: 4px 10px; border-radius: 6px; border: 1px solid var(--border-default, #38383a);
+      background: none; color: var(--text-tertiary, #98989d); cursor: pointer;
+      font-size: 11px; transition: all 0.2s;
+    }
+    .plaza-source-chip:hover { border-color: var(--accent, #6366f1); color: var(--text-primary); }
+    .plaza-source-chip.active { background: var(--accent-glow, rgba(99,102,241,0.15)); border-color: var(--accent, #6366f1); color: var(--accent, #6366f1); }
+
+    /* ── Install Progress Overlay ── */
+    .plaza-progress-overlay {
+      position: fixed; inset: 0; z-index: 1000;
+      background: rgba(5,5,8,0.75); backdrop-filter: blur(10px);
+      display: flex; align-items: center; justify-content: center;
+      animation: plaza-fade-in 0.2s ease;
+    }
+    .plaza-progress-overlay.hidden { display: none; }
+    .plaza-progress-dialog {
+      width: 420px; max-width: 90vw;
+      background: var(--bg-overlay, #1c1c1e);
+      border: 1px solid var(--border-default, #38383a);
+      border-radius: 14px; padding: 24px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+    }
+    .plaza-progress-header { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+    .plaza-progress-icon { font-size: 24px; width: 44px; height: 44px; border-radius: 10px; background: var(--accent-glow, rgba(99,102,241,0.1)); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+    .plaza-progress-title { flex: 1; min-width: 0; }
+    .plaza-progress-name { font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .plaza-progress-repo { font-size: 11px; color: var(--text-tertiary, #98989d); font-family: var(--font-mono, monospace); }
+    .plaza-progress-track { width: 100%; height: 6px; background: var(--bg-hover, rgba(255,255,255,0.04)); border-radius: 3px; overflow: hidden; margin-bottom: 10px; }
+    .plaza-progress-fill { height: 100%; width: 0%; border-radius: 3px; background: linear-gradient(90deg, var(--accent, #6366f1), var(--accent-hover, #818cf8)); transition: width 0.3s ease; }
+    .plaza-progress-fill.complete { background: linear-gradient(90deg, var(--success, #22c55e), #4ade80); }
+    .plaza-progress-fill.error { background: linear-gradient(90deg, var(--danger, #ef4444), #f87171); }
+    .plaza-progress-status { font-size: 12px; color: var(--text-tertiary, #98989d); line-height: 1.5; min-height: 18px; display: flex; align-items: center; gap: 6px; }
+    .plaza-progress-percent { font-family: var(--font-mono, monospace); font-size: 11px; color: var(--text-secondary, #98989d); margin-left: auto; }
+    .plaza-progress-spinner { display: inline-block; width: 12px; height: 12px; border: 2px solid var(--border-default, #38383a); border-top-color: var(--accent, #6366f1); border-radius: 50%; animation: plaza-spin 0.6s linear infinite; flex-shrink: 0; }
+
+    /* ── Confirm dialog ── */
+    .plaza-confirm-overlay { position: fixed; inset: 0; z-index: 1000; background: rgba(5,5,8,0.6); display: flex; align-items: center; justify-content: center; }
+    .plaza-confirm-overlay.hidden { display: none; }
+    .plaza-confirm-dialog { width: 360px; max-width: 90vw; background: var(--bg-overlay, #1c1c1e); border: 1px solid var(--border-default, #38383a); border-radius: 14px; padding: 24px; text-align: center; }
+    .plaza-confirm-icon { font-size: 32px; margin-bottom: 10px; }
+    .plaza-confirm-title { font-size: 16px; font-weight: 600; margin-bottom: 6px; }
+    .plaza-confirm-desc { font-size: 13px; color: var(--text-secondary, #a1a1a6); margin-bottom: 18px; }
+    .plaza-confirm-actions { display: flex; gap: 10px; justify-content: center; }
+    .plaza-confirm-btn { padding: 8px 20px; border-radius: 8px; border: none; cursor: pointer; font-size: 13px; font-weight: 500; }
+    .plaza-confirm-btn.cancel { background: var(--bg-hover, rgba(255,255,255,0.08)); color: var(--text-primary); }
+    .plaza-confirm-btn.confirm { background: var(--accent, #6366f1); color: #fff; }
+    .plaza-confirm-btn.confirm.danger { background: var(--danger, #ef4444); color: #fff; }
+
+    /* ── Sources panel ── */
+    .plaza-sources-panel {
+      max-width: 1000px; margin: 0 auto; padding: 0 24px 40px;
+    }
+    .plaza-sources-title { font-size: 15px; font-weight: 600; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
+    .plaza-sources-grid { display: grid; gap: 8px; margin-bottom: 12px; }
+    .plaza-source-row {
+      display: flex; align-items: center; gap: 10px;
+      padding: 10px 14px; background: var(--bg-overlay, #1c1c1e);
+      border: 1px solid var(--border-default, #38383a); border-radius: 8px;
+    }
+    .plaza-source-icon { font-size: 16px; }
+    .plaza-source-info { flex: 1; min-width: 0; }
+    .plaza-source-label { font-size: 13px; font-weight: 500; }
+    .plaza-source-value { font-size: 11px; color: var(--text-tertiary, #98989d); font-family: var(--font-mono, monospace); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .plaza-source-remove { background: none; border: none; color: var(--danger, #ef4444); cursor: pointer; font-size: 16px; padding: 4px; }
+    .plaza-add-source-area { display: flex; gap: 8px; align-items: center; }
+    .plaza-add-source-input { flex: 1; padding: 8px 12px; background: var(--bg-overlay, #1c1c1e); border: 1px solid var(--border-default, #38383a); border-radius: 8px; color: var(--text-primary); font-size: 12px; }
+    .plaza-add-source-btn { padding: 8px 14px; background: var(--accent, #6366f1); color: #fff; border: none; border-radius: 8px; cursor: pointer; font-size: 12px; white-space: nowrap; }
+
+    /* ── Tutorial Section ── */
+    .plaza-tutorial {
+      max-width: 1000px; margin: 30px auto 0; padding: 24px;
+      background: var(--bg-overlay, #1c1c1e);
+      border: 1px solid var(--border-default, #38383a);
+      border-radius: 14px;
+    }
+    .plaza-tutorial-header { display: flex; align-items: center; gap: 10px; margin-bottom: 20px; }
+    .plaza-tutorial-icon { font-size: 28px; }
+    .plaza-tutorial-title { font-size: 16px; font-weight: 600; flex: 1; }
+    .plaza-tutorial-toggle {
+      background: none; border: 1px solid var(--border-default, #38383a);
+      color: var(--text-tertiary, #98989d); padding: 4px 12px;
+      border-radius: 6px; cursor: pointer; font-size: 11px;
+    }
+    .plaza-tutorial-body { display: block; }
+    .plaza-tutorial-body.collapsed { display: none; }
+
+    .plaza-tutorial-step {
+      display: flex; gap: 14px; padding: 14px 0;
+      border-bottom: 1px solid var(--border-default, #38383a);
+    }
+    .plaza-tutorial-step:last-child { border-bottom: none; }
+    .plaza-tutorial-step-num {
+      width: 28px; height: 28px; border-radius: 50%;
+      background: var(--accent-glow, rgba(99,102,241,0.15));
+      color: var(--accent, #6366f1);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 13px; font-weight: 700; flex-shrink: 0;
+    }
+    .plaza-tutorial-step-content { flex: 1; min-width: 0; }
+    .plaza-tutorial-step-title { font-size: 13px; font-weight: 600; margin-bottom: 4px; }
+    .plaza-tutorial-step-desc { font-size: 12px; color: var(--text-secondary, #a1a1a6); line-height: 1.6; }
+    .plaza-tutorial-step-desc code {
+      font-family: var(--font-mono, monospace); font-size: 11px;
+      background: var(--bg-hover, rgba(255,255,255,0.06));
+      padding: 2px 6px; border-radius: 4px;
+    }
+    .plaza-tutorial-step-desc .highlight {
+      color: var(--accent, #6366f1);
+    }
+    .plaza-tutorial-step-desc .success { color: var(--success, #22c55e); }
+    .plaza-tutorial-cards {
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap: 10px; margin-top: 12px;
+    }
+    .plaza-tutorial-card {
+      padding: 12px; border-radius: 8px;
+      background: var(--bg-hover, rgba(255,255,255,0.03));
+      border: 1px solid var(--border-default, #38383a);
+    }
+    .plaza-tutorial-card-icon { font-size: 20px; margin-bottom: 6px; }
+    .plaza-tutorial-card-title { font-size: 12px; font-weight: 600; margin-bottom: 4px; }
+    .plaza-tutorial-card-desc { font-size: 11px; color: var(--text-tertiary, #98989d); line-height: 1.5; }
+
+    /* ── Scrollable area between nav and content ── */
+    .plaza-scroll {
+      flex: 1;
+      overflow-y: auto;
+      overflow-x: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ── Toast ── */
+    .plaza-toast {
+      position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+      padding: 10px 20px; border-radius: 10px; font-size: 13px;
+      background: var(--bg-overlay, #1c1c1e);
+      border: 1px solid var(--border-default, #38383a);
+      color: var(--text-primary, #f5f5f7);
+      opacity: 0; transition: opacity 0.3s ease; z-index: 2000;
+      pointer-events: none;
+    }
+    .plaza-toast.show { opacity: 1; }
+    .plaza-toast.success { border-color: rgba(34,197,94,0.4); }
+    .plaza-toast.error { border-color: rgba(239,68,68,0.4); }
+
+    /* ── Animations ── */
+    @keyframes plaza-spin { to { transform: rotate(360deg); } }
+    @keyframes plaza-fade-in { from { opacity: 0; } to { opacity: 1; } }
+
+    /* ── Version badges in grid ── */
+    .plaza-version { font-family: var(--font-mono, monospace); font-size: 10px; color: var(--text-tertiary, #98989d); }
+
+    /* links inside cards */
+    .plaza-meta-link { color: inherit; text-decoration: none; }
+    .plaza-meta-link:hover { color: var(--accent, #6366f1); }
+  </style>
+</head>
+<body class="sa-page">
+  <!-- Top Nav -->
+  <nav class="sa-nav">
+    <a class="sa-nav-back" href="/" onclick="event.preventDefault(); location.href='/';">&larr; 返回主应用</a>
+    <span class="sa-nav-title">🏪 插件广场</span>
+    <span class="sa-nav-subtitle">发现 · 安装 · 创作</span>
+    <span class="sa-nav-spacer"></span>
+    <span class="sa-nav-status" id="plaza-nav-status">加载中...</span>
+    <span class="sa-nav-status" id="plaza-ws-status" style="font-size:10px;opacity:0.5;margin-left:8px;">WS: --</span>
+  </nav>
+
+  <!-- Header -->
+  <div class="plaza-header">
+    <h1>🏪 插件广场</h1>
+    <p>发现社区插件 · 管理已安装的插件 · 学习创建自己的插件</p>
+    <div class="plaza-stats">
+      <span class="plaza-stat">📦 已安装 <span class="plaza-stat-value" id="plaza-stat-installed">0</span></span>
+      <span class="plaza-stat">⭐ 精选 <span class="plaza-stat-value" id="plaza-stat-featured">0</span></span>
+      <span class="plaza-stat">🌐 社区 <span class="plaza-stat-value" id="plaza-stat-discovered">0</span></span>
+    </div>
+  </div>
+
+  <!-- Tabs -->
+  <div class="plaza-tabs" id="plaza-tabs">
+    <button class="plaza-tab active" data-tab="featured">⭐ 精选 <span class="plaza-tab-count" id="plaza-count-featured">0</span></button>
+    <button class="plaza-tab" data-tab="discovered">🌐 社区 <span class="plaza-tab-count" id="plaza-count-discovered">0</span></button>
+    <button class="plaza-tab" data-tab="installed">📦 已安装 <span class="plaza-tab-count" id="plaza-count-installed">0</span></button>
+    <button class="plaza-tab" data-tab="sources">🔗 源管理 <span class="plaza-tab-count" id="plaza-count-sources">0</span></button>
+  </div>
+
+  <!-- Toolbar -->
+  <div class="plaza-toolbar">
+    <div class="plaza-search-wrap">
+      <span class="plaza-search-icon">🔍</span>
+      <input type="text" class="plaza-search-input" id="plaza-search-input" placeholder="搜索插件名称、描述..." />
+    </div>
+    <div class="plaza-source-selector" id="plaza-source-selector">
+      <button class="plaza-source-chip active" data-source="github">🌐 GitHub</button>
+      <button class="plaza-source-chip" data-source="npm">📦 npm</button>
+    </div>
+    <button class="plaza-refresh-btn" id="plaza-refresh-btn">
+      <span class="plaza-refresh-icon">🔄</span> 刷新
+    </button>
+  </div>
+
+  <div class="plaza-scroll">
+  <!-- Content -->
+  <div class="plaza-content" id="plaza-content">
+    <!-- Featured -->
+    <div class="plaza-tab-panel active" id="plaza-tab-featured">
+      <div class="plaza-grid" id="plaza-grid-featured"><div class="plaza-loading"><div class="plaza-loading-spinner"></div><div>加载精选插件...</div></div></div>
+    </div>
+    <!-- Discovered -->
+    <div class="plaza-tab-panel" id="plaza-tab-discovered">
+      <div class="plaza-grid" id="plaza-grid-discovered"><div class="plaza-loading"><div class="plaza-loading-spinner"></div><div>搜索社区插件...</div></div></div>
+    </div>
+    <!-- Installed -->
+    <div class="plaza-tab-panel" id="plaza-tab-installed">
+      <div class="plaza-grid" id="plaza-grid-installed"><div class="plaza-loading"><div class="plaza-loading-spinner"></div><div>加载已安装插件...</div></div></div>
+    </div>
+    <!-- Sources -->
+    <div class="plaza-tab-panel" id="plaza-tab-sources"></div>
+  </div>
+
+  <!-- Tutorial Section -->
+  <div class="plaza-tutorial" id="plaza-tutorial">
+    <div class="plaza-tutorial-header">
+      <span class="plaza-tutorial-icon">📚</span>
+      <span class="plaza-tutorial-title">如何创建插件</span>
+      <button class="plaza-tutorial-toggle" id="plaza-tutorial-toggle">收起 ▴</button>
+    </div>
+    <div class="plaza-tutorial-body" id="plaza-tutorial-body">
+      <!-- Step 1 -->
+      <div class="plaza-tutorial-step">
+        <div class="plaza-tutorial-step-num">1</div>
+        <div class="plaza-tutorial-step-content">
+          <div class="plaza-tutorial-step-title">使用面板「新建」向导</div>
+          <div class="plaza-tutorial-step-desc">
+            在主应用右侧面板的 <span class="highlight">🔌 插件</span> 标签页中，点击 <span class="highlight">+ 新建</span> 按钮。
+            填写插件名称、描述、作者信息，选择所需的功能模块，一键生成插件骨架。
+          </div>
+        </div>
+      </div>
+      <!-- Step 2 -->
+      <div class="plaza-tutorial-step">
+        <div class="plaza-tutorial-step-num">2</div>
+        <div class="plaza-tutorial-step-content">
+          <div class="plaza-tutorial-step-title">手动创建插件目录</div>
+          <div class="plaza-tutorial-step-desc">
+            在 <code>plugins/</code> 目录下创建以插件名命名的文件夹，包含 <code>plugin.json</code> 清单文件。
+            最少只需一个 <code>plugin.json</code> 即可注册：
+            <pre style="margin-top:8px;padding:8px;background:var(--bg-hover,rgba(255,255,255,0.04));border-radius:6px;font-size:11px;font-family:var(--font-mono,monospace);overflow-x:auto;">{
+  "name": "my-plugin",
+  "version": "0.1.0",
+  "description": "我的第一个插件",
+  "author": "My Name",
+  "license": "MIT"
+}</pre>
+          </div>
+        </div>
+      </div>
+      <!-- Step 3 -->
+      <div class="plaza-tutorial-step">
+        <div class="plaza-tutorial-step-num">3</div>
+        <div class="plaza-tutorial-step-content">
+          <div class="plaza-tutorial-step-title">添加功能模块</div>
+          <div class="plaza-tutorial-step-desc">
+            在 <code>plugin.json</code> 中添加能力声明，插件支持以下 <span class="highlight">7 种能力</span>：
+            <div class="plaza-tutorial-cards">
+              <div class="plaza-tutorial-card"><div class="plaza-tutorial-card-icon">🔧</div><div class="plaza-tutorial-card-title">CLI 工具</div><div class="plaza-tutorial-card-desc">注册自定义 CLI，在终端中使用。需提供可执行路径。</div></div>
+              <div class="plaza-tutorial-card"><div class="plaza-tutorial-card-icon">⚡</div><div class="plaza-tutorial-card-title">工作流</div><div class="plaza-tutorial-card-desc">定义多步骤自动化工作流，支持顺序执行和条件判断。</div></div>
+              <div class="plaza-tutorial-card"><div class="plaza-tutorial-card-icon">🤖</div><div class="plaza-tutorial-card-title">AI 工具</div><div class="plaza-tutorial-card-desc">为 AI 助手注册自定义工具，扩展对话能力。</div></div>
+              <div class="plaza-tutorial-card"><div class="plaza-tutorial-card-icon">🌐</div><div class="plaza-tutorial-card-title">HTTP 路由</div><div class="plaza-tutorial-card-desc">注册自定义 API 端点，处理 HTTP 请求。</div></div>
+              <div class="plaza-tutorial-card"><div class="plaza-tutorial-card-icon">🖥️</div><div class="plaza-tutorial-card-title">UI 面板</div><div class="plaza-tutorial-card-desc">注册右侧面板标签页，渲染自定义 HTML/JS 内容。</div></div>
+              <div class="plaza-tutorial-card"><div class="plaza-tutorial-card-icon">🔗</div><div class="plaza-tutorial-card-title">MCP 服务</div><div class="plaza-tutorial-card-desc">注册 MCP 服务器，通过 Model Context Protocol 提供工具。</div></div>
+              <div class="plaza-tutorial-card"><div class="plaza-tutorial-card-icon">🔄</div><div class="plaza-tutorial-card-title">生命周期</div><div class="plaza-tutorial-card-desc">定义加载/卸载钩子，在插件生命周期中执行初始化和清理。</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <!-- Step 4 -->
+      <div class="plaza-tutorial-step">
+        <div class="plaza-tutorial-step-num">4</div>
+        <div class="plaza-tutorial-step-content">
+          <div class="plaza-tutorial-step-title">分享你的插件</div>
+          <div class="plaza-tutorial-step-desc">
+            <p style="margin-bottom:6px;">创建好插件后，将其发布到 GitHub 并添加 <code class="highlight">cli-q-plugin</code> 话题标签，即可自动出现在社区发现中：</p>
+            <ol style="margin-left:18px;line-height:2;">
+              <li>在 GitHub 创建仓库并推送 <code>plugin.json</code></li>
+              <li>进入仓库 Settings → Topics，添加 <code class="highlight">cli-q-plugin</code> 标签</li>
+              <li>插件将在 <span class="highlight">5 分钟</span> 内自动出现在社区发现中</li>
+              <li>也可以将 <code>npm publish</code> 并添加 <code>cli-q-plugin</code> 关键词</li>
+            </ol>
+          </div>
+        </div>
+      </div>
+      <!-- Step 5 -->
+      <div class="plaza-tutorial-step">
+        <div class="plaza-tutorial-step-num">5</div>
+        <div class="plaza-tutorial-step-content">
+          <div class="plaza-tutorial-step-title">详细文档</div>
+          <div class="plaza-tutorial-step-desc">
+            完整的插件开发规范请参阅项目中的 <code>PLUGIN_SPEC.md</code> 文件，内含：
+            <ul style="margin-left:18px;line-height:2;margin-top:6px;">
+              <li>完整的 <code>plugin.json</code> 字段说明</li>
+              <li>每种能力的详细配置示例</li>
+              <li>生命周期事件参考</li>
+              <li>插件市场发布指南</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  </div> <!-- /plaza-scroll -->
+
+  <!-- Progress Overlay -->
+  <div class="plaza-progress-overlay hidden" id="plaza-progress-overlay">
+    <div class="plaza-progress-dialog">
+      <div class="plaza-progress-header">
+        <div class="plaza-progress-icon" id="plaza-progress-icon">📥</div>
+        <div class="plaza-progress-title">
+          <div class="plaza-progress-name" id="plaza-progress-name">安装插件</div>
+          <div class="plaza-progress-repo" id="plaza-progress-repo">准备中...</div>
+        </div>
+      </div>
+      <div class="plaza-progress-track"><div class="plaza-progress-fill" id="plaza-progress-fill" style="width:0%"></div></div>
+      <div class="plaza-progress-status" id="plaza-progress-status">
+        <span class="plaza-progress-spinner" id="plaza-progress-spinner"></span>
+        <span id="plaza-progress-message">初始化...</span>
+        <span class="plaza-progress-percent" id="plaza-progress-percent">0%</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Confirm Dialog -->
+  <div class="plaza-confirm-overlay hidden" id="plaza-confirm-overlay">
+    <div class="plaza-confirm-dialog">
+      <div class="plaza-confirm-icon" id="plaza-confirm-icon">⚠️</div>
+      <div class="plaza-confirm-title" id="plaza-confirm-title">确认操作</div>
+      <div class="plaza-confirm-desc" id="plaza-confirm-desc">确定要执行此操作吗？</div>
+      <div class="plaza-confirm-actions">
+        <button class="plaza-confirm-btn cancel" id="plaza-confirm-cancel">取消</button>
+        <button class="plaza-confirm-btn confirm" id="plaza-confirm-confirm">确认</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div class="plaza-toast" id="plaza-toast"></div>
+
+  <script>
+  (function() {
+    'use strict';
+
+    // ── State ──
+    var state = {
+      featured: [],
+      discovered: [],
+      installed: [],
+      sources: [],
+      tab: 'featured',
+      searchQuery: '',
+      sourceFilter: { github: true, npm: false },
+      refreshing: false,
+      installing: null,
+      installProgress: null,
+      tutorialCollapsed: false,
+    };
+
+    // ── DOM Refs ──
+    var $ = {};
+    function cacheDom() {
+      $.tabs = document.getElementById('plaza-tabs');
+      $.searchInput = document.getElementById('plaza-search-input');
+      $.refreshBtn = document.getElementById('plaza-refresh-btn');
+      $.navStatus = document.getElementById('plaza-nav-status');
+      $.wsStatus = document.getElementById('plaza-ws-status');
+      $.toast = document.getElementById('plaza-toast');
+      $.confirmOverlay = document.getElementById('plaza-confirm-overlay');
+      $.confirmTitle = document.getElementById('plaza-confirm-title');
+      $.confirmDesc = document.getElementById('plaza-confirm-desc');
+      $.confirmIcon = document.getElementById('plaza-confirm-icon');
+      $.confirmCancel = document.getElementById('plaza-confirm-cancel');
+      $.confirmConfirm = document.getElementById('plaza-confirm-confirm');
+      $.statInstalled = document.getElementById('plaza-stat-installed');
+      $.statFeatured = document.getElementById('plaza-stat-featured');
+      $.statDiscovered = document.getElementById('plaza-stat-discovered');
+      $.countFeatured = document.getElementById('plaza-count-featured');
+      $.countDiscovered = document.getElementById('plaza-count-discovered');
+      $.countInstalled = document.getElementById('plaza-count-installed');
+      $.gridFeatured = document.getElementById('plaza-grid-featured');
+      $.gridDiscovered = document.getElementById('plaza-grid-discovered');
+      $.gridInstalled = document.getElementById('plaza-grid-installed');
+      $.tabPanels = document.querySelectorAll('.plaza-tab-panel');
+      $.sourceSelector = document.getElementById('plaza-source-selector');
+      $.tutorialToggle = document.getElementById('plaza-tutorial-toggle');
+      $.tutorialBody = document.getElementById('plaza-tutorial-body');
+      $.sourcesTab = document.getElementById('plaza-tab-sources');
+      $.countSources = document.getElementById('plaza-count-sources');
+    }
+
+    // ── WS ──
+    var ws = null, wsReconnectTimer = null;
+
+    function connectWS() {
+      var proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+      var wsUrl = proto + '//' + location.host;
+      try { ws = new WebSocket(wsUrl); } catch (e) { updateWSStatus(false); return; }
+      ws.onopen = function() { updateWSStatus(true); if (wsReconnectTimer) { clearTimeout(wsReconnectTimer); wsReconnectTimer = null; } };
+      ws.onclose = function() { updateWSStatus(false); scheduleWSReconnect(); };
+      ws.onerror = function() { updateWSStatus(false); };
+      ws.onmessage = function(e) {
+        try { var msg = JSON.parse(e.data); handleWSMessage(msg); } catch(ex) {}
+      };
+    }
+    function scheduleWSReconnect() {
+      if (wsReconnectTimer) return;
+      wsReconnectTimer = setTimeout(function() { wsReconnectTimer = null; connectWS(); }, 3000);
+    }
+    function updateWSStatus(connected) {
+      if ($.wsStatus) {
+        $.wsStatus.textContent = connected ? 'WS: 🟢' : 'WS: 🔴';
+        $.wsStatus.style.opacity = connected ? '0.7' : '0.4';
+      }
+    }
+    function handleWSMessage(msg) {
+      if (msg.type === 'plugin_install_progress') {
+        if (state.installing && msg.repo !== state.installing) return;
+        showProgress(msg); return;
+      }
+      if (msg.type === 'plugin_installed') {
+        if (msg.success) { loadAll(); showToast('✅ "' + (msg.plugin?.name || '') + '" 已安装并生效', 'success'); }
+      }
+    }
+
+    // ── Progress UI ──
+    function showProgress(data) {
+      state.installProgress = data;
+      var overlay = document.getElementById('plaza-progress-overlay');
+      var fill = document.getElementById('plaza-progress-fill');
+      var message = document.getElementById('plaza-progress-message');
+      var percent = document.getElementById('plaza-progress-percent');
+      var spinner = document.getElementById('plaza-progress-spinner');
+      var icon = document.getElementById('plaza-progress-icon');
+      var repoEl = document.getElementById('plaza-progress-repo');
+      overlay.classList.remove('hidden');
+      repoEl.textContent = data.repo || '';
+      var phaseMap = {
+        start: { icon: '📥', msg: data.message || '开始克隆...' },
+        cloning: { icon: '⏳', msg: data.message || '克隆中...' },
+        cloned: { icon: '✅', msg: data.message || '验证中...' },
+        validating: { icon: '🔍', msg: data.message || '验证插件清单...' },
+        loading: { icon: '⚡', msg: data.message || '加载插件...' },
+        complete: { icon: '✅', msg: data.message || '安装完成！' },
+        load_error: { icon: '⚠️', msg: data.message || '已克隆但加载失败' },
+        error: { icon: '❌', msg: data.message || '安装失败' },
+      };
+      var p = phaseMap[data.phase] || { icon: '📥', msg: data.message || '' };
+      icon.textContent = p.icon;
+      message.textContent = p.msg;
+      if (data.phase === 'complete' || data.phase === 'error' || data.phase === 'load_error') {
+        spinner.style.display = 'none';
+        if (data.phase === 'complete') fill.classList.add('complete');
+        else fill.classList.add('error');
+        setTimeout(function() {
+          hideProgress();
+          showToast(p.msg, data.phase === 'complete' ? 'success' : 'error');
+          loadAll();
+        }, data.phase === 'complete' ? 1200 : 3000);
+      }
+      var pct = Math.min(100, Math.max(0, data.progress || 0));
+      fill.style.width = pct + '%';
+      percent.textContent = pct + '%';
+    }
+    function hideProgress() {
+      document.getElementById('plaza-progress-overlay').classList.add('hidden');
+      var fill = document.getElementById('plaza-progress-fill');
+      fill.style.width = '0%'; fill.className = 'plaza-progress-fill';
+      document.getElementById('plaza-progress-spinner').style.display = '';
+      document.getElementById('plaza-progress-percent').textContent = '0%';
+      state.installProgress = null;
+    }
+
+    // ── Fetch with timeout (prevents infinite spinner) ──
+    function fetchWithTimeout(url, ms) {
+      return fetchWithOpts(url, null, ms);
+    }
+    function fetchWithOpts(url, opts, ms) {
+      var controller = new AbortController();
+      var id = setTimeout(function() { controller.abort(); }, ms || 8000);
+      var fetchOpts = Object.assign({}, opts || {}, { signal: controller.signal });
+      return fetch(url, fetchOpts).then(function(r) { clearTimeout(id); return r; }).catch(function(e) { clearTimeout(id); throw e; });
+    }
+
+    // ── API ──
+    function fetchMarket() { return fetchWithTimeout('/api/plugins/market', 8000).then(function(r) { return r.json(); }).catch(function() { return null; }); }
+    function fetchInstalled() { return fetchWithTimeout('/api/plugins/market/installed', 8000).then(function(r) { return r.json(); }).catch(function() { return { plugins: [] };}); }
+    function fetchMultiSource(query, sources) {
+      if (!sources || sources.length === 0) return Promise.resolve({ results: {}, errors: [{source: 'input', error: '未选择源'}] });
+      var url = '/api/plugins/plaza/search?q=' + encodeURIComponent(query || '') + '&sources=' + encodeURIComponent(sources.join(','));
+      return fetchWithTimeout(url, 12000).then(function(r) { return r.json(); }).catch(function() { return { results: {}, errors: [{source: 'network', error: '请求超时'}] }; });
+    }
+    function fetchSources() { return fetchWithTimeout('/api/plugins/sources', 6000).then(function(r) { return r.json(); }).catch(function() { return { sources: [] };}); }
+    function saveSources(sources) {
+      return fetchWithOpts('/api/plugins/sources', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ sources: sources }) }, 6000)
+        .then(function(r) { return r.json(); });
+    }
+
+    // ── Multi-source community search ──
+    function refreshCommunity() {
+      var query = state.searchQuery;
+      var sources = Object.keys(state.sourceFilter).filter(function(k) { return state.sourceFilter[k]; });
+      if (sources.length === 0) { showToast('请至少选择一个源', 'info'); return; }
+      $.gridDiscovered.innerHTML = '<div class="plaza-loading"><div class="plaza-loading-spinner"></div><div>搜索 ' + escapeStr(sources.join('+')) + ' 社区...</div><div style="font-size:11px;margin-top:4px;opacity:0.6;">多源并行搜索中</div></div>';
+      fetchMultiSource(query, sources).then(function(data) {
+        var allPlugins = [];
+        Object.keys(data.results || {}).forEach(function(source) {
+          (data.results[source] || []).forEach(function(p) {
+            p.source = source;
+            allPlugins.push(p);
+          });
+        });
+        var installedNames = new Set();
+        state.installed.forEach(function(p) { installedNames.add(p.name); });
+        allPlugins.forEach(function(p) { p._installed = installedNames.has(p.name); });
+        state.discovered = allPlugins;
+        updateStats();
+        renderActiveTab();
+        if (data.errors && data.errors.length > 0) {
+          showToast('部分源搜索失败: ' + data.errors.map(function(e) { return e.source + ' (' + e.error + ')'; }).join(', '), 'error');
+        }
+      }).catch(function(err) {
+        showToast('社区搜索失败: ' + err.message, 'error');
+        $.gridDiscovered.innerHTML = '<div class="plaza-empty"><div class="plaza-empty-icon">🌐</div><p>搜索失败: ' + escapeStr(err.message) + '</p></div>';
+      });
+    }
+
+    function installPluginFromRepo(repo, branch) {
+      state.installing = repo;
+      showProgress({ phase: 'start', repo: repo, message: '开始安装...', progress: 2 });
+      return fetchWithOpts('/api/plugins/market/install', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ repo: repo, branch: branch || 'main' }),
+      }, 120000).then(function(r) { return r.json(); }).finally(function() { state.installing = null; });
+    }
+    function uninstallPlugin(name) {
+      return fetchWithOpts('/api/plugins/market/installed/' + encodeURIComponent(name), { method: 'DELETE' }, 10000).then(function(r) { return r.json(); });
+    }
+
+    // ── Load with timeout ──
+    var _loadingTimer = null;
+    function loadAll() {
+      $.navStatus.textContent = '加载中...';
+      if (_loadingTimer) clearTimeout(_loadingTimer);
+      // Safety timeout: if API calls hang, show fallback after 15s
+      _loadingTimer = setTimeout(function() {
+        _loadingTimer = null;
+        if (state.featured.length === 0 && state.installed.length === 0) {
+          $.navStatus.textContent = '服务器未连接';
+          showToast('无法连接服务器，请确认服务已启动', 'error');
+          // Show offline message in grids
+          ['featured', 'discovered', 'installed'].forEach(function(t) {
+            var el = document.getElementById('plaza-grid-' + t);
+            if (el && el.querySelector('.plaza-loading')) {
+              el.innerHTML = '<div class="plaza-empty"><div class="plaza-empty-icon">🔌</div><p>无法连接到服务器<br/><span style="font-size:12px;opacity:0.6;">请确认后端已启动 (node server.js)</span></p></div>';
+            }
+          });
+        }
+      }, 15000);
+      Promise.all([fetchMarket(), fetchInstalled(), fetchSources()]).then(function(results) {
+        if (_loadingTimer) { clearTimeout(_loadingTimer); _loadingTimer = null; }
+        var market = results[0], installed = results[1], src = results[2];
+        state.featured = market ? (market.featured || []) : [];
+        state.discovered = market ? (market.discovered || []) : [];
+        state.installed = installed ? (installed.plugins || []) : [];
+        state.sources = src ? (src.sources || []) : [];
+        var installedNames = new Set();
+        state.installed.forEach(function(p) { installedNames.add(p.name); });
+        state.featured.forEach(function(p) { p._installed = installedNames.has(p.name); });
+        state.discovered.forEach(function(p) { p._installed = installedNames.has(p.name); });
+        updateStats(); renderActiveTab();
+        $.navStatus.textContent = '已加载 ' + state.installed.length + ' 个插件';
+      }).catch(function(err) {
+        if (_loadingTimer) { clearTimeout(_loadingTimer); _loadingTimer = null; }
+        $.navStatus.textContent = '加载失败';
+        showToast('加载失败: ' + err.message, 'error');
+      });
+    }
+
+    // ── Render ──
+    function renderCard(plugin, source) {
+      var icon = plugin.icon || '🔌';
+      var name = plugin.name || 'unknown';
+      var desc = plugin.description || '暂无描述';
+      var author = plugin.author || '未知';
+      var stars = plugin.stars || 0;
+      var version = plugin.version || '';
+      var installed = plugin._installed || false;
+      var isInstalling = state.installing === (plugin.repo || name);
+      var tagsHtml = (plugin.tags || []).slice(0, 4).map(function(t) { return '<span class="plaza-tag">#' + t + '</span>'; }).join('');
+      var sourceTag = '';
+      if (source === 'featured') sourceTag = '<span class="plaza-tag featured">⭐ 精选</span>';
+      else if (source === 'discovered' || plugin.source === 'github') sourceTag = '<span class="plaza-tag github">🌐 GitHub</span>';
+      else if (plugin.source === 'npm') sourceTag = '<span class="plaza-tag npm">📦 npm</span>';
+      else if (source === 'installed') sourceTag = '<span class="plaza-tag">📦 已安装</span>';
+      else if (plugin._sourceLabel) sourceTag = '<span class="plaza-tag">' + plugin._sourceLabel + '</span>';
+      var actionsHtml = '';
+      if (source === 'installed') {
+        actionsHtml = '<button class="plaza-action-btn installed-btn" disabled>✅ 已安装</button>' +
+          (plugin.homepage ? '<a class="plaza-action-btn primary" style="text-decoration:none;display:inline-block;line-height:1.6" href="' + escapeStr(plugin.homepage) + '" target="_blank">🔗 使用说明</a>' : '') +
+          '<button class="plaza-action-btn danger" onclick="PZA.uninstall(\'' + escapeStr(name) + '\')">🗑 卸载</button>';
+      } else if (installed) {
+        actionsHtml = '<button class="plaza-action-btn installed-btn" disabled>✅ 已安装</button>';
+      } else {
+        var repo = plugin.repo || '';
+        actionsHtml = '<button class="plaza-action-btn primary" onclick="PZA.install(\'' + escapeStr(repo) + '\')"' +
+          (isInstalling ? ' disabled' : '') + '>' + (isInstalling ? '⏳...' : '📥 安装') + '</button>';
+      }
+      var metaHtml = '';
+      if (stars > 0) metaHtml += '<span>⭐ ' + stars + '</span>';
+      if (version) metaHtml += '<span class="plaza-version">v' + version + '</span>';
+      if (plugin.repo) metaHtml += '<span><a class="plaza-meta-link" href="https://github.com/' + plugin.repo + '" target="_blank" title="' + plugin.repo + '">🔗</a></span>';
+      return '<div class="plaza-card' + (installed ? ' installed' : '') + '">' +
+        '<div class="plaza-card-header">' +
+          '<div class="plaza-card-icon">' + icon + '</div>' +
+          '<div class="plaza-card-info"><div class="plaza-card-name">' + escapeStr(name) + '</div><div class="plaza-card-author">by ' + escapeStr(author) + '</div></div>' +
+        '</div>' +
+        '<div class="plaza-card-desc">' + escapeStr(desc) + '</div>' +
+        '<div class="plaza-card-tags">' + tagsHtml + sourceTag + '</div>' +
+        '<div class="plaza-card-footer">' +
+          '<div class="plaza-card-meta">' + metaHtml + '</div>' +
+          '<div class="plaza-card-actions">' + actionsHtml + '</div>' +
+        '</div></div>';
+    }
+
+    function renderActiveTab() {
+      var tab = state.tab;
+      var query = state.searchQuery.toLowerCase().trim();
+      if (tab === 'featured') {
+        $.gridFeatured.innerHTML = filterPlugins(state.featured, query).map(function(p) { return renderCard(p, 'featured'); }).join('') ||
+          '<div class="plaza-empty"><div class="plaza-empty-icon">⭐</div><p>暂无精选插件</p></div>';
+      } else if (tab === 'discovered') {
+        $.gridDiscovered.innerHTML = filterPlugins(state.discovered, query).map(function(p) { return renderCard(p, 'discovered'); }).join('') ||
+          '<div class="plaza-empty"><div class="plaza-empty-icon">🌐</div><p>未发现社区插件。确保网络可访问 GitHub。</p></div>';
+      } else if (tab === 'installed') {
+        var installedList = state.installed.map(function(p) {
+          var m = p.manifest || {};
+          return { name: m.name || p.name, description: m.description || '未找到 plugin.json', author: m.author || p.name, version: m.version || '', tags: [], _installed: true, _loaded: p.loaded, icon: '📦', homepage: m.homepage || '' };
+        });
+        $.gridInstalled.innerHTML = filterPlugins(installedList, query).map(function(p) { return renderCard(p, 'installed'); }).join('') ||
+          '<div class="plaza-empty"><div class="plaza-empty-icon">📦</div><p>还没有安装任何插件。去"精选"或"社区"标签页浏览吧！</p></div>';
+      } else if (tab === 'sources') {
+        renderSourcesPanel();
+      }
+    }
+
+    function renderSourcesPanel() {
+      var html = '<div class="plaza-sources-panel" style="margin-top:0;">';
+      html += '<div class="plaza-sources-title">🔗 自定义插件源 <span style="font-weight:400;font-size:12px;color:var(--text-tertiary,#98989d);">从可信 URL 获取社区插件列表</span></div>';
+      html += '<div class="plaza-sources-grid">';
+      // Built-in sources
+      var builtIn = [
+        { icon: '🌐', label: 'GitHub 社区', value: 'topic:cli-q-plugin (自动发现)', builtin: true },
+        { icon: '📦', label: 'npm 注册表', value: 'keywords:cli-q-plugin (自动搜索)', builtin: true },
+      ];
+      builtIn.forEach(function(s) {
+        html += '<div class="plaza-source-row"><div class="plaza-source-icon">' + s.icon + '</div><div class="plaza-source-info"><div class="plaza-source-label">' + s.label + '</div><div class="plaza-source-value">' + s.value + '</div></div><span style="font-size:10px;color:var(--text-tertiary,#98989d);">内置</span></div>';
+      });
+      // Custom sources
+      state.sources.forEach(function(s, i) {
+        html += '<div class="plaza-source-row"><div class="plaza-source-icon">🔗</div><div class="plaza-source-info"><div class="plaza-source-label">' + escapeStr(s.label || s.name) + '</div><div class="plaza-source-value">' + escapeStr(s.value) + '</div></div><button class="plaza-source-remove" onclick="PZA.removeSource(' + i + ')">✕</button></div>';
+      });
+      html += '</div>';
+      // Add source form
+      html += '<div class="plaza-add-source-area">';
+      html += '<input type="text" class="plaza-add-source-input" id="plaza-new-source-url" placeholder="https://example.com/plugins.json" />';
+      html += '<input type="text" class="plaza-add-source-input" id="plaza-new-source-label" placeholder="标签（如: 我的源）" style="max-width:140px;" />';
+      html += '<button class="plaza-add-source-btn" onclick="PZA.addSource()">+ 添加</button>';
+      html += '</div>';
+      html += '<p style="font-size:11px;color:var(--text-tertiary,#98989d);margin-top:8px;">自定义源应返回 JSON 数组 <code>[{ name, description, author, repo }]</code> 或 <code>{ plugins: [...] }</code></p>';
+      html += '</div>';
+      $.sourcesTab.innerHTML = html;
+    }
+
+    function filterPlugins(plugins, query) {
+      if (!query) return plugins;
+      return plugins.filter(function(p) {
+        return (p.name || '').toLowerCase().indexOf(query) !== -1 ||
+               (p.description || '').toLowerCase().indexOf(query) !== -1 ||
+               (p.author || '').toLowerCase().indexOf(query) !== -1;
+      });
+    }
+
+    function updateStats() {
+      $.statInstalled.textContent = state.installed.length;
+      $.statFeatured.textContent = state.featured.length;
+      $.statDiscovered.textContent = state.discovered.length;
+      $.countFeatured.textContent = state.featured.length;
+      $.countDiscovered.textContent = state.discovered.length;
+      $.countInstalled.textContent = state.installed.length;
+      if ($.countSources) $.countSources.textContent = state.sources.length;
+    }
+
+    function switchTab(tabId) {
+      if (state.tab === tabId) return;
+      state.tab = tabId;
+      var tabs = $.tabs.querySelectorAll('.plaza-tab');
+      tabs.forEach(function(t) { t.classList.toggle('active', t.dataset.tab === tabId); });
+      $.tabPanels.forEach(function(p) { p.classList.toggle('active', p.id === 'plaza-tab-' + tabId); });
+      renderActiveTab();
+      // Fetch multi-source data when community tab is activated
+      if (tabId === 'discovered') {
+        var activeSources = Object.keys(state.sourceFilter).filter(function(k) { return state.sourceFilter[k]; });
+        if (activeSources.length > 0) refreshCommunity();
+      }
+    }
+
+    function showToast(msg, type) {
+      $.toast.textContent = msg;
+      $.toast.className = 'plaza-toast ' + (type || 'info') + ' show';
+      clearTimeout($.toast._timer);
+      $.toast._timer = setTimeout(function() { $.toast.className = 'plaza-toast'; }, 3000);
+    }
+
+    function escapeStr(s) {
+      if (!s) return '';
+      return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    }
+
+    // ── Global API ──
+    window.PZA = {
+      install: function(repo) {
+        if (!repo) { showToast('无法安装：缺少仓库地址', 'error'); return; }
+        installPluginFromRepo(repo).then(function(result) {
+          if (!result.success && result.error) {
+            showToast('❌ ' + result.error, 'error');
+          }
+        }).catch(function(err) {
+          showToast('❌ ' + err.message, 'error');
+        });
+      },
+      uninstall: function(name) {
+        showConfirm('🗑️', '卸载插件', '确定要卸载 "' + name + '" 吗？', true, function() {
+          showToast('正在卸载 ' + name + '...', 'info');
+          uninstallPlugin(name).then(function(r) {
+            if (r.success) { showToast('✅ 已卸载 "' + name + '"', 'success'); loadAll(); }
+            else { showToast('❌ ' + (r.error || '卸载失败'), 'error'); }
+          }).catch(function(err) { showToast('❌ ' + err.message, 'error'); });
+        });
+      },
+      addSource: function() {
+        var url = document.getElementById('plaza-new-source-url');
+        var label = document.getElementById('plaza-new-source-label');
+        if (!url.value.trim()) { showToast('请输入源 URL', 'error'); return; }
+        state.sources.push({ name: label.value.trim() || 'custom-' + Date.now(), label: label.value.trim() || url.value.trim(), value: url.value.trim() });
+        saveSources(state.sources).then(function() { showToast('✅ 源已添加', 'success'); loadAll(); }).catch(function(err) { showToast('❌ ' + err.message, 'error'); });
+      },
+      removeSource: function(index) {
+        state.sources.splice(index, 1);
+        saveSources(state.sources).then(function() { showToast('✅ 源已移除', 'success'); loadAll(); }).catch(function(err) { showToast('❌ ' + err.message, 'error'); });
+      },
+      refresh: function() {
+        if (state.refreshing) return;
+        state.refreshing = true; $.refreshBtn.classList.add('spinning'); $.refreshBtn.disabled = true;
+        loadAll();
+        if (state.tab === 'discovered') {
+          refreshCommunity();
+          // Also force-refresh the GitHub discovery in background
+          fetch('/api/plugins/market?force=1&_t=' + Date.now()).then(function() {}).catch(function() {});
+        }
+        setTimeout(function() { state.refreshing = false; $.refreshBtn.classList.remove('spinning'); $.refreshBtn.disabled = false; }, 1200);
+      },
+      search: function(query) { state.searchQuery = query; renderActiveTab(); },
+    };
+
+    // ── Confirm ──
+    var confirmCallback = null;
+    function showConfirm(icon, title, desc, danger, onConfirm) {
+      $.confirmIcon.textContent = icon || '⚠️';
+      $.confirmTitle.textContent = title || '确认';
+      $.confirmDesc.textContent = desc || '';
+      $.confirmConfirm.className = 'plaza-confirm-btn confirm' + (danger ? ' danger' : '');
+      $.confirmConfirm.textContent = '确认';
+      $.confirmOverlay.classList.remove('hidden');
+      confirmCallback = onConfirm || null;
+    }
+    function hideConfirm() { $.confirmOverlay.classList.add('hidden'); confirmCallback = null; }
+    cacheDom();
+    $.confirmCancel.addEventListener('click', hideConfirm);
+    $.confirmConfirm.addEventListener('click', function() { if (confirmCallback) confirmCallback(); hideConfirm(); });
+    $.confirmOverlay.addEventListener('click', function(e) { if (e.target === $.confirmOverlay) hideConfirm(); });
+
+    // ── Events ──
+    $.tabs.addEventListener('click', function(e) {
+      var tab = e.target.closest('.plaza-tab');
+      if (tab && tab.dataset.tab) switchTab(tab.dataset.tab);
+    });
+    $.searchInput.addEventListener('input', function(e) { window.PZA.search(e.target.value); });
+    $.refreshBtn.addEventListener('click', window.PZA.refresh);
+
+    // Source selector chips
+    $.sourceSelector.addEventListener('click', function(e) {
+      var chip = e.target.closest('.plaza-source-chip');
+      if (!chip) return;
+      var src = chip.dataset.source;
+      state.sourceFilter[src] = !state.sourceFilter[src];
+      chip.classList.toggle('active');
+      // Trigger community refresh when toggling sources on the discovered tab
+      if (state.tab === 'discovered') {
+        var activeSources = Object.keys(state.sourceFilter).filter(function(k) { return state.sourceFilter[k]; });
+        if (activeSources.length > 0) refreshCommunity();
+      }
+    });
+
+    // Tutorial toggle
+    $.tutorialToggle.addEventListener('click', function() {
+      state.tutorialCollapsed = !state.tutorialCollapsed;
+      $.tutorialBody.classList.toggle('collapsed', state.tutorialCollapsed);
+      $.tutorialToggle.textContent = state.tutorialCollapsed ? '展开 ▾' : '收起 ▴';
+    });
+
+    // Keyboard
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape') hideConfirm();
+      if ((e.ctrlKey || e.metaKey) && e.key === 'f' && document.activeElement !== $.searchInput) {
+        e.preventDefault(); $.searchInput.focus();
+      }
+    });
+
+    // ── Init ──
+    connectWS();
+    loadAll();
+
+    // Auto-set theme from parent
+    var parentTheme = localStorage.getItem('qcli-theme') || 'dark';
+    document.documentElement.setAttribute('data-theme', parentTheme);
+  })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,8 @@
+{
+  "id": "westock-mcp",
+  "name": "westock-mcp",
+  "category": "finance",
+  "enterprise": true,
+  "authType": "token",
+  "description": "westock-mcp connector for Hesi"
+}

@@ -1,0 +1,308 @@
+/* md-notes — Obsidian-style Markdown note drawer (right-panel tab) */
+/* Scoped under .md-notes to avoid colliding with existing styles. */
+
+.md-notes {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  box-sizing: border-box;
+}
+
+/* body: tree | splitter | reader  (tree width is a CSS var, draggable) */
+.md-notes-body {
+  flex: 1 1 auto;
+  display: grid;
+  grid-template-columns: var(--tree-w, 280px) 6px minmax(0, 1fr);
+  min-height: 0;
+}
+.md-notes-tree {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  min-width: 0;       /* allow grid to shrink; prevent overflow */
+  overflow: hidden;
+  border-right: 1px solid var(--border-subtle, #2a2f3a);
+}
+.mdn-splitter {
+  cursor: col-resize;
+  background: var(--border-subtle, #2a2f3a);
+  position: relative;
+  transition: background 0.12s ease;
+  /* Wider hit area than visual width so dragging is easy */
+}
+.mdn-splitter::before {
+  content: '';
+  position: absolute;
+  inset: 0 -3px;       /* extend hit area by 3px each side */
+}
+.mdn-splitter:hover,
+.mdn-splitter:active {
+  background: var(--accent, #6366f1);
+}
+.md-notes-reader {
+  min-width: 0;
+  overflow-y: auto;
+  padding: 14px 18px;
+}
+
+.mdn-crumbs {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border-subtle, #2a2f3a);
+  font-size: 11px;
+  color: var(--text-tertiary, #8a90a0);
+}
+.mdn-crumb.mdn-up {
+  cursor: pointer;
+  color: var(--accent, #6366f1);
+  font-weight: 600;
+}
+.mdn-crumb.mdn-up:hover {
+  text-decoration: underline;
+}
+.mdn-crumb.mdn-cur {
+  word-break: break-all;
+  color: var(--text-secondary, #b6bccb);
+}
+
+.mdm-list {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  padding: 6px 0;
+}
+.mdn-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--text-primary, #e6e8ec);
+  border-left: 2px solid transparent;
+}
+.mdn-item:hover {
+  background: var(--bg-elevated, #1c212b);
+  border-left-color: var(--accent, #6366f1);
+}
+.mdn-ico {
+  flex: 0 0 auto;
+  font-size: 13px;
+}
+.mdn-file .mdn-ico {
+  opacity: 0.85;
+}
+
+.mdm-hint,
+.mdn-loading,
+.mdn-error {
+  padding: 14px;
+  font-size: 12px;
+  color: var(--text-tertiary, #8a90a0);
+  line-height: 1.6;
+}
+.mdn-error {
+  color: #f87171;
+}
+
+.mdn-reader-head {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-secondary, #b6bccb);
+  padding-bottom: 8px;
+  margin-bottom: 12px;
+  border-bottom: 1px solid var(--border-subtle, #2a2f3a);
+}
+
+/* ── rendered markdown typography ── */
+.mdn-md {
+  font-size: 14px;
+  line-height: 1.7;
+  color: var(--text-primary, #e6e8ec);
+  word-wrap: break-word;
+}
+.mdn-md h1,
+.mdn-md h2,
+.mdn-md h3,
+.mdn-md h4,
+.mdn-md h5,
+.mdn-md h6 {
+  margin: 1.1em 0 0.5em;
+  line-height: 1.3;
+  font-weight: 700;
+}
+.mdn-md h1 { font-size: 1.6em; }
+.mdn-md h2 { font-size: 1.35em; border-bottom: 1px solid var(--border-subtle, #2a2f3a); padding-bottom: 0.25em; }
+.mdn-md h3 { font-size: 1.18em; }
+.mdn-md h4 { font-size: 1.05em; }
+.mdn-md p { margin: 0.7em 0; }
+.mdn-md a { color: var(--accent, #6366f1); text-decoration: none; }
+.mdn-md a:hover { text-decoration: underline; }
+.mdn-md code {
+  background: var(--bg-elevated, #1c212b);
+  padding: 0.12em 0.4em;
+  border-radius: 4px;
+  font-size: 0.9em;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+.mdn-md pre.md-pre {
+  background: var(--bg-elevated, #1c212b);
+  border: 1px solid var(--border-subtle, #2a2f3a);
+  border-radius: 8px;
+  padding: 12px 14px;
+  overflow-x: auto;
+  margin: 0.8em 0;
+}
+.mdn-md pre.md-pre code {
+  background: none;
+  padding: 0;
+  font-size: 0.88em;
+}
+.mdn-md blockquote {
+  margin: 0.8em 0;
+  padding: 0.4em 1em;
+  border-left: 3px solid var(--accent, #6366f1);
+  color: var(--text-secondary, #b6bccb);
+  background: var(--bg-elevated, #1c212b);
+  border-radius: 0 6px 6px 0;
+}
+.mdn-md ul,
+.mdn-md ol {
+  margin: 0.6em 0;
+  padding-left: 1.6em;
+}
+.mdn-md li { margin: 0.25em 0; }
+.mdn-md hr {
+  border: none;
+  border-top: 1px solid var(--border-subtle, #2a2f3a);
+  margin: 1.2em 0;
+}
+.mdn-md table.md-table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 0.8em 0;
+  font-size: 0.92em;
+}
+.mdn-md table.md-table th,
+.mdn-md table.md-table td {
+  border: 1px solid var(--border-subtle, #2a2f3a);
+  padding: 6px 10px;
+  text-align: left;
+}
+.mdn-md table.md-table th {
+  background: var(--bg-elevated, #1c212b);
+  font-weight: 700;
+}
+
+/* ── Crumb nav: clickable segments + edit + up ── */
+.mdn-crumb-nav {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.mdn-seg {
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  color: var(--accent, #6366f1);
+  transition: background 0.12s ease;
+  max-width: 22ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.mdn-seg:hover {
+  background: color-mix(in srgb, var(--accent, #6366f1) 16%, transparent);
+  text-decoration: underline;
+}
+.mdn-seg.mdn-seg-leaf {
+  cursor: default;
+  color: var(--text-secondary, #b6bccb);
+  background: transparent;
+  text-decoration: none;
+  font-weight: 600;
+}
+.mdn-sep {
+  color: var(--text-tertiary, #6a7080);
+  font-size: 11px;
+  user-select: none;
+  padding: 0 1px;
+}
+.mdn-edit-btn,
+.mdn-up-btn,
+.mdn-back-btn {
+  flex: 0 0 auto;
+  margin-left: 4px;
+  padding: 3px 8px;
+  border: 1px solid var(--border-subtle, #2a2f3a);
+  border-radius: 6px;
+  background: var(--bg-elevated, #1c212b);
+  color: var(--text-secondary, #b6bccb);
+  font-size: 11px;
+  cursor: pointer;
+  transition: background 0.12s ease, border-color 0.12s ease;
+}
+.mdn-edit-btn:hover,
+.mdn-up-btn:hover,
+.mdn-back-btn:hover {
+  border-color: var(--accent, #6366f1);
+  color: var(--accent, #6366f1);
+}
+.mdn-back-btn {
+  font-size: 13px;
+  line-height: 1;
+  padding: 3px 7px;
+}
+
+/* ── Edit mode (manual path entry) ── */
+.mdn-edit-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  flex-wrap: nowrap;
+}
+.mdn-edit-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 5px 8px;
+  border: 1px solid var(--accent, #6366f1);
+  border-radius: 6px;
+  background: var(--bg-base, #14171f);
+  color: var(--text-primary, #e6e8ec);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12px;
+  outline: none;
+}
+.mdn-edit-input:focus {
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent, #6366f1) 30%, transparent);
+}
+.mdn-edit-go,
+.mdn-edit-cancel {
+  flex: 0 0 auto;
+  padding: 5px 10px;
+  border: 1px solid var(--border-subtle, #2a2f3a);
+  border-radius: 6px;
+  background: var(--bg-elevated, #1c212b);
+  color: var(--text-primary, #e6e8ec);
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.mdn-edit-go {
+  border-color: var(--accent, #6366f1);
+  color: var(--accent, #6366f1);
+}
+.mdn-edit-go:hover {
+  background: color-mix(in srgb, var(--accent, #6366f1) 18%, transparent);
+}
+.mdn-edit-cancel:hover {
+  border-color: var(--text-tertiary, #6a7080);
+}

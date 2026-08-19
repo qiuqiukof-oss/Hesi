@@ -1,0 +1,87 @@
+<!--
+  Copyright (c) 2026 qiuqiukof-oss
+  Licensed under the MIT License. See LICENSE for details.
+-->
+
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>插件市场 — Hesi</title>
+  <script src="/lib/standalone-theme.js"></script>
+  <link rel="stylesheet" href="/css/theme.css" />
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg-ground);
+      color: var(--text-primary);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      gap: 20px;
+      padding: 24px;
+      text-align: center;
+    }
+    .redirect-icon { font-size: 48px; margin-bottom: 8px; }
+    .redirect-title { font-size: 20px; font-weight: 600; }
+    .redirect-desc { font-size: 13px; color: var(--text-tertiary); line-height: 1.6; margin-top: 4px; }
+    .redirect-link {
+      display: inline-block;
+      margin-top: 16px;
+      padding: 10px 24px;
+      background: var(--accent);
+      color: #fff;
+      text-decoration: none;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 500;
+      transition: background 0.2s;
+    }
+    .redirect-link:hover { background: var(--accent-hover); }
+    .redirect-countdown {
+      font-size: 12px;
+      color: var(--text-tertiary);
+      margin-top: 12px;
+    }
+  </style>
+  <script>
+    // Auto-redirect to new plugin-plaza page after 3 seconds
+    (function() {
+      var countdown = 5;
+      var target = '/plugin-plaza.html';
+      function tick() {
+        countdown--;
+        // Re-fetch element each tick in case DOM wasn't ready at script start
+        var el = document.getElementById('countdown');
+        if (el) el.textContent = countdown;
+        if (countdown <= 0) {
+          window.location.href = target;
+        } else {
+          setTimeout(tick, 1000);
+        }
+      }
+      setTimeout(tick, 1000);
+    })();
+  </script>
+</head>
+<body>
+  <div class="redirect-icon">🏪</div>
+  <div class="redirect-title">插件市场已升级为「插件广场」</div>
+  <div class="redirect-desc">
+    插件市场已迁移至全新的插件广场页面，<br />
+    支持多源搜索（GitHub + npm + 自定义源）、<br />
+    一键安装、插件创建引导等更多功能。
+  </div>
+  <a class="redirect-link" href="/plugin-plaza.html">立即前往插件广场 →</a>
+  <div class="redirect-countdown">
+    <span id="countdown">5</span> 秒后自动跳转...
+  </div>
+  <noscript>
+    <meta http-equiv="refresh" content="0; url=/plugin-plaza.html" />
+  </noscript>
+</body>
+</html>

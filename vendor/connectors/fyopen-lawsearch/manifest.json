@@ -1,0 +1,8 @@
+{
+  "id": "fyopen-lawsearch",
+  "name": "fyopen-lawsearch",
+  "category": "documentation",
+  "enterprise": true,
+  "authType": "token",
+  "description": "fyopen-lawsearch connector for Hesi"
+}

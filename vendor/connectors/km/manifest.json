@@ -1,0 +1,8 @@
+{
+  "id": "km",
+  "name": "km",
+  "category": "documentation",
+  "enterprise": true,
+  "authType": "token",
+  "description": "km connector for Hesi"
+}

@@ -1,0 +1,8 @@
+{
+  "id": "netease-mail",
+  "name": "netease-mail",
+  "category": "email",
+  "enterprise": false,
+  "authType": "basic",
+  "description": "netease-mail connector for Hesi"
+}

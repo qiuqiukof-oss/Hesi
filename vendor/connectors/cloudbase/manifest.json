@@ -1,0 +1,8 @@
+{
+  "id": "cloudbase",
+  "name": "cloudbase",
+  "category": "cloud-crm",
+  "enterprise": false,
+  "authType": "token",
+  "description": "cloudbase connector for Hesi"
+}

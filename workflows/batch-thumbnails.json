@@ -1,0 +1,39 @@
+{
+  "id": "batch-thumbnails",
+  "name": "🖼️ 批量缩略图",
+  "nameEn": "Batch Thumbnails",
+  "description": "视频截图 → 网格拼图 → 统计报告",
+  "descriptionEn": "Extract frames → Create montage grid → Summary report",
+  "icon": "🖼️",
+  "presets": ["media-engineer"],
+  "category": "media",
+  "variables": {
+    "input": { "label": "输入视频", "labelEn": "Input video", "type": "string", "required": true, "placeholder": "input.mp4" },
+    "interval": { "label": "截图间隔（秒）", "labelEn": "Screenshot interval (sec)", "type": "number", "default": 30, "min": 1 },
+    "width": { "label": "缩略图宽度", "labelEn": "Thumbnail width", "type": "number", "default": 320, "min": 100 },
+    "cols": { "label": "拼图列数", "labelEn": "Montage columns", "type": "number", "default": 4, "min": 1 }
+  },
+  "steps": [
+    {
+      "id": "get-duration",
+      "label": "获取视频时长",
+      "labelEn": "Get video duration",
+      "agentId": "bash",
+      "task": "# Step 1: Analyze video duration\nINPUT=\"{{INPUT}}\"\n\nffprobe -v quiet -print_format json -show_format \"$INPUT\" 2>&1 | node -e \"\nconst d=require('fs').readFileSync('/dev/stdin','utf-8');\nconst j=JSON.parse(d);\nconst dur=parseFloat(j.format.duration);\nconst m=Math.floor(dur/60);\nconst s=Math.floor(dur%60);\nconsole.log('File: '+j.format.filename);\nconsole.log('Duration: '+dur+'s ('+m+'m '+s+'s)');\nconsole.log('Interval: {{INTERVAL}}s');\nconsole.log('Thumbnails to generate: ~'+Math.floor(dur/{{INTERVAL}}));\n\""
+    },
+    {
+      "id": "extract-thumbs",
+      "label": "提取缩略图",
+      "labelEn": "Extract thumbnails",
+      "agentId": "bash",
+      "task": "# Step 2: Extract thumbnail frames at regular intervals\nINPUT=\"{{INPUT}}\"\nINTERVAL={{INTERVAL}}\nWIDTH={{WIDTH}}\nOUTDIR=\"thumbs_${INPUT%.*}\"\n\necho \"⏳ Extracting thumbnails every ${INTERVAL}s...\"\nmkdir -p \"$OUTDIR\"\nffmpeg -i \"$INPUT\" -vf \"fps=1/${INTERVAL},scale=${WIDTH}:-1\" -q:v 3 \"${OUTDIR}/thumb_%04d.jpg\" -y 2>&1 | tail -5\n\necho \"\"\necho \"📸 Generated thumbnails:\"\nls -1 \"${OUTDIR}\"/*.jpg 2>/dev/null | wc -l | awk '{print $1 \" images in '\"'\"$OUTDIR\"'\"'\"}'"
+    },
+    {
+      "id": "create-montage",
+      "label": "创建网格拼图",
+      "labelEn": "Create montage grid",
+      "agentId": "bash",
+      "task": "# Step 3: Create a montage collage from extracted thumbnails\nINPUT=\"{{INPUT}}\"\nOUTDIR=\"thumbs_${INPUT%.*}\"\nCOLS={{COLS}}\nMONTAGE=\"montage_${INPUT%.*}.jpg\"\n\necho \"===== Creating Montage =====\"\necho \"\"\n\nif command -v magick >/dev/null 2>&1; then\n  echo \"🖼️ Using ImageMagick magick...\"\n  cd \"$OUTDIR\" && magick montage *.jpg -tile ${COLS}x -geometry '320x>+2+2' \"../$MONTAGE\" 2>&1\n  cd ..\n  echo \"✅ Montage saved: $MONTAGE\"\nelif command -v convert >/dev/null 2>&1; then\n  echo \"🖼️ Using ImageMagick convert...\"\n  cd \"$OUTDIR\" && convert *.jpg +append \"../$MONTAGE\" 2>&1\n  cd ..\n  echo \"✅ Montage saved: $MONTAGE\"\nelse\n  echo \"⚠ ImageMagick is not installed. Skipping montage creation.\"\n  echo \"  Install: brew install imagemagick  (macOS)\"\n  echo \"  Or:     sudo apt install imagemagick (Linux)\"\nfi\n\necho \"\"\necho \"===== Report =====\"\necho \"Source: $INPUT\"\nTHUMB_COUNT=$(ls \"${OUTDIR}\"/*.jpg 2>/dev/null | wc -l)\necho \"Thumbnails: $THUMB_COUNT images\"\nif [ -f \"$MONTAGE\" ]; then\n  MONTAGE_SIZE=$(ls -lh \"$MONTAGE\" | awk '{print $5}')\n  echo \"Montage size: $MONTAGE_SIZE\"\nfi\necho \"Location: $(pwd)/${OUTDIR}/\"\necho \"\"\necho \"💡 Tip: Open the montage image or individual thumbnails by clicking their paths in the terminal output\""
+    }
+  ]
+}

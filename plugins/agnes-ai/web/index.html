@@ -1,0 +1,622 @@
+<!--
+  Copyright (c) 2026 qiuqiukof-oss
+  Licensed under the MIT License. See LICENSE for details.
+-->
+
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Agnes AI 全能平台</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>✨</text></svg>">
+  <link rel="stylesheet" href="css/style.css">
+  <script>
+  (function () {
+    try {
+      var t = localStorage.getItem('qcli-theme') || 'xuan';
+      var dark = (t === 'dark' || t === 'xuanye' || t === 'cyber');
+      var root = document.documentElement;
+      root.setAttribute('data-theme', t);
+      root.setAttribute('data-scheme', dark ? 'dark' : 'light');
+      window.addEventListener('storage', function (e) {
+        if (e && e.key === 'qcli-theme') {
+          var nv = e.newValue || 'xuan';
+          var d = (nv === 'dark' || nv === 'xuanye' || nv === 'cyber');
+          root.setAttribute('data-scheme', d ? 'dark' : 'light');
+          root.setAttribute('data-theme', nv);
+        }
+      });
+    } catch (e) {}
+  })();
+  </script>
+</head>
+<body>
+  <!-- Settings Panel Overlay -->
+  <div class="settings-overlay" id="settingsOverlay"></div>
+  <div class="settings-panel" id="settingsPanel">
+    <div class="settings-header">
+      <h2>⚙️ 设置</h2>
+      <button class="settings-close" id="settingsClose">✕</button>
+    </div>
+    <div class="settings-body">
+      <div class="setting-group">
+        <label for="apiKey">Agnes API Key</label>
+        <div class="input-with-toggle">
+          <input type="password" id="apiKey" placeholder="请输入您的 Agnes API Key">
+          <button class="toggle-visibility" id="toggleKeyVisibility" title="显示/隐藏">👁️</button>
+        </div>
+        <p class="setting-hint">
+          在 <a href="https://platform.agnes-ai.com" target="_blank">platform.agnes-ai.com</a> 注册获取
+        </p>
+      </div>
+      <div class="setting-group">
+        <label for="apiBaseUrl">API 基础地址</label>
+        <input type="text" id="apiBaseUrl" value="https://apihub.agnes-ai.com/v1">
+      </div>
+      <div class="setting-group">
+        <label for="chatModel">对话模型</label>
+        <input type="text" id="chatModel" value="agnes-v4-flash">
+        <p class="setting-hint">支持 OpenAI 兼容的模型名称</p>
+      </div>
+      <div class="setting-group">
+        <label for="imageModel">制图模型</label>
+        <input type="text" id="imageModel" value="agnes-image-2.0-flash">
+      </div>
+      <div class="setting-group">
+        <label for="videoModel">视频模型</label>
+        <input type="text" id="videoModel" value="agnes-video-v2.0">
+      </div>
+      <div class="setting-group">
+        <label for="temperature">温度 (Temperature)</label>
+        <div class="range-group">
+          <input type="range" id="temperature" min="0" max="2" step="0.1" value="0.7">
+          <span id="temperatureValue">0.7</span>
+        </div>
+      </div>
+      <div class="setting-group">
+        <label for="imageSize">默认图片尺寸</label>
+        <select id="imageSize">
+          <option value="1024x1024">1024×1024 (正方形)</option>
+          <option value="1024x768" selected>1024×768 (横屏)</option>
+          <option value="768x1024">768×1024 (竖屏)</option>
+          <option value="1280x720">1280×720 (720p)</option>
+          <option value="1920x1080">1920×1080 (1080p)</option>
+        </select>
+      </div>
+      <div class="setting-group">
+        <label for="videoResolution">视频分辨率</label>
+        <select id="videoResolution">
+          <option value="480p">480p (标清)</option>
+          <option value="720p" selected>720p (高清)</option>
+          <option value="1080p">1080p (全高清)</option>
+        </select>
+      </div>
+      <div class="setting-actions">
+        <button class="btn btn-primary" id="saveSettings">保存设置</button>
+        <button class="btn btn-secondary" id="clearAllData">清除所有数据</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Prompt Library Panel -->
+  <div class="prompt-overlay" id="promptOverlay"></div>
+  <div class="prompt-panel" id="promptPanel">
+    <div class="prompt-header">
+      <h2>📚 提示词模板库</h2>
+      <div class="prompt-header-actions">
+        <button id="promptClose" title="关闭">✕</button>
+      </div>
+    </div>
+    <div class="prompt-body">
+      <div class="prompt-search">
+        <input type="text" id="promptSearch" placeholder="🔍 搜索模板...">
+      </div>
+      <div class="prompt-tabs" id="promptTabs"></div>
+      <div class="template-list" id="templateList"></div>
+      <div class="save-template-area" id="saveTemplateArea">
+        <div class="sta-title">💾 从当前输入保存为模板</div>
+        <div class="sta-row">
+          <input type="text" id="saveTemplateName" placeholder="模板名称（如：赛博朋克城市）">
+          <select id="saveTemplateCategory">
+            <option value="image">🎨 制图</option>
+            <option value="video">🎬 视频</option>
+            <option value="storyboard">📖 故事板</option>
+          </select>
+        </div>
+        <div class="sta-row">
+          <input type="text" id="saveTemplateTags" placeholder="标签（逗号分隔，如：科幻, 夜景）">
+          <button class="btn btn-primary" id="saveTemplateBtn">💾 保存</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Container -->
+  <div class="toast-container" id="toastContainer"></div>
+
+  <!-- Main App -->
+  <div class="app">
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <div class="sidebar-logo">
+        <span class="logo-icon">✦</span>
+        <span class="logo-text">Agnes</span>
+      </div>
+      <nav class="sidebar-nav">
+        <button class="nav-item active" data-view="chat" title="对话">
+          <span class="nav-icon">💬</span>
+          <span class="nav-label">对话</span>
+        </button>
+        <button class="nav-item" data-view="image" title="制图">
+          <span class="nav-icon">🎨</span>
+          <span class="nav-label">制图</span>
+        </button>
+        <button class="nav-item" data-view="video" title="视频">
+          <span class="nav-icon">🎬</span>
+          <span class="nav-label">视频</span>
+        </button>
+        <button class="nav-item" data-view="storyboard" title="故事板">
+          <span class="nav-icon">📖</span>
+          <span class="nav-label">故事板</span>
+        </button>
+        <a href="https://www.skills.sh" target="_blank" rel="noopener" class="nav-item" title="技能广场（外部站点）">
+          <span class="nav-icon">🏪</span>
+          <span class="nav-label">技能↗</span>
+        </a>
+      </nav>
+      <div class="sidebar-footer">
+        <button class="nav-item" id="openPrompts" title="提示词库">
+          <span class="nav-icon">📚</span>
+          <span class="nav-label">模板</span>
+        </button>
+        <button class="nav-item" id="openSettings" title="设置">
+          <span class="nav-icon">⚙️</span>
+          <span class="nav-label">设置</span>
+        </button>
+        <div class="connection-status" id="connectionStatus" title="API 连接状态">
+          <span class="status-dot"></span>
+          <span class="status-text">未配置</span>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="content">
+      <!-- ===== Chat View ===== -->
+      <section id="chat-view" class="view active">
+        <div class="view-header">
+          <h1>💬 对话</h1>
+          <div class="view-actions">
+            <button class="btn btn-ghost" id="clearChat" title="清空对话">
+              <span>🗑️</span> 清空
+            </button>
+          </div>
+        </div>
+        <div class="chat-container">
+          <div class="chat-messages" id="chatMessages">
+            <div class="message welcome-message">
+              <div class="message-avatar">✦</div>
+              <div class="message-content">
+                <div class="message-sender">Agnes AI</div>
+                <div class="message-text">
+                  <p>你好！我是 Agnes AI 助手 👋</p>
+                  <p>我可以帮助你：</p>
+                  <ul>
+                    <li>📝 回答问题、写作、翻译</li>
+                    <li>💻 编写和调试代码</li>
+                    <li>🧠 头脑风暴和创意策划</li>
+                    <li>📊 数据分析与总结</li>
+                  </ul>
+                  <p>请先在 <strong>⚙️ 设置</strong> 中配置你的 API Key，然后开始对话吧！</p>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="chat-input-area">
+            <div class="chat-input-wrapper">
+              <textarea
+                id="chatInput"
+                class="chat-input"
+                placeholder="输入消息... (Enter 发送, Shift+Enter 换行)"
+                rows="1"
+              ></textarea>
+              <button class="btn-send" id="sendMessage" title="发送">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <line x1="22" y1="2" x2="11" y2="13"></line>
+                  <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+                </svg>
+              </button>
+            </div>
+            <p class="chat-hint">Enter 发送 · Shift+Enter 换行</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===== Image View ===== -->
+      <section id="image-view" class="view">
+        <div class="view-header">
+          <h1>🎨 AI 制图</h1>
+          <div class="view-actions">
+            <button class="btn btn-ghost" id="clearImageHistory" title="清空历史">
+              <span>🗑️</span> 清空
+            </button>
+          </div>
+        </div>
+        <div class="image-container">
+          <div class="image-input-panel">
+            <div class="image-form">
+              <div class="form-group">
+                <label for="imagePrompt">描述你想要的画面</label>
+                <textarea
+                  id="imagePrompt"
+                  placeholder="一只可爱的橘猫在阳光下的窗台上睡觉，水彩风格，柔和的色调..."
+                  rows="3"
+                ></textarea>
+              </div>
+              <div class="form-group">
+                <label>参考图片 (可选 — 拖拽/点击上传，用于图生图)</label>
+                <div class="dropzone" id="imageRefDropzone">
+                  <div class="dz-icon">🖼️</div>
+                  <div class="dz-text">拖拽图片到此处，或 <strong>点击选择</strong></div>
+                  <div class="dz-hint">支持 JPG / PNG / WebP，最大 10MB</div>
+                  <div class="dz-preview">
+                    <img src="" alt="preview">
+                    <div class="dz-info">
+                      <div class="dz-name"></div>
+                      <div class="dz-size"></div>
+                    </div>
+                    <button class="dz-remove" type="button">✕</button>
+                  </div>
+                </div>
+              </div>
+              <div class="form-row">
+                <div class="form-group">
+                  <label for="imageSizeSelect">尺寸</label>
+                  <select id="imageSizeSelect">
+                    <option value="1024x1024">1024×1024</option>
+                    <option value="1024x768" selected>1024×768</option>
+                    <option value="768x1024">768×1024</option>
+                    <option value="1280x720">1280×720</option>
+                    <option value="1920x1080">1920×1080</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label for="imageCount">数量</label>
+                  <select id="imageCount">
+                    <option value="1">1 张</option>
+                    <option value="2">2 张</option>
+                    <option value="3">3 张</option>
+                    <option value="4">4 张</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label for="imageStyle">风格提示</label>
+                  <select id="imageStyle">
+                    <option value="">无特定风格</option>
+                    <option value="photorealistic">照片写实</option>
+                    <option value="anime">动漫风格</option>
+                    <option value="oil-painting">油画风格</option>
+                    <option value="watercolor">水彩风格</option>
+                    <option value="pixel-art">像素艺术</option>
+                    <option value="3d-render">3D 渲染</option>
+                  </select>
+                </div>
+              </div>
+              <div class="form-actions-row">
+                <button class="btn btn-secondary btn-optimize" id="optimizeImagePrompt" title="AI 优化提示词">
+                  <span class="btn-icon">✨</span>
+                  <span>优化提示词</span>
+                </button>
+                <button class="btn btn-primary btn-generate" id="generateImage">
+                  <span class="btn-icon">🎨</span>
+                  <span>生成图片</span>
+                </button>
+              </div>
+              <!-- Optimizer result for image -->
+              <div class="optimizer-result" id="imageOptimizerResult" style="display:none">
+                <div class="or-header">
+                  <span>✨ AI 双语优化建议</span>
+                  <button class="or-close" id="imageOptimizerClose">✕</button>
+                </div>
+                <div class="or-tabs">
+                  <button class="or-tab active" data-lang="zh">🇨🇳 中文描述</button>
+                  <button class="or-tab" data-lang="en">🇬🇧 English Prompt</button>
+                </div>
+                <div class="or-body" id="imageOptimizerBody">
+                  <div class="or-lang" data-lang="zh"></div>
+                  <div class="or-lang" data-lang="en" style="display:none"></div>
+                </div>
+                <div class="or-footer">
+                  <button class="btn btn-primary btn-small" id="imageOptimizerApplyCN">🇨🇳 采纳中文版</button>
+                  <button class="btn btn-secondary btn-small" id="imageOptimizerApplyEN">🇬🇧 采纳英文版</button>
+                  <button class="btn btn-ghost btn-small" id="imageOptimizerDiscard" style="margin-left:auto;">跳过</button>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="image-output">
+            <div class="image-loading" id="imageLoading" style="display:none">
+              <div class="spinner"></div>
+              <p>正在生成图片...</p>
+            </div>
+            <div class="image-gallery" id="imageGallery">
+              <div class="gallery-empty">
+                <div class="empty-icon">🎨</div>
+                <h3>还没有生成任何图片</h3>
+                <p>输入描述并点击生成按钮开始创作</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===== Storyboard View ===== -->
+      <section id="storyboard-view" class="view">
+        <div class="view-header">
+          <h1>📖 AI 故事板 · 多场景视频</h1>
+          <div class="view-actions">
+            <button class="btn btn-ghost" id="clearStoryboard" title="清空">
+              <span>🗑️</span> 清空
+            </button>
+          </div>
+        </div>
+        <div class="storyboard-container">
+          <!-- Concept Input -->
+          <div class="storyboard-input-panel" id="storyboardInputPanel">
+            <div class="storyboard-form">
+              <div class="form-group">
+                <label for="storyConcept">🎯 输入创意概念或文案</label>
+                <textarea
+                  id="storyConcept"
+                  placeholder="例如：青蛙王子的暗黑版本，一个关于救赎与背叛的童话故事..."
+                  rows="4"
+                ></textarea>
+                <p class="form-hint">输入一个创意主题、故事梗概或完整文案，AI 将自动拆分为多场景故事板</p>
+              </div>
+              <div class="form-row">
+                <div class="form-group">
+                  <label for="storySceneCount">目标场景数</label>
+                  <select id="storySceneCount">
+                    <option value="3">3 个场景</option>
+                    <option value="4">4 个场景</option>
+                    <option value="5" selected>5 个场景</option>
+                    <option value="6">6 个场景</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label for="storyStyle">视觉风格</label>
+                  <select id="storyStyle">
+                    <option value="电影质感">电影质感</option>
+                    <option value="动漫风格">动漫风格</option>
+                    <option value="写实风格">写实风格</option>
+                    <option value="水彩风格">水彩风格</option>
+                    <option value="赛博朋克">赛博朋克</option>
+                    <option value="奇幻风格">奇幻风格</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label for="storyResolution">画面比例</label>
+                  <select id="storyResolution">
+                    <option value="16:9">横屏 16:9</option>
+                    <option value="9:16">竖屏 9:16</option>
+                    <option value="1:1">方形 1:1</option>
+                  </select>
+                </div>
+              </div>
+              <div class="form-row form-row-2">
+                <div class="form-group">
+                  <label for="storyFrames">每场景帧数</label>
+                  <input type="number" id="storyFrames" value="49" min="9" max="97" step="8">
+                  <p class="form-hint">8n+1 规则, 49帧≈3秒@16fps</p>
+                </div>
+                <div class="form-group">
+                  <label for="storyFps">帧率 (FPS)</label>
+                  <select id="storyFps">
+                    <option value="8">8 FPS</option>
+                    <option value="16" selected>16 FPS</option>
+                    <option value="24">24 FPS</option>
+                    <option value="30">30 FPS</option>
+                  </select>
+                </div>
+              </div>
+              <div class="storyboard-actions">
+                <button class="btn btn-primary btn-generate" id="generateStoryboard">
+                  <span class="btn-icon">🤖</span>
+                  <span>生成故事板</span>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Storyboard Editor -->
+          <div class="storyboard-editor" id="storyboardEditor" style="display:none">
+            <div class="editor-header">
+              <h2>📋 故事板场景编辑器</h2>
+              <div class="editor-summary" id="editorSummary"></div>
+            </div>
+            <div class="scene-list" id="sceneList"></div>
+            <div class="editor-actions">
+              <button class="btn btn-secondary" id="addSceneBtn">➕ 添加场景</button>
+              <button class="btn btn-secondary" id="storyboardTutorBtn" style="font-size:13px;">
+                <span class="btn-icon">🤖</span>
+                <span>AI 助手</span>
+              </button>
+              <button class="btn btn-primary" id="generateAllVideos">
+                <span class="btn-icon">🎬</span>
+                <span>生成所有视频</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Storyboard AI Assistant -->
+          <div class="storyboard-assistant" id="storyboardAssistant" style="display:none">
+            <div class="sa-header">
+              <h3>🤖 AI 故事板助手</h3>
+              <button class="sa-close" id="saClose">✕</button>
+            </div>
+            <div class="sa-body" id="saBody">
+              <div class="sa-steps" id="saSteps">
+                <div class="sa-step active" data-step="concept">
+                  <span class="sa-step-num">1</span>
+                  <span class="sa-step-label">构思概念</span>
+                </div>
+                <div class="sa-step" data-step="scenes">
+                  <span class="sa-step-num">2</span>
+                  <span class="sa-step-label">拆解场景</span>
+                </div>
+                <div class="sa-step" data-step="prompts">
+                  <span class="sa-step-num">3</span>
+                  <span class="sa-step-label">优化提示词</span>
+                </div>
+                <div class="sa-step" data-step="generate">
+                  <span class="sa-step-num">4</span>
+                  <span class="sa-step-label">生成视频</span>
+                </div>
+              </div>
+              <div class="sa-content" id="saContent">
+                <div class="sa-messages" id="saMessages">
+                  <div class="sa-message sa-message-ai">
+                    <div class="sa-msg-avatar">🤖</div>
+                    <div class="sa-msg-content">
+                      <p>你好！我是你的 AI 故事板助手，可以帮你一步步完成故事板创作。</p>
+                      <p>首先，<strong>在概念输入框中写下你的创意想法</strong>，然后点击下方的按钮让我来帮你拆解！</p>
+                    </div>
+                  </div>
+                </div>
+                <div class="sa-input-row">
+                  <button class="btn btn-primary" id="saSuggestScenes">📖 帮我拆解场景</button>
+                  <button class="btn btn-secondary" id="saImprovePrompts">✨ 优化所有提示词</button>
+                  <button class="btn btn-secondary" id="saTiming">⏱️ 根据旁白调整时长</button>
+                  <button class="btn btn-secondary" id="saReview">🔍 审阅故事板</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Scene Generation Progress -->
+          <div class="scene-progress" id="sceneProgress" style="display:none">
+            <div class="progress-header">
+              <h3>🎬 批量视频生成进度</h3>
+              <span class="progress-counter" id="progressCounter">0 / 0</span>
+            </div>
+            <div class="progress-global-bar">
+              <div class="progress-global-fill" id="progressGlobalFill"></div>
+            </div>
+            <div class="scene-progress-list" id="sceneProgressList"></div>
+          </div>
+
+          <!-- Final Result -->
+          <div class="storyboard-result" id="storyboardResult" style="display:none">
+            <div class="result-header">
+              <h2>🎉 生成完成！</h2>
+              <button class="btn btn-ghost" id="downloadAllVideos">⬇️ 下载全部</button>
+            </div>
+            <div class="result-scenes" id="resultScenes"></div>
+          </div>
+        </div>
+      </section>
+
+      
+<!-- ===== Video View ===== -->
+      <section id="video-view" class="view">
+        <div class="view-header">
+          <h1>🎬 AI 视频生成</h1>
+          <div class="view-actions">
+            <button class="btn btn-ghost" id="clearVideoHistory" title="清空历史">
+              <span>🗑️</span> 清空
+            </button>
+          </div>
+        </div>
+        <div class="video-container">
+          <div class="video-input-panel">
+            <div class="video-form">
+              <div class="form-group">
+                <label for="videoPrompt">描述你想要的视频内容</label>
+                <textarea
+                  id="videoPrompt"
+                  placeholder="一个宁静的湖边日出，晨雾缭绕，鸟儿飞过天空，电影质感..."
+                  rows="3"
+                ></textarea>
+              </div>
+              <div class="form-row">
+                <div class="form-group">
+                  <label for="videoFrames">帧数</label>
+                  <input type="number" id="videoFrames" value="49" min="9" max="97" step="8">
+                  <p class="form-hint">遵循 8n+1 规则 (9, 17, 25, 33, 41, 49, 57, 65, 73, 81, 89, 97)</p>
+                </div>
+                <div class="form-group">
+                  <label for="videoFps">帧率 (FPS)</label>
+                  <select id="videoFps">
+                    <option value="8">8 FPS</option>
+                    <option value="16" selected>16 FPS</option>
+                    <option value="24">24 FPS</option>
+                    <option value="30">30 FPS</option>
+                  </select>
+                </div>
+              </div>
+              <div class="form-group">
+                <label for="videoRefDropzone">参考图片 (可选 — 拖拽/点击上传，用于图生视频)</label>
+                <div class="dropzone" id="videoRefDropzone">
+                  <div class="dz-icon">🎬</div>
+                  <div class="dz-text">拖拽参考图片到此处，或 <strong>点击选择</strong></div>
+                  <div class="dz-hint">支持 JPG / PNG / WebP，最大 10MB。留空则纯文本生成</div>
+                  <div class="dz-preview">
+                    <img src="" alt="preview">
+                    <div class="dz-info">
+                      <div class="dz-name"></div>
+                      <div class="dz-size"></div>
+                    </div>
+                    <button class="dz-remove" type="button">✕</button>
+                  </div>
+                </div>
+              </div>
+              <div class="form-actions-row">
+                <button class="btn btn-secondary btn-optimize" id="optimizeVideoPrompt" title="AI 优化提示词">
+                  <span class="btn-icon">✨</span>
+                  <span>优化提示词</span>
+                </button>
+                <button class="btn btn-primary btn-generate" id="generateVideo">
+                  <span class="btn-icon">🎬</span>
+                  <span>生成视频</span>
+                </button>
+              </div>
+              <!-- Optimizer result for video -->
+              <div class="optimizer-result" id="videoOptimizerResult" style="display:none">
+                <div class="or-header">
+                  <span>✨ AI 双语优化建议</span>
+                  <button class="or-close" id="videoOptimizerClose">✕</button>
+                </div>
+                <div class="or-tabs">
+                  <button class="or-tab active" data-lang="zh">🇨🇳 中文描述</button>
+                  <button class="or-tab" data-lang="en">🇬🇧 English Prompt</button>
+                </div>
+                <div class="or-body" id="videoOptimizerBody">
+                  <div class="or-lang" data-lang="zh"></div>
+                  <div class="or-lang" data-lang="en" style="display:none"></div>
+                </div>
+                <div class="or-footer">
+                  <button class="btn btn-primary btn-small" id="videoOptimizerApplyCN">🇨🇳 采纳中文版</button>
+                  <button class="btn btn-secondary btn-small" id="videoOptimizerApplyEN">🇬🇧 采纳英文版</button>
+                  <button class="btn btn-ghost btn-small" id="videoOptimizerDiscard" style="margin-left:auto;">跳过</button>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="video-output">
+            <div class="video-tasks" id="videoTasks">
+              <div class="tasks-empty">
+                <div class="empty-icon">🎬</div>
+                <h3>还没有生成任何视频</h3>
+                <p>输入描述并点击生成按钮开始创作</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script src="js/app.js"></script>
+</body>
+</html>

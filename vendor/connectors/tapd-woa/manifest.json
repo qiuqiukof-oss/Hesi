@@ -1,0 +1,8 @@
+{
+  "id": "tapd-woa",
+  "name": "tapd-woa",
+  "category": "project-management",
+  "enterprise": true,
+  "authType": "token",
+  "description": "tapd-woa connector for Hesi"
+}

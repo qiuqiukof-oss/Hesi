@@ -1,0 +1,8 @@
+{
+  "id": "tencent-weiyun",
+  "name": "tencent-weiyun",
+  "category": "storage",
+  "enterprise": false,
+  "authType": "token",
+  "description": "tencent-weiyun connector for Hesi"
+}

@@ -1,0 +1,39 @@
+{
+  "item": "refactor",
+  "itemName": "重构（回归保护）",
+  "dod": [
+    {
+      "type": "functional",
+      "id": "f1",
+      "check": "npm run lint",
+      "expect": "0 errors"
+    },
+    {
+      "type": "functional",
+      "id": "f2",
+      "check": "npm test",
+      "expect": "passing"
+    },
+    {
+      "type": "semantic",
+      "id": "s1",
+      "question": "重构后公共 API/对外契约是否有变化（diff 无破坏性变更）？",
+      "yes": false,
+      "evidence": "<git-diff-or-contract-file>:<line>"
+    },
+    {
+      "type": "semantic",
+      "id": "s2",
+      "question": "被抽取/移动的代码是否仍有调用方正确引用？",
+      "yes": true,
+      "evidence": "<source-file>:<line>"
+    },
+    {
+      "type": "quality",
+      "id": "q1",
+      "check": "npm test -- --coverage",
+      "pattern": "coverage[\\s:=]+(\\d+(?:\\.\\d+)?)%",
+      "thresholdExpr": ">= 80"
+    }
+  ]
+}

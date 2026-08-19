@@ -1,0 +1,169 @@
+/* ============================================================
+   LLM Provider 设置页（M3）— 模型服务 Tab
+   复用全局主题令牌（--bg-surface/--border-default/--text-*），
+   与 md-notes 风格一致，随主题变色。
+   ============================================================ */
+
+.llmp-root {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 12px;
+  font-family: var(--font-ui, system-ui, sans-serif);
+}
+
+.llmp-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.llmp-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.llmp-hint {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  margin-left: auto;
+}
+
+.llmp-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 10px;
+}
+
+.llmp-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 12px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md, 10px);
+}
+
+.llmp-card-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.llmp-card-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.llmp-card-kind {
+  font-size: 10px;
+  color: var(--text-tertiary);
+  background: var(--bg-hover);
+  border-radius: 4px;
+  padding: 1px 6px;
+}
+
+.llmp-badge {
+  font-size: 10px;
+  border-radius: 4px;
+  padding: 1px 6px;
+  margin-left: auto;
+  white-space: nowrap;
+}
+
+.llmp-ok { color: #1a7f37; background: rgba(26, 127, 55, 0.12); }
+.llmp-degraded { color: #b76e00; background: rgba(183, 110, 0, 0.12); }
+.llmp-down { color: #c62828; background: rgba(198, 40, 40, 0.12); }
+.llmp-unconfigured { color: var(--text-tertiary); background: var(--bg-hover); }
+
+.llmp-card-meta {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.llmp-base {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 160px;
+}
+
+.llmp-health-err {
+  font-size: 11px;
+  color: var(--danger, #c62828);
+  min-height: 14px;
+}
+
+.llmp-card-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.llmp-card-fields label {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 11px;
+  color: var(--text-tertiary);
+}
+
+.llmp-card-fields input,
+.llmp-card-fields select {
+  font-size: 12px;
+  padding: 4px 6px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm, 6px);
+  background: var(--bg-ground);
+  color: var(--text-primary);
+  min-width: 0;
+}
+
+.llmp-card-fields input:focus,
+.llmp-card-fields select:focus {
+  outline: none;
+  border-color: var(--accent, #4f8cff);
+}
+
+.llmp-card-actions {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.llmp-btn {
+  font-size: 11px;
+  padding: 4px 8px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm, 6px);
+  background: var(--bg-hover);
+  color: var(--text-primary);
+  cursor: pointer;
+}
+
+.llmp-btn:hover { border-color: var(--accent-glow, #4f8cff); }
+.llmp-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.llmp-btn-primary { background: var(--accent, #4f8cff); color: #fff; border-color: transparent; }
+
+.llmp-msg {
+  font-size: 11px;
+  min-height: 14px;
+}
+
+.llmp-msg-ok { color: #1a7f37; }
+.llmp-msg-error { color: var(--danger, #c62828); }
+
+.llmp-loading,
+.llmp-error {
+  font-size: 12px;
+  color: var(--text-tertiary);
+  padding: 12px;
+}

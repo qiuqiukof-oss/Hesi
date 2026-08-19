@@ -1,0 +1,523 @@
+/*
+ * Copyright (c) 2026 qiuqiukof-oss
+ * Licensed under the MIT License. See LICENSE for details.
+ */
+
+/* ============================================================
+   Mermaid Templates Tab — Styles extracted from right-panel.css
+   ============================================================ */
+
+.mt-browser {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+
+.mt-header {
+  padding: 12px 14px 8px;
+  border-bottom: 1px solid var(--border-default);
+  flex-shrink: 0;
+}
+
+.mt-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 2px;
+}
+
+.mt-desc {
+  font-size: 11px;
+  color: var(--text-tertiary);
+}
+
+.mt-categories {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border-subtle);
+  flex-shrink: 0;
+}
+
+.mt-cat-btn {
+  padding: 4px 10px;
+  border-radius: 14px;
+  border: 1px solid var(--border-default);
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 11px;
+  cursor: pointer;
+  transition: all 0.15s;
+  white-space: nowrap;
+  font-family: var(--font-ui);
+}
+
+.mt-cat-btn:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+  border-color: var(--border-strong);
+}
+
+.mt-cat-btn.active {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
+
+.mt-content {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 10px;
+}
+
+.mt-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100px;
+  color: var(--text-tertiary);
+  font-size: 12px;
+}
+
+.mt-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.mt-card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  overflow: hidden;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.mt-card:hover {
+  border-color: var(--border-strong);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.mt-card-header {
+  padding: 8px 10px 4px;
+}
+
+.mt-card-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  display: block;
+  margin-bottom: 2px;
+}
+
+.mt-card-desc {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  display: block;
+}
+
+.mt-card-preview {
+  padding: 8px 10px;
+  min-height: 60px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+
+.mt-card[draggable="true"] {
+  cursor: grab;
+  user-select: none;
+}
+
+.mt-card[draggable="true"]:active {
+  cursor: grabbing;
+}
+
+.mt-card.mt-card-dragging {
+  opacity: 0.4;
+  transform: scale(0.98);
+  transition: opacity 0.15s, transform 0.15s;
+}
+
+.mt-card-preview .mermaid-container {
+  margin: 0;
+  padding: 8px;
+  width: 100%;
+}
+
+.mt-card-preview .mermaid-container svg {
+  max-height: 180px;
+  width: auto;
+}
+
+.mt-card-loading {
+  color: var(--text-tertiary);
+  font-size: 11px;
+  animation: mt-pulse 1.5s ease-in-out infinite;
+}
+
+.mt-card-preview .mermaid-container ~ .mt-card-loading {
+  display: none;
+}
+
+@keyframes mt-pulse {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 1; }
+}
+
+.mt-card-actions {
+  display: flex;
+  gap: 4px;
+  padding: 4px 10px 8px;
+  flex-wrap: wrap;
+}
+
+.mt-btn {
+  padding: 4px 10px;
+  border-radius: 4px;
+  border: 1px solid var(--border-default);
+  background: var(--bg-hover);
+  color: var(--text-secondary);
+  font-size: 11px;
+  cursor: pointer;
+  transition: all 0.12s;
+  font-family: var(--font-ui);
+  line-height: 1.4;
+}
+
+.mt-btn:hover {
+  background: var(--bg-active);
+  color: var(--text-primary);
+  border-color: var(--border-strong);
+}
+
+.mt-btn-copy:hover {
+  background: var(--accent-glow-3);
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+.mt-btn-chat:hover {
+  background: var(--success-bg-2);
+  color: #22c55e;
+  border-color: #22c55e;
+}
+
+.mt-btn-expand:hover {
+  background: rgba(234, 179, 8, 0.10);
+  color: #eab308;
+  border-color: #eab308;
+}
+
+.mt-card-source {
+  border-top: 1px solid var(--border-subtle);
+  padding: 8px 10px;
+  background: var(--bg-ground);
+}
+
+.mt-card-source pre {
+  margin: 0;
+  overflow-x: auto;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--text-secondary);
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.mt-card-source code {
+  background: none;
+  padding: 0;
+  font-size: inherit;
+  color: inherit;
+}
+
+.mt-card-source.hidden {
+  display: none;
+}
+
+/* ── 自定义模板 header ── */
+.mt-custom-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 0 10px;
+  gap: 8px;
+}
+
+.mt-btn-new {
+  padding: 6px 14px;
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+  font-weight: 600;
+  transition: all 0.15s;
+}
+
+.mt-btn-new:hover {
+  background: var(--accent-hover);
+  border-color: var(--accent-hover);
+  color: #fff;
+  box-shadow: 0 2px 8px rgba(99, 102, 241, 0.3);
+}
+
+.mt-custom-count {
+  font-size: 11px;
+  color: var(--text-tertiary);
+}
+
+/* ── 自定义模板空状态 ── */
+.mt-custom-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 20px;
+  text-align: center;
+}
+
+.mt-custom-empty-icon {
+  font-size: 48px;
+  opacity: 0.3;
+  margin-bottom: 12px;
+}
+
+.mt-custom-empty-text {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-bottom: 4px;
+}
+
+.mt-custom-empty-hint {
+  font-size: 12px;
+  color: var(--text-tertiary);
+  line-height: 1.5;
+  max-width: 240px;
+}
+
+/* ── 自定义模板卡片 badge ── */
+.mt-card-badge {
+  display: inline-block;
+  font-size: 10px;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: rgba(234, 179, 8, 0.10);
+  color: #eab308;
+  margin-bottom: 4px;
+}
+
+.mt-card-custom {
+  border-color: rgba(234, 179, 8, 0.12);
+}
+
+.mt-card-custom:hover {
+  border-color: #eab308;
+  box-shadow: 0 2px 8px rgba(234, 179, 8, 0.08);
+}
+
+/* ── 编辑/删除按钮 ── */
+.mt-btn-edit:hover {
+  background: var(--accent-glow-3);
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+.mt-btn-delete:hover {
+  background: var(--danger-bg-2);
+  color: #ef4444;
+  border-color: #ef4444;
+}
+
+/* ── 模态框遮罩 ── */
+.mt-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  background: var(--modal-overlay);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.2s;
+  backdrop-filter: blur(2px);
+}
+
+.mt-modal-overlay.mt-modal-open {
+  opacity: 1;
+}
+
+.mt-modal {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-strong);
+  border-radius: 12px;
+  width: 480px;
+  max-width: 90vw;
+  max-height: 85vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.3);
+  transform: scale(0.95) translateY(8px);
+  transition: transform 0.2s var(--ease-out);
+}
+
+.mt-modal-open .mt-modal {
+  transform: scale(1) translateY(0);
+}
+
+.mt-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border-default);
+  flex-shrink: 0;
+}
+
+.mt-modal-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.mt-modal-close {
+  background: none;
+  border: none;
+  color: var(--text-tertiary);
+  font-size: 16px;
+  cursor: pointer;
+  padding: 4px;
+  line-height: 1;
+  border-radius: 4px;
+  transition: background 0.12s, color 0.12s;
+}
+
+.mt-modal-close:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.mt-modal-body {
+  padding: 16px;
+  overflow-y: auto;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.mt-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.mt-field-label {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+.mt-input {
+  padding: 8px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--border-default);
+  background: var(--bg-ground);
+  color: var(--text-primary);
+  font-size: 13px;
+  font-family: var(--font-ui);
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.mt-input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-glow-2);
+}
+
+.mt-input::placeholder {
+  color: var(--text-tertiary);
+}
+
+.mt-textarea {
+  padding: 8px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--border-default);
+  background: var(--bg-ground);
+  color: var(--text-primary);
+  font-size: 13px;
+  font-family: var(--font-mono);
+  line-height: 1.5;
+  outline: none;
+  resize: vertical;
+  min-height: 120px;
+  transition: border-color 0.15s;
+}
+
+.mt-textarea:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-glow-2);
+}
+
+.mt-textarea::placeholder {
+  color: var(--text-tertiary);
+  font-family: var(--font-ui);
+}
+
+.mt-modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 12px 16px;
+  border-top: 1px solid var(--border-default);
+  flex-shrink: 0;
+}
+
+.mt-modal-cancel {
+  background: var(--bg-hover);
+  color: var(--text-secondary);
+  border-color: var(--border-default);
+}
+
+.mt-modal-cancel:hover {
+  background: var(--bg-active);
+  color: var(--text-primary);
+  border-color: var(--border-strong);
+}
+
+.mt-modal-submit {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+  font-weight: 600;
+}
+
+.mt-modal-submit:hover {
+  background: var(--accent-hover);
+  color: #fff;
+}
+
+/* Light theme overrides */
+[data-scheme="light"] .mt-card {
+  background: #fff;
+}
+
+[data-scheme="light"] .mt-cat-btn.active {
+  color: #fff;
+}
+
+[data-scheme="light"] .mt-modal {
+  background: #fff;
+}
+
+[data-scheme="light"] .mt-input,
+[data-scheme="light"] .mt-textarea {
+  background: #f8f9fa;
+}

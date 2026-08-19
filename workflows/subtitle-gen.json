@@ -1,0 +1,32 @@
+{
+  "id": "subtitle-gen",
+  "name": "🎤 字幕生成",
+  "nameEn": "Subtitle Generation",
+  "description": "语音转文字 → SRT 格式化 → 字幕统计",
+  "descriptionEn": "Speech-to-text → SRT format → Subtitle statistics",
+  "icon": "🎤",
+  "presets": ["media-engineer"],
+  "category": "media",
+  "variables": {
+    "input": { "label": "音频/视频文件", "labelEn": "Audio/Video file", "type": "string", "required": true, "placeholder": "input.mp3" },
+    "model": { "label": "Whisper 模型", "labelEn": "Whisper model", "type": "select", "default": "base", "options": ["tiny","base","small","medium","large"] },
+    "language": { "label": "语言代码 (auto=自动)", "labelEn": "Language code (auto=detect)", "type": "string", "default": "auto", "placeholder": "zh, en, ja, auto" },
+    "output_format": { "label": "字幕格式", "labelEn": "Subtitle format", "type": "select", "default": "srt", "options": ["srt","vtt","txt","tsv","json"] }
+  },
+  "steps": [
+    {
+      "id": "transcribe",
+      "label": "Whisper 语音识别",
+      "labelEn": "Whisper transcription",
+      "agentId": "bash",
+      "task": "# Step 1: Run Whisper speech-to-text\nINPUT=\"{{INPUT}}\"\nMODEL=\"{{MODEL}}\"\nLANG=\"{{LANG}}\"\nFMT=\"{{FMT}}\"\n\nwhisper \"$INPUT\" --model $MODEL --language $LANG --output_format $FMT 2>&1\necho \"\"\necho \"✅ 转录完成\""
+    },
+    {
+      "id": "format-stats",
+      "label": "字幕统计与格式化",
+      "labelEn": "Subtitle stats & formatting",
+      "agentId": "bash",
+      "task": "# Step 2: View subtitle stats and preview\nINPUT=\"{{INPUT}}\"\nSRT_FILE=\"${INPUT%.*}.{{FMT}}\"\n\necho \"===== 字幕统计 =====\"\necho \"\"\nif [ -f \"$SRT_FILE\" ]; then\n  TOTAL_LINES=$(wc -l < \"$SRT_FILE\")\n  echo \"📄 文件: $SRT_FILE\"\n  echo \"行数: $TOTAL_LINES 行\"\n  # Count subtitle entries (sequential numbers)\n  ENTRIES=$(grep -c '^[0-9][0-9]*$' \"$SRT_FILE\" 2>/dev/null || echo \"?\")\n  echo \"字幕条数: $ENTRIES\"\n  DURATION=$(tail -n +2 \"$SRT_FILE\" | grep '-->' | tail -1 | awk '{print $3}')\n  if [ -n \"$DURATION\" ]; then\n    echo \"总时长: $DURATION\"\n  fi\n  echo \"\"\n  echo \"===== 内容预览 (前 15 条字幕) =====\"\n  head -60 \"$SRT_FILE\"\n  if [ \"$TOTAL_LINES\" -gt 60 ]; then\n    echo \"...\"\n    echo \"(共 $TOTAL_LINES 行，仅显示前 60 行)\"\n  fi\nelse\n  echo \"⚠ 未找到字幕文件: $SRT_FILE\"\n  echo \"请检查 whisper 输出中生成的实际文件名\"\n  ls *.srt *.vtt *.txt *.tsv 2>/dev/null || echo \"(无字幕文件)\"\nfi"
+    }
+  ]
+}

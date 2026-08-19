@@ -1,0 +1,8 @@
+{
+  "id": "pkulaw",
+  "name": "pkulaw",
+  "category": "documentation",
+  "enterprise": true,
+  "authType": "token",
+  "description": "pkulaw connector for Hesi"
+}

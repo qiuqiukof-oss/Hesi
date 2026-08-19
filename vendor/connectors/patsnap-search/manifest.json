@@ -1,0 +1,8 @@
+{
+  "id": "patsnap-search",
+  "name": "patsnap-search",
+  "category": "documentation",
+  "enterprise": false,
+  "authType": "token",
+  "description": "patsnap-search connector for Hesi"
+}

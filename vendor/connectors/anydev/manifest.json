@@ -1,0 +1,8 @@
+{
+  "id": "anydev",
+  "name": "anydev",
+  "category": "cloud-crm",
+  "enterprise": true,
+  "authType": "token",
+  "description": "anydev connector for Hesi"
+}

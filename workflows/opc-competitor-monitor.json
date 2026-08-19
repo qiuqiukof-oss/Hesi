@@ -1,0 +1,29 @@
+{
+  "id": "opc-competitor-monitor",
+  "name": "🔍 竞品自动监控工作流",
+  "description": "自动分析竞品动态 → 生成监控报告（OPC 模式）",
+  "icon": "🔍",
+  "category": "opc",
+  "variables": {
+    "competitors": {
+      "label": "竞品名称（逗号分隔）",
+      "type": "text",
+      "default": "竞品A, 竞品B, 竞品C",
+      "required": true
+    }
+  },
+  "steps": [
+    {
+      "id": "step1",
+      "label": "收集竞品动态",
+      "agentId": "opencode",
+      "task": "搜索关于以下竞品的最新动态（新闻/产品更新/营销活动）：\n{{competitors}}\n\n关注：新产品发布、价格调整、营销活动、融资/合作消息。"
+    },
+    {
+      "id": "step2",
+      "label": "生成竞品报告",
+      "agentId": "opencode",
+      "task": "生成竞品监控报告：\n\n## 本周竞品动态\n- [竞品名称]: 动态描述 + 影响分析 + 应对建议\n\n## 综合建议\n- 短期行动\n- 中期策略"
+    }
+  ]
+}

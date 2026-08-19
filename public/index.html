@@ -1,0 +1,1071 @@
+<!--
+  Copyright (c) 2026 qiuqiukof-oss
+  Licensed under the MIT License. See LICENSE for details.
+-->
+
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title data-i18n="app.title">Hesi</title>
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <link rel="stylesheet" href="/xterm/css/xterm.css" />
+  <link rel="stylesheet" href="/css/theme.css" />
+  <link rel="stylesheet" href="/css/sidebar.css" />
+  <link rel="stylesheet" href="/css/terminal.css" />
+  <link rel="stylesheet" href="/css/welcome.css" />
+  <link rel="stylesheet" href="/css/chat.css" />
+  <link rel="stylesheet" href="/css/memory-sessions.css" />
+  <link rel="stylesheet" href="/css/toast.css" />
+  <link rel="stylesheet" href="/css/modal.css" />
+  <link rel="stylesheet" href="/css/roundtable-view.css" />
+  <link rel="stylesheet" href="/css/plan-chat.css" />
+  <!-- 气泡统一视觉层：须在 chat.css / plan-chat.css 之后加载 -->
+  <link rel="stylesheet" href="/css/chat-bubble.css" />
+  <link rel="stylesheet" href="/css/workflow.css" />
+  <link rel="stylesheet" href="/css/orchestrator.css" />
+    <link rel="stylesheet" href="/css/sidebar-core.css" />
+    <link rel="stylesheet" href="/css/history-viewer.css" />
+    <link rel="stylesheet" href="/css/drop-zone.css" />
+    <link rel="stylesheet" href="/css/pin-report.css" />
+    <link rel="stylesheet" href="/css/pin-quick.css" />
+    <link rel="stylesheet" href="/css/md-notes.css" />
+    <link rel="stylesheet" href="/css/micro-interactions.css" />
+    <link rel="stylesheet" href="/css/session-restore.css" />
+    <link rel="stylesheet" href="/css/history-panel.css" />
+    <link rel="stylesheet" href="/css/context-menu.css" />
+    <link rel="stylesheet" href="/css/snippet-overlay.css" />
+    <link rel="stylesheet" href="/css/workspace-profiles.css" />
+  <link rel="stylesheet" href="/css/right-panel.css" />
+    <link rel="stylesheet" href="/css/browser.css" />
+    <link rel="stylesheet" href="/css/mermaid.css" />
+    <link rel="stylesheet" href="/css/dash-sr.css" />
+    <link rel="stylesheet" href="/css/dash-alert.css" />
+    <link rel="stylesheet" href="/css/dash-process.css" />
+    <link rel="stylesheet" href="/css/dash-mcp.css" />
+    <link rel="stylesheet" href="/css/dash-project.css" />
+  <link rel="stylesheet" href="/css/dashboard.css" />
+  <link rel="stylesheet" href="/css/charts.css" />
+  <link rel="stylesheet" href="/css/onboarding.css" />
+</head>
+<body>
+  <!-- ====== Global Loading Progress Bar ====== -->
+  <div id="global-progress"></div>
+  <!-- ====== Sidebar ====== -->
+  <aside id="sidebar">
+    <header class="sidebar-header">
+      <h1><img src="/in-app-icon.png" class="sidebar-logo-icon" alt="Hesi" width="20" height="20"> Hesi</h1>
+      <div class="preset-selector" id="preset-selector">
+        <button class="preset-toggle" id="preset-toggle" title="切换预设"><span class="preset-toggle-icon">💻</span><span class="preset-toggle-label" id="preset-toggle-label">开发者</span></button>
+        <div class="preset-dropdown hidden" id="preset-dropdown">
+          <div class="preset-dropdown-header">CLI 预设</div>
+          <div id="preset-list"></div>
+        </div>
+      </div>
+    </header>
+
+    <!-- GitHub 支持按钮（搜索框上方） -->
+    <a id="github-support-btn" class="github-support-btn"
+       href="https://github.com/qiuqiukof-oss/Hesi" target="_blank" rel="noopener noreferrer"
+       title="在GitHub点亮星标、分享给好友或进行捐赠，每一份支持都能助力项目发展！">
+      <span>⭐</span><span>支持项目</span>
+    </a>
+
+    <!-- Onboarding: 新手指南（流光按钮） -->
+    <button id="onboarding-guide-btn" class="onboarding-guide-btn" aria-label="新手指南">
+      <span class="og-ico">🚀</span><span>新手指南</span>
+    </button>
+
+    <div id="search-area">
+      <input type="text" id="search-input" placeholder="🔍  Search CLIs..." autocomplete="off" aria-label="搜索 CLI" />
+      <button id="discover-btn" class="icon-btn" title="Re-discover CLIs from PATH">⟳</button>
+      <button id="add-folder-btn" class="icon-btn" title="New folder">📁+</button>
+    </div>
+
+    <!-- Category filter chips -->
+    <div id="category-filters">
+      <button class="category-chip active" data-category="all">All</button>
+      <button class="category-chip" data-category="favorites">⭐ Favorites (0)</button>
+      <button class="category-chip" data-category="agent">🤖 Agent</button>
+      <button class="category-chip" data-category="directory">📂 Env</button>
+      <button class="category-chip" data-category="tool">🔧 Tool</button>
+    </div>
+
+    <!-- Tools & Features section -->
+    <div id="sidebar-tools-section">
+      <div class="sidebar-section-header">
+        <span class="sidebar-section-icon">🔧</span>
+        <span class="sidebar-section-title">工具</span>
+      </div>
+      <div class="sidebar-tools-grid" id="sidebar-tools-grid">
+        <button class="sidebar-tool-btn" data-tool="plugin-plaza" title="插件广场 — 发现、安装、创作">
+          <span class="stb-icon">🏪</span>
+          <span class="stb-label">广场</span>
+        </button>
+        <button class="sidebar-tool-btn" data-tool="workbuddy-hub" title="WorkBuddy 广场 — 链接专家/技能/连接器">
+          <span class="stb-icon">🧭</span>
+          <span class="stb-label">WB广场</span>
+        </button>
+        <button class="sidebar-tool-btn" data-tool="bots-plaza" title="通讯接入 — 机器人平台配置（QQ/企微/飞书/钉钉/微信）">
+          <span class="stb-icon">🔌</span>
+          <span class="stb-label">通讯接入</span>
+        </button>
+        <button class="sidebar-tool-btn" data-tool="llm-plaza" title="模型服务 — 接入各家大模型（云端/本地）">
+          <span class="stb-icon">🤖</span>
+          <span class="stb-label">模型服务</span>
+        </button>
+        <button class="sidebar-tool-btn" data-tool="tools-page" title="全部工具">
+          <span class="stb-icon">🧰</span>
+          <span class="stb-label">工具箱</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- 全局工作空间：左侧栏紧凑按钮（与「新手指南」同款风格） -->
+    <button id="workspace-dir-btn" class="ws-dir-sidebar-btn" title="选择全局工作空间（新终端与 AI 执行默认在此）">
+      <span class="wsd-ico">📂</span><span id="ws-dir-label" class="wsd-label">全局工作空间</span>
+    </button>
+
+    <nav id="cli-list" role="listbox" aria-label="Available CLIs">
+      <!-- Skeleton loading placeholders — replaced by app.js when data loads -->
+      <div class="skeleton-list">
+        <div class="skeleton-item"><div class="skeleton-shape s-icon"></div><div class="skeleton-lines"><div class="skeleton-shape s-line s-line-1"></div><div class="skeleton-shape s-line s-line-2"></div></div><div class="skeleton-shape s-badge"></div></div>
+        <div class="skeleton-item"><div class="skeleton-shape s-icon"></div><div class="skeleton-lines"><div class="skeleton-shape s-line s-line-1 s-line-w"></div><div class="skeleton-shape s-line s-line-2 s-line-w2"></div></div><div class="skeleton-shape s-badge"></div></div>
+        <div class="skeleton-item"><div class="skeleton-shape s-icon"></div><div class="skeleton-lines"><div class="skeleton-shape s-line s-line-1"></div><div class="skeleton-shape s-line s-line-2"></div></div><div class="skeleton-shape s-badge s-badge-sm"></div></div>
+        <div class="skeleton-item"><div class="skeleton-shape s-icon"></div><div class="skeleton-lines"><div class="skeleton-shape s-line s-line-1"></div><div class="skeleton-shape s-line s-line-2"></div></div><div class="skeleton-shape s-badge"></div></div>
+        <div class="skeleton-item"><div class="skeleton-shape s-icon"></div><div class="skeleton-lines"><div class="skeleton-shape s-line s-line-1 s-line-w"></div><div class="skeleton-shape s-line s-line-2"></div></div><div class="skeleton-shape s-badge s-badge-sm"></div></div>
+        <div class="skeleton-item"><div class="skeleton-shape s-icon"></div><div class="skeleton-lines"><div class="skeleton-shape s-line s-line-1"></div><div class="skeleton-shape s-line s-line-2 s-line-w2"></div></div><div class="skeleton-shape s-badge"></div></div>
+      </div>
+      <div class="skeleton-list skeleton-list-folder">
+        <div class="skeleton-item s-folder"><div class="skeleton-shape s-folder-toggle"></div><div class="skeleton-lines"><div class="skeleton-shape s-line s-folder-line"></div></div></div>
+        <div class="skeleton-item"><div class="skeleton-shape s-icon s-icon-nest"></div><div class="skeleton-lines"><div class="skeleton-shape s-line s-line-1"></div><div class="skeleton-shape s-line s-line-2"></div></div><div class="skeleton-shape s-badge"></div></div>
+        <div class="skeleton-item"><div class="skeleton-shape s-icon s-icon-nest"></div><div class="skeleton-lines"><div class="skeleton-shape s-line s-line-1 s-line-w"></div><div class="skeleton-shape s-line s-line-2"></div></div><div class="skeleton-shape s-badge s-badge-sm"></div></div>
+      </div>
+    </nav>
+
+    <!-- Pinned Output Section - Enhanced with report tools -->
+    <div id="pinned-section" class="sidebar-pinned-section hidden">
+      <div class="pinned-header">
+        <span class="pinned-header-icon">📌</span>
+        <span class="pinned-header-title">输出片段</span>
+        <div class="pinned-header-actions">
+          <button id="pinned-clear-btn" class="pinned-clear-btn" title="清除">🗑</button>
+        </div>
+      </div>
+      <div id="pinned-list"></div>
+    </div>
+
+    <!-- Sidebar Alerts (resource threshold warnings) -->
+    <div id="sidebar-alerts" class="sidebar-alerts hidden">
+      <div class="sa-header">
+        <span class="sa-header-icon">🔔</span>
+        <span class="sa-header-title">系统告警</span>
+        <span class="sa-badge">0</span>
+        <button class="sa-dismiss-all" title="全部忽略">✕</button>
+      </div>
+      <div class="sa-list" id="sa-list"></div>
+    </div>
+
+    <footer class="sidebar-footer">
+      <button id="add-cli-btn" class="primary-btn">+ Add CLI</button>
+      <div id="connection-status" class="status-indicator disconnected">
+        <span class="status-dot"></span>
+        <span class="status-text">Disconnected</span>
+      </div>
+    </footer>
+
+    <button id="sidebar-toggle" class="sidebar-toggle-btn" data-i18n-title="sidebar.toggle.collapse">◀</button>
+    <div id="sidebar-resize-handle" data-i18n-title="sidebar.resize"></div>
+  </aside>
+
+  <!-- ====== Main: Terminal ====== -->
+  <main id="main">
+    <div id="terminal-area">
+      <div id="tab-bar"></div>
+      <div id="terminal-container">
+      <div id="terminal"></div>
+      <!-- Terminal Search Bar -->
+      <div id="terminal-search-bar" class="hidden">
+        <div class="tsb-wrap">
+          <span class="tsb-icon">🔍</span>
+          <input type="text" id="terminal-search-input" placeholder="Search terminal output…" spellcheck="false" aria-label="搜索终端输出" />
+          <span id="terminal-search-results" class="tsb-results">0/0</span>
+          <button class="tsb-btn" id="terminal-search-prev" title="Previous (Shift+Enter)">▲</button>
+          <button class="tsb-btn" id="terminal-search-next" title="Next (Enter)">▼</button>
+          <button class="tsb-close" id="terminal-search-close" title="Close (Esc)">✕</button>
+        </div>
+      </div>
+      <div id="connection-lost">
+        <div class="cl-body">
+          <div class="cl-icon">🔌</div>
+          <p>Connection lost — click to reconnect <span class="reconnect-spinner hidden">⟳</span></p>
+          <span class="cl-hint">Auto-reconnect will attempt 10 times with exponential backoff</span>
+        </div>
+      </div>
+
+      <!-- ====== Chat Drawer ====== -->
+      <chat-panel>
+      <div id="chat-drawer" class="hidden">
+        <div id="chat-resize-handle" data-i18n-title="chat.resize"></div>
+        <div class="chat-header">
+          <span class="chat-header-icon">💬</span>
+          <span class="chat-header-title" data-i18n="chat.title">AI 对话</span>
+          <span class="chat-header-subtitle" data-i18n="chat.subtitle">与 AI 助手交流</span>
+          <div class="chat-header-actions">
+            <button id="chat-terminal-toggle" class="chat-action-btn terminal-toggle active" title="终端上下文：已启用">📟</button>
+            <button id="chat-export-btn" class="chat-action-btn" title="导出聊天记录">📥</button>
+            <button id="chat-blackboard-btn" class="chat-action-btn" title="多 Agent 黑板面板">🗂️</button>
+            <button id="chat-roundtable-btn" class="chat-action-btn" title="围炉圆桌 · 多 Agent 可视化讨论">🍵</button>
+            <button id="chat-memory-btn" class="chat-action-btn" title="记忆（用户画像 / 已记住的事实）">🧠</button>
+            <button id="chat-savings-btn" class="chat-action-btn savings" title="本会话暂无节省记录">
+              <span class="savings-ring" aria-hidden="true">
+                <svg viewBox="0 0 56 56">
+                  <circle class="savings-bg" cx="28" cy="28" r="24"></circle>
+                  <circle class="savings-fill" cx="28" cy="28" r="24"></circle>
+                </svg>
+              </span>
+              <span class="savings-pct">--</span>
+              <span class="savings-label">命中</span>
+            </button>
+            <button id="chat-context-btn" class="chat-action-btn savings" title="上下文占用率（一轮对话后更新）">
+              <span class="savings-ring" aria-hidden="true">
+                <svg viewBox="0 0 56 56">
+                  <circle class="savings-bg" cx="28" cy="28" r="24"></circle>
+                  <circle class="savings-fill" cx="28" cy="28" r="24"></circle>
+                </svg>
+              </span>
+              <span class="savings-pct">--</span>
+            </button>
+            <button id="chat-dsh-btn" class="chat-action-btn" title="DSH Web UI（完整版，iframe 嵌入）">🐋⛶</button>
+            <button id="chat-clear-btn" class="chat-action-btn" data-i18n-title="chat.clear">🗑</button>
+            <button id="chat-close-btn" class="chat-action-btn" data-i18n-title="chat.close">✕</button>
+          </div>
+        </div>
+        <div id="chat-messages">
+          <div class="chat-message welcome-msg">
+            <div class="msg-avatar ai-avatar">🤖</div>
+            <div class="msg-content">
+              <div class="msg-sender" data-i18n="chat.sender.ai">AI 助手</div>
+              <div class="msg-bubble ai-bubble" data-i18n="chat.welcome">你好！我是 Hesi 的 AI 助手。你可以问我关于 CLI 工具的问题，或者让我帮你分析终端输出。😊</div>
+            </div>
+          </div>
+        </div>
+        <div id="category-chips" class="category-chips" aria-label="对话模式选择"></div>
+        <div id="dsh2-engine-status" class="dsh2-engine-status" data-state="idle" hidden>⏳ DSH 引擎状态未知</div>
+        <div class="chat-input-area">
+          <div id="discuss-bar" class="discuss-bar">
+            <label class="discuss-switch" id="discuss-switch" title="开启后，你的指令会由 AI 助手与所选 CLI Agent（可多选）按回合协作讨论，过程实时可见">
+              <input type="checkbox" id="discuss-toggle" />
+              <span class="discuss-switch-label">🤝 AI 讨论</span>
+            </label>
+            <div id="discuss-controls" class="discuss-controls" style="display:none;">
+              <div class="discuss-partner-wrap">
+                <button type="button" id="discuss-partner-btn" class="discuss-select discuss-multibtn placeholder" title="选择参与讨论的 CLI Agent（可多选）">选择 CLI Agent ▾</button>
+                <div id="discuss-partner-dropdown" class="discuss-dropdown hidden"></div>
+              </div>
+              <select id="discuss-rounds" class="discuss-select" title="最多讨论回合数（1 轮 = AI 与每个 CLI Agent 各发言一次）">
+                <option value="1">1 轮</option>
+                <option value="2">2 轮</option>
+                <option value="4">4 轮</option>
+                <option value="6" selected>6 轮</option>
+                <option value="8">8 轮</option>
+                <option value="10">10 轮</option>
+              </select>
+            </div>
+            <span class="discuss-sep" aria-hidden="true"></span>
+            <label class="discuss-switch plan-switch" id="plan-switch" title="开启后自动拆解目标为可执行步骤并真实执行；同时勾选 AI 讨论→协作工作流（讨论→方案→实施）">
+              <input type="checkbox" id="plan-toggle" />
+              <span class="discuss-switch-label">⚡ 自动执行</span>
+            </label>
+            <div id="plan-controls" class="discuss-controls" style="display:none;">
+              <select id="plan-agent" class="discuss-select" title="执行阶段仅 AI 助手（安全设计：外部 CLI Agent 执行不受运行时拦截约束）">
+                <option value="ai" selected>AI 助手执行</option>
+              </select>
+              <label class="plan-full-access" title="开启后本次会话所有步骤直接执行，不再逐个弹审批气泡（危险操作也不确认）。建议仅在自己明确信任目标时开启。">
+                <input type="checkbox" id="plan-full-access" />
+                <span>🔓 允许完全访问</span>
+              </label>
+              <span class="plan-hint">会真实改动本机文件 · 关闭页面即取消</span>
+            </div>
+            <div id="plan-collab-hint" class="plan-hint" style="display:none;margin-top:2px;">
+              💡 同时勾选 AI 讨论时自动启用协作工作流：AI 助手+CLI Agent 先讨论再执行。目标越明确（做什么 + 验收标准），讨论越快收敛。
+            </div>
+          </div>
+          <div id="chat-attachments" class="chat-attachments"></div>
+          <div class="chat-input-row">
+            <button id="chat-attach-btn" type="button" class="chat-attach-btn" title="发送图片 / 视频 / 文件给 AI" data-i18n-title="chat.attach">📎</button>
+            <button id="chat-verify-btn" type="button" class="chat-verify-btn" title="核查模式：AI 先读文件 / 搜索取证再作答（点击开关）">🔍</button>
+            <button id="chat-dsh-engine-btn" type="button" class="chat-engine-btn" title="DSH 引擎（原生聊天）：与 AI 助手并行，消息直达 DSH 进程内引擎">🐋</button>
+            <textarea id="chat-input" rows="1" data-i18n-placeholder="chat.input.placeholder" autocomplete="off"></textarea>
+            <button id="chat-send-btn" class="chat-send-btn" data-i18n-title="chat.send">➤</button>
+          </div>
+          <input type="file" id="chat-file-input" multiple
+            accept="image/*,video/*,.pdf,.txt,.md,.markdown,.json,.csv,.log,.js,.mjs,.ts,.tsx,.jsx,.py,.yaml,.yml,.xml,.html,.htm,.css,.scss,.sh,.bash,.sql,.java,.go,.rs,.c,.cpp,.h,.hpp,.rb,.php,.swift,.kt,.lua"
+            style="display:none" aria-label="上传附件（图片/视频/文件）" />
+        </div>
+
+        <!-- ====== DSH（DeepSeek Harness）引擎模式：切换后替代 AI 聊天区 ====== -->
+        <div id="dsh-embed">
+          <div class="dsh-embed-bar">
+            <span class="dsh-embed-title">🐋 DeepSeek Harness</span>
+            <span id="dsh-embed-status" data-state="idle">⚙️ 初始化…</span>
+            <a id="dsh-embed-open" class="bb-embed-open" href="#" target="_blank" rel="noopener noreferrer" title="新标签页打开 DSH">⛶</a>
+            <button id="dsh-embed-restart" class="chat-action-btn" title="重启 DSH 引擎">🔄</button>
+            <button id="dsh-embed-close" class="chat-action-btn" title="切回 AI 助手">✕</button>
+          </div>
+          <iframe id="dsh-embed-frame" title="DeepSeek Harness"></iframe>
+        </div>
+      </div>
+      </chat-panel>
+
+      <!-- ====== Welcome Overlay (Default View) ====== -->
+      <div id="welcome-overlay">
+        <div class="welcome-scroll">
+          <div class="welcome-content">
+
+            <!-- Header (always visible) -->
+            <div class="welcome-header">
+              <div class="welcome-logo"><img src="/brand-icon.png" alt="Hesi" width="144" height="144"></div>
+<h2 data-i18n="welcome.title">Hesi</h2>
+<p class="welcome-subtitle" data-i18n-html="welcome.subtitle">让多个 AI 合在一起思考的地方<br>运行任何 CLI，连接任何 Agent，控制任何浏览器</p>
+            </div>
+
+            <!-- ====== Carousel ====== -->
+            <div class="welcome-carousel" id="welcome-carousel">
+              <!-- Track -->
+              <div class="carousel-track" id="carousel-track">
+
+                <!-- Slide 0: Quick Start → AI Agents → Other CLI -->
+                <div class="carousel-slide" data-slide="0">
+                  <section class="welcome-section">
+                    <h3 data-i18n="quickstart.title">🚀 快速开始</h3>
+                    <div class="welcome-grid" id="welcome-grid">
+                      <div class="welcome-card">
+                        <div class="card-icon">1</div>
+                        <div class="card-body">
+                          <strong>选择 CLI</strong>
+                          <span>点击左侧 CLIs 列表中的任意工具</span>
+                        </div>
+                      </div>
+                      <div class="welcome-card">
+                        <div class="card-icon">2</div>
+                        <div class="card-body">
+                          <strong>开始使用</strong>
+                          <span>终端自动启动，直接输入命令操作</span>
+                        </div>
+                      </div>
+                      <div class="welcome-card">
+                        <div class="card-icon">3</div>
+                        <div class="card-body">
+                          <strong>随时切换</strong>
+                          <span>点击其他 CLI 即可切换，运行状态互不干扰</span>
+                        </div>
+                      </div>
+                    </div>
+                  </section>
+
+                  <section class="welcome-section">
+                    <h3 data-i18n="install.ai">🤖 AI 智能体（一键安装）</h3>
+                    <div id="welcome-agent-install" class="install-grid-2 compact">
+                      <!-- 由 agent-install-ui.js 动态渲染：OpenCode / OhMyOpenAgent（Codex 已移至下方手动区） -->
+                    </div>
+                    <p class="welcome-note" data-i18n-html="install.ai.note">点击 <strong>⚡ 一键安装</strong> 即可集成智能体；U 盘版已随附离线包，插上即用、无需联网。开发版也可在左侧 <strong>Agent 面板</strong> 查看与管理。</p>
+                  </section>
+
+                  <section class="welcome-section">
+                    <h3 data-i18n="install.manual">🛠️ 其他Agent CLI（手动安装）</h3>
+                    <div class="install-grid-2 compact">
+                      <div class="install-card">
+                        <div class="install-header">
+                          <span class="install-icon">💻</span>
+                          <strong>Claude Code<span class="install-desc" data-i18n="install.claude.desc">Anthropic 终端代理</span></strong>
+                        </div>
+                        <div class="install-body" style="display:flex;flex-direction:column;gap:6px;">
+                          <code class="install-code">npm i -g @anthropic-ai/claude-code</code>
+                          <span class="install-desc" data-i18n="install.claude.note">需 Anthropic API Key</span>
+                        </div>
+                      </div>
+                      <div class="install-card">
+                        <div class="install-header">
+                          <span class="install-icon">🧩</span>
+                          <strong>Codebuff<span class="install-desc" data-i18n="install.codebuff.desc">自动化代码编写</span></strong>
+                        </div>
+                        <div class="install-body" style="display:flex;flex-direction:column;gap:6px;">
+                          <code class="install-code">npm install -g codebuff</code>
+                          <span class="install-desc" data-i18n="install.codebuff.desc">文件操作和代码重构</span>
+                        </div>
+                      </div>
+                      <div class="install-card">
+                        <div class="install-header">
+                          <span class="install-icon">🎯</span>
+                          <strong>mimocode<span class="install-desc" data-i18n="install.mimocode.desc">mimocode 终端智能体</span></strong>
+                        </div>
+                        <div class="install-body" style="display:flex;flex-direction:column;gap:6px;">
+                          <code class="install-code">npm install -g mimocode</code>
+                          <span class="install-desc" data-i18n="install.mimocode.note">需 mimocode 账号 Token</span>
+                        </div>
+                      </div>
+                      <div class="install-card">
+                        <div class="install-header">
+                          <span class="install-icon">🔮</span>
+                          <strong>Codex<span class="install-desc" data-i18n="install.codex.desc">OpenAI Codex CLI</span></strong>
+                        </div>
+                        <div class="install-body" style="display:flex;flex-direction:column;gap:6px;">
+                          <code class="install-code">npm install -g @openai/codex</code>
+                          <span class="install-desc" data-i18n="install.codex.note">需 OpenAI API Key</span>
+                        </div>
+                      </div>
+                    </div>
+                  </section>
+                </div>
+
+
+                <!-- Slide 1: Shortcuts → Tips → Features -->
+                <div class="carousel-slide" data-slide="1">
+                  <section class="welcome-section">
+                    <h3 data-i18n="shortcuts.title">⌨️ 快捷键</h3>
+                    <div class="shortcuts-grid" id="welcome-shortcuts">
+                      <div class="shortcut-row"><span class="shortcut-key">Ctrl+K</span><span class="shortcut-desc">打开命令面板</span></div>
+                      <div class="shortcut-row"><span class="shortcut-key">Ctrl+B</span><span class="shortcut-desc">切换侧边栏</span></div>
+                      <div class="shortcut-row"><span class="shortcut-key">Ctrl+Shift+F</span><span class="shortcut-desc">终端内搜索</span></div>
+                      <div class="shortcut-row"><span class="shortcut-key">Ctrl+I</span><span class="shortcut-desc">AI 对话</span></div>
+                      <div class="shortcut-row"><span class="shortcut-key">Ctrl+Shift+A</span><span class="shortcut-desc">全局搜索</span></div>
+                      <div class="shortcut-row"><span class="shortcut-key">Ctrl+=/-</span><span class="shortcut-desc">调整字体</span></div>
+                    </div>
+                  </section>
+
+                  <section class="welcome-section">
+                    <h3 data-i18n="tips.title">💡 使用技巧</h3>
+                    <div class="tip-chips">
+                      <span class="tip-chip" data-i18n-html="tip.search"><strong>搜索框</strong> 过滤 CLI 列表</span>
+                      <span class="tip-chip" data-i18n-html="tip.folder"><strong>文件夹</strong> 分组管理工具</span>
+                      <span class="tip-chip" data-i18n-html="tip.drag">拖拽文件 <strong>上传</strong></span>
+                      <span class="tip-chip" data-i18n-html="tip.discover"><strong>⟳</strong> 自动发现 CLI</span>
+                      <span class="tip-chip" data-i18n-html="tip.ai">AI 助手感知终端上下文</span>
+                      <span class="tip-chip" data-i18n-html="tip.url">URL/路径自动可点击</span>
+                    </div>
+                  </section>
+
+                  <section class="welcome-section">
+                    <h3 data-i18n="welcome.sec.features">⭐ 特色功能</h3>
+                    <div class="features-grid" id="welcome-features">
+                      <!-- Populated by renderWelcome() from preset data -->
+                    </div>
+                  </section>
+                </div>
+
+                <!-- Slide 2: U 盘智能体 使用指南 -->
+                <div class="carousel-slide" data-slide="2">
+                  <section class="welcome-section">
+                    <h3 data-i18n="welcome.sec.usb">🚀 U 盘智能体 使用指南</h3>
+                    <div class="welcome-grid" style="margin-bottom:var(--space-3);">
+                      <div class="welcome-card">
+                        <div class="card-icon"><img src="/in-app-icon.png" alt="Hesi" width="28" height="28"></div>
+                        <div class="card-body">
+                          <strong data-i18n="usb.card1.title">插上即用</strong>
+                          <span data-i18n="usb.card1.desc">U 盘版集成 OpenCode 与 OhMyOpenAgent，无需联网安装</span>
+                        </div>
+                      </div>
+                      <div class="welcome-card">
+                        <div class="card-icon">🤖</div>
+                        <div class="card-body">
+                          <strong data-i18n="usb.card2.title">启动 OpenCode</strong>
+                          <span data-i18n-html="usb.card2.desc">终端输入 <code>opencode</code> 进入 AI 编程模式</span>
+                        </div>
+                      </div>
+                      <div class="welcome-card">
+                        <div class="card-icon">🧩</div>
+                        <div class="card-body">
+                          <strong data-i18n="usb.card3.title">多 Agent 编排</strong>
+                          <span data-i18n="usb.card3.desc">用 OhMyOpenAgent 组合多个智能体工作流</span>
+                        </div>
+                      </div>
+                    </div>
+                    <div class="welcome-split">
+                      <div class="tip-chips" style="flex-direction:column;gap:5px;">
+                        <span class="tip-chip" style="border-radius:8px;width:100%;" data-i18n-html="usb.tip1"><code>opencode "写个组件"</code> 直接传参</span>
+                        <span class="tip-chip" style="border-radius:8px;width:100%;" data-i18n-html="usb.tip2"><code>--model claude-sonnet-4</code> 指定模型</span>
+                        <span class="tip-chip" style="border-radius:8px;width:100%;" data-i18n-html="usb.tip3"><strong>OMA</strong> 用 YAML/JSON 定义 Agent 流水线</span>
+                        <span class="tip-chip" style="border-radius:8px;width:100%;" data-i18n-html="usb.tip4"><strong>文件操作</strong> AI 读写 + diff 展示</span>
+                        <span class="tip-chip" style="border-radius:8px;width:100%;" data-i18n-html="usb.tip5"><strong>Git 集成</strong> 建议 feature 分支使用</span>
+                        <span class="tip-chip" style="border-radius:8px;width:100%;" data-i18n-html="usb.tip6"><strong>搭配 Hesi</strong> 管理多 Agent 会话</span>
+                      </div>
+                      <div class="welcome-warning">
+                        <h4 data-i18n="usb.warn.title">⚠️ 使用前必读</h4>
+                        <ul class="warning-list">
+                          <li data-i18n-html="usb.warn1">AI 生成代码务必 <strong>审查后再提交</strong></li>
+                          <li data-i18n-html="usb.warn2">不要包含 API Key 等 <strong>敏感信息</strong></li>
+                          <li data-i18n="usb.warn3">离线版模型需本地 / 私有部署支持</li>
+                          <li data-i18n="usb.warn4">大型重构分步骤进行</li>
+                        </ul>
+                      </div>
+                    </div>
+                  </section>
+                </div>
+
+
+
+              </div><!-- /carousel-track -->
+
+              <!-- Navigation arrows -->
+              <button class="carousel-arrow carousel-arrow-prev" id="carousel-prev" data-i18n-title="carousel.prev">◀</button>
+              <button class="carousel-arrow carousel-arrow-next" id="carousel-next" data-i18n-title="carousel.next">▶</button>
+
+              <!-- Dots -->
+              <div class="carousel-dots" id="carousel-dots">
+                <button class="carousel-dot active" data-slide="0" data-i18n-title="carousel.dot0"></button>
+                <button class="carousel-dot" data-slide="1" data-i18n-title="carousel.dot1"></button>
+                <button class="carousel-dot" data-slide="2" data-i18n-title="carousel.dot2"></button>
+              </div>
+            </div><!-- /welcome-carousel -->
+
+            <!-- Footer (always visible) -->
+            <div class="welcome-footer">
+              <span data-i18n="footer.title">Hesi v1.1.0</span>
+              <span class="footer-sep">·</span>
+              <span>Node.js + xterm.js + node-pty</span>
+            </div>
+
+          </div>
+        </div>
+      </div>
+    </div><!-- /terminal-container -->
+    </div><!-- /terminal-area -->
+
+    <div id="status-bar">
+      <span id="active-cli-label">No CLI running</span>
+      <span id="active-cli-version"></span>
+      <button id="lang-toggle-btn" class="lang-toggle" title="切换语言">中</button>
+      <!-- 主题切换功能（🌙 暗/亮 + 🎨 背景定制）：v0.2.5 重新开放（图标已换新设计，暗色下不再失真） -->
+      <button id="theme-toggle-btn" class="theme-toggle">🌙</button>
+      <button id="theme-customize-btn" class="theme-toggle" title="主题背景定制">🎨</button>
+      <button id="custom-css-btn" class="theme-toggle" title="Custom CSS" style="font-size:12px;">🖌️</button>
+      <button id="tts-toggle-btn" class="tts-toggle-btn" title="🔇 语音输出已关闭">🔇</button>
+      <div id="tts-indicator" class="tts-indicator hidden">
+        <span class="tts-indicator-dot"></span>
+        <span class="tts-indicator-text">🔊</span>
+      </div>
+      <button id="voice-input-btn" class="voice-btn" data-i18n-title="voice.title">🎤</button>
+      <button id="voice-input-settings-btn" class="voice-btn" data-i18n-title="voice.inputSettings" style="font-size:14px;">🎛️</button>
+      <div id="voice-status" class="voice-status hidden">
+        <span class="voice-indicator"></span>
+        <span class="voice-text">Listening...</span>
+      </div>
+      <span id="terminal-dims" class="hidden"></span>
+      <span id="terminal-font-size" class="hidden"></span>
+      <button id="ai-settings-btn" class="ai-settings-btn" title="AI 设置">🤖</button>
+      <button id="personalization-btn" class="ai-settings-btn" title="个性化设置">👤</button>
+      <button id="chat-toggle-btn" class="chat-toggle-btn" title="AI 对话面板">💬</button>
+    </div>
+
+    <!-- ====== Theme Customizer Popover ====== -->
+    <div id="theme-customizer" class="theme-customizer hidden">
+      <div class="tc-header">
+        <span class="tc-title">🎨 主题背景定制</span>
+        <button id="tc-close" class="tc-close-btn" title="关闭">✕</button>
+      </div>
+      <div class="tc-body">
+        <div class="tc-section">
+          <div class="tc-section-head">
+            <label>主题</label>
+            <span class="tc-hint">Beta 为实验性配色</span>
+          </div>
+          <div id="theme-selector" class="theme-selector"></div>
+        </div>
+        <div class="tc-section">
+          <div class="tc-label-row">
+            <label for="tc-inner-bg">终端内部背景（透过文字能看到）</label>
+            <span class="tc-value" id="tc-inner-label">rgba(13,14,16,0.85)</span>
+          </div>
+          <div class="tc-color-row">
+            <input type="color" id="tc-inner-bg" value="#0d0e10" />
+            <input type="range" id="tc-inner-alpha" min="30" max="100" value="85" class="tc-alpha-slider" aria-label="主题透明度" />
+            <span class="tc-alpha-label">透明度</span>
+          </div>
+        </div>
+        <div class="tc-section">
+          <div class="tc-label-row">
+            <label for="tc-outer-bg">终端外部背景（容器底色）</label>
+            <span class="tc-value" id="tc-outer-label">#0a0a0b</span>
+          </div>
+          <div class="tc-color-row">
+            <input type="color" id="tc-outer-bg" value="#0a0a0b" />
+          </div>
+        </div>
+        <div class="tc-section">
+          <label>快速预设</label>
+          <div class="tc-presets" id="tc-presets">
+            <button class="tc-preset" data-theme="dark">暗色默认</button>
+            <button class="tc-preset active" data-theme="light">亮色默认</button>
+            <button class="tc-preset" data-theme="transparent-dark">半透暗色</button>
+            <button class="tc-preset" data-theme="transparent-light">半透亮色</button>
+            <button class="tc-preset" data-theme="paper">📜 纸质古书</button>
+            <button class="tc-preset" data-theme="matrix">🟢 黑客矩阵</button>
+            <button class="tc-preset" data-theme="midnight">🌑 深夜影院</button>
+          </div>
+        </div>
+        <div class="tc-actions">
+          <button id="tc-save-preset" class="tc-btn tc-btn-primary">💾 另存为预设</button>
+          <button id="tc-reset-default" class="tc-btn tc-btn-secondary">↺ 恢复默认</button>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- ====== Right Panel ====== -->
+  <aside id="right-panel">
+    <header class="right-panel-header">
+      <span class="right-panel-header-icon">📊</span>
+      <span class="right-panel-title">工作台</span>
+      <button id="right-panel-toggle" class="right-panel-toggle-btn" title="收起右侧栏">▶</button>
+    </header>
+
+    <nav class="right-panel-tabs" id="right-panel-tabs">
+      <button class="right-tab active" data-panel="dashboard" title="仪表盘">📊<span>仪表盘</span></button>
+      <!-- Plugin tabs (stocks, quant, finance, media, etc.) are dynamically registered via UIRegistry -->
+    </nav>
+
+    <div class="right-panel-content" id="right-panel-content">
+      <!-- Dashboard Panel (Phase 2) -->
+      <div class="rp-panel active" id="rp-dashboard">
+        <div class="rp-panel-placeholder">
+          <div class="rp-placeholder-icon">📊</div>
+          <div class="rp-placeholder-title">系统仪表盘</div>
+          <div class="rp-placeholder-desc">连接状态 · CLI 统计 · 运行概览</div>
+          <div class="rp-placeholder-badge">Phase 2</div>
+        </div>
+      </div>
+
+      <!-- Plugin panels (stocks, quant, finance, media, etc.) are dynamically created by UIRegistry when registered -->
+    </div>
+
+    <div id="right-panel-resize-handle" title="拖拽调整宽度"></div>
+  </aside>
+
+  <!-- ====== Add CLI Modal ====== -->
+  <div id="add-cli-overlay" class="modal-overlay hidden">
+    <div class="modal">
+      <h2>Add CLI</h2>
+      <form id="add-cli-form">
+        <div class="form-row file-row">
+          <div class="form-group" style="flex:1">
+            <label for="add-cli-name">Name</label>
+            <input type="text" id="add-cli-name" placeholder="e.g. python, node, gh" required autofocus />
+          </div>
+          <div class="form-group browse-group">
+            <label>Executable</label>
+            <div class="browse-input">
+              <button type="button" id="browse-cli-btn" class="secondary-btn">Browse…</button>
+              <input type="file" id="file-input" accept=".exe,.cmd,.bat,.com,.ps1" hidden aria-label="选择可执行文件" />
+              <span id="selected-file" class="file-label hidden">No file selected</span>
+            </div>
+          </div>
+        </div>
+
+        <div id="manual-path-group" class="hidden">
+          <label for="add-cli-path">
+            Full path <small>(or leave blank to auto-resolve from name)</small>
+          </label>
+          <input type="text" id="add-cli-path" placeholder="e.g. C:\tools\my-cli.exe" />
+        </div>
+
+        <label>
+          Arguments <small>(optional, space-separated)</small>
+          <input type="text" id="add-cli-args" placeholder="--interactive --no-color" />
+        </label>
+
+        <label>
+          Init command <small>(optional — auto-run after launch)</small>
+          <input type="text" id="add-cli-init" placeholder="e.g. cd /project && npm start" />
+        </label>
+
+        <div class="modal-actions">
+          <button type="button" id="add-cli-cancel" class="secondary-btn">Cancel</button>
+          <button type="submit" id="add-cli-submit" class="primary-btn">Add</button>
+        </div>
+      </form>
+      <p id="add-cli-error" class="form-error hidden"></p>
+    </div>
+  </div>
+
+  <!-- ====== Mobile sidebar overlay ====== -->
+  <div id="sidebar-mobile-overlay"></div>
+
+  <!-- ====== Drop zone overlay ====== -->
+  <div id="drop-overlay" class="hidden">
+    <div class="drop-content">
+      <span class="drop-icon">⬇</span>
+      <p data-i18n="upload.drop">Drop files to upload</p>
+    </div>
+  </div>
+
+  <!-- ====== Command Palette (Cmd+K) ====== -->
+  <div id="cp-overlay" class="hidden">
+    <div id="command-palette">
+      <div class="cp-header">
+        <input type="text" id="cp-input" data-i18n-placeholder="palette.shortcutHint" autocomplete="off" spellcheck="false" aria-label="命令面板搜索" />
+        <kbd class="cp-shortcut-hint">Ctrl+K</kbd>
+      </div>
+      <div id="cp-results">
+        <div class="cp-empty">Type to search…</div>
+      </div>
+      <div class="cp-footer">
+        <span>↑↓ navigate &middot; ↵ select &middot; Esc close</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ====== AI Settings Modal ====== -->
+  <div id="ai-settings-overlay" class="modal-overlay hidden">
+    <div class="modal">
+      <h2>🤖 AI 设置</h2>
+      <form id="ai-settings-form">
+        <p class="ai-settings-note">
+          模型与 API Key 统一在 <b>「🤖 模型服务」</b>（侧边栏）配置，后端全链路生效（聊天 / Plan / 圆桌 / 记忆）。
+          <a href="/llm-providers.html" target="_blank" rel="noopener">前往模型服务 →</a>
+        </p>
+
+        <label>
+          规划/核查专用模型（可选）
+          <input type="text" id="ai-model-plan" placeholder="如 claude-opus-4 / o1 等推理模型" />
+          <small>开启 🔍 核查模式时若已填，将临时用此模型（更强推理）作答，关闭后恢复默认</small>
+        </label>
+
+        <label id="ai-reasoning-label" class="hidden">
+          推理强度（仅支持思考的模型）
+          <select id="ai-reasoning-effort" class="modal-select">
+            <option value="off">关（不主动要求思考）</option>
+            <option value="standard">标准（默认）</option>
+            <option value="deep">深度（更强推理，更慢）</option>
+          </select>
+          <small>仅对 DeepSeek-R1 / Qwen3 / o-series / Claude 扩展思考等推理模型生效；其他模型自动隐藏此选项</small>
+        </label>
+
+        <div class="modal-actions">
+          <button type="button" id="ai-settings-cancel" class="secondary-btn">取消</button>
+          <button type="submit" id="ai-settings-save" class="primary-btn">保存</button>
+        </div>
+      </form>
+      <p id="ai-settings-status" class="ai-status hidden"></p>
+    </div>
+  </div>
+
+  <!-- ====== Personalization Modal（个性化入口）====== -->
+  <div id="personalization-overlay" class="modal-overlay hidden">
+    <div class="modal personalization-modal">
+      <h2>👤 个性化设置</h2>
+
+      <!-- 个性选择 -->
+      <div class="pers-section">
+        <label class="pers-label" for="pers-persona">个性选择（交流风格）</label>
+        <select id="pers-persona" class="modal-select">
+          <option value="balanced">通用均衡</option>
+          <option value="terse">极简直接</option>
+          <option value="rigorous">严谨技术</option>
+          <option value="socratic">教学引导</option>
+          <option value="creative">创意发散</option>
+          <option value="casual">中文口语</option>
+        </select>
+        <small>决定 AI 的语气与回复风格（轻量，不抢角色/指令）。</small>
+      </div>
+
+      <!-- 角色选择 -->
+      <div class="pers-section">
+        <label class="pers-label" for="pers-role">角色选择（专家提示词）</label>
+        <select id="pers-role" class="modal-select">
+          <option value="default">Hesi 默认 · 球总硬指标工程助手</option>
+        </select>
+        <small>默认项即当前内置工程助手；其余下拉连接项目内现有专家提示词。</small>
+      </div>
+
+      <!-- 自定义指令 -->
+      <div class="pers-section">
+        <label class="pers-label" for="pers-custom">自定义指令（类似 Codex）</label>
+        <textarea id="pers-custom" rows="5"
+          placeholder="留空 = 使用内置工程硬指标（反臃肿 / 少 bug / 先出方案）。可覆盖或改写这些约束。"></textarea>
+        <small>每次对话注入系统提示词（覆盖式：填了就用你的，空则回退默认硬指标）。</small>
+      </div>
+
+      <!-- 记忆 -->
+      <div class="pers-section pers-row">
+        <label class="pers-label" for="pers-memory">记忆</label>
+        <label class="switch">
+          <input type="checkbox" id="pers-memory" checked />
+          <span class="slider"></span>
+        </label>
+        <small class="pers-row-note">从聊天生成记忆并带入新聊天（关闭则本会话历史仍保留，但不抽取跨会话事实）。</small>
+      </div>
+
+      <!-- 权限设置 -->
+      <div class="pers-section">
+        <label class="pers-label">权限设置</label>
+        <div class="pers-perms">
+          <div class="pers-perm">
+            <span>默认权限</span>
+            <select id="pers-perm-mode" class="modal-select sm">
+              <option value="ask">每步询问（HITL）</option>
+              <option value="auto">自动（安全项自动，危险项问）</option>
+              <option value="strict">受限（仅 allowlist）</option>
+            </select>
+          </div>
+          <div class="pers-perm pers-perm-row">
+            <label class="switch">
+              <input type="checkbox" id="pers-perm-review" checked />
+              <span class="slider"></span>
+            </label>
+            <span>自动审核（plan 必经可验证性闸门）</span>
+          </div>
+          <div class="pers-perm pers-perm-row">
+            <label class="switch">
+              <input type="checkbox" id="pers-perm-fullauto" />
+              <span class="slider"></span>
+            </label>
+            <span>全自动（允许外部副作用，执行前强制快照）</span>
+          </div>
+        </div>
+        <small>权限下钻到「全自动 Plan 执行器」；chat Agent 的逐步行问（HITL）属 Phase 1。</small>
+      </div>
+
+      <!-- 语言偏好 -->
+      <div class="pers-section">
+        <label class="pers-label" for="pers-language">回复语言</label>
+        <select id="pers-language" class="modal-select">
+          <option value="auto">跟随上下文（auto）</option>
+          <option value="zh">简体中文</option>
+          <option value="en">English</option>
+        </select>
+      </div>
+
+      <!-- 拓展：导出/导入/重置 -->
+      <div class="pers-section pers-actions-row">
+        <button type="button" id="pers-export" class="secondary-btn">导出配置</button>
+        <button type="button" id="pers-import" class="secondary-btn">导入配置</button>
+        <button type="button" id="pers-reset" class="secondary-btn danger">重置默认</button>
+      </div>
+
+      <div class="modal-actions">
+        <button type="button" id="personalization-cancel" class="secondary-btn">取消</button>
+        <button type="button" id="personalization-save" class="primary-btn">保存</button>
+      </div>
+      <p id="personalization-status" class="ai-status hidden"></p>
+    </div>
+  </div>
+
+  <!-- ====== Scripts ====== -->
+  <!-- All xterm addons are bundled via esbuild (imported in tabs.js) -->
+  <!-- CDN libraries: async to avoid blocking initial render -->
+  <script async src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+  <script async src="https://cdn.jsdelivr.net/npm/@hpcc-js/wasm@2.15.0/dist/graphviz.umd.js"></script>
+  <script async src="https://cdn.jsdelivr.net/npm/@plantuml/core@1.2026.6/viz-global.js"></script>
+  <script src="/bundle.js"></script>
+  <script src="/components/partner-store.js"></script>
+  <script type="module" src="/lazy-chunks/lazy-bundle.js"></script>
+  <script defer src="/components/agent-install-ui.js"></script>
+  <script type="module" src="/components/md-notes.js"></script>
+
+
+  <!-- ====== Global Command History Panel (Ctrl+Shift+H) ====== -->
+  <div id="history-panel" class="hidden">
+    <div id="history-panel-bg"></div>
+    <div id="history-panel-inner">
+      <div class="history-panel-header">
+        <span class="history-panel-icon">📜</span>
+        <span class="history-panel-title">全局命令历史</span>
+        <input type="text" id="history-search-input" placeholder="🔍 搜索历史命令..." autocomplete="off" aria-label="搜索历史命令" />
+        <span class="history-panel-count" id="history-count"></span>
+        <button id="history-clear-btn" class="history-clear-btn" title="清除所有历史">🗑</button>
+        <button id="history-close-btn" class="history-close-btn" title="关闭 (Esc)">✕</button>
+      </div>
+      <div id="history-list"></div>
+    </div>
+  </div>
+
+  <!-- ====== Global Search Panel (Ctrl+Shift+A) ====== -->
+  <div id="global-search-panel" class="hidden">
+    <div id="global-search-bg"></div>
+    <div id="global-search-inner">
+      <div class="global-search-header">
+        <span class="global-search-icon">🔍</span>
+        <span class="global-search-title">全局搜索</span>
+        <input type="text" id="global-search-input" placeholder="跨所有终端搜索..." autocomplete="off" spellcheck="false" aria-label="全局搜索" />
+        <span class="global-search-count" id="global-search-count"></span>
+        <button id="global-search-close-btn" class="history-close-btn" title="关闭 (Esc)">✕</button>
+      </div>
+      <div id="global-search-status" class="global-search-status"></div>
+      <div id="global-search-results"></div>
+    </div>
+  </div>
+
+  <!-- ====== Snippet Manager Overlay ====== -->
+  <div id="snippet-overlay" class="hidden">
+    <div id="snippet-overlay-bg"></div>
+    <div id="snippet-panel">
+      <div class="snippet-panel-header">
+        <span class="snippet-panel-icon">📋</span>
+        <span class="snippet-panel-title">代码片段库</span>
+        <button id="snippet-add-btn" class="snippet-add-btn">+ 新增</button>
+        <button id="snippet-close-btn" class="history-close-btn" title="关闭 (Esc)">✕</button>
+      </div>
+      <div id="snippet-list"></div>
+    </div>
+  </div>
+
+  <!-- ====== Add Snippet Modal ====== -->
+  <div id="add-snippet-modal" class="modal-overlay hidden">
+    <div class="modal" style="width:500px;">
+      <h2>📋 添加代码片段</h2>
+      <form id="add-snippet-form">
+        <label>
+          名称
+          <input type="text" id="snippet-name" placeholder="e.g. git push" required autofocus />
+        </label>
+        <label>
+          命令
+          <input type="text" id="snippet-command" placeholder="e.g. git add -A && git commit -m \"{{message}}\" && git push" required />
+        </label>
+        <label>
+          描述（可选）
+          <input type="text" id="snippet-desc" placeholder="一键推送代码到远程仓库" />
+        </label>
+        <div class="modal-actions">
+          <button type="button" id="add-snippet-cancel" class="secondary-btn">取消</button>
+          <button type="submit" id="add-snippet-submit" class="primary-btn">保存</button>
+        </div>
+      </form>
+      <p id="add-snippet-error" class="form-error hidden"></p>
+    </div>
+  </div>
+
+  <!-- ====== Workspace Profiles Overlay ====== -->
+  <div id="workspace-overlay" class="hidden">
+    <div id="workspace-overlay-bg"></div>
+    <div id="workspace-panel">
+      <div class="workspace-panel-header">
+        <span class="workspace-panel-icon">📂</span>
+        <span class="workspace-panel-title">工作区 Profiles</span>
+        <button id="workspace-save-btn" class="snippet-add-btn">💾 保存当前</button>
+        <button id="workspace-close-btn" class="history-close-btn" title="关闭 (Esc)">✕</button>
+      </div>
+      <div id="workspace-list"></div>
+    </div>
+  </div>
+
+  <!-- ====== Terminal Context Menu ====== -->
+  <div id="terminal-context-menu" class="hidden">
+    <div class="ctx-item ctx-copy" id="ctx-copy">📋 Copy</div>
+    <div class="ctx-item ctx-pin" id="ctx-pin">📌 Pin to sidebar</div>
+    <div class="ctx-item ctx-search-sel" id="ctx-search-sel">🔍 Search selection</div>
+    <div class="ctx-divider ctx-divider-sel"></div>
+    <div class="ctx-item ctx-paste" id="ctx-paste">📄 Paste</div>
+    <div class="ctx-item ctx-clear" id="ctx-clear">🧹 Clear screen</div>
+    <div class="ctx-item ctx-search" id="ctx-search">🔍 Search… (<kbd>Ctrl+Shift+F</kbd>)</div>
+  </div>
+
+  <!-- ====== 多 Agent 黑板：右侧伸缩抽屉（记忆抽屉同款 fixed 定位，不受终端区 flex 布局挤压）====== -->
+  <div id="blackboard-embed" class="hidden">
+    <div class="drawer-resize-handle" data-drawer="blackboard-embed" title="拖拽调整宽度"></div>
+    <div class="bb-embed-bar">
+      <span class="bb-embed-title">🗂️ 多 Agent 黑板</span>
+      <a class="bb-embed-open" href="/blackboard.html" target="_blank" rel="noopener noreferrer" title="新标签页打开完整版">⛶</a>
+      <button id="bb-embed-close" class="chat-action-btn" title="收起面板">✕</button>
+    </div>
+    <iframe id="bb-embed-frame" title="多 Agent 黑板"></iframe>
+  </div>
+
+  <!-- ====== 围炉圆桌：右侧伸缩抽屉（与黑板同款 fixed 定位，聊天上下文常驻）====== -->
+  <!-- 圆桌 = AI讨论 的一种视图：引擎复用 chat-panel 的 Q.ChatAPI，本抽屉仅作渲染容器 -->
+  <div id="mahjong-embed" class="hidden">
+    <div class="drawer-resize-handle" data-drawer="mahjong-embed" title="拖拽调整宽度"></div>
+    <div class="mj-embed-bar">
+      <span class="mj-embed-title">🍵 围炉圆桌</span>
+      <a class="mj-embed-open" href="/index.html?view=roundtable" target="_blank" rel="noopener noreferrer" title="新标签页打开圆桌">⛶</a>
+      <button id="mj-embed-close" class="chat-action-btn" title="收起面板">✕</button>
+    </div>
+    <div class="rt-scroll">
+      <div class="panel">
+        <div class="controls">
+          <div class="field" style="flex:1;min-width:220px">
+            <label>议题 / 想讨论什么</label>
+            <textarea id="topic" placeholder="例如：登录页要做哪些改动？给个多方视角的方案"></textarea>
+          </div>
+          <div class="field" style="width:140px">
+            <label>讨论轮数</label>
+            <select id="rounds" title="每轮 = AI 助手与每个 CLI Agent 各发言一次（1–12）">
+              <option value="1">1 轮</option>
+              <option value="2">2 轮</option>
+              <option value="3">3 轮</option>
+              <option value="4">4 轮</option>
+              <option value="6" selected>6 轮</option>
+              <option value="8">8 轮</option>
+              <option value="10">10 轮</option>
+              <option value="12">12 轮</option>
+            </select>
+          </div>
+          <div class="field" style="width:170px">
+            <label>模板 <span class="rt-guide-hint" id="rt-guide-hint" title="选择预设角色与协作协议">?</span></label>
+            <select id="rt-template" title="选择圆桌模板（角色 + 协作协议）">
+              <option value="">默认（无模板）</option>
+            </select>
+            <small id="rt-template-desc" style="display:none;color:var(--text-secondary)"></small>
+          </div>
+          <div class="field">
+            <label>&nbsp;</label>
+            <button class="primary" id="startBtn">开始圆桌讨论</button>
+          </div>
+        </div>
+        <div class="field" style="margin-top:10px">
+          <label>参与 Agent（映射到席位；未选则留空座）</label>
+          <div class="clilist" id="clilist"><span class="tip">加载中…</span></div>
+        </div>
+        <div class="bar">
+          <button id="customBtn">⚙ 自定义</button>
+          <label class="tip" style="display:inline-flex;gap:5px;align-items:center;cursor:pointer">
+            <input type="checkbox" id="hideEmpty" checked> 显示空座
+          </label>
+          <span class="skin-switch" title="切换圆桌皮肤">
+            <button data-skin="hearth" class="active">🔥 围炉</button>
+            <button data-skin="mahjong">🀄 麻将</button>
+          </span>
+          <span class="tip" id="protocolTip"></span>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="rt" id="rt">
+          <div class="center">
+            <div class="t">共享桌布</div>
+            <div class="n" id="bbTasks">—</div>
+            <div class="r" id="bbRound">第 0 回合</div>
+            <div class="m" id="bbFiles">无活跃黑板</div>
+          </div>
+          <!-- seats injected by roundtable-view.js -->
+        </div>
+        <div class="bar">
+          <button id="exportBtn" disabled>导出纪要 .md</button>
+          <button id="saveBtn" disabled>保存到对话</button>
+          <span class="tip" id="sessionTip"></span>
+        </div>
+      </div>
+
+      <div class="memo" id="memo">
+        <h3>📋 圆桌纪要（实时）</h3>
+        <div id="memoBody"></div>
+      </div>
+    </div>
+
+    <!-- 自定义模态 -->
+    <div class="modal" id="modal">
+      <div class="mpanel">
+        <h3>⚙ 自定义席位</h3>
+        <div id="modalBody"></div>
+        <div class="mclose"><button id="modalSave">保存</button> <button id="modalCancel">取消</button></div>
+      </div>
+    </div>
+
+    <div class="toast" id="toast"></div>
+  </div>
+
+
+</body>
+</html>

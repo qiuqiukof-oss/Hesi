@@ -1,0 +1,77 @@
+{
+  "template": "roundtable",
+  "title": "围炉圆桌 · 多角色协作",
+  "description": "4 个可爱 Agent 围坐协作：前端 / 后端 / 架构师 / 测试，由 AI 助手主持、你提供议题。适用于需要多方视角权衡的需求讨论、方案评审、代码评审。",
+  "usage": "在围炉圆桌页选择参与的 Agent（映射到底层 CLI 工具），输入议题后开始。协作协议会作为背景注入，引导各方从自身角色出发发言。",
+  "host": {
+    "id": "host",
+    "name": "AI 助手 · 主持人",
+    "roleLabel": "Moderator",
+    "avatar": { "type": "emoji", "value": "🤖" },
+    "viewpoint": "主持圆桌、串场、裁定分歧、汇总结论。你（用户）只负责提供议题。"
+  },
+  "personas": [
+    {
+      "id": "fox",
+      "name": "小狐 Foxy",
+      "role": "前端 Frontend",
+      "viewpoint": "关注交互、UI 一致性、前端可维护性与边界情况。"
+    },
+    {
+      "id": "panda",
+      "name": "胖达 Panda",
+      "role": "后端 Backend",
+      "viewpoint": "关注接口契约、数据一致性、性能与错误处理。"
+    },
+    {
+      "id": "owl",
+      "name": "博士 Owl",
+      "role": "架构师 Architect",
+      "viewpoint": "关注整体结构、模块边界、长期演进与技术风险。"
+    },
+    {
+      "id": "bunny",
+      "name": "查查 Bunny",
+      "role": "测试 QA",
+      "viewpoint": "关注覆盖路径、回归风险、可验证性与验收标准。"
+    }
+  ],
+  "protocol": "各方仅从自身角色视角发言，先给观点再给依据；出现分歧时由 AI 助手主持人裁定或要求补充证据；讨论结束由 AI 助手汇总共识、分歧与待办。你（用户）只提供议题，不直接参与发言。未参与的席位留为空座，不打断讨论。",
+  "suggested": { "maxConcurrency": 4 },
+  "tasks": [
+    {
+      "id": "frontend",
+      "agentId": "opencode",
+      "role": "coder",
+      "task": "从前端视角评估：{{议题}}。关注交互、UI 一致性、前端可维护性与边界情况，给出具体建议。",
+      "maxRetries": 1,
+      "onFailure": "continue"
+    },
+    {
+      "id": "backend",
+      "agentId": "opencode",
+      "role": "coder",
+      "task": "从后端视角评估：{{议题}}。关注接口契约、数据一致性、性能与错误处理。",
+      "maxRetries": 1,
+      "onFailure": "continue"
+    },
+    {
+      "id": "architect",
+      "agentId": "codex",
+      "role": "reviewer",
+      "task": "从架构视角评估：{{议题}}。综合前两轮，关注整体结构、模块边界与长期演进风险。",
+      "dependsOn": ["frontend", "backend"],
+      "maxRetries": 1,
+      "onFailure": "continue"
+    },
+    {
+      "id": "qa",
+      "agentId": "codex",
+      "role": "tester",
+      "task": "从测试视角评估：{{议题}}。关注覆盖路径、回归风险与可验证的验收标准，给出验证建议。",
+      "dependsOn": ["architect"],
+      "maxRetries": 1,
+      "onFailure": "continue"
+    }
+  ]
+}

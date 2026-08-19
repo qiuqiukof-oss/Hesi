@@ -1,0 +1,8 @@
+{
+  "id": "qingflow",
+  "name": "qingflow",
+  "category": "project-management",
+  "enterprise": true,
+  "authType": "token",
+  "description": "qingflow connector for Hesi"
+}

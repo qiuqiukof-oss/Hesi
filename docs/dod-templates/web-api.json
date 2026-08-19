@@ -1,0 +1,38 @@
+{
+  "item": "web-api",
+  "itemName": "Web API 功能开发",
+  "dod": [
+    {
+      "type": "functional",
+      "id": "f1",
+      "check": "curl -s -X POST http://localhost:PORT/api/<endpoint> -H 'Content-Type: application/json' -d '<sample-request>'",
+      "expect": "<expected-response-marker>"
+    },
+    {
+      "type": "functional",
+      "id": "f2",
+      "check": "curl -s -o /dev/null -w '%{http_code}' http://localhost:PORT/api/<endpoint>",
+      "expect": "200"
+    },
+    {
+      "type": "semantic",
+      "id": "s1",
+      "question": "非法输入是否返回 4xx 而非 500？",
+      "yes": true,
+      "evidence": "<test-file>:<line>"
+    },
+    {
+      "type": "semantic",
+      "id": "s2",
+      "question": "敏感字段（密码/token）是否未出现在响应体中？",
+      "yes": true,
+      "evidence": "<test-file>:<line>"
+    },
+    {
+      "type": "quality",
+      "id": "q1",
+      "check": "npm run lint",
+      "keyword": "0 errors"
+    }
+  ]
+}

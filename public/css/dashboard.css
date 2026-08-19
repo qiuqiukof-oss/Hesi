@@ -1,0 +1,639 @@
+/*
+ * Copyright (c) 2026 qiuqiukof-oss
+ * Licensed under the MIT License. See LICENSE for details.
+ */
+
+/* ============================================================
+   Dashboard Panel — Core Base Styles
+   ============================================================ */
+/* Contains: content, section, card, stat, chip, grid, status-dot,
+   tab-list, empty, counter, progress, sys-gauges, trend-charts,
+   disk-gauges, net-io-gauges, and comprehensive light theme support. */
+/* ============================================================
+   Dashboard Panel — Core Base Styles
+   ============================================================ */
+/* Contains: content, section, card, stat, chip, grid, status-dot,
+   tab-list, empty, counter, progress, sys-gauges, trend-charts,
+   disk-gauges, net-io-gauges, and comprehensive light theme support. */
+/* ============================================================
+   Dashboard Panel — Right Sidebar Cards & Stats
+   ============================================================ */
+
+/* ── Dashboard Content Container ── */
+.dash-content {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.dash-content::-webkit-scrollbar {
+  width: 3px;
+}
+.dash-content::-webkit-scrollbar-track {
+  background: transparent;
+}
+.dash-content::-webkit-scrollbar-thumb {
+  background: var(--bg-hover);
+  border-radius: 3px;
+}
+
+/* ── Section ── */
+.dash-section {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.dash-section-title {
+  font-size: 9px;
+  font-weight: 600;
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  padding: 0 var(--space-1);
+  margin-bottom: 1px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+/* ── Card ── */
+.dash-card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.dash-card:hover {
+  border-color: var(--border-default);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.15);
+}
+
+.dash-card-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--border-subtle);
+  user-select: none;
+}
+
+.dash-card-icon {
+  font-size: 13px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.dash-card-title {
+  flex: 1;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dash-card-badge {
+  font-size: 9px;
+  padding: 1px 6px;
+  border-radius: 10px;
+  background: var(--bg-hover);
+  color: var(--text-tertiary);
+  font-weight: 500;
+  flex-shrink: 0;
+  font-family: var(--font-mono);
+}
+
+/* ── Process sparkline toggle button ── */
+.dash-proc-toggle {
+  font-size: 9px;
+  padding: 1px 8px;
+  border-radius: 8px;
+  background: transparent;
+  border: 1px solid var(--border-default);
+  color: var(--text-tertiary);
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s, border-color 0.12s;
+  flex-shrink: 0;
+  line-height: 1.5;
+  font-family: var(--font-ui);
+  font-weight: 500;
+}
+
+.dash-proc-toggle:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+  border-color: var(--accent);
+}
+
+.dash-proc-toggle:active {
+  background: var(--bg-active);
+}
+
+[data-scheme="light"] .dash-proc-toggle {
+  border-color: rgba(0, 0, 0, 0.1);
+}
+
+[data-scheme="light"] .dash-proc-toggle:hover {
+  background: var(--shadow-light);
+}
+
+[data-scheme="light"] .dash-proc-toggle:active {
+  background: var(--shadow-ambient);
+}
+
+.dash-card-body {
+  padding: 6px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+/* ── Stat Row ── */
+.dash-stat {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 3px 0;
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+.dash-stat-icon {
+  font-size: 10px;
+  width: 16px;
+  text-align: center;
+  flex-shrink: 0;
+  line-height: 1;
+}
+
+.dash-stat-label {
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dash-stat-value {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-primary);
+  text-align: right;
+  flex-shrink: 0;
+  min-width: 24px;
+  transition: color 0.3s;
+}
+
+/* Animated count-up */
+.dash-stat-value.animating {
+  color: var(--accent-hover);
+}
+
+/* ── Chip Group (horizontal compact tags) ── */
+.dash-chip-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.dash-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 7px;
+  background: var(--bg-ground);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  font-size: 10px;
+  color: var(--text-secondary);
+  line-height: 1.4;
+  white-space: nowrap;
+}
+
+.dash-chip-value {
+  font-family: var(--font-mono);
+  font-weight: 600;
+  color: var(--text-primary);
+  font-size: 11px;
+}
+
+.dash-chip-label {
+  font-size: 9px;
+  color: var(--text-tertiary);
+}
+
+.dash-chip .dash-status-dot {
+  width: 6px;
+  height: 6px;
+}
+
+/* ── Stat Grid (for category breakdowns) ── */
+.dash-stat-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-1);
+  padding-top: 2px;
+}
+
+.dash-grid-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: var(--space-2) var(--space-1);
+  background: var(--bg-ground);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-subtle);
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.dash-grid-item:hover {
+  background: var(--bg-hover);
+  border-color: var(--border-default);
+}
+
+.dash-grid-icon {
+  font-size: 16px;
+  line-height: 1;
+}
+
+.dash-grid-value {
+  font-family: var(--font-mono);
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text-primary);
+  line-height: 1.2;
+}
+
+.dash-grid-label {
+  font-size: 9px;
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+/* ── Status Dot ── */
+.dash-status-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  display: inline-block;
+}
+
+.dash-status-dot.online {
+  background: var(--success);
+  box-shadow: 0 0 6px rgba(34, 197, 94, 0.4);
+}
+
+.dash-status-dot.offline {
+  background: var(--text-tertiary);
+}
+
+.dash-status-dot.error {
+  background: var(--danger);
+  box-shadow: 0 0 6px rgba(239, 68, 68, 0.4);
+}
+
+/* ── Connection Info Row ── */
+.dash-conn-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 10px;
+  color: var(--text-tertiary);
+  padding: 1px 0;
+}
+
+.dash-conn-row .dash-label {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.dash-conn-row .dash-value {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-secondary);
+}
+
+/* ── Tab List (mini) ── */
+.dash-tab-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-top: 2px;
+  max-height: 80px;
+  overflow-y: auto;
+}
+
+.dash-tab-list::-webkit-scrollbar {
+  width: 2px;
+}
+.dash-tab-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+.dash-tab-list::-webkit-scrollbar-thumb {
+  background: var(--bg-hover);
+  border-radius: 2px;
+}
+
+.dash-tab-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 3px var(--space-2);
+  border-radius: var(--radius-sm);
+  font-size: 10px;
+  font-family: var(--font-mono);
+  color: var(--text-secondary);
+  transition: background 0.12s;
+  cursor: pointer;
+}
+
+.dash-tab-item:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.dash-tab-dot {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--success);
+  flex-shrink: 0;
+}
+
+.dash-tab-name {
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dash-tab-status {
+  font-size: 8px;
+  color: var(--text-tertiary);
+}
+
+/* ── Empty state ── */
+.dash-empty {
+  text-align: center;
+  padding: var(--space-3);
+  font-size: 11px;
+  color: var(--text-tertiary);
+  font-style: italic;
+}
+
+/* ── Animated counter ── */
+@keyframes dash-count-up {
+  from { opacity: 0.6; transform: scale(0.95); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+.dash-countup {
+  animation: dash-count-up 0.3s var(--ease-out);
+}
+
+/* ── Progress bar ── */
+.dash-progress {
+  width: 100%;
+  height: 3px;
+  background: var(--bg-hover);
+  border-radius: 2px;
+  overflow: hidden;
+  margin-top: var(--space-1);
+}
+
+.dash-progress-bar {
+  height: 100%;
+  border-radius: 2px;
+  transition: width 0.4s ease;
+}
+
+/* ── System Gauge ── */
+.dash-sys-gauge {
+  margin-bottom: 4px;
+}
+
+.dash-sys-gauge-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 2px;
+}
+
+.dash-sys-gauge-label {
+  font-size: 10px;
+  color: var(--text-secondary);
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dash-sys-gauge-value {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-primary);
+  flex-shrink: 0;
+  margin-left: 8px;
+}
+
+/* Gauge bar color variants */
+.gauge-bar {
+  background: var(--accent);
+}
+
+.gauge-bar-heap {
+  background: #6366f1;
+}
+
+.gauge-bar-disk {
+  background: #f43f5e;
+}
+
+.gauge-bar-rx {
+  background: #06b6d4;
+}
+
+.gauge-bar-tx {
+  background: #8b5cf6;
+}
+
+/* ── Disk Section ── */
+.dash-disk-section {
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px solid var(--border-subtle);
+}
+
+/* ── Network IO Gauges ── */
+.dash-net-io-gauges {
+  margin-top: 6px;
+}
+
+/* ── Trend Charts ── */
+.dash-trend-chart-wrap {
+  margin-top: 6px;
+  padding: 6px 8px;
+  background: var(--bg-ground);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-subtle);
+}
+
+.dash-trend-chart-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+
+.dash-trend-chart-label {
+  font-size: 9px;
+  font-weight: 600;
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.dash-trend-chart-desc {
+  font-size: 8px;
+  color: var(--text-tertiary);
+  opacity: 0.6;
+}
+
+.dash-trend-chart {
+  width: 100%;
+  height: 32px;
+  display: block;
+}
+
+/* ── System Metadata ── */
+.dash-sys-meta {
+  display: flex;
+  gap: 8px;
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.dash-sys-meta-item {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  flex: 1;
+}
+
+.dash-sys-meta-label {
+  font-size: 8px;
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.dash-sys-meta-value {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+/* ── Chip Button (compact action btn inside chip groups) ── */
+.dash-chip-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  background: var(--bg-ground);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  cursor: pointer;
+  line-height: 1.4;
+  font-family: var(--font-ui);
+  transition: background 0.12s, color 0.12s, border-color 0.12s;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.dash-chip-btn:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+  border-color: var(--accent);
+}
+
+.dash-chip-btn:active {
+  background: var(--bg-active);
+}
+
+
+
+/* ── Light Theme Overrides for added styles ── */
+[data-scheme="light"] .dash-trend-chart-wrap {
+  background: var(--shadow-light);
+}
+
+[data-scheme="light"] .dash-sys-meta {
+  border-top-color: var(--shadow-ambient);
+}
+
+[data-scheme="light"] .dash-disk-section {
+  border-top-color: var(--shadow-ambient);
+}
+
+[data-scheme="light"] .dash-chip-btn {
+  background: var(--shadow-light);
+  border-color: var(--shadow-ambient);
+}
+
+[data-scheme="light"] .dash-chip-btn:hover {
+  background: var(--shadow-ambient);
+}
+
+[data-scheme="light"] .dash-sys-gauge-value {
+  color: #18181b;
+}
+
+/* ── A1: 仪表盘内折叠标题（rp-collapsible 复用） ── */
+.rpc-collapsible-title {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+/* ── A2: 摘要卡「查看详情 ↗」链接 ── */
+.dash-detail-link {
+  font-size: 9px;
+  font-weight: 500;
+  text-transform: none;
+  letter-spacing: 0;
+  color: var(--accent-hover);
+  cursor: pointer;
+  text-decoration: none;
+  padding: 1px 6px;
+  border-radius: 8px;
+  background: var(--bg-hover);
+  transition: background 0.12s, color 0.12s;
+  white-space: nowrap;
+}
+.dash-detail-link:hover {
+  background: var(--accent-glow);
+  color: var(--accent-hover);
+}

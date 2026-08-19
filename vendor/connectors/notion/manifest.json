@@ -1,0 +1,8 @@
+{
+  "id": "notion",
+  "name": "notion",
+  "category": "documentation",
+  "enterprise": false,
+  "authType": "token",
+  "description": "notion connector for Hesi"
+}

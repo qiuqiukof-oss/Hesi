@@ -1,0 +1,339 @@
+/*
+ * Copyright (c) 2026 qiuqiukof-oss
+ * Licensed under the MIT License. See LICENSE for details.
+ */
+
+/* ============================================================
+   Sidebar Core (Header/Preset/Search/Folder)
+   Extracted from panels.css
+   ============================================================ */
+
+/* ── Sidebar Header ── */
+.sidebar-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-3) var(--space-3);
+  border-bottom: 1px solid var(--border-default);
+  flex-shrink: 0;
+}
+
+.sidebar-header h1 {
+  font-family: var(--font-display);
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: -0.5px;
+  background: linear-gradient(135deg, var(--accent-hover) 0%, #a78bfa 50%, var(--accent-sub) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  margin-right: auto;
+}
+
+.sidebar-logo-icon {
+  vertical-align: -3px;
+  margin-right: 5px;
+  border-radius: 5px;
+}
+
+/* ── Preset Selector ── */
+.preset-selector {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.preset-toggle {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: none;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 16px;
+  padding: 3px 6px;
+  line-height: 1;
+  transition: all 0.15s var(--ease-out);
+}
+
+.preset-toggle-label {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-primary);
+  white-space: nowrap;
+}
+
+.preset-toggle:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+  border-color: var(--accent);
+}
+
+.preset-dropdown {
+  position: fixed;
+  top: auto;
+  left: auto;
+  min-width: 220px;
+  max-width: min(320px, calc(100vw - 16px));
+  background: var(--bg-overlay);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  z-index: 1000;
+  overflow-y: auto;
+  max-height: min(400px, calc(100vh - 80px));
+  animation: modal-in 0.15s var(--ease-out);
+}
+
+.preset-dropdown.hidden {
+  display: none;
+}
+
+.preset-dropdown-header {
+  padding: 8px 12px;
+  font-size: 9px;
+  font-weight: 600;
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  border-bottom: 1px solid var(--border-subtle);
+  background: var(--bg-surface);
+}
+
+.preset-option {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 8px 12px;
+  cursor: pointer;
+  transition: background 0.12s;
+  border-left: 3px solid transparent;
+}
+
+.preset-option:hover {
+  background: var(--bg-hover);
+}
+
+.preset-option.active {
+  background: var(--accent-glow);
+  border-left-color: var(--accent);
+}
+
+.preset-option-icon {
+  font-size: 16px;
+  flex-shrink: 0;
+  width: 24px;
+  text-align: center;
+}
+
+.preset-option-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.preset-option-name {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-primary);
+  line-height: 1.3;
+}
+
+.preset-option-desc {
+  font-size: 10px;
+  color: var(--text-tertiary);
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.preset-check {
+  font-size: 12px;
+  color: var(--accent);
+  flex-shrink: 0;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.preset-option.active .preset-check {
+  opacity: 1;
+}
+
+#sidebar.collapsed .preset-selector {
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* ── Search Area ── */
+#search-area {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-2) var(--space-2) var(--space-1);
+  border-bottom: 1px solid var(--border-default);
+  flex-shrink: 0;
+}
+
+#search-input {
+  flex: 1;
+  min-width: 0;
+  background: rgba(255, 255, 255, 0.04);
+  backdrop-filter: blur(12px);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  padding: 6px 10px;
+  color: var(--text-primary);
+  font-size: 12px;
+  font-family: var(--font-ui);
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+#search-input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-glow);
+}
+
+#search-input::placeholder {
+  color: var(--text-tertiary);
+}
+
+#add-folder-btn {
+  font-size: 14px;
+  padding: 4px 6px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+/* ── CLI List ── */
+#cli-list {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: var(--space-1) var(--space-1);
+}
+
+/* ── Folder ── */
+.folder-item {
+  margin-bottom: 1px;
+}
+
+.folder-header {
+  display: flex;
+  align-items: center;
+  gap: var(--radius-sm);
+  padding: 5px var(--space-2);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  transition: background 0.15s var(--ease-out), color 0.15s var(--ease-out);
+  user-select: none;
+  position: relative;
+}
+
+/* Folder visual guide line — subtle left border */
+.folder-header::before {
+  content: '';
+  position: absolute;
+  left: -1px;
+  top: 6px;
+  bottom: 6px;
+  width: 2px;
+  background: transparent;
+  border-radius: 1px;
+  transition: background 0.2s;
+}
+
+.folder-header:hover::before {
+  background: var(--accent);
+  opacity: 0.4;
+}
+
+.folder-header:hover {
+  background: var(--bg-hover);
+  color: var(--text-secondary);
+}
+
+.folder-toggle {
+  font-size: 8px;
+  width: 12px;
+  text-align: center;
+  flex-shrink: 0;
+  transition: transform 0.25s var(--ease-out);
+  opacity: 0.6;
+}
+
+.folder-toggle.collapsed {
+  transform: rotate(-90deg);
+}
+
+.folder-name-text {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--font-ui);
+}
+
+.folder-name-input {
+  flex: 1;
+  background: var(--bg-surface);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-sm);
+  padding: 2px 6px;
+  color: var(--text-primary);
+  font-size: 11px;
+  font-weight: 600;
+  font-family: var(--font-ui);
+  outline: none;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+}
+
+.folder-actions {
+  display: none;
+  align-items: center;
+  gap: 2px;
+  margin-left: auto;
+}
+
+.folder-header:hover .folder-actions {
+  display: flex;
+}
+
+.folder-action-btn {
+  background: none;
+  border: none;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  font-size: 12px;
+  padding: 1px 4px;
+  border-radius: var(--radius-sm);
+  line-height: 1;
+  transition: color 0.15s, background 0.15s;
+}
+
+.folder-action-btn:hover {
+  background: var(--bg-hover);
+  color: var(--text-secondary);
+}
+
+.folder-action-btn.danger:hover {
+  color: var(--danger);
+  background: rgba(239, 68, 68, 0.1);
+}
+
+.folder-clis {
+  padding-left: var(--space-2);
+  margin-bottom: 1px;
+  border-left: 1px solid var(--border-subtle);
+  margin-left: 5px;
+}
+
+

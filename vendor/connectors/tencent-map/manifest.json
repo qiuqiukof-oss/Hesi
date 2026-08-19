@@ -1,0 +1,8 @@
+{
+  "id": "tencent-map",
+  "name": "tencent-map",
+  "category": "utility",
+  "enterprise": false,
+  "authType": "token",
+  "description": "tencent-map connector for Hesi"
+}

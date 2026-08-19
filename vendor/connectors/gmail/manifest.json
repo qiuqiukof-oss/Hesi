@@ -1,0 +1,8 @@
+{
+  "id": "gmail",
+  "name": "gmail",
+  "category": "email",
+  "enterprise": false,
+  "authType": "basic",
+  "description": "gmail connector for Hesi"
+}

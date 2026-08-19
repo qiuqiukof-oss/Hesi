@@ -1,0 +1,8 @@
+{
+  "id": "tapd",
+  "name": "tapd",
+  "category": "project-management",
+  "enterprise": true,
+  "authType": "token",
+  "description": "tapd connector for Hesi"
+}

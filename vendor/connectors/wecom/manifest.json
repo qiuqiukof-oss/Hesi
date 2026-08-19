@@ -1,0 +1,8 @@
+{
+  "id": "wecom",
+  "name": "wecom",
+  "category": "messaging",
+  "enterprise": true,
+  "authType": "oauth",
+  "description": "wecom connector for Hesi"
+}

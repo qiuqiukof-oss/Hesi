@@ -1,0 +1,2 @@
+# 运行时数据（插件数据目录由 Hesi 统一管理：data/plugin-data/hesi-switch/）
+# 该目录由主仓库 .gitignore 的 data/ 规则覆盖，无需额外忽略

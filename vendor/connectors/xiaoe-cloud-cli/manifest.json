@@ -1,0 +1,8 @@
+{
+  "id": "xiaoe-cloud-cli",
+  "name": "xiaoe-cloud-cli",
+  "category": "integration",
+  "enterprise": false,
+  "authType": "token",
+  "description": "xiaoe-cloud-cli connector for Hesi"
+}

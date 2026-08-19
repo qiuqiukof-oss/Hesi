@@ -1,0 +1,45 @@
+/*
+ * Copyright (c) 2026 qiuqiukof-oss
+ * Licensed under the MIT License. See LICENSE for details.
+ */
+
+/* ============================================================
+   Drop Zone Overlay
+   Extracted from panels.css
+   ============================================================ */
+
+/* ============================================================
+   Drop Zone Overlay
+   ============================================================ */
+#drop-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(99, 102, 241, 0.1);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 200;
+  border: 3px dashed var(--accent);
+  margin: var(--space-2);
+  border-radius: var(--space-4);
+  animation: overlay-in 0.2s var(--ease-out);
+}
+
+.drop-content {
+  text-align: center;
+  color: var(--accent-hover);
+}
+
+.drop-icon {
+  font-size: 56px;
+  display: block;
+  margin-bottom: var(--space-3);
+  animation: welcome-float 3s var(--ease-in-out) infinite;
+}
+
+.drop-content p {
+  font-size: 18px;
+  font-weight: 500;
+}

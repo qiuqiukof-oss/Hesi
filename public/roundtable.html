@@ -1,0 +1,28 @@
+<!--
+  Copyright (c) 2026 qiuqiukof-oss
+  Licensed under the MIT License. See LICENSE for details.
+-->
+
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="refresh" content="0; url=/index.html?view=roundtable">
+  <title>围炉圆桌 · 正在打开…</title>
+  <script>
+    // 薄重定向：圆桌已统一为「AI讨论」的一种视图，入口在主应用抽屉内。
+    // 保留此页以兼容既有书签 / 外链；参数原样透传。
+    (function () {
+      try {
+        var q = location.search || '';
+        location.replace('/index.html?view=roundtable' + q);
+      } catch (e) {
+        location.replace('/index.html?view=roundtable');
+      }
+    })();
+  </script>
+</head>
+<body>
+  <p style="font-family:sans-serif;text-align:center;margin-top:40vh">正在打开围炉圆桌… <a href="/index.html?view=roundtable">点此手动打开</a></p>
+</body>
+</html>

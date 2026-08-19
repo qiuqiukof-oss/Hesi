@@ -1,0 +1,218 @@
+/*
+ * Copyright (c) 2026 qiuqiukof-oss
+ * Licensed under the MIT License. See LICENSE for details.
+ */
+
+/* ============================================================
+   Browser Preview Tab — Styles extracted from right-panel.css
+   ============================================================ */
+
+/* Toolbar: address bar + nav buttons */
+.rp-browser-toolbar {
+  display: flex;
+  gap: 6px;
+  padding: 8px;
+  border-bottom: 1px solid var(--border-default, #e0e0e0);
+  flex-shrink: 0;
+}
+
+.rp-browser-nav {
+  display: flex;
+  gap: 4px;
+}
+
+.rp-browser-btn {
+  background: none;
+  border: 1px solid transparent;
+  padding: 2px 8px;
+  cursor: pointer;
+  border-radius: 4px;
+  font-size: 12px;
+  color: var(--text-secondary, #666);
+  transition: background 0.12s, color 0.12s;
+}
+
+.rp-browser-btn:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
+.rp-browser-btn:hover:not(:disabled) {
+  background: var(--bg-hover, #f0f0f0);
+  color: var(--text-primary, #333);
+}
+
+.rp-browser-url-bar {
+  flex: 1;
+  display: flex;
+  gap: 4px;
+}
+
+.rp-browser-url-bar input {
+  flex: 1;
+  padding: 4px 8px;
+  border: 1px solid var(--border-default, #ccc);
+  border-radius: 4px;
+  font-size: 13px;
+  background: var(--bg-default, #fff);
+  color: var(--text-primary, #333);
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.rp-browser-url-bar input:focus {
+  border-color: var(--accent, #4f46e5);
+}
+
+.rp-browser-go {
+  padding: 4px 12px;
+  cursor: pointer;
+  border-radius: 4px;
+  background: var(--accent, #4f46e5);
+  color: #fff;
+  border: none;
+  font-size: 12px;
+  font-weight: 500;
+  transition: background 0.15s;
+}
+
+.rp-browser-go:hover {
+  background: var(--accent-hover, #4338ca);
+}
+
+/* iframe area: fills remaining space */
+.rp-browser-viewport {
+  flex: 1;
+  display: flex;
+  position: relative;
+  overflow: hidden;
+}
+
+.rp-browser-viewport iframe {
+  width: 100%;
+  height: 100%;
+  border: none;
+  background: #fff;
+}
+
+/* Status bar */
+.rp-browser-status {
+  padding: 2px 8px;
+  font-size: 11px;
+  color: var(--text-tertiary, #888);
+  border-top: 1px solid var(--border-default, #e0e0e0);
+  flex-shrink: 0;
+  user-select: none;
+}
+
+/* ── Browser standalone button ── */
+.rp-browser-standalone {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 4px;
+  font-size: 14px;
+  text-decoration: none;
+  color: var(--text-secondary, #9399b2);
+  background: var(--bg-hover, #313244);
+  transition: background 0.12s, color 0.12s;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.rp-browser-standalone:hover {
+  color: var(--accent, #4f46e5);
+  background: var(--bg-active, #45475a);
+}
+
+/* ── Browser AI toggle button in status bar ── */
+.rp-browser-ai-toggle {
+  background: none;
+  border: 1px solid var(--border-default, #313244);
+  padding: 0 6px;
+  height: 18px;
+  border-radius: 3px;
+  cursor: pointer;
+  font-size: 10px;
+  color: var(--text-secondary, #9399b2);
+  transition: background 0.12s, color 0.12s;
+}
+.rp-browser-ai-toggle:hover {
+  background: var(--bg-hover, #313244);
+  color: var(--accent, #4f46e5);
+}
+
+/* ── Browser AI panel ── */
+.browser-ai-panel {
+  border-top: 1px solid var(--border-default, #313244);
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+}
+.browser-ai-panel.hidden { display: none; }
+.browser-ai-header {
+  padding: 6px 8px;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-secondary, #9399b2);
+  display: flex;
+  justify-content: space-between;
+  background: var(--bg-surface, #1e1e2e);
+  border-bottom: 1px solid var(--border-default, #313244);
+}
+.browser-ai-context {
+  font-weight: 400;
+  font-size: 9px;
+  color: var(--text-tertiary, #6c7086);
+  max-width: 60%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.browser-ai-response {
+  padding: 8px;
+  font-size: 11px;
+  color: var(--text-primary, #cdd6f4);
+  min-height: 40px;
+  max-height: 120px;
+  overflow-y: auto;
+  line-height: 1.5;
+  background: var(--bg-elevated, #181825);
+}
+.browser-ai-input-row {
+  display: flex;
+  border-top: 1px solid var(--border-default, #313244);
+}
+.browser-ai-input-row input {
+  flex: 1;
+  border: none;
+  padding: 6px 8px;
+  font-size: 11px;
+  outline: none;
+  background: var(--bg-surface, #1e1e2e);
+  color: var(--text-primary, #cdd6f4);
+}
+.browser-ai-input-row button {
+  border: none;
+  background: var(--accent, #4f46e5);
+  color: #fff;
+  padding: 6px 12px;
+  font-size: 11px;
+  cursor: pointer;
+  transition: background 0.12s;
+}
+.browser-ai-input-row button:hover {
+  background: var(--accent-hover, #4338ca);
+}
+
+/* Dark theme overrides */
+[data-scheme="dark"] .rp-browser-url-bar input {
+  background: var(--bg-elevated, #1e1e2e);
+  color: var(--text-primary, #cdd6f4);
+  border-color: var(--border-default, #313244);
+}
+
+[data-scheme="dark"] .rp-browser-viewport iframe {
+  background: #1e1e2e;
+}

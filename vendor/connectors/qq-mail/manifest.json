@@ -1,0 +1,8 @@
+{
+  "id": "qq-mail",
+  "name": "qq-mail",
+  "category": "email",
+  "enterprise": false,
+  "authType": "basic",
+  "description": "qq-mail connector for Hesi"
+}

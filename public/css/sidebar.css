@@ -1,0 +1,1024 @@
+/*
+ * Copyright (c) 2026 qiuqiukof-oss
+ * Licensed under the MIT License. See LICENSE for details.
+ */
+
+/* ============================================================
+   Sidebar
+   ============================================================ */
+#sidebar {
+  width: var(--sidebar-width);
+  min-width: var(--sidebar-width);
+  background: var(--bg-elevated);
+  border-right: 1px solid var(--border-default);
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  z-index: 10;
+  position: relative;
+  transition: width 0.3s var(--ease-in-out), min-width 0.3s var(--ease-in-out);
+  overflow-x: hidden;
+  padding-right: var(--space-2);   /* 右侧留白，避免按钮/内容贴边显粗糙 */
+}
+
+/* Collapsed state */
+#sidebar.collapsed {
+  width: 44px;
+  min-width: 44px;
+  overflow: hidden;
+}
+
+/* When dragging, remove CSS transitions for real-time feedback */
+#sidebar.dragging {
+  transition: none !important;
+}
+#sidebar.dragging * {
+  transition: none !important;
+}
+
+#sidebar.collapsed .sidebar-header h1,
+#sidebar.collapsed #search-area,
+#sidebar.collapsed #cli-list,
+#sidebar.collapsed #category-filters,
+#sidebar.collapsed .sidebar-footer {
+  opacity: 0;
+  pointer-events: none;
+}
+
+#sidebar.collapsed .sidebar-header {
+  justify-content: center;
+  padding: var(--space-3) 0;
+}
+
+/* Narrow hover-out indicator on collapsed sidebar edge */
+#sidebar.collapsed::after {
+  content: '';
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: transparent;
+  transition: background 0.2s;
+}
+
+#sidebar.collapsed:hover::after {
+  background: var(--accent);
+}
+
+/* ── Sidebar Resize Handle ── */
+#sidebar-resize-handle {
+  position: absolute;
+  top: 0;
+  right: -3px;
+  bottom: 0;
+  width: 6px;
+  cursor: col-resize;
+  z-index: 25;
+  background: transparent;
+  transition: background 0.15s;
+  flex-shrink: 0;
+}
+
+#sidebar-resize-handle:hover,
+#sidebar-resize-handle.active {
+  background: rgba(99, 102, 241, 0.15);
+}
+
+#sidebar-resize-handle::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 2px;
+  height: 24px;
+  border-radius: 1px;
+  background: var(--border-default);
+  transition: background 0.15s, height 0.15s;
+}
+
+#sidebar-resize-handle:hover::after,
+#sidebar-resize-handle.active::after {
+  background: var(--accent);
+  height: 32px;
+}
+
+#sidebar.collapsed #sidebar-resize-handle {
+  display: none;
+}
+
+/* ── Sidebar Toggle Button ── */
+.sidebar-toggle-btn {
+  position: absolute;
+  top: 50%;
+  right: 0;
+  transform: translateY(-50%);
+  width: 18px;
+  height: 48px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-default);
+  border-right: none;
+  border-radius: var(--radius-sm) 0 0 var(--radius-sm);
+  color: var(--text-tertiary);
+  cursor: pointer;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 9px;
+  padding: 0;
+  line-height: 1;
+  transition: color 0.15s, background 0.15s, right 0.3s var(--ease-in-out);
+}
+
+.sidebar-toggle-btn:hover {
+  color: var(--accent-hover);
+  background: var(--bg-hover);
+}
+
+#sidebar.collapsed .sidebar-toggle-btn {
+  right: 0;
+}
+
+/* Push toggle inward so it doesn't overlap the resize handle */
+#sidebar:not(.collapsed) .sidebar-toggle-btn {
+  right: 3px;
+}
+
+/* ============================================================
+   CLI Item
+   ============================================================ */
+.cli-item {
+  display: flex;
+  align-items: center;
+  gap: var(--radius-sm);
+  padding: 3px var(--space-2);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all 0.18s var(--ease-out);
+  font-size: 11px;
+  line-height: 1.25;
+  color: var(--text-secondary);
+  position: relative;
+  border: 1px solid transparent;
+  background: transparent;
+  content-visibility: auto;
+  contain-intrinsic-size: 28px;
+}
+
+.cli-item:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+  transform: translateX(2px);
+  border-color: var(--accent-glow);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+/* Favorited CLI items get a subtle warm highlight */
+.cli-item.favorited {
+  background: rgba(245, 158, 11, 0.04);
+  border-color: rgba(245, 158, 11, 0.08);
+}
+
+.cli-item.favorited:hover {
+  background: rgba(245, 158, 11, 0.08);
+  border-color: rgba(245, 158, 11, 0.15);
+}
+
+.cli-item.active {
+  background: linear-gradient(90deg, rgba(99, 102, 241, 0.12) 0%, rgba(99, 102, 241, 0.04) 100%);
+  border-color: rgba(99, 102, 241, 0.25);
+  box-shadow: 0 0 12px rgba(99, 102, 241, 0.06);
+}
+
+.cli-item.active::before {
+  content: '';
+  position: absolute;
+  left: -1px;
+  top: 4px;
+  bottom: 4px;
+  width: 2px;
+  background: var(--accent);
+  border-radius: 0 2px 2px 0;
+  box-shadow: 0 0 6px rgba(99, 102, 241, 0.4);
+}
+
+.cli-item.running::after {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--success);
+  margin-left: auto;
+  flex-shrink: 0;
+  animation: pulse-dot 1.5s var(--ease-in-out) infinite;
+}
+
+.cli-icon {
+  width: 16px;
+  text-align: center;
+  font-size: 12px;
+  flex-shrink: 0;
+  line-height: 1;
+}
+
+/* Info block — enables two-line layout (name + version) */
+.cli-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.cli-name {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.3;
+}
+
+.cli-version {
+  font-size: 9px;
+  color: var(--text-tertiary);
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cli-type-badge {
+  font-size: 8px;
+  padding: 1px 4px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-hover);
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  margin-left: auto;
+  line-height: 1.3;
+  flex-shrink: 0;
+}
+
+/* Category badge */
+.cli-category-badge {
+  font-size: 8px;
+  padding: 1px 5px;
+  border-radius: 20px;
+  font-weight: 500;
+  flex-shrink: 0;
+  letter-spacing: 0.1px;
+  line-height: 1.4;
+}
+
+.cli-category-badge.agent {
+  background: rgba(168, 85, 247, 0.15);
+  color: #c084fc;
+  border: 1px solid rgba(168, 85, 247, 0.2);
+}
+
+.cli-category-badge.directory {
+  background: rgba(34, 211, 238, 0.1);
+  color: #67e8f9;
+  border: 1px solid rgba(34, 211, 238, 0.15);
+}
+
+.cli-category-badge.tool {
+  background: rgba(251, 191, 36, 0.1);
+  color: #fbbf24;
+  border: 1px solid rgba(251, 191, 36, 0.15);
+}
+
+/* Delete button — slides in from the right on hover */
+.cli-item .delete-cli-btn {
+  background: none;
+  border: none;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  font-size: 14px;
+  padding: 2px 4px;
+  border-radius: var(--radius-sm);
+  opacity: 0;
+  transform: translateX(4px);
+  transition: opacity 0.15s, transform 0.15s, color 0.15s, background 0.15s;
+  flex-shrink: 0;
+}
+
+.cli-item:hover .delete-cli-btn {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+.cli-item .delete-cli-btn:hover {
+  color: var(--danger);
+  background: rgba(239, 68, 68, 0.1);
+}
+
+/* Favorite star button — gold when favorited, always visible */
+.cli-item .cli-fav-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 12px;
+  padding: 2px 3px;
+  border-radius: var(--radius-sm);
+  flex-shrink: 0;
+  line-height: 1;
+  transition: transform 0.15s, filter 0.15s;
+  opacity: 0.35;
+  filter: grayscale(0.6);
+}
+
+.cli-item .cli-fav-btn.favorited {
+  opacity: 1;
+  filter: grayscale(0);
+  color: var(--warning);
+  text-shadow: 0 0 6px rgba(245, 158, 11, 0.3);
+}
+
+.cli-item:hover .cli-fav-btn {
+  opacity: 0.7;
+  filter: grayscale(0.2);
+}
+
+.cli-item:hover .cli-fav-btn.favorited {
+  opacity: 1;
+  filter: grayscale(0);
+}
+
+.cli-item .cli-fav-btn:hover {
+  transform: scale(1.25);
+}
+
+/* Drag-and-drop states */
+.cli-item.dragging {
+  opacity: 0.4;
+}
+
+.cli-item.drag-over {
+  background: var(--accent);
+  color: white;
+  border-color: var(--accent-hover);
+}
+
+.cli-item.drag-over .cli-name,
+.cli-item.drag-over .cli-type-badge,
+.cli-item.drag-over .cli-version {
+  color: white;
+}
+
+.cli-item.drag-over .delete-cli-btn,
+.cli-item.drag-over .cli-fav-btn {
+  display: none;
+}
+
+.folder-header.drag-over {
+  background: var(--accent-glow);
+  border: 1px dashed var(--accent);
+}
+
+.cli-item.drag-source {
+  border: 1px dashed var(--accent);
+}
+
+/* ============================================================
+   Skeleton Loading — CLI List
+   ============================================================ */
+.skeleton-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 2px 0;
+}
+
+.skeleton-list-folder {
+  margin-top: 8px;
+  padding-top: 6px;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.skeleton-item {
+  display: flex;
+  align-items: center;
+  gap: var(--radius-md);
+  padding: 5px var(--space-2);
+  border-radius: var(--radius-md);
+  height: 36px;
+}
+
+.skeleton-item.s-folder {
+  height: 28px;
+}
+
+.skeleton-shape {
+  position: relative;
+  overflow: hidden;
+  border-radius: var(--radius-sm);
+  background: var(--bg-hover);
+}
+
+/* Shimmer pseudo-element overlay for all skeleton shapes */
+.skeleton-shape::after {
+  content: '';
+  position: absolute;
+  inset: -50%;
+  width: 200%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    transparent 30%,
+    rgba(255, 255, 255, 0.04) 50%,
+    transparent 70%,
+    transparent 100%
+  );
+  animation: skeleton-shimmer 1.8s ease-in-out infinite;
+  transform: skewX(-20deg);
+  pointer-events: none;
+}
+
+[data-scheme="light"] .skeleton-shape::after {
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    transparent 30%,
+    rgba(0, 0, 0, 0.04) 50%,
+    transparent 70%,
+    transparent 100%
+  );
+}
+
+@keyframes skeleton-shimmer {
+  0% { transform: skewX(-20deg) translateX(-50%); }
+  100% { transform: skewX(-20deg) translateX(50%); }
+}
+
+/* Skeleton shape sizes */
+.s-icon {
+  width: 18px;
+  height: 18px;
+  border-radius: var(--radius-sm);
+  flex-shrink: 0;
+}
+
+.s-icon-nest {
+  margin-left: var(--space-2);
+}
+
+.skeleton-lines {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.s-line {
+  height: 10px;
+  border-radius: 4px;
+  width: 75%;
+}
+
+.s-line-1 {
+  width: 70%;
+}
+
+.s-line-2 {
+  width: 40%;
+  height: 8px;
+}
+
+.s-line-w {
+  width: 55%;
+}
+
+.s-line-w2 {
+  width: 30%;
+}
+
+.s-folder-line {
+  width: 50%;
+  height: 9px;
+}
+
+.s-folder-toggle {
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+
+.s-badge {
+  width: 42px;
+  height: 16px;
+  border-radius: 20px;
+  flex-shrink: 0;
+}
+
+.s-badge-sm {
+  width: 36px;
+}
+
+/* ── Sidebar Footer ── */
+.sidebar-footer {
+  padding: var(--space-2) var(--space-2);
+  border-top: 1px solid var(--border-default);
+  display: flex;
+  flex-direction: column;
+  gap: var(--radius-md);
+  flex-shrink: 0;
+}
+
+/* ============================================================
+   Buttons
+   ============================================================ */
+.icon-btn {
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 18px;
+  padding: 4px 6px;
+  border-radius: var(--radius-sm);
+  transition: background 0.15s, color 0.15s;
+  line-height: 1;
+}
+
+.icon-btn:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.primary-btn {
+  background: var(--accent);
+  color: white;
+  border: none;
+  padding: var(--space-2) var(--space-4);
+  border-radius: var(--radius-md);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s, transform 0.15s var(--ease-spring);
+  font-family: var(--font-ui);
+}
+
+.primary-btn:hover {
+  background: var(--accent-hover);
+  transform: scale(1.02);
+}
+
+.primary-btn:active {
+  transform: scale(0.98);
+}
+
+/* +Add CLI 按钮：与侧栏流光按钮统一 —— 默认不动，hover 才流光 */
+#add-cli-btn:hover{background:linear-gradient(110deg,#0ea5e9,#22d3ee,#6366f1,#22d3ee,#0ea5e9);background-size:200% 100%;animation:og-shimmer 3s linear infinite}
+@media (prefers-reduced-motion: reduce){#add-cli-btn:hover{animation:none}}
+
+.secondary-btn {
+  background: var(--bg-overlay);
+  color: var(--text-primary);
+  border: 1px solid var(--border-default);
+  padding: var(--space-2) var(--space-4);
+  border-radius: var(--radius-md);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+  font-family: var(--font-ui);
+}
+
+.secondary-btn:hover {
+  background: var(--bg-hover);
+  border-color: var(--border-strong);
+}
+
+/* ============================================================
+   Connection Status
+   ============================================================ */
+.status-indicator {
+  display: flex;
+  align-items: center;
+  gap: var(--radius-md);
+  font-size: 12px;
+  color: var(--text-tertiary);
+}
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--text-tertiary);
+  flex-shrink: 0;
+  transition: background 0.3s;
+}
+
+.status-indicator.connected .status-dot {
+  background: var(--success);
+  box-shadow: 0 0 6px rgba(34, 197, 94, 0.4);
+}
+.status-indicator.connected .status-text {
+  color: var(--text-secondary);
+}
+
+.status-indicator.disconnected .status-dot {
+  background: var(--text-tertiary);
+}
+.status-indicator.disconnected .status-text {
+  color: var(--text-tertiary);
+}
+
+.status-indicator.error .status-dot {
+  background: var(--danger);
+  box-shadow: 0 0 6px rgba(239, 68, 68, 0.4);
+}
+.status-indicator.error .status-text {
+  color: var(--danger);
+}
+
+/* ============================================================
+   Category Filters (Sidebar)
+   ============================================================ */
+#category-filters {
+  display: flex;
+  gap: 5px;
+  padding: var(--space-1) var(--space-2);
+  border-bottom: 1px solid var(--border-default);
+  flex-wrap: wrap;
+  flex-shrink: 0;
+}
+
+.category-chip {
+  flex: 0 1 auto;
+  min-width: 0;
+  background: transparent;
+  border: 1px solid var(--border-default);
+  border-radius: 20px;
+  padding: 4px 8px;
+  font-size: 10px;
+  font-family: var(--font-ui);
+  color: var(--text-tertiary);
+  cursor: pointer;
+  transition: all 0.2s var(--ease-out);
+  white-space: nowrap;
+  text-align: center;
+  letter-spacing: 0.2px;
+}
+
+.category-chip:hover {
+  background: var(--bg-hover);
+  color: var(--text-secondary);
+  border-color: var(--border-strong);
+}
+
+.category-chip.active {
+  background: var(--accent-glow);
+  border-color: var(--accent);
+  color: var(--accent-hover);
+  box-shadow: 0 0 8px rgba(99, 102, 241, 0.15);
+}
+
+
+/* ============================================================
+   Mobile Sidebar Overlay
+   ============================================================ */
+#sidebar-mobile-overlay {
+  display: none;
+}
+
+/* ============================================================
+   Responsive
+   ============================================================ */
+/* CLI item hidden by category filter */
+.cli-item.category-hidden {
+  display: none !important;
+}
+
+.folder-item.category-hidden {
+  display: none !important;
+}
+
+@media (max-width: 800px) {
+  #sidebar {
+    width: 200px;
+    min-width: 200px;
+  }
+
+  #sidebar.collapsed {
+    width: 44px;
+    min-width: 44px;
+  }
+
+  .sidebar-header h1 {
+    font-size: 14px;
+  }
+
+  .cli-item {
+    padding: 5px 6px;
+    font-size: 12px;
+  }
+
+  .welcome-header h2 {
+    font-size: 24px;
+  }
+}
+
+@media (max-width: 500px) {
+  #sidebar:not(.collapsed) {
+    position: fixed;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    z-index: 15;
+    box-shadow: 4px 0 30px rgba(0, 0, 0, 0.5);
+  }
+
+  /* Dark overlay when sidebar is expanded on mobile */
+  #sidebar:not(.collapsed) ~ #sidebar-mobile-overlay {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 14;
+    background: rgba(0, 0, 0, 0.4);
+  }
+
+  .welcome-header h2 {
+    font-size: 20px;
+  }
+
+  .shortcut-hints {
+    padding: var(--space-2);
+    gap: var(--space-1) 10px;
+  }
+}
+
+
+/* ============================================================
+   CLI List — Staggered Entrance Animation
+   ============================================================ */
+@keyframes cli-item-enter {
+  from {
+    opacity: 0;
+    transform: translateX(-8px);
+    filter: blur(2px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+    filter: blur(0);
+  }
+}
+
+.cli-item.entering {
+  animation: cli-item-enter 0.35s var(--ease-out) both;
+}
+
+.cli-item.entering:nth-child(1) { animation-delay: 0s; }
+.cli-item.entering:nth-child(2) { animation-delay: 0.03s; }
+.cli-item.entering:nth-child(3) { animation-delay: 0.06s; }
+.cli-item.entering:nth-child(4) { animation-delay: 0.09s; }
+.cli-item.entering:nth-child(5) { animation-delay: 0.12s; }
+.cli-item.entering:nth-child(6) { animation-delay: 0.15s; }
+.cli-item.entering:nth-child(7) { animation-delay: 0.18s; }
+.cli-item.entering:nth-child(8) { animation-delay: 0.21s; }
+.cli-item.entering:nth-child(9) { animation-delay: 0.24s; }
+.cli-item.entering:nth-child(10) { animation-delay: 0.27s; }
+.cli-item.entering:nth-child(11) { animation-delay: 0.3s; }
+.cli-item.entering:nth-child(12) { animation-delay: 0.33s; }
+.cli-item.entering:nth-child(13) { animation-delay: 0.36s; }
+.cli-item.entering:nth-child(14) { animation-delay: 0.39s; }
+.cli-item.entering:nth-child(15) { animation-delay: 0.42s; }
+
+/* ── Folder entrance ── */
+.folder-item.entering {
+  animation: cli-item-enter 0.3s var(--ease-out) both;
+}
+
+/* ============================================================
+   Sidebar Tools & Features Section
+   ============================================================ */
+#sidebar-tools-section {
+  border-bottom: 1px solid var(--border-default);
+  flex-shrink: 0;
+  padding: var(--space-1) var(--space-2) var(--space-1);
+}
+
+#sidebar.collapsed #sidebar-tools-section {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.sidebar-section-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-1) var(--space-1);
+  flex-shrink: 0;
+}
+
+.sidebar-section-icon {
+  font-size: 10px;
+  line-height: 1;
+  opacity: 0.6;
+}
+
+.sidebar-section-title {
+  font-size: 9px;
+  font-weight: 600;
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  flex: 1;
+}
+
+.sidebar-tools-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 3px;
+  padding: 2px 0;
+}
+
+.sidebar-tool-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 5px 2px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  color: var(--text-tertiary);
+  cursor: pointer;
+  transition: all 0.15s var(--ease-out);
+  font-family: var(--font-ui);
+  min-width: 0;
+  min-height: 42px;
+}
+
+.sidebar-tool-btn:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+  border-color: var(--accent-glow);
+  transform: translateY(-1px);
+}
+
+.sidebar-tool-btn:active {
+  transform: translateY(0);
+}
+
+.sidebar-tool-btn .stb-icon {
+  font-size: 14px;
+  line-height: 1;
+  transition: transform 0.15s var(--ease-spring);
+}
+
+.sidebar-tool-btn:hover .stb-icon {
+  transform: scale(1.15);
+}
+
+.sidebar-tool-btn .stb-label {
+  font-size: 8px;
+  line-height: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+  letter-spacing: 0.2px;
+}
+
+/* Tools section in collapsed sidebar — show condensed icons */
+#sidebar.collapsed #sidebar-tools-section {
+  display: none;
+}
+
+/* ============================================================
+   Output Pins — Sidebar Section
+   ============================================================ */
+.sidebar-pinned-section {
+  border-top: 1px solid var(--border-default);
+  flex-shrink: 0;
+  max-height: 200px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+#sidebar.collapsed .sidebar-pinned-section {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.pinned-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-1) var(--space-2);
+  background: rgba(251, 191, 36, 0.06);
+  border-bottom: 1px solid var(--border-subtle);
+  flex-shrink: 0;
+}
+
+.pinned-header-icon { font-size: 12px; line-height: 1; }
+.pinned-header-title {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  flex: 1;
+}
+
+.pinned-clear-btn {
+  background: none;
+  border: none;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  font-size: 11px;
+  padding: 2px;
+  border-radius: var(--radius-sm);
+  transition: color 0.15s;
+  line-height: 1;
+}
+
+.pinned-clear-btn:hover {
+  color: var(--danger);
+}
+
+#pinned-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--space-1);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.pin-item {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-1);
+  padding: 4px var(--space-2);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: background 0.12s;
+  font-size: 10px;
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  line-height: 1.4;
+  word-break: break-all;
+  max-height: 48px;
+  overflow: hidden;
+  position: relative;
+}
+
+.pin-item:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.pin-item-text {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+}
+
+.pin-item-remove {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  background: none;
+  border: none;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  font-size: 9px;
+  padding: 1px;
+  opacity: 0;
+  transition: opacity 0.12s;
+  line-height: 1;
+}
+
+.pin-item:hover .pin-item-remove {
+  opacity: 0.5;
+}
+
+.pin-item-remove:hover {
+  opacity: 1 !important;
+  color: var(--danger);
+}
+
+.pin-empty {
+  font-size: 10px;
+  color: var(--text-tertiary);
+  padding: var(--space-2);
+  text-align: center;
+  font-style: italic;
+}
+
+/* ============================================================

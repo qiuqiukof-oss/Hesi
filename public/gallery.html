@@ -1,0 +1,392 @@
+<!--
+  Copyright (c) 2026 qiuqiukof-oss
+  Licensed under the MIT License. See LICENSE for details.
+-->
+
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Document Gallery</title>
+  <link rel="stylesheet" href="/css/theme.css" />
+<style>
+  /* 私有变量别名映射到 Hesi 主题令牌：一处定义，6 套主题全部跟随。
+     注意 gallery 原 --accent / --text-secondary 与 theme.css 令牌同名，
+     故别名到不同名的 --accent-hover / --text-tertiary，避免自引用死循环。 */
+  :root {
+    --bg: var(--bg-ground);
+    --card-bg: var(--bg-surface);
+    --text: var(--text-primary);
+    --text-secondary: var(--text-tertiary);
+    --border: var(--border-default);
+    --accent: var(--accent-hover);
+    --hover: var(--accent-hover);
+    --shadow: rgba(0, 0, 0, 0.12);
+    --iframe-border: var(--border-default);
+    --header-bg: var(--bg-surface);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    transition: background 0.3s, color 0.3s;
+  }
+  header {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background: var(--header-bg);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--border);
+    padding: 16px 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+  header h1 {
+    font-size: 20px;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+  }
+  header .meta {
+    font-size: 13px;
+    color: var(--text-secondary);
+  }
+  header .actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .theme-btn {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    border: 1px solid var(--border);
+    background: var(--card-bg);
+    color: var(--text);
+    font-size: 16px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+  }
+  .theme-btn:hover { transform: scale(1.1); }
+  .refresh-btn {
+    padding: 8px 16px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--card-bg);
+    color: var(--text);
+    font-size: 13px;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .refresh-btn:hover { background: var(--accent); color: white; border-color: var(--accent); }
+  .refresh-btn .icon { font-size: 14px; }
+  .count-badge {
+    background: var(--accent);
+    color: white;
+    font-size: 12px;
+    padding: 2px 10px;
+    border-radius: 12px;
+    font-weight: 600;
+  }
+  .gallery {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+    gap: 20px;
+    padding: 24px;
+    max-width: 1400px;
+    margin: 0 auto;
+  }
+  @media (max-width: 720px) {
+    .gallery { grid-template-columns: 1fr; padding: 16px; }
+    header { padding: 12px 16px; }
+    header h1 { font-size: 17px; }
+  }
+  .card {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+    transition: all 0.25s ease;
+    display: flex;
+    flex-direction: column;
+  }
+  .card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 12px 40px var(--shadow);
+    border-color: var(--accent);
+  }
+  .card-preview {
+    position: relative;
+    width: 100%;
+    height: 240px;
+    overflow: hidden;
+    border-bottom: 1px solid var(--border);
+    background: #fafafa;
+  }
+  .card-preview iframe {
+    width: 100%;
+    height: 100%;
+    border: none;
+    pointer-events: none;
+    transform-origin: 0 0;
+  }
+  .card-preview .loading {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-secondary);
+    font-size: 13px;
+    background: var(--card-bg);
+    transition: opacity 0.3s;
+  }
+  .card-preview .loading.hidden { opacity: 0; pointer-events: none; }
+  .card-body {
+    padding: 14px 16px 16px;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+  }
+  .card-title {
+    font-size: 15px;
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-bottom: 6px;
+  }
+  .card-meta {
+    font-size: 12px;
+    color: var(--text-secondary);
+    display: flex;
+    gap: 12px;
+    margin-bottom: 12px;
+  }
+  .card-actions {
+    margin-top: auto;
+    display: flex;
+    gap: 8px;
+  }
+  .card-actions a {
+    flex: 1;
+    text-align: center;
+    padding: 8px 0;
+    border-radius: 8px;
+    font-size: 13px;
+    text-decoration: none;
+    transition: all 0.2s;
+  }
+  .card-actions .open-btn {
+    background: var(--accent);
+    color: white;
+    font-weight: 500;
+  }
+  .card-actions .open-btn:hover { background: var(--hover); }
+  .card-actions .preview-btn {
+    border: 1px solid var(--border);
+    color: var(--text);
+  }
+  .card-actions .preview-btn:hover { background: var(--border); }
+  .empty {
+    grid-column: 1 / -1;
+    text-align: center;
+    padding: 80px 20px;
+    color: var(--text-secondary);
+  }
+  .empty .icon { font-size: 48px; margin-bottom: 16px; }
+  .empty p { font-size: 15px; line-height: 1.6; }
+  .empty .hint { margin-top: 8px; font-size: 13px; opacity: 0.7; }
+  .toast {
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%) translateY(80px);
+    background: var(--text);
+    color: var(--bg);
+    padding: 10px 20px;
+    border-radius: 10px;
+    font-size: 13px;
+    opacity: 0;
+    transition: all 0.4s ease;
+    pointer-events: none;
+    z-index: 999;
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+</style>
+</head>
+<body>
+<script>
+(function () {
+  var DARK = { dark: 1, xuanye: 1, cyber: 1 };
+  function apply() {
+    var t = localStorage.getItem('qcli-theme') || localStorage.getItem('gallery-theme') || 'dark';
+    var root = document.documentElement;
+    root.setAttribute('data-theme', t);
+    root.setAttribute('data-scheme', DARK[t] ? 'dark' : 'light');
+  }
+  apply();
+  window.addEventListener('storage', function (e) {
+    if (e && (e.key === 'qcli-theme' || e.key === 'gallery-theme')) apply();
+  });
+})();
+</script>
+
+<header>
+  <div>
+    <h1>&#x1F4F7; Document Gallery</h1>
+    <div class="meta">Preview of generated documents</div>
+  </div>
+  <div class="actions">
+    <span class="count-badge" id="fileCount">0</span>
+    <button class="refresh-btn" onclick="loadGallery()">
+      <span class="icon">&#x21BB;</span> Refresh
+    </button>
+    <button class="theme-btn" id="themeToggle" title="Toggle dark mode" aria-label="Toggle dark mode">&#x1F319;</button>
+  </div>
+</header>
+
+<div class="gallery" id="gallery"></div>
+<div class="toast" id="toast"></div>
+
+<script>
+(function(){
+  // ── Theme management ──
+  var html = document.documentElement;
+  var themeBtn = document.getElementById('themeToggle');
+  var DARK = { dark: 1, xuanye: 1, cyber: 1 };
+  function schemeOf(t) { return DARK[t] ? 'dark' : 'light'; }
+  function getTheme() {
+    // 跟随主应用完整主题 id（xuan/quiet/xuanye/cyber…），不回落为 light/dark，
+    // 否则自定义配色永远套不到 gallery 的私有变量上。
+    var main = localStorage.getItem('qcli-theme');
+    if (main) return main;
+    var saved = localStorage.getItem('gallery-theme');
+    if (saved === 'dark' || saved === 'light' || saved === 'xuan' || saved === 'xuanye') return saved;
+    return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'xuanye' : 'xuan';
+  }
+  function setTheme(t) {
+    html.setAttribute('data-theme', t);
+    html.setAttribute('data-scheme', schemeOf(t));
+    var dark = schemeOf(t) === 'dark';
+    themeBtn.textContent = dark ? '\u2600\uFE0F' : '\uD83C\uDF19';
+    themeBtn.title = dark ? 'Switch to light' : 'Switch to dark';
+  }
+  setTheme(getTheme());
+  themeBtn.addEventListener('click', function(){
+    // 本地切换基调：暗→亮用 xuan，亮→暗用 xuanye
+    var cur = html.getAttribute('data-theme');
+    var next = schemeOf(cur) === 'dark' ? 'xuan' : 'xuanye';
+    localStorage.setItem('gallery-theme', next);
+    setTheme(next);
+  });
+  window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', function(e){
+    if (!localStorage.getItem('gallery-theme') && !localStorage.getItem('qcli-theme')) setTheme(e.matches ? 'dark' : 'light');
+  });
+
+  // ── Gallery loading ──
+  var gallery = document.getElementById('gallery');
+  var countBadge = document.getElementById('fileCount');
+  var toastEl = document.getElementById('toast');
+  var toastTimer = null;
+
+  function showToast(msg) {
+    toastEl.textContent = msg;
+    toastEl.classList.add('show');
+    if (toastTimer) clearTimeout(toastTimer);
+    toastTimer = setTimeout(function(){ toastEl.classList.remove('show'); }, 2500);
+  }
+
+  function formatDate(d) {
+    var date = new Date(d);
+    return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) +
+      ' ' + date.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+  }
+
+  function formatSize(bytes) {
+    if (!bytes) return '0 B';
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB';
+    return (bytes / 1048576).toFixed(1) + ' MB';
+  }
+
+  function extractTitle(name) {
+    return name
+      .replace(/^doc_\d+_/, '')
+      .replace(/_/g, ' ')
+      .replace(/\.html$/, '')
+      .replace(/\b\w/g, function(c){ return c.toUpperCase(); });
+  }
+
+  window.loadGallery = function() {
+    gallery.innerHTML = '';
+    var loadingDiv = document.createElement('div');
+    loadingDiv.className = 'empty';
+    loadingDiv.innerHTML = '<div class="icon">&#x23F3;</div><p>Loading gallery...</p>';
+    gallery.appendChild(loadingDiv);
+
+    fetch('/api/gallery')
+      .then(function(r){ return r.json(); })
+      .then(function(data){
+        gallery.innerHTML = '';
+        var files = data.files || [];
+        countBadge.textContent = files.length;
+
+        if (files.length === 0) {
+          gallery.innerHTML = '<div class="empty"><div class="icon">&#x1F4C1;</div><p>No generated documents found.</p><p class="hint">Use the <code>convert_document</code> tool to generate HTML files first.</p></div>';
+          return;
+        }
+
+        files.forEach(function(file, idx){
+          var card = document.createElement('div');
+          card.className = 'card';
+
+          var title = extractTitle(file.name);
+          var previewUrl = file.url;
+          var loadId = 'load-' + idx;
+
+          card.innerHTML =
+            '<div class="card-preview">' +
+              '<div class="loading" id="' + loadId + '">&#x1F504; Loading preview...</div>' +
+              '<iframe src="' + previewUrl + '" onload="document.getElementById(\'' + loadId + '\').classList.add(\'hidden\')" loading="lazy"></iframe>' +
+            '</div>' +
+            '<div class="card-body">' +
+              '<div class="card-title" title="' + title + '">' + title + '</div>' +
+              '<div class="card-meta">' +
+                '<span>&#x1F4C4; ' + formatSize(file.size) + '</span>' +
+                '<span>&#x1F4C5; ' + formatDate(file.mtime) + '</span>' +
+              '</div>' +
+              '<div class="card-actions">' +
+                '<a href="' + previewUrl + '" target="_blank" class="open-btn">&#x2197; Open</a>' +
+              '</div>' +
+            '</div>';
+
+          gallery.appendChild(card);
+        });
+
+        showToast('Loaded ' + files.length + ' document' + (files.length > 1 ? 's' : ''));
+      })
+      .catch(function(err){
+        gallery.innerHTML = '<div class="empty"><div class="icon">&#x26A0;</div><p>Failed to load gallery.</p><p class="hint">' + err.message + '</p></div>';
+        showToast('Error: ' + err.message);
+      });
+  };
+
+  loadGallery();
+})();
+</script>
+</body>
+</html>

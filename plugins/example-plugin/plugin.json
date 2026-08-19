@@ -1,0 +1,88 @@
+{
+  "name": "example-plugin",
+  "version": "1.0.0",
+  "description": "示例插件 — 展示 Hesi 插件系统的所有能力",
+  "author": "Hesi Contributors",
+  "license": "MIT",
+  "clis": [
+    {
+      "id": "example-hello",
+      "name": "example-hello",
+      "path": "echo",
+      "category": "tool",
+      "type": "batch",
+      "args": [
+        "Hello from example-plugin!"
+      ],
+      "init": "",
+      "version": "1.0.0"
+    }
+  ],
+  "workflows": [
+    {
+      "id": "example-greet",
+      "name": "👋 示例问候",
+      "nameEn": "👋 Example Greeting",
+      "description": "一个简单的工作流示例",
+      "descriptionEn": "A simple example workflow",
+      "icon": "👋",
+      "steps": [
+        {
+          "id": "greet",
+          "label": "发送问候",
+          "agentId": "opencode",
+          "task": "Say hello to the user. Respond with a friendly greeting and tell them you are running from an example plugin."
+        }
+      ]
+    }
+  ],
+  "aiTools": [
+    {
+      "name": "example_echo",
+      "description": "回显输入 — 测试 AI 工具插件是否正常工作",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "message": {
+            "type": "string",
+            "description": "要回显的消息"
+          }
+        },
+        "required": [
+          "message"
+        ]
+      },
+      "handler": "handlers/echo.js"
+    }
+  ],
+  "routes": [
+    {
+      "method": "GET",
+      "path": "/api/plugins/example-plugin/hello",
+      "handler": "handlers/hello-route.js"
+    }
+  ],
+  "presets": [
+    {
+      "name": "example",
+      "label": "示例预设",
+      "labelEn": "Example Preset",
+      "description": "由 example-plugin 提供的示例预设",
+      "descriptionEn": "Example preset provided by example-plugin",
+      "icon": "🔌",
+      "tools": {
+        "example-hello": {
+          "category": "tool",
+          "type": "batch"
+        }
+      },
+      "names": [
+        "example-hello"
+      ]
+    }
+  ],
+  "lifecycle": {
+    "onLoad": "handlers/init.js"
+  },
+  "homepage": "/api/plugins/example-plugin/doc"
+}

@@ -1,0 +1,134 @@
+/*
+ * Copyright (c) 2026 qiuqiukof-oss
+ * Licensed under the MIT License. See LICENSE for details.
+ */
+
+/* ============================================================
+   Workspace Profiles Overlay
+   Extracted from panels.css
+   ============================================================ */
+
+/* ============================================================
+   Workspace Profiles Overlay
+   ============================================================ */
+#workspace-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 600;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding-top: 10vh;
+}
+
+#workspace-overlay.hidden { display: none; }
+
+#workspace-overlay-bg {
+  position: absolute;
+  inset: 0;
+  background: rgba(5, 5, 8, 0.8);
+  backdrop-filter: blur(12px);
+}
+
+[data-scheme="light"] #workspace-overlay-bg {
+  background: rgba(245, 245, 245, 0.9);
+}
+
+#workspace-panel {
+  position: relative;
+  width: 560px;
+  max-width: 90vw;
+  max-height: 70vh;
+  background: var(--bg-overlay);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-xl);
+  box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  animation: modal-in 0.2s var(--ease-out);
+}
+
+.workspace-panel-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--border-default);
+  flex-shrink: 0;
+}
+
+.workspace-panel-icon { font-size: 16px; flex-shrink: 0; }
+.workspace-panel-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+  flex: 1;
+}
+
+#workspace-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--space-2);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.workspace-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 10px var(--space-3);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: background 0.12s, border-color 0.12s;
+  border: 1px solid transparent;
+}
+
+.workspace-item:hover {
+  background: var(--bg-hover);
+  border-color: var(--accent-glow);
+}
+
+.workspace-item-icon { font-size: 24px; flex-shrink: 0; }
+.workspace-item-body { flex: 1; min-width: 0; }
+.workspace-item-name {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+.workspace-item-meta {
+  font-size: 10px;
+  color: var(--text-tertiary);
+  margin-top: 1px;
+}
+.workspace-delete-btn {
+  background: none;
+  border: none;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  font-size: 14px;
+  padding: 4px;
+  border-radius: var(--radius-sm);
+  opacity: 0;
+  transition: opacity 0.12s, color 0.12s;
+  flex-shrink: 0;
+}
+.workspace-item:hover .workspace-delete-btn { opacity: 0.4; }
+.workspace-delete-btn:hover { opacity: 1 !important; color: var(--danger); }
+
+.workspace-empty {
+  text-align: center;
+  padding: 30px;
+  color: var(--text-tertiary);
+  font-size: 13px;
+}
+
+/* ============================================================
+   Notification test button (status bar)
+   ============================================================ */
+.notif-test-btn {
+  font-size: 12px;
+}
+

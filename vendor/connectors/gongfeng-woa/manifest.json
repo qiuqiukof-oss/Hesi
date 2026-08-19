@@ -1,0 +1,8 @@
+{
+  "id": "gongfeng-woa",
+  "name": "gongfeng-woa",
+  "category": "dev-tools",
+  "enterprise": true,
+  "authType": "token",
+  "description": "gongfeng-woa connector for Hesi"
+}

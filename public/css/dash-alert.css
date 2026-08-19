@@ -1,0 +1,122 @@
+/*
+ * Copyright (c) 2026 qiuqiukof-oss
+ * Licensed under the MIT License. See LICENSE for details.
+ */
+
+/* ============================================================
+   Alert Manager — Threshold Alert Items in Sidebar
+   ============================================================ */
+
+#sidebar-alerts {
+  margin-bottom: 6px;
+}
+
+.alert-item {
+  padding: 6px 8px;
+  margin-bottom: 4px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  font-size: 10px;
+  transition: background 0.15s, border-color 0.15s;
+  animation: alert-slide-in 0.25s ease-out;
+}
+
+.alert-item:hover {
+  background: var(--bg-hover);
+  border-color: var(--border-default);
+}
+
+.alert-item-header {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.alert-item-icon {
+  font-size: 11px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.alert-item-title {
+  flex: 1;
+  font-weight: 600;
+  color: var(--text-primary);
+  font-size: 10px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.alert-item-close {
+  font-size: 10px;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  padding: 1px 3px;
+  border-radius: 3px;
+  transition: background 0.12s, color 0.12s;
+  flex-shrink: 0;
+  line-height: 1;
+}
+
+.alert-item-close:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.alert-item-detail {
+  margin-top: 3px;
+  font-size: 9px;
+  color: var(--text-tertiary);
+  padding-left: 16px;
+  font-family: var(--font-mono);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+@keyframes alert-slide-in {
+  from { opacity: 0; transform: translateX(-8px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+/* ── Dismiss-All Button ── */
+.sa-dismiss-all {
+  display: block;
+  width: 100%;
+  margin-top: 4px;
+  padding: 2px 8px;
+  font-size: 9px;
+  color: var(--text-tertiary);
+  background: none;
+  border: 1px solid var(--border-subtle);
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s, border-color 0.12s;
+  font-family: var(--font-ui);
+  text-align: center;
+}
+
+.sa-dismiss-all:hover {
+  background: var(--bg-hover);
+  color: var(--text-secondary);
+  border-color: var(--border-default);
+}
+
+/* ── Light Theme ── */
+[data-scheme="light"] .alert-item {
+  background: #fafafa;
+}
+
+[data-scheme="light"] .alert-item:hover {
+  background: var(--shadow-light);
+}
+
+[data-scheme="light"] .sa-dismiss-all {
+  border-color: var(--shadow-ambient);
+}
+
+[data-scheme="light"] .sa-dismiss-all:hover {
+  background: var(--shadow-light);
+}

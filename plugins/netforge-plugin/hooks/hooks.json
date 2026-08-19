@@ -1,0 +1,42 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${PLUGIN_ROOT}/mcp/start-browser.mjs\" hook session-start",
+            "timeout": 15,
+            "statusMessage": "NetForge: Checking browser availability"
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "^webfetch$",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${PLUGIN_ROOT}/mcp/start-browser.mjs\" hook pre-tool-use",
+            "timeout": 5,
+            "statusMessage": "NetForge: Checking if URL needs browser"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "^(edit|write|Edit|Write)$",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${PLUGIN_ROOT}/mcp/start-browser.mjs\" hook post-tool-use",
+            "timeout": 5,
+            "statusMessage": "NetForge: Checking if frontend QA is needed"
+          }
+        ]
+      }
+    ]
+  }
+}

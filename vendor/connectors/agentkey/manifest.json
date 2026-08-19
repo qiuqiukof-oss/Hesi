@@ -1,0 +1,8 @@
+{
+  "id": "agentkey",
+  "name": "agentkey",
+  "category": "integration",
+  "enterprise": false,
+  "authType": "token",
+  "description": "agentkey connector for Hesi"
+}

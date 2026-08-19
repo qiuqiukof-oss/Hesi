@@ -1,0 +1,38 @@
+{
+  "item": "cli-tool",
+  "itemName": "CLI 工具 / 脚本",
+  "dod": [
+    {
+      "type": "functional",
+      "id": "f1",
+      "check": "<binary> --help",
+      "expect": "Usage"
+    },
+    {
+      "type": "functional",
+      "id": "f2",
+      "check": "<binary> <sample-input>",
+      "expect": "<expected-output-marker>"
+    },
+    {
+      "type": "functional",
+      "id": "f3",
+      "check": "echo '<invalid-input>' | <binary>; echo exit=$?",
+      "expect": "exit=1"
+    },
+    {
+      "type": "semantic",
+      "id": "s1",
+      "question": "非零退出码是否伴随 stderr 错误说明？",
+      "yes": true,
+      "evidence": "<source-file>:<line>"
+    },
+    {
+      "type": "semantic",
+      "id": "s2",
+      "question": "参数校验是否覆盖边界（空输入/超长/非法组合）？",
+      "yes": true,
+      "evidence": "<test-file>:<line>"
+    }
+  ]
+}

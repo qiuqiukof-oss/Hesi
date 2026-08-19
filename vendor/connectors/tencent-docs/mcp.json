@@ -1,0 +1,9 @@
+{
+    "mcpServers": {
+        "tencent-docs": {
+            "timeout": 600,
+            "url": "https://docs.qq.com/openapi/mcp",
+            "headers": { "Authorization": "Bearer ${TOKEN}" }
+        }
+    }
+}

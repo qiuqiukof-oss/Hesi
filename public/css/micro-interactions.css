@@ -1,0 +1,77 @@
+/*
+ * Copyright (c) 2026 qiuqiukof-oss
+ * Licensed under the MIT License. See LICENSE for details.
+ */
+
+/* ============================================================
+   Micro-interactions — Button Ripple
+   Extracted from panels.css
+   ============================================================ */
+
+/* ============================================================
+   Micro-interactions — Button Ripple
+   ============================================================ */
+@keyframes btn-ripple {
+  to {
+    transform: scale(2.5);
+    opacity: 0;
+  }
+}
+
+.ripple-btn {
+  position: relative;
+  overflow: hidden;
+}
+
+.ripple-btn .ripple-effect {
+  position: absolute;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.15);
+  width: 40px;
+  height: 40px;
+  transform: scale(0);
+  animation: btn-ripple 0.5s var(--ease-out) forwards;
+  pointer-events: none;
+}
+
+[data-scheme="light"] .ripple-btn .ripple-effect {
+  background: rgba(0, 0, 0, 0.08);
+}
+
+/* ── Enhanced hover scale on interactive elements ── */
+.primary-btn, .secondary-btn, .chat-send-btn {
+  transition: background 0.15s, transform 0.15s var(--ease-spring), box-shadow 0.15s;
+}
+
+.primary-btn:hover {
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+}
+
+.secondary-btn:hover {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+[data-scheme="light"] .secondary-btn:hover {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+/* ── Enhanced folder collapse animation ── */
+.folder-clis {
+  transition: max-height 0.3s var(--ease-out), opacity 0.25s var(--ease-out);
+  max-height: 2000px;
+  opacity: 1;
+  overflow: hidden;
+}
+
+.folder-clis.collapsed {
+  max-height: 0;
+  opacity: 0;
+  padding-top: 0;
+  padding-bottom: 0;
+  overflow: hidden;
+}
+
+/* Prevent transition when initially rendered */
+.folder-clis.no-transition {
+  transition: none !important;
+}

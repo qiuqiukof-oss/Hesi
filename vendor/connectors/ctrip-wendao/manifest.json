@@ -1,0 +1,8 @@
+{
+  "id": "ctrip-wendao",
+  "name": "ctrip-wendao",
+  "category": "utility",
+  "enterprise": false,
+  "authType": "token",
+  "description": "ctrip-wendao connector for Hesi"
+}

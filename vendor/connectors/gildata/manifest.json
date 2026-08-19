@@ -1,0 +1,8 @@
+{
+  "id": "gildata",
+  "name": "gildata",
+  "category": "integration",
+  "enterprise": false,
+  "authType": "token",
+  "description": "gildata connector for Hesi"
+}

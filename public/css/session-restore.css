@@ -1,0 +1,235 @@
+/*
+ * Copyright (c) 2026 qiuqiukof-oss
+ * Licensed under the MIT License. See LICENSE for details.
+ */
+
+/* ============================================================
+   Session Restore Overlay — Terminal Bookmarks
+   Extracted from panels.css
+   ============================================================ */
+
+/* ============================================================
+   Session Restore Overlay — Terminal Bookmarks
+   ============================================================ */
+#session-restore-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 550;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: overlay-in 0.25s var(--ease-out);
+}
+
+#session-restore-overlay.hidden {
+  display: none;
+}
+
+#session-restore-bg {
+  position: absolute;
+  inset: 0;
+  background: rgba(5, 5, 8, 0.8);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  z-index: -1;
+}
+
+[data-scheme="light"] #session-restore-bg {
+  background: rgba(245, 245, 245, 0.88);
+}
+
+#session-restore-panel {
+  width: 520px;
+  max-width: 90vw;
+  max-height: 75vh;
+  background: var(--bg-overlay);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-xl);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  animation: modal-in 0.3s var(--ease-out);
+  position: relative;
+}
+
+.session-restore-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-4);
+  border-bottom: 1px solid var(--border-default);
+  flex-shrink: 0;
+  user-select: none;
+}
+
+.session-restore-icon {
+  font-size: 22px;
+  line-height: 1;
+}
+
+.session-restore-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-primary);
+  flex: 1;
+}
+
+.session-restore-hint {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  font-family: var(--font-mono);
+  opacity: 0.6;
+}
+
+#session-restore-list {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: var(--space-2) var(--space-3);
+}
+
+/* Custom scrollbar for session list */
+#session-restore-list::-webkit-scrollbar {
+  width: 4px;
+}
+#session-restore-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+#session-restore-list::-webkit-scrollbar-thumb {
+  background: var(--bg-hover);
+  border-radius: 4px;
+}
+
+.session-restore-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-lg);
+  cursor: pointer;
+  transition: background 0.15s var(--ease-out), border-color 0.15s;
+  border: 1px solid transparent;
+  margin-bottom: 2px;
+}
+
+.session-restore-item:hover {
+  background: var(--bg-hover);
+  border-color: var(--accent-glow);
+}
+
+.session-restore-item.selected {
+  background: rgba(99, 102, 241, 0.08);
+  border-color: rgba(99, 102, 241, 0.2);
+}
+
+.session-restore-item:last-child {
+  margin-bottom: 0;
+}
+
+.sr-item-icon {
+  font-size: 18px;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-surface);
+  border-radius: var(--radius-md);
+  flex-shrink: 0;
+  border: 1px solid var(--border-subtle);
+}
+
+.sr-item-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.sr-item-name {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sr-item-meta {
+  font-size: 10px;
+  color: var(--text-tertiary);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 1px;
+}
+
+.sr-item-time {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  opacity: 0.6;
+}
+
+.sr-item-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 9px;
+}
+
+.sr-item-status .sr-status-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--text-tertiary);
+}
+
+.sr-item-checkbox {
+  width: 18px;
+  height: 18px;
+  border-radius: var(--radius-sm);
+  border: 2px solid var(--border-strong);
+  background: transparent;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: border-color 0.15s, background 0.15s;
+  cursor: pointer;
+  font-size: 10px;
+  color: transparent;
+}
+
+.session-restore-item.selected .sr-item-checkbox {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: white;
+}
+
+.session-restore-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  border-top: 1px solid var(--border-default);
+  flex-shrink: 0;
+}
+
+.session-restore-empty {
+  text-align: center;
+  padding: 30px 20px;
+  color: var(--text-tertiary);
+  font-size: 13px;
+}
+
+/* ── AI Settings Status ── */
+.ai-status {
+  display: block;
+  margin-top: var(--space-3);
+  font-size: 12px;
+  color: var(--text-secondary);
+  text-align: center;
+}
+
+.ai-status.hidden {
+  display: none !important;
+}

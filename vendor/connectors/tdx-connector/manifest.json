@@ -1,0 +1,8 @@
+{
+  "id": "tdx-connector",
+  "name": "tdx-connector",
+  "category": "integration",
+  "enterprise": false,
+  "authType": "token",
+  "description": "tdx-connector connector for Hesi"
+}

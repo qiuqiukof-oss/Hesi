@@ -1,0 +1,38 @@
+{
+  "id": "opc-de-team",
+  "name": "👥 数字员工团队协作",
+  "description": "销售数字员工 + 新媒体数字员工 + 生产管理数字员工 协同工作",
+  "icon": "👥",
+  "category": "opc",
+  "collaboration": true,
+  "steps": [
+    {
+      "id": "step1",
+      "label": "销售数据分析",
+      "role": "sales",
+      "agentId": "opencode",
+      "task": "分析当前销售数据：1) 本周新增客户数、成交数、流失数，2) 成交转化率，3) TOP3产品和BOTTOM3产品。输出结构化表格。"
+    },
+    {
+      "id": "step2",
+      "label": "生成营销内容",
+      "role": "new-media",
+      "agentId": "opencode",
+      "task": "基于销售数据中的TOP产品，生成3条营销内容：\n1. 一条短视频脚本（30秒）\n2. 一条朋友圈文案\n3. 一条客户跟进话术\n\n参考销售数据：{{step1.output}}"
+    },
+    {
+      "id": "step3",
+      "label": "库存与产能检查",
+      "role": "production",
+      "agentId": "opencode",
+      "task": "检查TOP产品的库存状态：当前库存是否充足、是否需要补货、生产周期多久。参考销售数据：{{step1.output}}"
+    },
+    {
+      "id": "step4",
+      "label": "汇总周报",
+      "role": "assistant",
+      "agentId": "opencode",
+      "task": "汇总以上所有信息，生成一份给老板的综合周报：\n1. 销售概况\n2. 营销计划\n3. 生产/库存状态\n4. 综合建议"
+    }
+  ]
+}

@@ -1,0 +1,427 @@
+{
+  "name": "developer",
+  "label": "开发者",
+  "labelEn": "Developer",
+  "description": "通用开发环境 — 编程语言、包管理、数据库客户端",
+  "descriptionEn": "General development environment — languages, package managers, DB clients",
+  "icon": "💻",
+  "extends": [
+    "shared"
+  ],
+  "categories": {
+    "directory": "📂 开发环境",
+    "tool": "🔧 开发工具",
+    "agent": "🤖 AI Agent"
+  },
+  "tools": {
+    "node": {
+      "category": "directory",
+      "type": "batch"
+    },
+    "python": {
+      "category": "directory",
+      "type": "batch"
+    },
+    "python3": {
+      "category": "directory",
+      "type": "batch"
+    },
+    "go": {
+      "category": "directory",
+      "type": "batch"
+    },
+    "rustc": {
+      "category": "directory",
+      "type": "batch"
+    },
+    "cargo": {
+      "category": "directory",
+      "type": "batch"
+    },
+    "dotnet": {
+      "category": "directory",
+      "type": "batch"
+    },
+    "java": {
+      "category": "directory",
+      "type": "batch"
+    },
+    "deno": {
+      "category": "directory",
+      "type": "batch"
+    },
+    "bun": {
+      "category": "directory",
+      "type": "batch"
+    },
+    "julia": {
+      "category": "directory",
+      "type": "batch"
+    },
+    "ruby": {
+      "category": "directory",
+      "type": "batch"
+    },
+    "php": {
+      "category": "directory",
+      "type": "batch"
+    },
+    "perl": {
+      "category": "directory",
+      "type": "batch"
+    },
+    "gcc": {
+      "category": "directory",
+      "type": "batch"
+    },
+    "g++": {
+      "category": "directory",
+      "type": "batch"
+    },
+    "dotnet-sdk": {
+      "category": "directory",
+      "type": "batch"
+    },
+    "npm": {
+      "category": "tool",
+      "type": "batch"
+    },
+    "npx": {
+      "category": "tool",
+      "type": "batch"
+    },
+    "pnpm": {
+      "category": "tool",
+      "type": "batch"
+    },
+    "yarn": {
+      "category": "tool",
+      "type": "batch"
+    },
+    "code": {
+      "category": "tool",
+      "type": "batch"
+    },
+    "mysql": {
+      "category": "tool",
+      "type": "interactive"
+    },
+    "redis-cli": {
+      "category": "tool",
+      "type": "interactive"
+    },
+    "mongosh": {
+      "category": "tool",
+      "type": "interactive"
+    },
+    "psql": {
+      "category": "tool",
+      "type": "interactive"
+    },
+    "sqlite3": {
+      "category": "tool",
+      "type": "batch"
+    },
+    "lazygit": {
+      "category": "tool",
+      "type": "interactive"
+    },
+    "lazydocker": {
+      "category": "tool",
+      "type": "interactive"
+    },
+    "btm": {
+      "category": "tool",
+      "type": "batch"
+    },
+    "dust": {
+      "category": "tool",
+      "type": "batch"
+    },
+    "duf": {
+      "category": "tool",
+      "type": "batch"
+    },
+    "gdu": {
+      "category": "tool",
+      "type": "batch"
+    },
+    "procs": {
+      "category": "tool",
+      "type": "batch"
+    },
+    "delta": {
+      "category": "tool",
+      "type": "batch"
+    },
+    "wsl.exe": {
+      "category": "tool",
+      "type": "batch"
+    }
+  },
+  "names": [
+    "node",
+    "python",
+    "python3",
+    "go",
+    "rustc",
+    "cargo",
+    "dotnet",
+    "java",
+    "deno",
+    "bun",
+    "julia",
+    "ruby",
+    "php",
+    "perl",
+    "gcc",
+    "g++",
+    "dotnet-sdk",
+    "npm",
+    "npx",
+    "pnpm",
+    "yarn",
+    "code",
+    "mysql",
+    "redis-cli",
+    "mongosh",
+    "psql",
+    "sqlite3",
+    "lazygit",
+    "lazydocker",
+    "btm",
+    "dust",
+    "duf",
+    "gdu",
+    "procs",
+    "delta",
+    "wsl.exe"
+  ],
+  "welcome": {
+    "quickStart": [
+      {
+        "icon": "1",
+        "title": {
+          "zh": "选择语言环境",
+          "en": "Choose language env"
+        },
+        "desc": {
+          "zh": "从左侧列表选择 Node、Python、Go 等运行时",
+          "en": "Select Node, Python, Go runtimes from the left list"
+        }
+      },
+      {
+        "icon": "2",
+        "title": {
+          "zh": "安装依赖",
+          "en": "Install dependencies"
+        },
+        "desc": {
+          "zh": "使用 npm/pnpm/pip 安装项目依赖",
+          "en": "Use npm/pnpm/pip to install project dependencies"
+        }
+      },
+      {
+        "icon": "3",
+        "title": {
+          "zh": "开始编码",
+          "en": "Start coding"
+        },
+        "desc": {
+          "zh": "终端中直接运行代码、调试、git 操作",
+          "en": "Run code, debug, and use git directly in the terminal"
+        }
+      }
+    ],
+    "features": [
+      {
+        "icon": "🔤",
+        "iconColor": "#22c55e",
+        "title": {
+          "zh": "多语言环境",
+          "en": "Multi-language env"
+        },
+        "desc": {
+          "zh": "Node、Python、Go、Rust、Java、Ruby 等一键启动",
+          "en": "One-click launch for Node, Python, Go, Rust, Java, Ruby"
+        }
+      },
+      {
+        "icon": "📦",
+        "iconColor": "#6366f1",
+        "title": {
+          "zh": "包管理器",
+          "en": "Package managers"
+        },
+        "desc": {
+          "zh": "npm、pnpm、pip、cargo、go 等包管理工具",
+          "en": "npm, pnpm, pip, cargo, go and more"
+        }
+      },
+      {
+        "icon": "📈",
+        "iconColor": "#10b981",
+        "title": {
+          "zh": "股票·基金·行情",
+          "en": "Stocks · Funds · Quotes"
+        },
+        "desc": {
+          "zh": "东方财富实时数据，A股/港股/美股/基金全覆盖",
+          "en": "East Money real-time data: A-share/HK/US stocks & funds"
+        }
+      },
+      {
+        "icon": "🗄️",
+        "iconColor": "#f59e0b",
+        "title": {
+          "zh": "数据库客户端",
+          "en": "Database clients"
+        },
+        "desc": {
+          "zh": "MySQL、Redis、MongoDB、PostgreSQL 交互式连接",
+          "en": "Interactive MySQL, Redis, MongoDB, PostgreSQL"
+        }
+      },
+      {
+        "icon": "🐳",
+        "iconColor": "#0ea5e9",
+        "title": {
+          "zh": "容器化开发",
+          "en": "Containerized dev"
+        },
+        "desc": {
+          "zh": "Docker 容器管理、镜像构建、多容器编排",
+          "en": "Docker container mgmt, image build, multi-container orchestration"
+        }
+      }
+    ],
+    "tips": [
+      {
+        "zh": "使用 <strong>npx</strong> 直接运行临时包，无需全局安装",
+        "en": "Run temp packages directly with <strong>npx</strong>, no global install"
+      },
+      {
+        "zh": "用 <strong>lazygit</strong> 可视化 Git 操作，大幅提升效率",
+        "en": "Use <strong>lazygit</strong> for visual Git ops, big efficiency boost"
+      },
+      {
+        "zh": "📈 股票基金数据来自 <strong>东方财富</strong> 实时行情（A股/港股/美股/基金），右侧面板查看",
+        "en": "📈 Stock/fund data from <strong>East Money</strong> real-time quotes (A/HK/US/funds), see right panel"
+      },
+      {
+        "zh": "拖拽文件到终端区域可快速上传到工作目录",
+        "en": "Drag files onto the terminal to upload to the working dir"
+      },
+      {
+        "zh": "按 <kbd>Ctrl+K</kbd> 打开命令面板，快速操作",
+        "en": "Press <kbd>Ctrl+K</kbd> to open the command palette"
+      }
+    ],
+    "shortcuts": [
+      {
+        "key": "Ctrl+Shift+R",
+        "desc": {
+          "zh": "重新连接",
+          "en": "Reconnect"
+        }
+      },
+      {
+        "key": "Ctrl+K",
+        "desc": {
+          "zh": "命令面板",
+          "en": "Command palette"
+        }
+      },
+      {
+        "key": "Ctrl+B",
+        "desc": {
+          "zh": "切换侧边栏",
+          "en": "Toggle sidebar"
+        }
+      },
+      {
+        "key": "Ctrl+I",
+        "desc": {
+          "zh": "AI 对话",
+          "en": "AI chat"
+        }
+      },
+      {
+        "key": "Ctrl+=",
+        "desc": {
+          "zh": "放大字体",
+          "en": "Zoom in"
+        }
+      },
+      {
+        "key": "Ctrl+0",
+        "desc": {
+          "zh": "重置字体",
+          "en": "Reset font"
+        }
+      }
+    ],
+    "installTools": [
+      {
+        "icon": "⚡",
+        "iconColor": "#22c55e",
+        "name": "Node.js",
+        "desc": "JavaScript 运行时",
+        "methods": [
+          {
+            "label": "下载",
+            "code": "https://nodejs.org"
+          },
+          {
+            "label": "Windows",
+            "code": "winget install OpenJS.NodeJS"
+          }
+        ]
+      },
+      {
+        "icon": "🐍",
+        "iconColor": "#f59e0b",
+        "name": "Python",
+        "desc": "通用编程语言",
+        "methods": [
+          {
+            "label": "下载",
+            "code": "https://python.org"
+          },
+          {
+            "label": "Windows",
+            "code": "winget install Python.Python.3.12"
+          }
+        ]
+      },
+      {
+        "icon": "🦀",
+        "iconColor": "#ef4444",
+        "name": "Rust",
+        "desc": "系统编程语言",
+        "methods": [
+          {
+            "label": "安装",
+            "code": "curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh"
+          }
+        ]
+      },
+      {
+        "icon": "🐙",
+        "iconColor": "#6366f1",
+        "name": "Git",
+        "desc": "版本控制",
+        "methods": [
+          {
+            "label": "Windows",
+            "code": "winget install Git.Git"
+          },
+          {
+            "label": "macOS",
+            "code": "brew install git"
+          }
+        ]
+      }
+    ]
+  }
+}

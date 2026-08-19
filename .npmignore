@@ -1,0 +1,4 @@
+# 商业化合规：排除 Oray「保留所有权利」专有文件，避免未授权再分发。
+# 依据 THIRD-PARTY-LICENSES.md 第二节 awesun 条目（⛔ 疑似未授权拷贝，需获权或替换）。
+# 仅排除该连接器，vendor/ 其余 61 个连接器照常随包发布；本地仓库内该目录保持原样（红线：vendor/** 不删不提交）。
+vendor/connectors/awesun/

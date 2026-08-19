@@ -1,0 +1,8 @@
+{
+  "id": "qixinhuiyan-mcp",
+  "name": "qixinhuiyan-mcp",
+  "category": "integration",
+  "enterprise": false,
+  "authType": "token",
+  "description": "qixinhuiyan-mcp connector for Hesi"
+}

@@ -1,0 +1,8 @@
+{
+  "id": "tc-chengxin",
+  "name": "tc-chengxin",
+  "category": "integration",
+  "enterprise": false,
+  "authType": "token",
+  "description": "tc-chengxin connector for Hesi"
+}

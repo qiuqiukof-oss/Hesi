@@ -1,0 +1,71 @@
+/* ============================================================
+   pin-quick — 快速钉住 UI（选区浮动条 + 面板 hover 图钉）
+   所有颜色走主题令牌，跟随 6 套主题，不写死。
+   ============================================================ */
+
+/* ── A. 选中浮动条 ── */
+.pin-quick-bar {
+  position: fixed;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 6px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-default);
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
+  color: var(--text-primary);
+  font-size: 13px;
+  line-height: 1;
+  user-select: none;
+  cursor: default;
+}
+.pin-quick-bar.hidden { display: none; }
+
+.pin-quick-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin: 0;
+  padding: 3px 8px;
+  border: none;
+  background: transparent;
+  color: var(--text-primary);
+  font: inherit;
+  cursor: pointer;
+  border-radius: 6px;
+}
+.pin-quick-btn:hover {
+  background: var(--bg-hover);
+  color: var(--accent);
+}
+
+/* ── B. 面板 hover 图钉 ── */
+#terminal-container { position: relative; } /* 作为绝对定位参照 */
+
+.pin-hover-btn {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 30;
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 1px solid var(--border-default);
+  background: var(--bg-surface);
+  color: var(--text-secondary);
+  border-radius: 8px;
+  cursor: pointer;
+  opacity: 0;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  transition: opacity 0.15s ease, color 0.15s ease, background 0.15s ease;
+}
+#terminal-container:hover .pin-hover-btn { opacity: 1; }
+.pin-hover-btn:hover {
+  color: var(--accent);
+  background: var(--bg-hover);
+}

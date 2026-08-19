@@ -1,0 +1,31 @@
+{
+  "name": "netforge",
+  "version": "0.1.0",
+  "description": "Browser automation engine for Hesi — turn any agent into a browser-capable orchestrator",
+  "author": {
+    "name": "Hesi NetForge",
+    "url": "https://github.com/oh-my-openagent"
+  },
+  "license": "MIT",
+  "keywords": ["browser", "web-scraping", "automation", "mcp", "hooks", "skills"],
+  "commands": "./commands/",
+  "agents": "./agents/",
+  "skills": "./skills/",
+  "hooks": "./hooks/hooks.json",
+  "mcpServers": "../.mcp.json",
+  "interface": {
+    "displayName": "NetForge Browser Engine",
+    "shortDescription": "Browser automation for any agent",
+    "longDescription": "NetForge adds browser automation capabilities to Hesi. It provides MCP browser tools, web interaction skills, multi-model inference, and agent-aware system prompt injection — so your orchestrator agents know when to use a browser instead of curl.",
+    "developerName": "Hesi NetForge",
+    "category": "Developer Tools",
+    "capabilities": ["Hooks", "MCP Tools", "Browser Automation", "Web Scraping", "Multi-Model AI"],
+    "defaultPrompt": [
+      "Use the browser to fetch JavaScript-rendered pages instead of curl.",
+      "Route web-interactive tasks to netforge-browser agent.",
+      "Compare AI model responses via netforge-multimodel skill."
+    ],
+    "brandColor": "#2563EB",
+    "screenshots": []
+  }
+}

@@ -1,0 +1,638 @@
+<!--
+  Copyright (c) 2026 qiuqiukof-oss
+  Licensed under the MIT License. See LICENSE for details.
+-->
+
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>WorkBuddy 广场 — Hesi</title>
+  <link rel="stylesheet" href="/css/theme.css" />
+  <link rel="stylesheet" href="/css/standalone-nav.css" />
+  <script src="/lib/standalone-theme.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg-ground, #0a0a0b);
+      color: var(--text-primary, #f5f5f7);
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .wb-header { text-align: center; padding: 32px 24px 16px; border-bottom: 1px solid var(--border-default, #38383a); }
+    .wb-header h1 { font-size: 26px; font-weight: 700; }
+    .wb-header p { font-size: 13px; color: var(--text-tertiary, #98989d); margin-top: 4px; }
+    .wb-stats { display: flex; gap: 14px; justify-content: center; margin-top: 12px; flex-wrap: wrap; }
+    .wb-stat { font-size: 12px; color: var(--text-secondary, #98989d); background: var(--bg-overlay, #1c1c1e); border: 1px solid var(--border-default, #38383a); border-radius: 8px; padding: 6px 14px; }
+    .wb-stat-value { font-weight: 600; color: var(--text-primary, #f5f5f7); }
+    .wb-source-note { font-size: 11px; color: var(--text-tertiary, #98989d); margin-top: 8px; }
+    .wb-source-note b { color: var(--accent, #6366f1); }
+
+    .wb-tabs { display: flex; gap: 4px; padding: 14px 24px 0; max-width: 1080px; margin: 0 auto; overflow-x: auto; }
+    .wb-tab { background: none; border: none; color: var(--text-tertiary, #98989d); padding: 8px 16px; border-radius: 8px 8px 0 0; cursor: pointer; font-size: 13px; font-weight: 500; white-space: nowrap; border-bottom: 2px solid transparent; transition: all 0.2s ease; }
+    .wb-tab:hover { color: var(--text-primary, #f5f5f7); background: var(--bg-hover, rgba(255,255,255,0.04)); }
+    .wb-tab.active { color: var(--accent, #6366f1); border-bottom-color: var(--accent, #6366f1); }
+    .wb-tab-count { font-size: 10px; background: var(--bg-hover, rgba(255,255,255,0.08)); border-radius: 10px; padding: 1px 7px; margin-left: 4px; }
+
+    .wb-toolbar { display: flex; gap: 10px; padding: 12px 24px; max-width: 1080px; margin: 0 auto; align-items: center; }
+    .wb-search-wrap { flex: 1; position: relative; display: flex; align-items: center; }
+    .wb-search-icon { position: absolute; left: 12px; font-size: 14px; pointer-events: none; }
+    .wb-search-input { width: 100%; padding: 8px 12px 8px 36px; background: var(--bg-overlay, #1c1c1e); border: 1px solid var(--border-default, #38383a); border-radius: 8px; color: var(--text-primary, #f5f5f7); font-size: 13px; outline: none; }
+    .wb-search-input:focus { border-color: var(--accent, #6366f1); }
+    .wb-search-input::placeholder { color: var(--text-tertiary, #98989d); }
+    .wb-refresh-btn { display: flex; align-items: center; gap: 6px; padding: 8px 14px; background: var(--bg-overlay, #1c1c1e); border: 1px solid var(--border-default, #38383a); border-radius: 8px; color: var(--text-primary, #f5f5f7); cursor: pointer; font-size: 12px; transition: all 0.2s; white-space: nowrap; }
+    .wb-refresh-btn:hover { border-color: var(--accent, #6366f1); }
+    .wb-refresh-btn.spinning .wb-refresh-icon { animation: wb-spin 0.8s linear infinite; }
+
+    .wb-content { max-width: 1080px; margin: 0 auto; padding: 0 24px 60px; flex: 1; }
+    .wb-tab-panel { display: none; }
+    .wb-tab-panel.active { display: block; }
+
+    .wb-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(310px, 1fr)); gap: 14px; }
+    @media (max-width: 600px) { .wb-grid { grid-template-columns: 1fr; } }
+
+    .wb-card { background: var(--bg-overlay, #1c1c1e); border: 1px solid var(--border-default, #38383a); border-radius: 12px; padding: 16px; transition: all 0.2s ease; }
+    .wb-card:hover { border-color: var(--border-hover, #48484a); background: var(--bg-elevated, #2c2c2e); }
+    .wb-card-head { display: flex; gap: 12px; align-items: flex-start; margin-bottom: 10px; }
+    .wb-card-icon { width: 44px; height: 44px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; background: var(--bg-hover, rgba(255,255,255,0.04)); border-radius: 10px; overflow: hidden; font-size: 24px; }
+    .wb-card-icon img { width: 100%; height: 100%; object-fit: contain; }
+    .wb-card-info { flex: 1; min-width: 0; }
+    .wb-card-name { font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .wb-card-author { font-size: 11px; color: var(--text-tertiary, #98989d); margin-top: 2px; }
+    .wb-card-desc { font-size: 12px; color: var(--text-secondary, #a1a1a6); line-height: 1.5; margin-bottom: 10px; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+    .wb-card-tags { display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 10px; }
+    .wb-tag { font-size: 10px; padding: 2px 8px; border-radius: 4px; color: var(--text-tertiary, #98989d); border: 1px solid var(--border-default, #38383a); }
+    .wb-tag.cat { border-color: rgba(99,102,241,0.3); color: #818cf8; }
+    .wb-tag.ext { border-color: rgba(250,204,21,0.3); color: #facc15; }
+    .wb-card-foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+    .wb-card-meta { font-size: 11px; color: var(--text-tertiary, #98989d); }
+    .wb-card-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+    .wb-action-btn { padding: 5px 12px; border-radius: 6px; border: none; font-size: 11px; font-weight: 500; cursor: pointer; transition: all 0.15s; white-space: nowrap; }
+    .wb-action-btn.primary { background: var(--accent, #6366f1); color: #fff; }
+    .wb-action-btn.primary:hover { background: var(--accent-hover, #818cf8); }
+    .wb-action-btn.ghost { background: transparent; color: var(--text-primary, #f5f5f7); border: 1px solid var(--border-default, #38383a); }
+    .wb-action-btn.ghost:hover { border-color: var(--accent, #6366f1); color: var(--accent, #6366f1); }
+    .wb-muted { font-size: 11px; color: var(--text-tertiary, #98989d); }
+    .wb-examples-btn { margin-top: 8px; background: none; border: none; color: var(--accent, #6366f1); cursor: pointer; font-size: 11px; padding: 0; }
+    .wb-examples { margin-top: 8px; padding: 10px 12px; background: var(--bg-hover, rgba(255,255,255,0.03)); border-radius: 8px; font-size: 11px; color: var(--text-secondary, #a1a1a6); line-height: 1.6; }
+    .wb-examples li { margin-left: 16px; margin-bottom: 4px; }
+    .wb-skill-body { margin: 10px 0; padding: 10px 12px; background: var(--bg-hover, rgba(255,255,255,0.03)); border: 1px solid var(--border-default, #38383a); border-radius: 8px; font-size: 11px; line-height: 1.55; color: var(--text-secondary, #a1a1a6); white-space: pre-wrap; word-break: break-word; max-height: 180px; overflow: auto; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+
+    .wb-loading { text-align: center; padding: 60px 20px; color: var(--text-tertiary, #98989d); }
+    .wb-loading-spinner { display: inline-block; width: 24px; height: 24px; border: 2px solid var(--border-default, #38383a); border-top-color: var(--accent, #6366f1); border-radius: 50%; animation: wb-spin 0.6s linear infinite; margin-bottom: 10px; }
+    .wb-empty { text-align: center; padding: 60px 20px; color: var(--text-tertiary, #98989d); }
+    .wb-empty-icon { font-size: 40px; margin-bottom: 12px; }
+
+    .wb-scroll { flex: 1; overflow-y: auto; overflow-x: hidden; display: flex; flex-direction: column; }
+    .wb-toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); padding: 10px 20px; border-radius: 10px; font-size: 13px; background: var(--bg-overlay, #1c1c1e); border: 1px solid var(--border-default, #38383a); color: var(--text-primary, #f5f5f7); opacity: 0; transition: opacity 0.3s ease; z-index: 2000; pointer-events: none; }
+    .wb-toast.show { opacity: 1; }
+    .wb-toast.success { border-color: rgba(34,197,94,0.4); }
+    .wb-toast.error { border-color: rgba(239,68,68,0.4); }
+
+    /* ── 凭证输入弹窗 ── */
+    .wb-modal-overlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.55);
+      z-index: 3000; display: flex; align-items: center; justify-content: center;
+      opacity: 0; pointer-events: none; transition: opacity 0.2s ease;
+    }
+    .wb-modal-overlay.show { opacity: 1; pointer-events: auto; }
+    .wb-modal {
+      background: var(--bg-overlay, #1c1c1e); border: 1px solid var(--border-default, #38383a);
+      border-radius: 14px; padding: 28px 32px 24px; max-width: 440px; width: 90%;
+      box-shadow: 0 16px 48px rgba(0,0,0,0.5);
+      transform: translateY(8px); transition: transform 0.25s ease;
+    }
+    .wb-modal-overlay.show .wb-modal { transform: translateY(0); }
+    .wb-modal-title { font-size: 17px; font-weight: 600; margin-bottom: 4px; }
+    .wb-modal-desc { font-size: 13px; color: var(--text-tertiary, #98989d); margin-bottom: 20px; }
+    .wb-modal-field { margin-bottom: 14px; }
+    .wb-modal-field label {
+      display: block; font-size: 12px; font-weight: 500; color: var(--text-secondary, #98989d);
+      margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.5px;
+    }
+    .wb-modal-field input {
+      width: 100%; padding: 10px 12px; background: var(--bg-ground, #0a0a0b);
+      border: 1px solid var(--border-default, #38383a); border-radius: 8px;
+      color: var(--text-primary, #f5f5f7); font-size: 14px; font-family: monospace; outline: none;
+    }
+    .wb-modal-field input:focus { border-color: var(--accent, #6366f1); }
+    .wb-modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px; }
+    .wb-modal-btn {
+      padding: 8px 18px; border-radius: 8px; font-size: 13px; font-weight: 500;
+      cursor: pointer; border: none; transition: all 0.15s;
+    }
+    .wb-modal-btn-primary { background: var(--accent, #6366f1); color: #fff; }
+    .wb-modal-btn-primary:hover { background: #5558e6; }
+    .wb-modal-btn-primary:disabled { opacity: 0.45; cursor: not-allowed; }
+    .wb-modal-btn-ghost { background: transparent; color: var(--text-secondary, #98989d); border: 1px solid var(--border-default, #38383a); }
+    .wb-modal-btn-ghost:hover { color: var(--text-primary, #f5f5f7); border-color: var(--text-tertiary, #98989d); }
+    .wb-modal-hint { font-size: 11px; color: var(--text-tertiary, #98989d); margin-top: 6px; }
+
+    @keyframes wb-spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body class="sa-page">
+  <nav class="sa-nav">
+    <a class="sa-nav-back" href="/" onclick="event.preventDefault(); location.href='/';">&larr; 返回主应用</a>
+    <span class="sa-nav-title">🧭 WorkBuddy 广场</span>
+    <span class="sa-nav-subtitle">专家 · 技能 · 连接器</span>
+    <span class="sa-nav-spacer"></span>
+    <span class="sa-nav-status" id="wb-nav-status">加载中...</span>
+  </nav>
+
+  <div class="wb-header">
+    <h1>🧭 WorkBuddy 广场</h1>
+    <p>把 WorkBuddy 的「专家 / 技能 / 连接器」纳入 Hesi · 连接器可接入调用，技能/专家已摄入为原生指令库，可直接在编排中引用</p>
+    <div class="wb-stats">
+      <span class="wb-stat">🔌 连接器 <span class="wb-stat-value" id="wb-stat-connectors">0</span></span>
+      <span class="wb-stat">✅ 已接入 Hesi <span class="wb-stat-value" id="wb-stat-imported">0</span></span>
+      <span class="wb-stat">🧑‍💼 专家 <span class="wb-stat-value" id="wb-stat-experts">0</span></span>
+      <span class="wb-stat">🛠 技能 <span class="wb-stat-value" id="wb-stat-skills">0</span></span>
+    </div>
+    <div class="wb-source-note" id="wb-source-note"></div>
+  </div>
+
+  <div class="wb-tabs" id="wb-tabs">
+    <button class="wb-tab active" data-tab="connectors">🔌 连接器 <span class="wb-tab-count" id="wb-count-connectors">0</span></button>
+    <button class="wb-tab" data-tab="experts">🧑‍💼 专家 <span class="wb-tab-count" id="wb-count-experts">0</span></button>
+    <button class="wb-tab" data-tab="skills">🛠 技能 <span class="wb-tab-count" id="wb-count-skills">0</span></button>
+  </div>
+
+  <div class="wb-toolbar">
+    <div class="wb-search-wrap">
+      <span class="wb-search-icon">🔍</span>
+      <input type="text" class="wb-search-input" id="wb-search-input" placeholder="搜索名称、描述、分类..." />
+    </div>
+    <button class="wb-refresh-btn" id="wb-refresh-btn"><span class="wb-refresh-icon">🔄</span> 刷新</button>
+  </div>
+
+  <div class="wb-scroll">
+    <div class="wb-content" id="wb-content">
+      <div class="wb-tab-panel active" id="wb-tab-connectors">
+        <div class="wb-grid" id="wb-grid-connectors"><div class="wb-loading"><div class="wb-loading-spinner"></div><div>加载连接器...</div></div></div>
+      </div>
+      <div class="wb-tab-panel" id="wb-tab-experts">
+        <div class="wb-grid" id="wb-grid-experts"><div class="wb-loading"><div class="wb-loading-spinner"></div><div>加载专家...</div></div></div>
+      </div>
+      <div class="wb-tab-panel" id="wb-tab-skills">
+        <div class="wb-grid" id="wb-grid-skills"><div class="wb-loading"><div class="wb-loading-spinner"></div><div>加载技能...</div></div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="wb-toast" id="wb-toast"></div>
+
+  <!-- 凭证输入弹窗 -->
+  <div class="wb-modal-overlay" id="wb-cred-modal">
+    <div class="wb-modal">
+      <div class="wb-modal-title" id="wb-cred-title"></div>
+      <div class="wb-modal-desc" id="wb-cred-desc"></div>
+      <div id="wb-cred-fields"></div>
+      <div class="wb-modal-actions">
+        <button class="wb-modal-btn wb-modal-btn-ghost" onclick="WB.closeCredModal()">取消</button>
+        <button class="wb-modal-btn wb-modal-btn-primary" id="wb-cred-confirm" onclick="WB.confirmCredModal()">确认导入并连接</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+  (function() {
+    'use strict';
+    var WB_URL = 'https://www.codebuddy.cn/workbuddy';
+    var TAB_ICON = { connectors: '🔌', experts: '🧑‍💼', skills: '🛠' };
+
+    var state = { connectors: [], experts: [], expertsNative: [], skills: [], skillsNative: [], imported: {}, tab: 'connectors', query: '', loading: false };
+    var $ = {};
+    function cacheDom() {
+      $.tabs = document.getElementById('wb-tabs');
+      $.searchInput = document.getElementById('wb-search-input');
+      $.refreshBtn = document.getElementById('wb-refresh-btn');
+      $.navStatus = document.getElementById('wb-nav-status');
+      $.sourceNote = document.getElementById('wb-source-note');
+      $.toast = document.getElementById('wb-toast');
+      $.gridConnectors = document.getElementById('wb-grid-connectors');
+      $.gridExperts = document.getElementById('wb-grid-experts');
+      $.gridSkills = document.getElementById('wb-grid-skills');
+      $.statConnectors = document.getElementById('wb-stat-connectors');
+      $.statExperts = document.getElementById('wb-stat-experts');
+      $.statSkills = document.getElementById('wb-stat-skills');
+      $.statImported = document.getElementById('wb-stat-imported');
+      $.countConnectors = document.getElementById('wb-count-connectors');
+      $.countExperts = document.getElementById('wb-count-experts');
+      $.countSkills = document.getElementById('wb-count-skills');
+      $.tabPanels = document.querySelectorAll('.wb-tab-panel');
+    }
+
+    function fetchWithTimeout(url, ms, opts) {
+      var controller = new AbortController();
+      var id = setTimeout(function() { controller.abort(); }, ms || 8000);
+      return fetch(url, Object.assign({ signal: controller.signal }, opts || {})).then(function(r) { clearTimeout(id); return r; }).catch(function(e) { clearTimeout(id); throw e; });
+    }
+
+    function fetchHub() {
+      return fetchWithTimeout('/api/workbuddy-hub', 8000).then(function(r) { return r.json(); }).catch(function() { return null; });
+    }
+
+    function fetchImported() {
+      return fetchWithTimeout('/api/mcp-connectors', 8000).then(function(r) { return r.json(); }).catch(function() { return { ok: false, connectors: [] }; });
+    }
+
+    function fetchSkills() {
+      return fetchWithTimeout('/api/skills', 8000).then(function(r) { return r.json(); }).catch(function() { return { ok: false, skills: [] }; });
+    }
+
+    function fetchExperts() {
+      return fetchWithTimeout('/api/experts', 8000).then(function(r) { return r.json(); }).catch(function() { return { ok: false, experts: [] }; });
+    }
+
+    function mergeImported(list) {
+      var map = {};
+      (list || []).forEach(function(c) { map[c.id] = c; });
+      state.imported = map;
+    }
+
+    function mergeSkills(native) {
+      state.skillsNative = (native && native.skills) ? native.skills : [];
+    }
+
+    function mergeExperts(native) {
+      state.expertsNative = (native && native.experts) ? native.experts : [];
+    }
+
+    function loadAll() {
+      if (state.loading) return;
+      state.loading = true;
+      $.navStatus.textContent = '加载中...';
+      $.refreshBtn.classList.add('spinning');
+      Promise.all([fetchHub(), fetchImported(), fetchSkills(), fetchExperts()]).then(function(quad) {
+        var data = quad[0], imp = quad[1], sk = quad[2], ex = quad[3];
+        if (!data) { showOffline(); return; }
+        state.connectors = data.connectors || [];
+        state.experts = data.experts || [];
+        state.skills = data.skills || [];
+        mergeImported(imp && imp.connectors ? imp.connectors : []);
+        mergeSkills(sk && sk.ok ? sk : null);
+        mergeExperts(ex && ex.ok ? ex : null);
+        // 数据来源提示
+        var src = data.connectorsFrom === 'fallback' ? '内置精选目录（本机缓存不可用）' : '本机 WorkBuddy 缓存';
+        $.sourceNote.innerHTML = '连接器数据来源：<b>' + src + '</b>' + (data.catalogNote ? ' · ' + escapeStr(data.catalogNote) : '');
+        updateStats();
+        renderActiveTab();
+        var total = state.connectors.length + state.expertsNative.length + state.skillsNative.length;
+        $.navStatus.textContent = '已加载 ' + total + ' 项（专家 ' + state.expertsNative.length + ' · 技能 ' + state.skillsNative.length + ' 已摄入 Hesi）';
+      }).catch(function(err) {
+        showOffline();
+      }).finally(function() {
+        state.loading = false;
+        $.refreshBtn.classList.remove('spinning');
+      });
+    }
+
+    function showOffline() {
+      $.navStatus.textContent = '服务器未连接';
+      showToast('无法连接服务器，请确认后端已启动', 'error');
+      ['connectors', 'experts', 'skills'].forEach(function(t) {
+        var el = document.getElementById('wb-grid-' + t);
+        if (el && el.querySelector('.wb-loading')) {
+          el.innerHTML = '<div class="wb-empty"><div class="wb-empty-icon">🔌</div><p>无法连接到服务器<br/><span style="font-size:12px;opacity:0.6;">请确认后端已启动 (node server.js)</span></p></div>';
+        }
+      });
+    }
+
+    function updateStats() {
+      $.statConnectors.textContent = state.connectors.length;
+      // 专家统计优先采用已摄入 Hesi 的原生专家；为空时回退到外链目录计数
+      var expertCount = state.expertsNative.length || state.experts.length;
+      $.statExperts.textContent = expertCount;
+      // 技能统计优先采用已摄入 Hesi 的原生技能；为空时回退到外链目录计数
+      var skillCount = state.skillsNative.length || state.skills.length;
+      $.statSkills.textContent = skillCount;
+      var importedCount = 0;
+      Object.keys(state.imported).forEach(function(k) { if (state.imported[k].status === 'connected') importedCount++; });
+      $.statImported.textContent = importedCount;
+      $.countConnectors.textContent = state.connectors.length;
+      $.countExperts.textContent = expertCount;
+      $.countSkills.textContent = skillCount;
+    }
+
+    function renderConnectorCard(c) {
+      var iconHtml = c.icon
+        ? '<img src="' + c.icon + '" alt="" onerror="this.style.display=\'none\'" />'
+        : '🔌';
+      var meta = (c.type || 'mcp') + (c.version ? ' · v' + c.version : '');
+      var imp = state.imported[c.id];
+      var statusHtml = '';
+      if (imp) {
+        if (imp.status === 'connected') {
+          statusHtml = '<span class="wb-tag" style="border-color:rgba(34,197,94,0.4);color:#4ade80;">🟢 已接入 · ' + (imp.toolCount || 0) + ' 工具</span>';
+        } else if (imp.status === 'connecting') {
+          statusHtml = '<span class="wb-tag" style="border-color:rgba(250,204,21,0.4);color:#facc15;">🟡 连接中…</span>';
+        } else if (imp.status === 'error') {
+          statusHtml = '<span class="wb-tag" style="border-color:rgba(239,68,68,0.4);color:#f87171;" title="' + escapeStr(imp.error || '') + '">🔴 连接失败</span>';
+        } else {
+          statusHtml = '<span class="wb-tag">⚪ 已导入未连接</span>';
+        }
+      }
+      var actions = '';
+      if (imp && (imp.status === 'connected' || imp.status === 'connecting')) {
+        actions += '<button class="wb-action-btn ghost" onclick="WB.disconnectConn(\'' + escapeStr(c.id) + '\')">断开</button>';
+      } else {
+        actions += '<button class="wb-action-btn primary" onclick="WB.importAndConnect(\'' + escapeStr(c.id) + '\')">导入并连接</button>';
+      }
+      if (c.hasMcpConfig) {
+        actions += '<button class="wb-action-btn ghost" onclick="WB.copyMcp(\'' + escapeStr(c.id) + '\')">📋 配置</button>';
+      }
+      actions += '<button class="wb-action-btn ghost" onclick="WB.openWb(\'' + escapeStr(c.id) + '\')">↗ WorkBuddy</button>';
+      var exHtml = '';
+      if (c.examples && c.examples.length) {
+        exHtml = '<button class="wb-examples-btn" onclick="WB.toggleEx(\'' + escapeStr(c.id) + '\')">▸ 查看 ' + c.examples.length + ' 个使用示例</button>' +
+          '<div class="wb-examples" id="wb-ex-' + escapeStr(c.id) + '" style="display:none;"><ol>' +
+          c.examples.slice(0, 5).map(function(e) { return '<li>' + escapeStr(e) + '</li>'; }).join('') + '</ol></div>';
+      }
+      var statusLine = statusHtml ? '<div class="wb-card-tags">' + statusHtml + '</div>' : '';
+      return '<div class="wb-card">' +
+        '<div class="wb-card-head"><div class="wb-card-icon">' + iconHtml + '</div>' +
+          '<div class="wb-card-info"><div class="wb-card-name">' + escapeStr(c.name) + '</div><div class="wb-card-author">' + escapeStr(meta) + '</div></div></div>' +
+        '<div class="wb-card-desc">' + escapeStr(c.description) + '</div>' +
+        '<div class="wb-card-tags"><span class="wb-tag cat">' + escapeStr(c.category || '其他') + '</span></div>' +
+        statusLine +
+        '<div class="wb-card-foot"><div class="wb-card-meta">' + escapeStr(c.nameEn || '') + '</div>' +
+          '<div class="wb-card-actions">' + actions + '</div></div>' +
+        exHtml + '</div>';
+    }
+
+    function renderLinkCard(item, kind) {
+      var icon = TAB_ICON[kind] || '🔗';
+      var actions = '<button class="wb-action-btn primary" onclick="WB.openUrl(\'' + escapeStr(item.url || WB_URL) + '\')">↗ 在 WorkBuddy 中打开</button>';
+      return '<div class="wb-card">' +
+        '<div class="wb-card-head"><div class="wb-card-icon">' + icon + '</div>' +
+          '<div class="wb-card-info"><div class="wb-card-name">' + escapeStr(item.name) + '</div><div class="wb-card-author">' + escapeStr(item.nameEn || '') + '</div></div></div>' +
+        '<div class="wb-card-desc">' + escapeStr(item.description) + '</div>' +
+        '<div class="wb-card-tags">' + (item.category ? '<span class="wb-tag ext">' + escapeStr(item.category) + '</span>' : '') + '</div>' +
+        '<div class="wb-card-foot"><div class="wb-card-meta">外部链接</div><div class="wb-card-actions">' + actions + '</div></div>' +
+        '</div>';
+    }
+
+    function renderExpertCard(e) {
+      var sourceLabel = { 'builtin': '内置', 'custom': '自定义' }[e.source] || e.source || '';
+      var meta = (e.nameEn ? e.nameEn + ' · ' : '') + (e.description || '');
+      var hintTags = '';
+      if (Array.isArray(e.allowedSkills) && e.allowedSkills.length) {
+        hintTags += '<span class="wb-tag" style="border-color:rgba(99,102,241,0.3);color:#818cf8;">🛠 ' + escapeStr(e.allowedSkills.length + ' 项技能') + '</span>';
+      }
+      if (Array.isArray(e.allowedConnectors) && e.allowedConnectors.length) {
+        hintTags += '<span class="wb-tag" style="border-color:rgba(34,197,94,0.3);color:#4ade80;">🔌 ' + escapeStr(e.allowedConnectors.length + ' 个连接器') + '</span>';
+      }
+      var srcTag = sourceLabel ? '<span class="wb-tag">' + escapeStr(sourceLabel) + '</span>' : '';
+      var actions = '<button class="wb-action-btn primary" onclick="WB.copyExpertPersona(\'' + escapeStr(e.id) + '\')">📋 复制人设</button>';
+      return '<div class="wb-card">' +
+        '<div class="wb-card-head"><div class="wb-card-icon">' + (e.icon || '🧑‍💼') + '</div>' +
+          '<div class="wb-card-info"><div class="wb-card-name">' + escapeStr(e.name) + '</div><div class="wb-card-author">' + escapeStr(e.nameEn || '') + '</div></div></div>' +
+        '<div class="wb-card-desc">' + escapeStr(e.description || '') + '</div>' +
+        (e.persona ? '<pre class="wb-skill-body">' + escapeStr(e.persona.length > 400 ? e.persona.slice(0, 400) + '…（已截断，点「复制人设」获取完整内容）' : e.persona) + '</pre>' : '') +
+        '<div class="wb-card-tags">' + srcTag + hintTags + '</div>' +
+        '<div class="wb-card-foot"><div class="wb-card-meta">' + escapeStr(meta) + '</div>' +
+          '<div class="wb-card-actions">' + actions + '</div></div>' +
+        '</div>';
+    }
+
+    function renderSkillCard(s) {
+      var sourceLabel = { 'workbuddy-cache': '本机缓存', 'builtin': '内置', 'custom': '自定义' }[s.source] || s.source || '';
+      var meta = (s.category || '技能') + (s.version ? ' · v' + s.version : '');
+      var actions = '<button class="wb-action-btn primary" onclick="WB.copySkillBody(\'' + escapeStr(s.id) + '\')">📋 复制技能正文</button>';
+      if (s.connectorId) {
+        actions += '<button class="wb-action-btn ghost" onclick="WB.openWb(\'' + escapeStr(s.connectorId) + '\')">↗ WorkBuddy</button>';
+      }
+      var srcTag = sourceLabel ? '<span class="wb-tag" style="border-color:rgba(99,102,241,0.3);color:#818cf8;">' + escapeStr(sourceLabel) + '</span>' : '';
+      return '<div class="wb-card">' +
+        '<div class="wb-card-head"><div class="wb-card-icon">🛠</div>' +
+          '<div class="wb-card-info"><div class="wb-card-name">' + escapeStr(s.name) + '</div><div class="wb-card-author">' + escapeStr(s.author || '') + '</div></div></div>' +
+        '<div class="wb-card-desc">' + escapeStr(s.description) + '</div>' +
+        '<div class="wb-card-tags"><span class="wb-tag cat">' + escapeStr(s.category || '技能') + '</span>' + srcTag + '</div>' +
+        (s.body ? '<pre class="wb-skill-body">' + escapeStr(s.body.length > 600 ? s.body.slice(0, 600) + '\n…（已截断，点「复制技能正文」获取完整内容）' : s.body) + '</pre>' : '') +
+        '<div class="wb-card-foot"><div class="wb-card-meta">' + escapeStr(meta) + '</div>' +
+          '<div class="wb-card-actions">' + actions + '</div></div>' +
+        '</div>';
+    }
+
+    function filterItems(items, q) {
+      if (!q) return items;
+      return items.filter(function(it) {
+        return (it.name || '').toLowerCase().indexOf(q) !== -1 ||
+               (it.nameEn || '').toLowerCase().indexOf(q) !== -1 ||
+               (it.description || '').toLowerCase().indexOf(q) !== -1 ||
+               (it.category || '').toLowerCase().indexOf(q) !== -1;
+      });
+    }
+
+    function renderActiveTab() {
+      var q = state.query.toLowerCase().trim();
+      if (state.tab === 'connectors') {
+        var cs = filterItems(state.connectors, q);
+        $.gridConnectors.innerHTML = cs.length ? cs.map(renderConnectorCard).join('') :
+          '<div class="wb-empty"><div class="wb-empty-icon">🔌</div><p>没有匹配的连接器</p></div>';
+      } else if (state.tab === 'experts') {
+        // 优先展示已摄入 Hesi 的原生专家；原生为空时回退到 WorkBuddy 外链目录
+        if (state.expertsNative.length) {
+          var nes = filterItems(state.expertsNative, q);
+          $.gridExperts.innerHTML = nes.length ? nes.map(renderExpertCard).join('') :
+            '<div class="wb-empty"><div class="wb-empty-icon">🧑‍💼</div><p>没有匹配的专家</p></div>';
+        } else {
+          var es = filterItems(state.experts, q);
+          $.gridExperts.innerHTML = es.length ? es.map(function(e) { return renderLinkCard(e, 'experts'); }).join('') :
+            '<div class="wb-empty"><div class="wb-empty-icon">🧑‍💼</div><p>没有匹配的专家</p></div>';
+        }
+      } else if (state.tab === 'skills') {
+        // 优先展示已摄入 Hesi 的原生技能；原生为空时回退到 WorkBuddy 外链目录
+        if (state.skillsNative.length) {
+          var ns = filterItems(state.skillsNative, q);
+          $.gridSkills.innerHTML = ns.length ? ns.map(renderSkillCard).join('') :
+            '<div class="wb-empty"><div class="wb-empty-icon">🛠</div><p>没有匹配的技能</p></div>';
+        } else {
+          var ss = filterItems(state.skills, q);
+          $.gridSkills.innerHTML = ss.length ? ss.map(function(s) { return renderLinkCard(s, 'skills'); }).join('') :
+            '<div class="wb-empty"><div class="wb-empty-icon">🛠</div><p>没有匹配的技能</p></div>';
+        }
+      }
+    }
+
+    function switchTab(tab) {
+      if (state.tab === tab) return;
+      state.tab = tab;
+      $.tabs.querySelectorAll('.wb-tab').forEach(function(t) { t.classList.toggle('active', t.dataset.tab === tab); });
+      $.tabPanels.forEach(function(p) { p.classList.toggle('active', p.id === 'wb-tab-' + tab); });
+      renderActiveTab();
+    }
+
+    function showToast(msg, type) {
+      $.toast.textContent = msg;
+      $.toast.className = 'wb-toast ' + (type || 'info') + ' show';
+      clearTimeout($.toast._timer);
+      $.toast._timer = setTimeout(function() { $.toast.className = 'wb-toast'; }, 2600);
+    }
+
+    function escapeStr(s) {
+      if (!s) return '';
+      return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    }
+
+    window.WB = {
+      copyMcp: function(id) {
+        var c = state.connectors.find(function(x) { return x.id === id; });
+        if (!c || !c.mcpConfig) { showToast('该连接器无公开 MCP 配置', 'error'); return; }
+        var text = typeof c.mcpConfig === 'string' ? c.mcpConfig : JSON.stringify(c.mcpConfig, null, 2);
+        copyText(text).then(function() { showToast('✅ 已复制 ' + c.name + ' 的 MCP 配置', 'success'); })
+          .catch(function() { showToast('复制失败，请手动复制', 'error'); });
+      },
+      _pendingImportId: null,
+      _pendingImportEnv: {},
+
+      showCredModal: function(id, needs, name) {
+        state._credModalResolve = null;
+        var fieldsEl = document.getElementById('wb-cred-fields');
+        fieldsEl.innerHTML = '';
+        needs.forEach(function(k) {
+          var div = document.createElement('div');
+          div.className = 'wb-modal-field';
+          div.innerHTML = '<label for="cred-' + k + '">' + escapeStr(k) + '</label>' +
+            '<input id="cred-' + k + '" type="text" placeholder="输入 ' + escapeStr(k) + '" autocomplete="off" spellcheck="false" />';
+          fieldsEl.appendChild(div);
+        });
+        document.getElementById('wb-cred-title').textContent = '连接器「' + name + '」需要凭证';
+        document.getElementById('wb-cred-desc').textContent = '请输入以下环境变量的值，用于连接认证：';
+        document.getElementById('wb-cred-modal').classList.add('show');
+        document.getElementById('wb-cred-confirm').disabled = false;
+      },
+
+      closeCredModal: function() {
+        document.getElementById('wb-cred-modal').classList.remove('show');
+      },
+
+      confirmCredModal: function() {
+        var btn = document.getElementById('wb-cred-confirm');
+        if (btn.disabled) return;
+        btn.disabled = true;
+        var env = {};
+        var fieldsEl = document.getElementById('wb-cred-fields');
+        var inputs = fieldsEl.querySelectorAll('input');
+        var allFilled = true;
+        inputs.forEach(function(inp) {
+          var val = inp.value.trim();
+          if (!val) allFilled = false;
+          env[inp.id.replace('cred-', '')] = val;
+        });
+        if (!allFilled) {
+          showToast('请填写所有凭证字段', 'error');
+          btn.disabled = false;
+          return;
+        }
+        var id = window.WB._pendingImportId;
+        var name = (state.connectors.find(function(x) { return x.id === id; }) || {}).name || id;
+        window.WB.closeCredModal();
+        window.WB._doImport(id, name, env);
+      },
+
+      _doImport: function(id, name, env) {
+        showToast('正在导入并连接「' + name + '」…', 'info');
+        fetchWithTimeout('/api/mcp-connectors/import', 8000, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ sourceId: id, env: env })
+        }).then(function(r) { return r.json(); }).then(function(imp) {
+          if (!imp.ok) throw new Error(imp.error || '导入失败');
+          return fetchWithTimeout('/api/mcp-connectors/' + encodeURIComponent(id) + '/connect', 30000, {
+            method: 'POST'
+          }).then(function(r) { return r.json(); });
+        }).then(function(conn) {
+          if (conn.ok && conn.connector && conn.connector.status === 'connected') {
+            showToast('✅ 「' + name + '」已接入 Hesi（' + (conn.connector.toolCount || 0) + ' 个工具）', 'success');
+          } else if (conn.ok && conn.connector && conn.connector.status === 'error') {
+            showToast('⚠️ 「' + name + '」已导入但连接失败：' + (conn.connector.error || '需鉴权/网络'), 'error');
+          } else {
+            showToast('⚠️ 「' + name + '」导入完成，连接状态未知', 'error');
+          }
+          loadAll();
+        }).catch(function(err) {
+          showToast('❌ 导入失败：' + (err && err.message ? err.message : err), 'error');
+          loadAll();
+        });
+      },
+
+      importAndConnect: function(id) {
+        var c = state.connectors.find(function(x) { return x.id === id; });
+        var name = c ? c.name : id;
+        if (c && c.needs && c.needs.length) {
+          window.WB._pendingImportId = id;
+          window.WB.showCredModal(id, c.needs, name);
+          return;
+        }
+        window.WB._doImport(id, name, {});
+      },
+      disconnectConn: function(id) {
+        fetchWithTimeout('/api/mcp-connectors/' + encodeURIComponent(id) + '/disconnect', 8000, { method: 'POST' })
+          .then(function() { showToast('已断开 ' + id, 'info'); loadAll(); })
+          .catch(function() { showToast('断开失败', 'error'); });
+      },
+      openWb: function(id) { openUrl(WB_URL); },
+      copyExpertPersona: function(id) {
+        var e = state.expertsNative.find(function(x) { return x.id === id; });
+        if (!e || !e.persona) { showToast('该专家无人设可复制', 'error'); return; }
+        copyText(e.persona).then(function() { showToast('✅ 已复制「' + e.name + '」人设', 'success'); })
+          .catch(function() { showToast('复制失败，请手动复制', 'error'); });
+      },
+      copySkillBody: function(id) {
+        var s = state.skillsNative.find(function(x) { return x.id === id; });
+        if (!s || !s.body) { showToast('该技能无正文可复制', 'error'); return; }
+        copyText(s.body).then(function() { showToast('✅ 已复制「' + s.name + '」技能正文', 'success'); })
+          .catch(function() { showToast('复制失败，请手动复制', 'error'); });
+      },
+      openUrl: function(url) { window.open(url, '_blank'); },
+      toggleEx: function(id) {
+        var el = document.getElementById('wb-ex-' + id);
+        if (!el) return;
+        var btn = el.previousElementSibling;
+        if (el.style.display === 'none') { el.style.display = 'block'; if (btn) btn.textContent = '▾ 收起示例'; }
+        else { el.style.display = 'none'; if (btn) btn.textContent = '▸ 查看示例'; }
+      },
+      refresh: function() { loadAll(); },
+      search: function(q) { state.query = q; renderActiveTab(); },
+    };
+
+    function copyText(text) {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        return navigator.clipboard.writeText(text);
+      }
+      return new Promise(function(resolve, reject) {
+        try {
+          var ta = document.createElement('textarea');
+          ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+          document.body.appendChild(ta); ta.select();
+          document.execCommand('copy'); document.body.removeChild(ta);
+          resolve();
+        } catch (e) { reject(e); }
+      });
+    }
+
+    cacheDom();
+    $.tabs.addEventListener('click', function(e) {
+      var t = e.target.closest('.wb-tab');
+      if (t && t.dataset.tab) switchTab(t.dataset.tab);
+    });
+    $.searchInput.addEventListener('input', function(e) { window.WB.search(e.target.value); });
+    $.refreshBtn.addEventListener('click', window.WB.refresh);
+    document.addEventListener('keydown', function(e) {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'f' && document.activeElement !== $.searchInput) { e.preventDefault(); $.searchInput.focus(); }
+    });
+
+    // 主题跟随主应用
+    var parentTheme = localStorage.getItem('qcli-theme') || 'dark';
+    document.documentElement.setAttribute('data-theme', parentTheme);
+
+    loadAll();
+  })();
+  </script>
+</body>
+</html>

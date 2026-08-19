@@ -1,0 +1,241 @@
+{
+  "name": "@qiuqiukof/hesi",
+  "version": "1.1.1",
+  "description": "Hesi（合思）— Run any CLI in your browser",
+  "main": "server.js",
+  "bin": {
+    "hesi": "bin/hesi.js"
+  },
+  "license": "MIT",
+  "author": "Hesi Contributors",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/qiuqiukof-oss/Hesi-Q.git"
+  },
+  "bugs": {
+    "url": "https://github.com/qiuqiukof-oss/Hesi-Q/issues"
+  },
+  "homepage": "https://github.com/qiuqiukof-oss/Hesi-Q#readme",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "files": [
+    "*.js",
+    "bin/",
+    "lib/",
+    "mcp/",
+    "routes/",
+    "ws/",
+    "public/",
+    "cli-presets/",
+    "workflows/",
+    "plugins/",
+    "agents-src/",
+    "packaging/",
+    "scripts/",
+    "vendor/experts/",
+    "vendor/connectors/agentkey/",
+    "vendor/connectors/anydev/",
+    "vendor/connectors/baidu-netdisk/",
+    "vendor/connectors/bugly/",
+    "vendor/connectors/bugly-token/",
+    "vendor/connectors/canva/",
+    "vendor/connectors/cloudbase/",
+    "vendor/connectors/cnb-api/",
+    "vendor/connectors/cnb-woa/",
+    "vendor/connectors/ctrip-wendao/",
+    "vendor/connectors/dingtalk/",
+    "vendor/connectors/edgeone-pages/",
+    "vendor/connectors/fbs-connector/",
+    "vendor/connectors/feishu/",
+    "vendor/connectors/fyopen-lawsearch/",
+    "vendor/connectors/gildata/",
+    "vendor/connectors/github/",
+    "vendor/connectors/github-remote/",
+    "vendor/connectors/gmail/",
+    "vendor/connectors/gongfeng-woa/",
+    "vendor/connectors/ima-mcp/",
+    "vendor/connectors/iwiki-woa/",
+    "vendor/connectors/jira/",
+    "vendor/connectors/kdocs/",
+    "vendor/connectors/km/",
+    "vendor/connectors/lexiang/",
+    "vendor/connectors/mastergo-vibe-mcp/",
+    "vendor/connectors/neo-crm/",
+    "vendor/connectors/netease-mail/",
+    "vendor/connectors/notion/",
+    "vendor/connectors/patsnap-search/",
+    "vendor/connectors/pkulaw/",
+    "vendor/connectors/qcc-company/",
+    "vendor/connectors/qingflow/",
+    "vendor/connectors/qixinhuiyan-mcp/",
+    "vendor/connectors/qq-mail/",
+    "vendor/connectors/region-insight/",
+    "vendor/connectors/supabase/",
+    "vendor/connectors/tapd/",
+    "vendor/connectors/tapd-woa/",
+    "vendor/connectors/tc-chengxin/",
+    "vendor/connectors/tdx-connector/",
+    "vendor/connectors/tencent-docs/",
+    "vendor/connectors/tencent-docs-oa/",
+    "vendor/connectors/tencent-health-nges/",
+    "vendor/connectors/tencent-map/",
+    "vendor/connectors/tencent-qidian-cs/",
+    "vendor/connectors/tencent-survey/",
+    "vendor/connectors/tencent-weiyun/",
+    "vendor/connectors/tencentads/",
+    "vendor/connectors/tmeet/",
+    "vendor/connectors/tyc-mcp/",
+    "vendor/connectors/wecom/",
+    "vendor/connectors/weisheng-scrm/",
+    "vendor/connectors/westock-mcp/",
+    "vendor/connectors/wk-workbuddy/",
+    "vendor/connectors/xiaoe-cloud-cli/",
+    "vendor/connectors/yuandian-mcp/",
+    "vendor/connectors/zfs-fssc-ai/",
+    "vendor/connectors/zhiyan-cicd/",
+    "vendor/connectors/zsxq/",
+    ".env.example",
+    "AGENTS.md",
+    "CLAUDE.md",
+    "package.json",
+    "README.md",
+    "LICENSE",
+    "skills/"
+  ],
+  "keywords": [
+    "cli",
+    "terminal",
+    "browser-terminal",
+    "web-terminal",
+    "xterm",
+    "pty",
+    "node-pty",
+    "xterm.js",
+    "devtools",
+    "ai-agent",
+    "opencode",
+    "mcp",
+    "model-context-protocol",
+    "devops"
+  ],
+  "dependencies": {
+    "@deepseek-ai/dsh": "0.1.0-rc.6",
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "@xterm/addon-fit": "^0.11.0",
+    "@xterm/addon-search": "^0.16.0",
+    "@xterm/addon-web-links": "^0.12.0",
+    "@xterm/addon-webgl": "^0.19.0",
+    "@xterm/xterm": "^6.0.0",
+    "compression": "^1.8.1",
+    "cors": "^2.8.5",
+    "dotenv": "^16.6.1",
+    "express": "^4.22.2",
+    "helmet": "^8.3.0",
+    "multer": "^2.2.0",
+    "strip-ansi": "^7.2.0",
+    "uuid": "^14.0.1",
+    "ws": "^8.18.0"
+  },
+  "optionalDependencies": {
+    "node-pty": "^1.1.0",
+    "playwright": "^1.52.0",
+    "edge-tts-universal": "^1.4.0"
+  },
+  "scripts": {
+    "start": "npm run check:server && node server.js",
+    "dev": "npm run check:server && node --watch server.js",
+    "build": "npm run check:server && npm run build:main && npm run build:lazy",
+    "build:main": "npx esbuild public/main.js --bundle --outfile=public/bundle.js --format=iife --minify",
+    "build:lazy": "node scripts/clean-lazy.cjs && npx esbuild public/lazy.js --bundle --outdir=public/lazy-chunks --format=esm --minify --splitting --entry-names=lazy-bundle --chunk-names=chunk-[hash]",
+    "build:dev": "npm run check:server && npm run build:dev:main && npm run build:dev:lazy",
+    "build:dev:main": "npx esbuild public/main.js --bundle --outfile=public/bundle.js --format=iife --sourcemap",
+    "build:dev:lazy": "npx esbuild public/lazy.js --bundle --outdir=public/lazy-chunks --format=esm --sourcemap --splitting --entry-names=lazy-bundle --chunk-names=chunk-[hash]",
+    "watch": "npx esbuild public/main.js --bundle --outfile=public/bundle.js --format=iife --sourcemap --watch &",
+    "watch:lazy": "npx esbuild public/lazy.js --bundle --outdir=public/lazy-chunks --format=esm --sourcemap --splitting --entry-names=lazy-bundle --chunk-names=chunk-[hash] --watch",
+    "check:server": "node scripts/check-server.mjs",
+    "check:theme": "node scripts/check-theme-tokens.mjs",
+    "mcp": "npm run check:server && node mcp-server.js",
+    "mcp:dev": "npm run check:server && node --watch mcp-server.js",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "postinstall": "node -e \"if(process.env.NODE_ENV==='production')process.exit(0);try{require.resolve('husky');require('child_process').execSync('husky',{stdio:'inherit'})}catch(e){}\"",
+    "lint-staged": "lint-staged",
+    "test": "node scripts/test.mjs",
+    "test:coverage": "node scripts/test.mjs --experimental-test-coverage",
+    "prepublishOnly": "npm run build && npm test",
+    "plans": "node plans/run-all.js",
+    "plans:audit": "node plans/audit-acceptance.js",
+    "format": "prettier --write \"**/*.js\" \"**/*.css\" \"**/*.json\" \"**/*.html\"",
+    "format:check": "prettier --check \"**/*.js\" \"**/*.css\" \"**/*.json\" \"**/*.html\""
+  },
+  "lint-staged": {
+    "server.js": [
+      "eslint --fix",
+      "node --check"
+    ],
+    "routes/**/*.js": [
+      "eslint --fix",
+      "node --check"
+    ],
+    "ws/**/*.js": [
+      "eslint --fix",
+      "node --check"
+    ],
+    "mcp/**/*.js": [
+      "eslint --fix",
+      "node --check"
+    ],
+    "mcp-server.js": [
+      "eslint --fix",
+      "node --check"
+    ],
+    "cli-discovery.js": [
+      "eslint --fix",
+      "node --check"
+    ],
+    "preset-loader.js": [
+      "eslint --fix",
+      "node --check"
+    ],
+    "rate-limiter.js": [
+      "eslint --fix",
+      "node --check"
+    ],
+    "ring-buffer.js": [
+      "eslint --fix",
+      "node --check"
+    ],
+    "ws-handler.js": [
+      "eslint --fix",
+      "node --check"
+    ],
+    "lib/**/*.js": [
+      "eslint --fix",
+      "node --check"
+    ],
+    "test/**/*.js": [
+      "eslint --fix",
+      "node --check"
+    ],
+    "plans/**/*.js": [
+      "eslint --fix",
+      "node --check"
+    ],
+    "public/**/*.js": [
+      "eslint --fix"
+    ]
+  },
+  "devDependencies": {
+    "@open-wc/testing": "^5.0.0",
+    "esbuild": "^0.28.1",
+    "eslint": "^10.7.0",
+    "globals": "^17.7.0",
+    "husky": "^9.1.0",
+    "lint-staged": "^15.2.0",
+    "prettier": "^3.9.5"
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "id": "github-remote",
+  "name": "github-remote",
+  "category": "dev-tools",
+  "enterprise": false,
+  "authType": "oauth",
+  "description": "github-remote connector for Hesi"
+}

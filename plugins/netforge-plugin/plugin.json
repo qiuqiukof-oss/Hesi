@@ -1,0 +1,62 @@
+{
+  "$schema": "https://raw.githubusercontent.com/qiuqiukof-oss/Hesi/main/PLUGIN_SCHEMA.json",
+  "name": "netforge",
+  "version": "0.1.0",
+  "description": "Browser automation engine for Hesi — control Chrome/Edge from any agent via CDP",
+  "author": "Hesi NetForge",
+  "license": "MIT",
+  "mcpServers": [
+    {
+      "name": "netforge-browser",
+      "description": "CDP-based browser server (navigate, screenshot, click, type, evaluate JS)",
+      "command": "node",
+      "args": [
+        "mcp/start-browser.mjs"
+      ],
+      "cwd": "${pluginDir}",
+      "env": {
+        "NETFORGE_CDP_PORT": "9222",
+        "NETFORGE_MAX_TABS": "5",
+        "NETFORGE_HEADLESS": "true"
+      }
+    }
+  ],
+  "aiTools": [
+    {
+      "name": "netforge_browser_navigate",
+      "description": "Navigate browser to a URL and return the page title",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string",
+            "description": "URL to navigate to"
+          }
+        },
+        "required": [
+          "url"
+        ]
+      },
+      "handler": "handlers/ai-tool-wrapper.js"
+    },
+    {
+      "name": "netforge_browser_screenshot",
+      "description": "Take a screenshot of the current browser page (base64 JPEG)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "fullPage": {
+            "type": "boolean",
+            "description": "Capture full page scroll"
+          }
+        }
+      },
+      "handler": "handlers/ai-tool-wrapper.js"
+    }
+  ],
+  "lifecycle": {
+    "onLoad": "handlers/onload.js",
+    "onUnload": "handlers/onunload.js"
+  },
+  "homepage": "/api/plugins/netforge-plugin/doc"
+}

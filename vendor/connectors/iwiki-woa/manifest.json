@@ -1,0 +1,8 @@
+{
+  "id": "iwiki-woa",
+  "name": "iwiki-woa",
+  "category": "documentation",
+  "enterprise": true,
+  "authType": "token",
+  "description": "iwiki-woa connector for Hesi"
+}

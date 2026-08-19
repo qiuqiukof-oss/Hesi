@@ -1,0 +1,8 @@
+{
+  "id": "baidu-netdisk",
+  "name": "baidu-netdisk",
+  "category": "storage",
+  "enterprise": false,
+  "authType": "token",
+  "description": "baidu-netdisk connector for Hesi"
+}

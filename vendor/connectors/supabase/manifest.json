@@ -1,0 +1,8 @@
+{
+  "id": "supabase",
+  "name": "supabase",
+  "category": "cloud-crm",
+  "enterprise": false,
+  "authType": "token",
+  "description": "supabase connector for Hesi"
+}

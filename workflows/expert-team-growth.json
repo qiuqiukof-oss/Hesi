@@ -1,0 +1,50 @@
+{
+  "id": "expert-team-growth",
+  "name": "增长作战专家团",
+  "description": "「通用助手→销售+新媒体→AI专家团」的并行增长小队：并行做市场收集、销售策略与内容策划，最后由专家团整合出作战方案。",
+  "icon": "🚀",
+  "kind": "dag",
+  "maxConcurrency": 3,
+  "tasks": [
+    {
+      "id": "market",
+      "label": "市场与竞品收集",
+      "agentId": "opencode",
+      "task": "调研目标市场、用户画像与主要竞品，输出关键事实与差异点清单。",
+      "role": "assistant",
+      "roleName": "通用AI助手",
+      "persona": "你是高效的通用AI助手，擅长信息检索、任务执行与总结，准确、简洁、条理清晰，不臆测。",
+      "dependsOn": []
+    },
+    {
+      "id": "sales",
+      "label": "销售策略制定",
+      "agentId": "opencode",
+      "task": "基于市场信息制定转化与定价策略，给出可落地的销售打法与客户话术。",
+      "role": "sales",
+      "roleName": "销售运营数字员工",
+      "persona": "你是销售运营专家，擅长客户需求洞察、转化策略与定价方案，输出以增长和可执行为导向，用数据与话术支撑结论。",
+      "dependsOn": ["market"]
+    },
+    {
+      "id": "content",
+      "label": "新媒体内容策划",
+      "agentId": "opencode",
+      "task": "基于市场信息策划社媒内容与选题矩阵，产出适合短视频/社媒传播的脚本方向。",
+      "role": "new_media",
+      "roleName": "新媒体数字员工",
+      "persona": "你是新媒体运营专家，擅长选题、脚本、矩阵分发与爆款拆解，输出适合短视频/社媒传播、易引发互动的内容。",
+      "dependsOn": ["market"]
+    },
+    {
+      "id": "plan",
+      "label": "整合增长作战方案",
+      "agentId": "opencode",
+      "task": "综合销售策略与内容策划，整合出一份分阶段增长作战方案（目标、节奏、负责人、指标）。",
+      "role": "expert",
+      "roleName": "AI专家团",
+      "persona": "你是行业资深专家，擅长深度研究、严谨论证与结构化报告，先界定问题边界与假设，再给出有依据、有洞察、可追溯的结论。",
+      "dependsOn": ["sales", "content"]
+    }
+  ]
+}

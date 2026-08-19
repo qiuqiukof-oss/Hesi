@@ -1,0 +1,93 @@
+<!--
+  Copyright (c) 2026 qiuqiukof-oss
+  Licensed under the MIT License. See LICENSE for details.
+-->
+
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>预算管理 — Hesi</title>
+  <link rel="stylesheet" href="/css/theme.css" />
+  <link rel="stylesheet" href="/css/standalone-nav.css" />
+  <script src="/lib/standalone-theme.js"></script>
+  <link rel="stylesheet" href="/css/finance.css" />
+  <style>
+    .budget-container {
+      flex: 1;
+      padding: 16px 20px;
+      overflow-y: auto;
+    }
+  </style>
+</head>
+<body class="sa-page">
+  <nav class="sa-nav">
+    <span class="sa-nav-title">💰 预算管理</span>
+    <span class="sa-nav-spacer"></span>
+    <a class="sa-nav-back" href="/" onclick="event.preventDefault(); location.href='/';">← 返回主面板</a>
+  </nav>
+  <div class="budget-container" id="app">
+    <div class="finance-loading">加载中...</div>
+  </div>
+
+  <script src="/bundle.js"></script>
+  <script type="module" src="/lazy-chunks/lazy-bundle.js"></script>
+  <script>
+    (function () {
+      var app = document.getElementById('app');
+      if (window.QCLI && window.QCLI.Finance) {
+        window.QCLI.Finance._standalone = true;
+        window.QCLI.Finance._container = app;
+        // Render directly (no right panel)
+        renderStandalone();
+      } else {
+        app.innerHTML = '<div class="finance-empty"><div class="finance-empty-icon">⏳</div>正在加载核心模块...</div>';
+        var check = setInterval(function () {
+          if (window.QCLI && window.QCLI.Finance) {
+            clearInterval(check);
+            window.QCLI.Finance._standalone = true;
+            window.QCLI.Finance._container = app;
+            renderStandalone();
+          }
+        }, 500);
+      }
+      function renderStandalone() {
+        var F = window.QCLI.Finance;
+        if (!F._initialized) {
+          if (typeof F.init === 'function') F.init();
+          F._initialized = true;
+        }
+        // Build the tab UI directly into the container
+        app.innerHTML =
+          '<div class="finance-sub-tabs" id="standalone-tabs">' +
+            '<button class="finance-sub-tab active" data-sub="overview">📊 总览</button>' +
+            '<button class="finance-sub-tab" data-sub="budgets">📋 预算申请</button>' +
+            '<button class="finance-sub-tab" data-sub="settlements">✅ 销账记录</button>' +
+            '<button class="finance-sub-tab" data-sub="ai">💡 AI 建议</button>' +
+          '</div>' +
+          '<div class="finance-content" id="standalone-content"><div class="finance-loading">加载中...</div></div>';
+        // Setup tab switching
+        document.getElementById('standalone-tabs').addEventListener('click', function (e) {
+          var tab = e.target.closest('.finance-sub-tab');
+          if (!tab) return;
+          document.querySelectorAll('#standalone-tabs .finance-sub-tab').forEach(function (t) { t.classList.remove('active'); });
+          tab.classList.add('active');
+          var sub = tab.dataset.sub;
+          var content = document.getElementById('standalone-content');
+          if (!content) return;
+          switch (sub) {
+            case 'overview': F.renderOverview(content); break;
+            case 'budgets': F.renderBudgets(content); break;
+            case 'settlements': F.renderSettlements(content); break;
+            case 'ai': F.renderAISuggestions(content); break;
+          }
+        });
+        // Trigger initial render
+        var ev = new MouseEvent('click', { bubbles: true });
+        document.querySelector('#standalone-tabs .finance-sub-tab').dispatchEvent(ev);
+      }
+    })();
+  </script>
+</body>
+</html>

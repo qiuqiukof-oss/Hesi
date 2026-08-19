@@ -1,0 +1,1001 @@
+/*
+ * Copyright (c) 2026 qiuqiukof-oss
+ * Licensed under the MIT License. See LICENSE for details.
+ */
+
+/* ============================================================
+   Right Panel — Dashboard/Charts/Media Sidebar
+   ============================================================ */
+
+/* ── CSS Variable ── */
+:root {
+  --right-panel-width: 300px;
+}
+
+/* ============================================================
+   Container — Elevated surface with subtle depth
+   ============================================================ */
+#right-panel {
+  width: var(--right-panel-width);
+  min-width: var(--right-panel-width);
+  background: var(--bg-elevated);
+  border-left: 1px solid var(--border-default);
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  z-index: 10;
+  position: relative;
+  transition: width 0.35s cubic-bezier(0.4, 0, 0.2, 1),
+              min-width 0.35s cubic-bezier(0.4, 0, 0.2, 1),
+              box-shadow 0.3s ease;
+  overflow-x: hidden;
+  flex-shrink: 0;
+  box-shadow: -2px 0 12px var(--shadow-ambient);
+}
+
+/* ── Collapsed state ── */
+#right-panel.collapsed {
+  width: 44px;
+  min-width: 44px;
+  overflow: hidden;
+}
+
+/* ── When dragging, remove CSS transitions for real-time feedback ── */
+#right-panel.dragging {
+  transition: none !important;
+}
+#right-panel.dragging * {
+  transition: none !important;
+}
+
+#right-panel.collapsed .right-panel-content,
+#right-panel.collapsed .right-panel-tabs .right-tab span {
+  opacity: 0;
+  pointer-events: none;
+}
+
+#right-panel.collapsed .right-panel-header {
+  justify-content: center;
+  padding: var(--space-3) 0;
+  gap: 0;
+}
+/* Hide header children except toggle button (keep layout clean) */
+#right-panel.collapsed .right-panel-header-icon,
+#right-panel.collapsed .right-panel-title {
+  display: none;
+}
+
+/* ── Collapsed edge accent indicator ── */
+#right-panel.collapsed::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: transparent;
+  transition: background 0.25s ease;
+}
+
+#right-panel.collapsed:hover::after {
+  background: var(--accent);
+}
+
+/* ── Hidden state ── */
+#right-panel.hidden {
+  display: none;
+}
+
+/* ============================================================
+   Resize Handle — Sleek interactive edge
+   ============================================================ */
+#right-panel-resize-handle {
+  position: absolute;
+  top: 0;
+  left: -3px;
+  bottom: 0;
+  width: 6px;
+  cursor: col-resize;
+  z-index: 25;
+  background: transparent;
+  transition: background 0.2s ease;
+  flex-shrink: 0;
+}
+
+#right-panel-resize-handle:hover,
+#right-panel-resize-handle.active {
+  background: var(--accent-glow-2);
+}
+
+#right-panel-resize-handle::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 2px;
+  height: 24px;
+  border-radius: 1px;
+  background: var(--border-default);
+  transition: background 0.2s ease, height 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+#right-panel-resize-handle:hover::after,
+#right-panel-resize-handle.active::after {
+  background: var(--accent);
+  height: 40px;
+}
+
+#right-panel.collapsed #right-panel-resize-handle {
+  display: none;
+}
+
+/* ============================================================
+   Header — Subtle accent gradient at bottom
+   ============================================================ */
+.right-panel-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-3) var(--space-3);
+  border-bottom: 1px solid var(--border-default);
+  flex-shrink: 0;
+  user-select: none;
+  background-color: var(--bg-elevated);
+  background: linear-gradient(
+    180deg,
+    var(--bg-elevated) 0%,
+    color-mix(in srgb, var(--bg-elevated) 98%, var(--accent) 2%) 100%
+  );
+}
+
+.right-panel-header-icon {
+  font-size: 14px;
+  line-height: 1;
+  flex-shrink: 0;
+  transition: transform 0.2s var(--ease-out);
+}
+
+.right-panel-header:hover .right-panel-header-icon {
+  transform: scale(1.1);
+}
+
+.right-panel-title {
+  flex: 1;
+  font-family: var(--font-display);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  letter-spacing: 0.02em;
+}
+
+/* ── Toggle button ── */
+.right-panel-toggle-btn {
+  background: none;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  color: var(--text-tertiary);
+  cursor: pointer;
+  font-size: 9px;
+  padding: 3px 5px;
+  line-height: 1;
+  transition: color 0.15s ease, background 0.15s ease,
+              border-color 0.15s ease, transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1),
+              box-shadow 0.15s ease;
+  flex-shrink: 0;
+}
+
+.right-panel-toggle-btn:hover {
+  color: var(--accent-hover);
+  background: var(--bg-hover);
+  border-color: var(--accent);
+  box-shadow: 0 0 12px rgba(99, 102, 241, 0.15);
+}
+
+/* Toggle button icon flipped when collapsed */
+#right-panel.collapsed .right-panel-toggle-btn {
+  transform: rotate(180deg);
+  border-color: transparent;
+  opacity: 1;
+  pointer-events: auto;
+}
+
+#right-panel.collapsed .right-panel-toggle-btn:hover {
+  border-color: var(--accent);
+}
+
+/* ============================================================
+   Tab Bar — Horizontal scroll with frosted edges
+   ============================================================ */
+.right-panel-tab-bar {
+  position: relative;
+  display: flex;
+  align-items: stretch;
+  border-bottom: 1px solid var(--border-default);
+  flex-shrink: 0;
+  min-height: 38px;
+  background-color: var(--bg-elevated);
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--bg-elevated) 98%, var(--accent) 2%) 0%,
+    var(--bg-elevated) 100%
+  );
+}
+
+/* Gradient fade masks for scroll hint */
+.right-panel-tab-bar::before,
+.right-panel-tab-bar::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 20px;
+  z-index: 2;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.25s ease;
+}
+
+.right-panel-tab-bar::before {
+  left: 0;
+  background: linear-gradient(to right, var(--bg-elevated), transparent);
+}
+
+.right-panel-tab-bar::after {
+  right: 40px;
+  background: linear-gradient(to left, var(--bg-elevated), transparent);
+}
+
+.right-panel-tab-bar.can-scroll-left::before,
+.right-panel-tab-bar.can-scroll-right::after {
+  opacity: 1;
+}
+
+.right-panel-tabs {
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+  gap: 0;
+  flex: 1;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  padding: 0 4px;
+}
+
+.right-panel-tabs::-webkit-scrollbar {
+  display: none;
+}
+
+/* ── Tab 操作区 ── */
+.right-panel-tab-actions {
+  display: flex;
+  align-items: center;
+  gap: 1px;
+  padding: 0 2px;
+  flex-shrink: 0;
+  border-left: 1px solid var(--border-subtle);
+}
+
+.rp-tab-action-btn {
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  font-size: 13px;
+  border-radius: 5px;
+  transition: background 0.15s ease, color 0.15s ease,
+              transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+  position: relative;
+}
+
+.rp-tab-action-btn:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+  transform: scale(1.1);
+}
+
+.rp-tab-action-btn:active {
+  transform: scale(0.92);
+}
+
+/* ── Individual Tab Buttons ── */
+.right-tab {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 10px;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  font-size: 12px;
+  line-height: 1;
+  transition: background 0.15s ease, color 0.15s ease,
+              border-color 0.2s ease, transform 0.15s ease;
+  text-align: left;
+  font-family: var(--font-ui);
+  white-space: nowrap;
+  flex-shrink: 0;
+  position: relative;
+  margin: 0 1px;
+  border-radius: 5px 5px 0 0;
+}
+
+/* Hover: subtle lift */
+.right-tab:hover {
+  background: color-mix(in srgb, var(--bg-hover) 60%, transparent);
+  color: var(--text-secondary);
+  transform: translateY(-1px);
+}
+
+/* Active: glow + gradient — uses ::after for underline (no border-bottom) */
+.right-tab.active {
+  color: var(--accent-hover);
+  background-color: transparent;
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--accent-glow) 100%, transparent) 0%,
+    transparent 80%
+  );
+  text-shadow: 0 0 20px color-mix(in srgb, var(--accent) 30%, transparent);
+}
+
+/* Active tab glowing accent line (positioned below the tab) */
+.right-tab.active::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 16%;
+  right: 16%;
+  height: 2px;
+  background: var(--accent);
+  border-radius: 1px;
+  box-shadow: 0 0 6px var(--accent);
+  animation: rp-tab-glow 2.5s ease-in-out infinite;
+}
+
+@keyframes rp-tab-glow {
+  0%, 100% { opacity: 0.5; box-shadow: 0 0 4px var(--accent); }
+  50% { opacity: 1; box-shadow: 0 0 10px var(--accent); }
+}
+
+.right-tab .right-tab-icon {
+  font-size: 13px;
+  line-height: 1;
+  transition: transform 0.2s var(--ease-out);
+}
+
+.right-tab:hover .right-tab-icon {
+  transform: scale(1.15);
+}
+
+.right-tab.active .right-tab-icon {
+  animation: rp-icon-float 4s ease-in-out infinite;
+}
+
+@keyframes rp-icon-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-1.5px); }
+}
+
+.right-tab .right-tab-label {
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  max-width: 60px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ── Category Separator ── */
+.right-tab-category-gap {
+  width: 1px;
+  min-width: 1px;
+  height: 20px;
+  background: var(--border-subtle);
+  margin: auto 5px;
+  flex-shrink: 0;
+}
+
+/* ── Collapsed: hide tabs completely ── */
+#right-panel.collapsed .right-panel-tabs {
+  display: none;
+}
+#right-panel.collapsed .right-panel-tab-bar {
+  display: none;
+}
+
+/* ============================================================
+   Content Area — Smooth scroll with elegant scrollbar
+   ============================================================ */
+.right-panel-content {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  position: relative;
+  scroll-behavior: smooth;
+}
+
+/* Custom premium scrollbar */
+.right-panel-content::-webkit-scrollbar {
+  width: 5px;
+}
+
+.right-panel-content::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.right-panel-content::-webkit-scrollbar-thumb {
+  background: var(--bg-hover);
+  border-radius: 6px;
+  border: 1px solid transparent;
+  background-clip: content-box;
+  transition: background 0.2s ease, width 0.2s ease;
+}
+
+.right-panel-content::-webkit-scrollbar-thumb:hover {
+  background: var(--bg-active);
+}
+
+/* ============================================================
+   Panel Pages — Slide-in with spring physics
+   ============================================================ */
+.rp-panel {
+  display: none;
+  height: 100%;
+  animation: rp-panel-in 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.rp-panel.active {
+  display: flex;
+  flex-direction: column;
+}
+
+@keyframes rp-panel-in {
+  from {
+    opacity: 0;
+    transform: translateX(16px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+  }
+}
+
+/* ============================================================
+   Placeholder — Centered with floating icon
+   ============================================================ */
+.rp-panel-placeholder {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  padding: var(--space-4);
+  text-align: center;
+  user-select: none;
+}
+
+.rp-placeholder-icon {
+  font-size: 48px;
+  opacity: 0.4;
+  margin-bottom: var(--space-2);
+  animation: rp-float 4s ease-in-out infinite;
+}
+
+@keyframes rp-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
+}
+
+.rp-placeholder-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.rp-placeholder-desc {
+  font-size: 12px;
+  color: var(--text-tertiary);
+  line-height: 1.5;
+  max-width: 220px;
+}
+
+.rp-placeholder-badge {
+  font-size: 10px;
+  padding: 3px 12px;
+  border-radius: 20px;
+  background: linear-gradient(135deg, var(--accent-glow), color-mix(in srgb, var(--accent-glow) 80%, transparent));
+  color: var(--accent-hover);
+  border: 1px solid color-mix(in srgb, var(--accent) 20%, transparent);
+  font-weight: 500;
+  margin-top: var(--space-1);
+  transition: box-shadow 0.2s ease;
+}
+
+.rp-placeholder-badge:hover {
+  box-shadow: 0 0 16px color-mix(in srgb, var(--accent) 20%, transparent);
+}
+
+/* ============================================================
+   Light theme adjustments
+   ============================================================ */
+[data-scheme="light"] #right-panel {
+  background: var(--bg-elevated);
+  box-shadow: -2px 0 12px var(--shadow-light);
+}
+
+[data-scheme="light"] .right-tab.active {
+  background: linear-gradient(
+    180deg,
+    var(--accent-glow-4) 0%,
+    transparent 80%
+  );
+}
+
+/* ============================================================
+   Responsive
+   ============================================================ */
+@media (max-width: 800px) {
+  #right-panel {
+    width: 280px;
+    min-width: 280px;
+  }
+  #right-panel.collapsed {
+    width: 44px;
+    min-width: 44px;
+  }
+}
+
+@media (max-width: 500px) {
+  #right-panel {
+    display: none;
+  }
+}
+
+/* ============================================================
+   Tab Search Overlay — Glass card with depth
+   ============================================================ */
+.rp-tab-search-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 20;
+  background: var(--bg-elevated);
+  border-bottom: 1px solid var(--border-default);
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  box-shadow:
+    0 8px 24px var(--shadow-penumbra),
+    0 2px 4px var(--shadow-ambient);
+  animation: rp-search-in 0.15s ease-out;
+}
+
+@keyframes rp-search-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.rp-tab-search-input {
+  width: 100%;
+  padding: 9px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border-default);
+  background: var(--bg-ground);
+  color: var(--text-primary);
+  font-size: 13px;
+  outline: none;
+  box-sizing: border-box;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.rp-tab-search-input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 12%, transparent);
+}
+
+.rp-tab-search-input::placeholder {
+  color: var(--text-tertiary);
+}
+
+.rp-tab-search-results {
+  max-height: 260px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.rp-tab-search-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.1s ease, transform 0.1s ease;
+  font-size: 12px;
+  color: var(--text-primary);
+}
+
+.rp-tab-search-item:hover,
+.rp-tab-search-item.highlighted {
+  background: var(--bg-hover);
+  transform: translateX(2px);
+}
+
+.rp-tab-search-item .rtsi-icon {
+  font-size: 14px;
+}
+
+.rp-tab-search-item .rtsi-category {
+  font-size: 10px;
+  color: var(--text-tertiary);
+  margin-left: auto;
+}
+
+.rp-tab-search-empty {
+  padding: 18px;
+  text-align: center;
+  color: var(--text-tertiary);
+  font-size: 12px;
+}
+
+/* ============================================================
+   Tab More Dropdown — Floating card with micro-animations
+   ============================================================ */
+.rp-tab-more-dropdown {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  z-index: 25;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-default);
+  border-radius: 10px;
+  box-shadow:
+    0 12px 40px var(--shadow-umbra),
+    0 4px 12px var(--shadow-ambient);
+  min-width: 230px;
+  max-height: 380px;
+  overflow-y: auto;
+  padding: 6px;
+  animation: rp-dropdown-in 0.15s ease-out;
+  transform-origin: top right;
+}
+
+@keyframes rp-dropdown-in {
+  from {
+    opacity: 0;
+    transform: scale(0.95) translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.rp-tab-more-dropdown.hidden {
+  display: none;
+}
+
+.rp-tab-more-category {
+  padding: 5px 10px;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  margin-top: 6px;
+}
+
+.rp-tab-more-category:first-child {
+  margin-top: 0;
+}
+
+.rp-tab-more-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 12px;
+  color: var(--text-secondary);
+  transition: background 0.1s ease, color 0.1s ease,
+              transform 0.1s ease;
+}
+
+.rp-tab-more-item:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+  transform: translateX(3px);
+}
+
+.rp-tab-more-item.active {
+  color: var(--accent-hover);
+  background: linear-gradient(
+    90deg,
+    var(--accent-glow) 0%,
+    transparent 100%
+  );
+}
+
+.rp-tab-more-item .rtmi-icon {
+  font-size: 13px;
+}
+
+.rp-tab-more-item .rtmi-hide {
+  margin-left: auto;
+  font-size: 10px;
+  color: var(--text-tertiary);
+  opacity: 0;
+  transition: opacity 0.12s ease, color 0.12s ease;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 2px 5px;
+  border-radius: 3px;
+}
+
+.rp-tab-more-item:hover .rtmi-hide {
+  opacity: 1;
+}
+
+.rp-tab-more-item .rtmi-hide:hover {
+  color: #ef4444;
+  background: var(--danger-bg-2);
+}
+
+/* ============================================================
+   Collapsible Sections — Smooth accordion
+   ============================================================ */
+.rp-collapsible {
+  border-bottom: 1px solid var(--border-subtle);
+  transition: background 0.15s ease;
+}
+
+.rp-collapsible:last-child {
+  border-bottom: none;
+}
+
+.rp-collapsible.open {
+  background: color-mix(in srgb, var(--bg-ground) 50%, transparent);
+}
+
+.rp-collapsible-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 11px 16px;
+  cursor: pointer;
+  user-select: none;
+  transition: background 0.12s ease;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-primary);
+  border-radius: 4px;
+}
+
+.rp-collapsible-header:hover {
+  background: var(--bg-hover);
+}
+
+.rp-collapsible-header .rpc-arrow {
+  font-size: 8px;
+  color: var(--text-tertiary);
+  transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+  margin-left: auto;
+}
+
+.rp-collapsible.open .rp-collapsible-header .rpc-arrow {
+  transform: rotate(90deg);
+}
+
+.rp-collapsible-header .rpc-icon {
+  font-size: 14px;
+}
+
+.rp-collapsible-header .rpc-count {
+  font-size: 10px;
+  color: var(--text-tertiary);
+  font-weight: 400;
+  margin-left: 4px;
+}
+
+.rp-collapsible-body {
+  overflow: hidden;
+  max-height: 0;
+  transition: max-height 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.rp-collapsible.open .rp-collapsible-body {
+  max-height: 2000px;
+  transition: max-height 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.rp-collapsible-body-inner {
+  padding: 0 16px 12px;
+  animation: rp-collapse-in 0.2s ease-out;
+}
+
+@keyframes rp-collapse-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ============================================================
+   Tab Manager — Toggle switches with spring motion
+   ============================================================ */
+.rp-tab-manager {
+  padding: 14px 16px;
+}
+
+.rp-tab-manager h3 {
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 12px;
+  color: var(--text-primary);
+  letter-spacing: 0.01em;
+}
+
+.rp-tm-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 5px 0;
+  font-size: 12px;
+  color: var(--text-secondary);
+  transition: color 0.15s ease;
+}
+
+.rp-tm-item:hover {
+  color: var(--text-primary);
+}
+
+/* ── Toggle Switch ── */
+.rp-tm-toggle {
+  width: 34px;
+  height: 20px;
+  border-radius: 10px;
+  border: none;
+  cursor: pointer;
+  position: relative;
+  transition: background 0.2s ease;
+  flex-shrink: 0;
+  padding: 0;
+}
+
+.rp-tm-toggle.on {
+  background: linear-gradient(135deg, var(--accent), color-mix(in srgb, var(--accent) 80%, #fff));
+  box-shadow: 0 0 8px color-mix(in srgb, var(--accent) 30%, transparent);
+}
+
+.rp-tm-toggle.off {
+  background: var(--bg-active);
+}
+
+.rp-tm-toggle::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #fff;
+  transition: left 0.25s cubic-bezier(0.34, 1.56, 0.64, 1),
+              box-shadow 0.15s ease;
+  box-shadow: 0 1px 3px var(--shadow-penumbra);
+}
+
+.rp-tm-toggle.on::after {
+  left: 16px;
+  box-shadow: 0 1px 4px color-mix(in srgb, var(--accent) 40%, transparent);
+}
+
+.rp-tm-toggle.off::after {
+  left: 2px;
+}
+
+.rp-tm-toggle:hover {
+  opacity: 0.9;
+}
+
+/* ============================================================
+   B2 — 原生折叠块（列表/表/表单默认折叠，零 JS 依赖）
+   ============================================================ */
+details.collapsible-block {
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  margin-bottom: 8px;
+  background: var(--bg-surface);
+  overflow: hidden;
+}
+details.collapsible-block > summary {
+  cursor: pointer;
+  list-style: none;
+  padding: 8px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  user-select: none;
+}
+details.collapsible-block > summary::-webkit-details-marker { display: none; }
+details.collapsible-block > summary::before {
+  content: '▸';
+  font-size: 9px;
+  transition: transform 0.2s;
+}
+details.collapsible-block[open] > summary::before { transform: rotate(90deg); }
+details.collapsible-block[open] > summary {
+  border-bottom: 1px solid var(--border-subtle);
+  margin-bottom: 8px;
+}
+
+/* ============================================================
+   Shared Card Base — A2 统一卡片节奏（供 tools/plugin/digital 类 tab 迁移）
+   ============================================================ */
+.rp-card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+.rp-card:hover {
+  border-color: var(--border-default);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.15);
+}
+.rp-card-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--border-subtle);
+  user-select: none;
+}
+.rp-card-title {
+  flex: 1;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.rp-card-body {
+  padding: 6px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
