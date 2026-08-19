@@ -6,6 +6,15 @@ use `vMAJOR.MINOR.PATCH-<tag>`.
 
 ---
 
+## [v1.1.2] — 2026-08-19
+
+### 🐛 修复（AI 讨论伙伴识别）
+- **收藏夹 CLI 无法识别为讨论伙伴**：`public/components/partner-store.js` 此前仅纳入
+  `category==='agent'` 的 CLI，被 registry 误归为 `tool` 的收藏 Agent 在讨论下拉不渲染、
+  不自动勾选——现建全量 registry 索引，凡存在于 registry 且非 `directory` 的收藏项均纳入
+  伙伴候选（与 roundtable-view 范式一致，同源修复 DSH 企业版 v0.9.9-fix3）。
+- 注：`discuss.js` 模型回落修复 v1.1.1 已包含，无需重复。
+
 ## [v1.1.1] — 2026-08-15
 
 ### 🛠️ 跨平台修复
