@@ -61,12 +61,26 @@
       };
       const agents = (agentsData && agentsData.agents ? agentsData.agents : []).filter((a) => a.installed);
       agents.forEach((a) => push(a.id, a.displayName || a.name, { version: a.version || '', installed: true }));
-      const clis = (clisData && clisData.clis ? clisData.clis : []).filter((c) => (c.category || '') === 'agent');
+      const allClis = (clisData && clisData.clis ? clisData.clis : []);
+      const allById = {};
+      allClis.forEach((c) => {
+        const id = c.id || c.name;
+        if (id) allById[id] = c;
+      });
+      const clis = allClis.filter((c) => (c.category || '') === 'agent');
       clis.forEach((c) => push(c.id || c.name, c.name, { version: c.version || '', fromRegistry: true }));
 
       let favIds = safeGet(FAV_KEY, []);
       if (!Array.isArray(favIds)) favIds = [];
       const favSet = new Set(favIds);
+      // bug 修复：被 cli-registry 误归为 tool/directory 之外的收藏 Agent CLI 也纳入伙伴候选
+      // （与 roundtable-view.js 范式一致），避免收藏夹勾选的 CLI 因分类不符被过滤掉、AI 讨论识别不出。
+      favIds.forEach((id) => {
+        const c = allById[id];
+        if (!c) return;
+        if ((c.category || '') === 'directory') return; // 文件夹不是 Agent
+        push(id, c.name || id, { version: c.version || '', fromRegistry: true });
+      });
       list.sort((a, b) => {
         const af = favSet.has(a.id) ? 0 : 1;
         const bf = favSet.has(b.id) ? 0 : 1;
