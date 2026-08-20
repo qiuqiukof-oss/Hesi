@@ -14,6 +14,17 @@ class ToolRegistry {
   constructor() {
     /** @type {Map<string, {name:string, description:string, parameters:object, execute:Function}>} */
     this._tools = new Map();
+    /** @type {Array<Function>} 注册订阅者（插件动态注册的工具需实时并入 LLM 感知数组） */
+    this._subscribers = [];
+  }
+
+  /**
+   * 订阅工具注册事件（Hesi-main 对齐：QCLI_TOOLS 是启动快照，
+   * 插件 aiTools 在启动后注册，需经此钩子就地并入感知数组）。
+   * @param {(tool: object) => void} fn
+   */
+  onRegister(fn) {
+    if (typeof fn === 'function') this._subscribers.push(fn);
   }
 
   /**
@@ -30,6 +41,10 @@ class ToolRegistry {
       throw new Error(`Tool already registered: ${tool.name}`);
     }
     this._tools.set(tool.name, { ...tool, noTruncate: tool.noTruncate || false });
+    // 通知订阅者（插件工具并入 LLM 感知数组等）
+    for (const fn of this._subscribers) {
+      try { fn(tool); } catch { /* 订阅者自身问题不影响注册 */ }
+    }
   }
 
   /** 返回 OpenAI function calling 格式的 tools 数组 */

@@ -146,7 +146,7 @@ function registerAITools(loader, plugin, aiTools, pluginDir) {
       const handlerPath = resolveHandler(pluginDir, toolDef.handler);
       const handlerMod = require(handlerPath);
       tool.execute = async (args, broadcastFn) => {
-        return handlerMod.execute(args, { broadcastFn, plugin, pluginLoader: loader });
+        return handlerMod.execute(args, { broadcastFn, plugin, pluginLoader: loader, toolName: toolDef.name });
       };
       // 缓存模块路径以便热重载时清除 require.cache
       plugin.resources.cleanupFns.push(() => {

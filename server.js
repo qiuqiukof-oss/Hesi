@@ -273,6 +273,9 @@ const wsManager = createWSManager({ port: PORT });
 // mcpStatusOpts references ensureMCPManager/withMcp — both initialized above by request time.
 setupRoutes(app, {
   broadcastFn: (data) => wsManager?.broadcast?.(data),
+  // 传 ToolRegistry 给 PluginLoader：缺省时插件 aiTools 全部不注册
+  // （Hesi-main server.js 同款参数，个人版精简时遗漏）
+  toolRegistry: require('./routes/chat/tools').toolRegistry,
   mcpStatusOpts: { ensureMCPManager, withMcp },
 });
 

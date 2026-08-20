@@ -108,6 +108,16 @@ const QCLI_TOOLS = toolRegistry.definitions;
 // Merge MCP Bridge Tools (session + cli_discover + browser)
 QCLI_TOOLS.push(...mcpToolDefinitions);
 
+// P2 工具生态：QCLI_TOOLS 是启动快照，插件 aiTools 在启动后注册（toolRegistry.register）
+// 会进 registry 但进不了本数组。订阅注册事件，就地 push 进**同一个数组实例**：
+// 所有既有 `tools || QCLI_TOOLS` 引用都会自动看到新工具（Hesi-main 对齐机制）。
+toolRegistry.onRegister((tool) => {
+  QCLI_TOOLS.push({
+    type: 'function',
+    function: { name: tool.name, description: tool.description, parameters: tool.parameters },
+  });
+});
+
 // ── MCP tool name set for quick lookup ──
 const MCP_TOOL_NAMES = new Set([
   'session_create', 'session_write', 'session_read',
