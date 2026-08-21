@@ -16,8 +16,17 @@
 //     给 LLM 自己读，干净 text 往往比 JSON 更省 token（无键名重复/转义开销）。
 // ============================================================
 
-const { resolveTargetUrl, isUrl, getTemplate } = require('./engine');
+const { resolveTargetUrl, isUrl, getTemplate, assertPublicUrl } = require('./engine');
 const { getSession } = require('./session');
+
+// ── 结果缓存（短 TTL，避免重复查询重复真跑）───────────────────
+// 键 = target|format|maxChars；缓存 promise 实现并发同键去重；
+// 成功保留 TTL，失败即删。env HESI_WG_CACHE=0 关闭。
+const CACHE_TTL = 60_000;
+const _resultCache = new Map();
+function cacheKey(target, opts) {
+  return `${target}|${opts.format === 'json' ? 'json' : 'text'}|${opts.maxChars || 0}`;
+}
 
 /**
  * 统一读取入口。
@@ -28,6 +37,24 @@ const { getSession } = require('./session');
  * @returns {Promise<object>}
  */
 async function read(target, opts = {}) {
+  const t = String(target || '').trim();
+  const key = cacheKey(t, opts);
+  const now = Date.now();
+
+  // 缓存命中（未过期）
+  const hit = _resultCache.get(key);
+  if (hit && now - hit.at < CACHE_TTL) {
+    return hit.promise;
+  }
+  if (hit) _resultCache.delete(key); // 过期清理
+
+  const promise = _doRead(t, opts);
+  _resultCache.set(key, { at: now, promise });
+  promise.catch(() => _resultCache.delete(key)); // 失败不缓存
+  return promise;
+}
+
+async function _doRead(target, opts = {}) {
   const started = Date.now();
   try {
     const t = String(target || '').trim();
@@ -38,7 +65,18 @@ async function read(target, opts = {}) {
     const engine = getTemplate();
     const session = getSession();
     const mode = isUrl(t) ? 'fetch' : 'search';
-    const maxChars = opts.maxChars || (mode === 'search' ? 6000 : 12000);
+    // 默认输出量（token 友好）：search 2500 字符 ≈ 前 8 条结果；fetch 5000 字符 ≈ 正文核心段。
+    // 需要更多时用 maxChars 显式放大（如 fetch 全文 12000）。
+    const maxChars = opts.maxChars || (mode === 'search' ? 2500 : 5000);
+
+    // SSRF 防护：fetch 任意 URL 前校验必须指向公网（拒绝内网/回环/保留段）
+    if (mode === 'fetch') {
+      try {
+        await assertPublicUrl(url);
+      } catch (e) {
+        return { ok: false, error: e.message, elapsedMs: Date.now() - started };
+      }
+    }
 
     const raw = await session.read(url, {
       waitUntil: opts.waitUntil || 'domcontentloaded',
@@ -47,6 +85,16 @@ async function read(target, opts = {}) {
       settleBudget: opts.settleBudget || 8000,
     });
     const elapsedMs = Date.now() - started;
+
+    // 验证码/风控页：明确报错而非静默空结果（防止 AI 把"被拦截"当"无结果"）
+    if (raw.captcha) {
+      return {
+        ok: false,
+        error: '目标页面疑似触发验证码/风控拦截，请稍后重试或检查浏览器指纹（headless 特征）',
+        elapsedMs,
+      };
+    }
+
     const structured = raw.structured;
 
     // ── JSON 模式：直接返回结构化对象（不包一层大文本）──

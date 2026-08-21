@@ -131,4 +131,54 @@ function resolveTargetUrl(target) {
   return replaceTokens(template, t);
 }
 
-module.exports = { resolveTargetUrl, isUrl, getTemplate, replaceTokens, detectBrowserType };
+// ── SSRF 防护 ─────────────────────────────────────────────────
+// web_grounding_fetch 接受任意 URL，若不加约束可被诱导抓内网
+// （127.0.0.1 / 10.x / 172.16-31.x / 192.168.x / 保留段 / IPv6 私有）→ SSRF 入口。
+// 静态 IP 段 + 域名 DNS 解析双重检查；DNS rebinding 属高级对抗，
+// 静态检查挡绝大多数场景，边界见 README 免责。
+const net = require('net');
+const dns = require('dns');
+const PRIVATE_IP_RE =
+  /^(10\.|127\.|169\.254\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.|0\.)/;
+const PRIVATE_IPV6_PREFIXES = ['::1', '::', 'fc', 'fd', 'fe8', 'fe9', 'fea', 'feb'];
+
+/** 判断 IP 是否为私有/回环/保留地址（支持 IPv4/IPv6 字符串） */
+function isPrivateIp(ip) {
+  const s = String(ip || '').toLowerCase();
+  if (PRIVATE_IP_RE.test(s)) return true;
+  if (PRIVATE_IPV6_PREFIXES.some((p) => s.startsWith(p))) return true;
+  return false;
+}
+
+/**
+ * 校验目标 URL 必须指向公网（SSRF 防护）。
+ * @param {string} rawUrl
+ * @returns {Promise<void>} 不通过时抛 Error
+ */
+async function assertPublicUrl(rawUrl) {
+  let u;
+  try {
+    u = new URL(rawUrl);
+  } catch (e) {
+    throw new Error(`无效 URL: ${rawUrl}`);
+  }
+  if (!/^https?:$/.test(u.protocol)) {
+    throw new Error(`SSRF 防护：仅支持 http/https 协议（${u.protocol}//）`);
+  }
+  const hostname = u.hostname.replace(/^\[|\]$/g, '');
+  if (net.isIP(hostname)) {
+    if (isPrivateIp(hostname)) {
+      throw new Error(`SSRF 防护：拒绝访问内网/回环地址 ${hostname}`);
+    }
+    return; // 公网 IP 字面量放行
+  }
+  // 域名：DNS 解析一次，若解析结果含私有地址则拒绝
+  const addrs = await new Promise((resolve) => {
+    dns.lookup(hostname, { all: true }, (err, a) => (err ? resolve([]) : resolve(a || [])));
+  });
+  if (addrs.some((a) => isPrivateIp(a.address))) {
+    throw new Error(`SSRF 防护：目标 ${hostname} 解析到内网地址（${addrs.map((a) => a.address).join(', ')}）`);
+  }
+}
+
+module.exports = { resolveTargetUrl, isUrl, getTemplate, replaceTokens, detectBrowserType, assertPublicUrl, isPrivateIp };

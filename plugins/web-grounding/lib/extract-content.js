@@ -102,11 +102,12 @@ function pageExtractFn(mode) {
         const p = block.querySelector(
           'p, .b_caption, .b_paractl, .b_lineclamp2, .b_lineclamp3, .b_lineclamp4, .VwiC3b, .snippet, [class*="snippet"], [class*="lineclamp"]'
         );
-        snippet = clean(p ? p.textContent : '').slice(0, 300);
+        // snippet 截断 150 字符：够 AI 判断相关性，大幅省 token（Tavily 单条 ~200 字符）
+        snippet = clean(p ? p.textContent : '').slice(0, 150);
       }
       seen.add(href);
       out.push({ title, url: href, snippet });
-      if (out.length >= 12) break; // 取前 12 条足够
+      if (out.length >= 8) break; // 前 8 条足够，省 token
     }
     return out;
   }
@@ -183,6 +184,9 @@ function pageExtractFn(mode) {
     return { title, description, content, links };
   }
 
+  // 验证码/风控页特征（命中则上层明确报错，避免静默空结果误导 AI）
+  const CAPTCHA_RE = /captcha|verify.*(?:human|robot|you'?re not a robot)|unusual traffic|denied.*automated|access.*denied|enable javascript and cookies|请输入验证码|安全验证|验证码|请完成.*验证|检测到异常流量/i;
+
   const structured = mode === 'search' ? extractSearch() : extractContent();
   return {
     url: location.href,
@@ -190,6 +194,7 @@ function pageExtractFn(mode) {
     mode,
     rawChars,
     structured,
+    captcha: CAPTCHA_RE.test(document.body ? document.body.innerText : ''),
   };
 }
 
