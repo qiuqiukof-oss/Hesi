@@ -47,8 +47,6 @@ export function linkify(text) {
  */
 export function renderMarkdown(text) {
   if (!text) return '';
-  // Escape HTML first, then apply markdown patterns
-  let html = escapeHtml(text);
 
   // 先把代码块/行内代码抽离为占位符，避免其中的 URL 被误链、也避免 markdown 破坏其内容
   const codeStore = [];
@@ -57,8 +55,9 @@ export function renderMarkdown(text) {
     return `%%CB${idx}%%`;
   };
 
-  // Code blocks (processed first so inner content is safe)
-  html = html.replace(/```(\w*)\n([\s\S]*?)```/g, (_, lang, code) => {
+  // Code blocks: 先提取、转义、构造 HTML，再替换原文
+  // 注意：不能在全文 escapeHtml 之后再处理代码块，否则代码内容会被双重转义
+  text = text.replace(/```(\w*)\n([\s\S]*?)```/g, (_, lang, code) => {
     const trimmedCode = code.trimEnd();
     const escapedCode = escapeHtml(trimmedCode);
     const escapedLang = lang ? escapeHtml(lang) : '';
@@ -76,8 +75,13 @@ export function renderMarkdown(text) {
       + `</div>`);
   });
 
-  // Inline code
-  html = html.replace(/`([^`]+)`/g, (_, code) => stash(`<code class="md-inline-code">${code}</code>`));
+  // Inline code: 同样先提取
+  text = text.replace(/`([^`]+)`/g, (_, code) => {
+    return stash(`<code class="md-inline-code">${escapeHtml(code)}</code>`);
+  });
+
+  // 现在对剩余文本（不含代码块）进行 HTML 转义
+  let html = escapeHtml(text);
 
   // Bold
   html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
