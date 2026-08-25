@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Copyright (c) 2026 qiuqiukof-oss
  * Licensed under the MIT License. See LICENSE for details.
  */
@@ -59,6 +59,7 @@ const isWin = process.platform === 'win32';
 // 使终端里的 opencode/Claude/Codex 能连上 Hesi 的 MCP 服务器并获知运行上下文。
 // 幂等、不破坏用户已有文件；失败仅告警。
 require('./lib/ensure-agent-config').ensureAgentConfig({ port: PORT });
+require('./lib/dsh-init').init();
 // All HTTP servers we bind (one per loopback address, or a single explicit host).
 const servers = [];
 

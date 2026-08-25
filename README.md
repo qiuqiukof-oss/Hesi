@@ -20,7 +20,7 @@
 <p align="center">
   <b>从目标输入到交付报告一条 SSE 流跑通，所有结果沉淀在聊天框中</b> 
 <p align="center">
-  <b>已集成Deepseek harness Preview，npx @deepseek-ai/dsh web + npx hesi-q 两条命令即可体验</b> 
+  <b>已集成Deepseek harness Preview，npx hesi-q 一条命令即可体验</b> 
 </p>
 <img width="2549" height="1191" alt="31e29b87b924e056bb0e65791cf2756b" src="https://github.com/user-attachments/assets/3035a6af-1216-403a-b998-8f6e68c4644c" />
 
