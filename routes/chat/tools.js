@@ -112,6 +112,8 @@ QCLI_TOOLS.push(...mcpToolDefinitions);
 const MCP_TOOL_NAMES = new Set([
   'session_create', 'session_write', 'session_read',
   'session_signal', 'session_resize', 'session_kill', 'session_list',
+  // 共享终端协作: AI 操作用户已打开/激活的 CLI
+  'session_collab', 'session_collab_confirm', 'session_cli',
   'cli_discover',
   'browser_ping', 'browser_connect', 'browser_navigate',
   'browser_screenshot', 'browser_click', 'browser_type',

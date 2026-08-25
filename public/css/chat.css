@@ -1386,6 +1386,54 @@ body.drawer-resizing {
 }
 .discuss-switch input { width: 16px; height: 16px; accent-color: var(--accent); cursor: pointer; }
 .discuss-switch-label { font-weight: 600; }
+
+/* ── DSH 引擎模式下整行禁用（讨论 / 自动执行） ── */
+.discuss-bar.dsh-disabled {
+  opacity: 0.5;
+  filter: grayscale(0.5);
+  pointer-events: none;
+}
+.discuss-bar.dsh-disabled .discuss-switch { cursor: not-allowed; }
+
+/* ── Slash 命令菜单（/ 前缀，opencode 风格）── */
+.chat-input-area { position: relative; }
+.slash-menu {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  max-height: 320px;
+  overflow-y: auto;
+  background: var(--bg-surface, #161618);
+  border: 1px solid var(--border-default, #38383a);
+  border-radius: 10px;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, .45);
+  z-index: 1000;
+  padding: 4px;
+}
+.slash-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 7px;
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--text-primary, #f5f5f7);
+}
+.slash-item.active { background: var(--accent, #6366f1); color: #fff; }
+.slash-ico { width: 20px; text-align: center; flex-shrink: 0; }
+.slash-name { font-weight: 600; white-space: nowrap; }
+.slash-desc {
+  font-size: 11px;
+  color: var(--text-tertiary, #98989d);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+.slash-item.active .slash-desc { color: rgba(255, 255, 255, .85); }
+
 .discuss-select {
   background: var(--bg-elevated, var(--bg-active));
   color: var(--text-primary);

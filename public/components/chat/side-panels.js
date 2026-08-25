@@ -114,6 +114,32 @@ export const sidePanelsMixin = {
     }
     if (this.dshEngineBtn) this.dshEngineBtn.classList.toggle('active', this._dshEngine);
     if (this._dshEngine) this._renderDshEngineStatus();
+    // DSH 引擎模式下禁用 AI 讨论 / 自动执行 / 附件 / 核查控件
+    this._syncDshEngineControls();
+  },
+
+  /** DSH 引擎模式下禁用讨论/自动执行/附件/核查控件（这些是 AI 助手编排能力，DSH 直通链路不生效）。 */
+  _syncDshEngineControls() {
+    const bar = document.getElementById('discuss-bar');
+    if (bar) bar.classList.toggle('dsh-disabled', this._dshEngine);
+    // 禁用附件/核查按钮；DSH 模式下不参与 Hesi 编排
+    for (const id of ['chat-attach-btn', 'chat-verify-btn']) {
+      const b = document.getElementById(id);
+      if (b) b.disabled = this._dshEngine;
+    }
+    // 标题提示：DSH 模式下说明哪些能力不参与
+    const discussSwitch = document.getElementById('discuss-switch');
+    if (discussSwitch) {
+      discussSwitch.title = this._dshEngine
+        ? 'DSH 引擎模式下不可用（消息直达 DSH，不经过 Hesi 讨论编排）'
+        : '开启后，你的指令会由 AI 助手与所选 CLI Agent（可多选）按回合协作讨论，过程实时可见';
+    }
+    const planSwitch = document.getElementById('plan-switch');
+    if (planSwitch) {
+      planSwitch.title = this._dshEngine
+        ? 'DSH 引擎模式下不可用（消息直达 DSH，不经过 Hesi 计划/审批编排）'
+        : '开启后自动拆解目标为可执行步骤并真实执行；同时勾选 AI 讨论→协作工作流（讨论→方案→实施）';
+    }
   },
 
   /** 拉取 /api/dsh2/status 并缓存。 */

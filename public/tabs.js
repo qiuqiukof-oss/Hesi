@@ -519,6 +519,14 @@ export const Tabs = {
         });
         el.title = tab.name || tab.cliId || 'Terminal';
 
+        // 共享 AI 协作态：读全局标记（share/unshare 成功后由 toggleAiCollab 维护）。
+        const sharedTabId = window.__sharedCliTabId || null;
+        const isShared = sharedTabId === tab.tabId;
+        if (isShared) {
+          el.classList.add('shared-ai');
+          el.title = (tab.name || tab.cliId || 'Terminal') + ' · 与 AI 共享中（单次任务）';
+        }
+
         // CLI category color accent
         const clis = window.QCLI?.state?.clis || [];
         const cliObj = clis.find(c => c.id === tab.cliId);
@@ -531,6 +539,15 @@ export const Tabs = {
         icon.className = 'tab-icon';
         icon.textContent = tab.icon || '\u25b6';
         el.appendChild(icon);
+
+        // 共享态 🤖 徽章
+        if (isShared) {
+          const badge = document.createElement('span');
+          badge.className = 'tab-ai-badge';
+          badge.textContent = '\ud83e\udd16';
+          badge.title = '与 AI 共享中';
+          el.appendChild(badge);
+        }
 
         // Name
         const name = document.createElement('span');
@@ -560,6 +577,17 @@ export const Tabs = {
         });
         el.appendChild(closeBtn);
 
+        // 邀请/停止 AI 协作（hover 出现，就近入口）
+        const aiBtn = document.createElement('button');
+        aiBtn.className = 'tab-ai-collab' + (isShared ? ' active' : '');
+        aiBtn.textContent = isShared ? '\ud83e\udd16 停止协作' : '\ud83e\udd16 邀请 AI';
+        aiBtn.title = isShared ? '停止 AI 协作（解除共享）' : '邀请 AI 协作（AI 可半路接入此终端）';
+        aiBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          this.toggleAiCollab(tab.tabId, isShared);
+        });
+        el.appendChild(aiBtn);
+
         // Click to switch
         el.addEventListener('click', () => {
           this.switch(tab.tabId);
@@ -578,6 +606,40 @@ export const Tabs = {
 
       // Update tab bar visibility
       bar.classList.toggle('has-tabs', this.tabs.length > 0);
+    },
+
+    /**
+     * 邀请 / 停止 AI 协作：调用后端 /api/cli/:tabId/share|unshare。
+     * 成功后维护 window.__sharedCliTabId（供 render 标记共享态），并重新渲染 tab 栏。
+     */
+    async toggleAiCollab(tabId, isShared) {
+      try {
+        if (isShared) {
+          const resp = await fetch(`/api/cli/${encodeURIComponent(tabId)}/unshare`, { method: 'POST' });
+          if (!resp.ok) {
+            const err = await resp.json().catch(() => ({}));
+            console.warn('[Tabs] 停止 AI 协作失败:', err.error || resp.status);
+            return;
+          }
+          if (window.__sharedCliTabId === tabId) window.__sharedCliTabId = null;
+        } else {
+          const resp = await fetch(`/api/cli/${encodeURIComponent(tabId)}/share`, { method: 'POST' });
+          const data = await resp.json().catch(() => ({}));
+          if (!resp.ok) {
+            // 交互式程序等可预期拒绝：直接提示，不抛错。
+            if (resp.status === 422 && data.error === 'interactive-program') {
+              alert(data.message || '该终端正在运行交互式程序，请先退出再邀请 AI 协作。');
+            } else {
+              console.warn('[Tabs] 邀请 AI 协作失败:', data.error || resp.status);
+            }
+            return;
+          }
+          window.__sharedCliTabId = tabId;
+        }
+        this.render();
+      } catch (e) {
+        console.warn('[Tabs] toggleAiCollab error:', e && e.message);
+      }
     },
 
     /**

@@ -6,6 +6,23 @@ use `vMAJOR.MINOR.PATCH-<tag>`.
 
 ---
 
+## [v1.1.4-fix] — 2026-08-25
+
+> 共享终端「邀请 AI 协作」+ `/cli` 斜杠命令 + DSH 引擎改进。
+
+### ✨ 共享终端「邀请 AI 协作」
+- 在 Hesi 打开的任意 CLI（含 WSL）会话 hover「邀请 AI 协作」→ AI 半路接入**同一个真实 PTY**（非新建、非外部窗口）。
+- 安全闸闭环：敏感命令二次确认（rm/sudo/git push/format… 凭 token 确认才执行）、并发写锁、用户 typing 避让、非行式程序屏蔽（vi/top/less）、tail 硬限、单次任务制。
+- `session_collab` / `session_collab_confirm` / `session_cli` 进入主聊天工具表；userId 可省略（单用户自动定位）。
+
+### ⚡ `/cli <指令>` 斜杠命令
+- 自动接管「激活中的 CLI」（最近输入过的终端）执行一条指令，独立一轮返回输出、不入通用历史省 token。
+- 前端 `/` 斜杠菜单（SlashMenu，opencode 风格）：「/cli」选中 = 接管已开同名终端并自动邀请协作。
+
+### 🐋 DSH 引擎改进
+- DSH 引擎模式下自动禁用「AI 讨论 / 自动执行 / 附件 / 核查」（直通链路不生效）。
+- DSH 数据目录锚定项目内 `data/dsh-home/`（零 C 盘依赖）；provider 从 Hesi「模型服务」配置读取（含自定义 provider）。
+
 ## [v1.1.1] — 2026-08-15
 
 ### 🛠️ 跨平台修复

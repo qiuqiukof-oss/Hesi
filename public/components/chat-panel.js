@@ -39,6 +39,7 @@ import { messageDomMixin } from './chat/message-dom.js';
 import { terminalContextMixin } from './chat/terminal-context.js';
 import { planConsoleMixin } from './chat/plan-console.js';
 import { nextTip } from './chat/thinking-tips.js';
+import { SlashMenu } from './slash-menu.js'; // / 斜杠命令菜单（/cli 接管等）
 
 /** @typedef {import('../types').QCLI} QCLI */
 /** @typedef {{role:string, content:string}} ChatMessage */
@@ -434,11 +435,17 @@ class ChatPanel extends HTMLElement {
     }
 
     if (this.input) {
+      // Slash 命令菜单（/ 前缀）——技能 /cli /role 二级菜单，选中即接管/启动
+      this._slashMenu = new SlashMenu(this.input, {
+        onToast: (msg) => { const Q = qcli(); if (Q.showToast) Q.showToast(msg, 'info'); },
+      });
       this.input.addEventListener('input', () => {
         this._autoResize();
         this._checkMermaidPreview();
+        if (this._slashMenu) this._slashMenu.refresh();
       });
       this.input.addEventListener('keydown', (e) => {
+        if (this._slashMenu && this._slashMenu.handleKeydown(e)) return; // slash 菜单已消费（↑↓/Enter/Esc/Tab）
         if (e.key === 'Enter' && !e.shiftKey) {
           e.preventDefault();
           if (this.sending) {

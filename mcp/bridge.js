@@ -31,6 +31,10 @@ const ALLOWED_TOOL_NAMES = new Set([
   "session_resize",
   "session_kill",
   "session_list",
+  // 共享终端协作
+  "session_collab",
+  "session_collab_confirm",
+  "session_cli",
   "cli_discover",
   // CDP Browser Control — AI 助手可以感知和控制自己的浏览器
   "browser_ping",

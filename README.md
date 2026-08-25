@@ -1,6 +1,7 @@
 <p align="center">
-  <strong>Hesi（合思）个人版 v1.1.1 — 浏览器里的终端 + AI 智能体中枢</strong><br>
-  <em>AI 讨论 → 制定方案 → AI 讨论审查 → 实施 → AI 讨论审核 → 报告 · 一条聊天消息全自动跑完</em>
+  <strong>Hesi（合思）个人版 v1.1.4-fix — 浏览器里的终端 + AI 智能体中枢</strong><br>
+  <em>AI 讨论 → 制定方案 → AI 讨论审查 → 实施 → AI 讨论审核 → 报告 · 一条聊天消息全自动跑完</em><br>
+  <em>开发者福音：AI 助手协助任意 CLI —— 在 Hesi 打开的终端里直接协作，尤其是 WSL Linux 开发流</em>
 </p>
 
 <p align="center">
@@ -67,6 +68,7 @@
 | 🛠️ **从源码运行**（开发者） | `git clone` → `npm install` → `npm run build` → `npm start`，打开 `http://127.0.0.1:4264` |
 | 🤖 **多 Agent 围桌讨论** | 在「设置」里填入 LLM API Key → 聊天框勾选 💬 AI讨论 → 选 1–4 个 CLI Agent（opencode / codex / aider） → 输入议题 |
 | ⚡ **全自动协作工作流** | 同时勾选 💬 AI讨论 + ⚡ 自动执行 → 选 CLI Agent 伙伴 + 设定讨论轮数 → 输入目标 → AI 自动完成「讨论→方案→实施→审核→报告」全流程 |
+| 🛠️ **AI 助手协助任意 CLI（开发者福音）** | 在 Hesi 打开的任意终端（bash / PowerShell / **WSL Linux** / git / node…）hover「邀请 AI 协作」→ AI 直接在你的真实会话里执行命令，全过程实时可见；或直接发 `/cli <指令>` 自动接管当前终端 |
 
 > 💡 **推荐试法**：同时勾选 💬+⚡，选 opencode 作为伙伴，输入「在 p4-chat-test 目录创建一个 hello.txt 写 Hello Hesi，验证文件存在且内容正确」。观察五阶段如何在聊天框实时推进。
 
@@ -76,6 +78,7 @@
 
 ## ✨ 为什么选择 Hesi
 
+- 🛠️ **AI 助手协助任意 CLI（开发者福音）** — 在 Hesi 打开的任意终端（bash / PowerShell / WSL Linux / git / node…）hover「邀请 AI 协作」，AI 直接在你正在操作的**真实会话**里执行命令，你实时看到全过程；`/cli <指令>` 一条命令自动接管当前终端。安全闸内置：敏感命令二次确认、写锁、typing 避让、交互式程序屏蔽。
 - 🤝 **全自动协作工作流（v0.7）** — 同时勾选 💬+⚡，AI 助手+CLI Agent 自动跑完「讨论→方案制定→方案审查→实施→审核→报告」六阶段，一条聊天消息闭环交付。
 - 💬 **多 Agent 圆桌讨论** — AI 助手与 opencode / codex / aider 等 CLI Agent 多轮辩论，互相质疑、补充、收敛方案，讨论结论自动注入 Plan 生成器。
 - ⚡ **NL→Plan 自动执行** — 自然语言输入直接拆解为可执行步骤，逐步运行、实时流式输出；断开即取消、审批对话化、错误栈可展开。

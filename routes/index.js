@@ -11,6 +11,7 @@ const fs = require('fs');
 const path = require('path');
 const { createRateLimiter } = require('../rate-limiter');
 const { createRouter: createCLIRouter } = require('./clis');
+const { createRouter: createSharedCliRouter } = require('./shared-cli'); // 共享终端协作
 const { createRouter: createFolderRouter } = require('./folders');
 const { createRouter: createUploadRouter } = require('./upload');
 const { createRouter: createChatRouter } = require('./chat/index');
@@ -96,7 +97,7 @@ function getPluginLoader() {
  * @returns {{ pluginLoader: PluginLoader }}  — plugin loader instance
  */
 function setupRoutes(app, opts = {}) {
-  const { broadcastFn, toolRegistry, presetLoader, mcpStatusOpts } = opts;
+  const { broadcastFn, toolRegistry, presetLoader, mcpStatusOpts, activePTYs } = opts;
 
   // ── Chat routes go BEFORE global apiLimiter to avoid double-limiting ──
   // Chat has its own chatLimiter (300/60s). By registering before apiLimiter,
@@ -113,6 +114,8 @@ function setupRoutes(app, opts = {}) {
   app.use('/api', apiLimiter);
 
   app.use('/api', requireToken, createCLIRouter({ discoverLimiter }));
+  // 共享终端「邀请 AI 协作」登记接口（activePTYs 由 server 注入）
+  app.use('/api', createSharedCliRouter({ activePTYs }));
   app.use('/api', createFolderRouter());
   app.use('/api', requireToken, requireAuth, createUploadRouter({ uploadLimiter }));
   app.use('/api', createAgentRouter());

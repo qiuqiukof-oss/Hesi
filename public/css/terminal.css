@@ -275,6 +275,66 @@
   box-shadow: 0 0 6px rgba(99, 102, 241, 0.4);
 }
 
+/* ── 共享终端「邀请 AI 协作」态 ── */
+.tab-item.shared-ai {
+  border-color: #a78bfa;
+  background: color-mix(in srgb, #a78bfa 14%, transparent);
+  color: var(--text-primary);
+  box-shadow: 0 0 8px rgba(167, 139, 250, 0.45);
+}
+.tab-item.shared-ai::after {
+  background: #a78bfa;
+  box-shadow: 0 0 6px rgba(167, 139, 250, 0.6);
+}
+
+.tab-ai-badge {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 13px;
+  line-height: 1;
+  filter: drop-shadow(0 0 3px rgba(167, 139, 250, 0.9));
+  pointer-events: none;
+  z-index: 2;
+}
+
+/* AI 协作按钮（hover 出现，就近入口） */
+.tab-ai-collab {
+  position: absolute;
+  bottom: 2px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #a78bfa;
+  color: #1a1030;
+  border: none;
+  border-radius: 3px;
+  cursor: pointer;
+  font-size: 7px;
+  font-weight: 700;
+  padding: 1px 4px;
+  line-height: 1.1;
+  white-space: nowrap;
+  opacity: 0;
+  transition: opacity 0.12s, background 0.12s;
+  z-index: 3;
+  max-width: 50px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+.tab-ai-collab.active {
+  background: rgba(239, 68, 68, 0.85);
+  color: #fff;
+}
+.tab-item:hover .tab-ai-collab {
+  opacity: 0.95;
+}
+.tab-ai-collab:hover {
+  opacity: 1 !important;
+  filter: brightness(1.1);
+}
+
 .tab-icon {
   font-size: 14px;
   flex-shrink: 0;

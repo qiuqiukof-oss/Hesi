@@ -1,0 +1,43 @@
+{
+  "name": "web-grounding",
+  "version": "0.1.1",
+  "description": "本机浏览器默认搜索引擎联网检索 + 活 DOM 正文抽取（无截图、无视觉识别、零 API key）。核心逻辑来自 Hesi-web-grounding 独立包（唯一事实源），本插件为薄代理：复制本目录到 Hesi plugins/ 并重启，AI 即可感知 web_grounding_search/fetch/status。",
+  "author": "qiuqiukof-oss",
+  "license": "MIT",
+  "aiTools": [
+    {
+      "name": "web_grounding_search",
+      "description": "通过本机浏览器默认搜索引擎搜索，返回结果（不截图、不视觉识别）。结果已降噪：解析搜索引擎结果页为干净的「标题+链接+摘要」列表，AI 可直接阅读并决定是否深入某个结果。参数 format 控制返回：text（默认，纯文本列表）或 json（结构化 {count,results[]}）。中文：用本机浏览器默认引擎搜索。",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "query": { "type": "string", "description": "搜索关键词 中文：搜索关键词" },
+          "format": { "type": "string", "enum": ["text", "json"], "description": "输出格式：text（默认）或 json。中文：输出格式" },
+          "maxChars": { "type": "number", "description": "文本模式最大字符数（默认 6000）。中文：最大字符数" }
+        },
+        "required": ["query"]
+      },
+      "handler": "handlers/web-grounding.js"
+    },
+    {
+      "name": "web_grounding_fetch",
+      "description": "抓取指定网页 URL 的正文，返回干净文本（不截图、不视觉识别）。已默认抽取正文区域、过滤导航/页脚/侧边栏/广告噪音。参数 format 控制返回：text（默认，纯文本正文）或 json（结构化 {title,description,content,links}）。中文：抓取网页正文。",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "url": { "type": "string", "description": "目标网页 URL（http/https）。中文：目标网页 URL" },
+          "format": { "type": "string", "enum": ["text", "json"], "description": "输出格式：text（默认）或 json。中文：输出格式" },
+          "maxChars": { "type": "number", "description": "文本模式最大字符数（默认 12000）。中文：最大字符数" }
+        },
+        "required": ["url"]
+      },
+      "handler": "handlers/web-grounding.js"
+    },
+    {
+      "name": "web_grounding_status",
+      "description": "检查 web-grounding 网关状态（本机浏览器是否就绪、常驻 worker 页状态）。中文：检查 web-grounding 网关状态。",
+      "parameters": { "type": "object", "properties": {}, "required": [] },
+      "handler": "handlers/web-grounding.js"
+    }
+  ]
+}

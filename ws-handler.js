@@ -270,10 +270,8 @@ function createWSManager({ port = require('./lib/port').getPort() } = {}) {
     const ptyStartTime = Date.now();
 
     p.onData((data) => {
-      // Buffer only while orphaned (client dropped but PTY still alive) so the
-      // post-disconnect output can be replayed on reconnect — avoids both
-      // duplicating live output and unbounded memory growth.
-      if (tab._orphaned) tab.outputBuffer += data;
+      // 常驻环形缓冲（200KB）：活跃态也累积，供「邀请 AI 协作」读取最近输出窗口。
+      tab.outputBuffer = ((tab.outputBuffer || '') + data).slice(-200 * 1024);
       if (tab.ws && tab.ws.readyState === 1) {
         tab.ws.send(JSON.stringify({ type: 'output', data, tabId }));
       }
@@ -548,6 +546,54 @@ function createWSManager({ port = require('./lib/port').getPort() } = {}) {
     attach,
     wssList,
     get wss() { return wssList[0]; },
+    /**
+     * 读某 tab 最近 N 行输出（邀请 AI 协作 / session_collab 用）。
+     */
+    readTabOutput(tabId, lines) {
+      let tab = null;
+      for (const [, tabs] of activePTYs) {
+        const t = tabs && tabs.get(tabId);
+        if (t) { tab = t; break; }
+      }
+      if (!tab) tab = orphanedTabs.get(tabId) || null;
+      if (!tab) return '';
+      const buf = tab.outputBuffer || '';
+      if (!lines || lines <= 0) return buf;
+      return buf.split('\n').slice(-lines).join('\n');
+    },
+    /**
+     * 向某 tab 写入一条命令（AI 协作执行）。
+     */
+    writeTab(tabId, input) {
+      let tab = null;
+      for (const [, tabs] of activePTYs) {
+        const t = tabs && tabs.get(tabId);
+        if (t) { tab = t; break; }
+      }
+      if (!tab) tab = orphanedTabs.get(tabId) || null;
+      if (!tab || !tab.pty) return false;
+      try { tab.pty.write(`${input}\n`); return true; }
+      catch { return false; }
+    },
+    /**
+     * 找某用户「激活中」的 CLI tab（/cli 斜杠命令自动接管用）。
+     * 个人版单用户：_userId 不存在则所有 ws 均视为本人。
+     */
+    findActiveTabByUser(userId) {
+      if (!userId) return null;
+      let best = null;
+      let bestAt = -1;
+      for (const [ws, tabs] of activePTYs) {
+        const ownerId = ws && ws._userId;
+        if (ownerId && ownerId !== userId) continue;
+        for (const [tabId, tab] of tabs) {
+          if (!tab || !tab.pty || tab._orphaned) continue;
+          const at = tab._lastActive || 0;
+          if (at > bestAt) { bestAt = at; best = { tabId, cliId: tab.cliId }; }
+        }
+      }
+      return best;
+    },
   };
 }
 

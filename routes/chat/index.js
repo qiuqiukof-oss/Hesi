@@ -29,6 +29,7 @@ const { resolveForChat } = require('../../lib/llm-provider/provider-client');
 const { injectAttachments } = require('./attachments');
 const { runDiscussion } = require('./discuss');
 const { runPlanTurn } = require('./plan-turn');
+const { sharedCliBridge } = require('../../lib/shared-cli-bridge'); // 共享终端协作
 
 // 本地 LLM 默认 baseUrl 从 env 读取（HESI_LLM_BASE_URL，默认 Ollama 11434），
 // 不硬编码端口（用户本地 LLM 部署端口各异：LM Studio 1234 / Ollama 11434 / vLLM 自定义等）。
@@ -306,6 +307,37 @@ function createRouter(opts = {}) {
       return res.status(400).json({ error: 'messages array is required' });
     }
 
+    // ── 斜杠命令 /cli：自动接管用户「激活中」的 CLI 执行一条指令 ──
+    // 不入通用对话历史，独立一轮返回 CLI 输出，最省 token 且聚焦。
+    const _lastMsg = messages[messages.length - 1];
+    const _lastText = (_lastMsg && (_lastMsg.content || _lastMsg.text || ''))?.toString() || '';
+    if (_lastText.startsWith('/cli ')) {
+      const instruction = _lastText.slice(5).trim();
+      // 个人版单用户：无 req.user 体系，固定 'local'。
+      const uid = (req.user && req.user.id) || 'local';
+      if (!instruction) {
+        return res.json({ reply: '用法：/cli <要执行的指令> — 例如「/cli ls -la」「/cli git status」。会自动接管你当前正在操作的终端。' });
+      }
+      try {
+        const r = await sharedCliBridge.executeOnActiveCli(uid, instruction, { tailLines: 40 });
+        if (r.confirmRequired) {
+          return res.json({
+            reply: `⚠️ 该命令被判定为敏感/不可逆操作，需你确认后才执行：\n` +
+              `\`${r.command}\`\n请明确回复「确认执行」，或我可调用 session_collab_confirm 提供 token。`,
+          });
+        }
+        if (!r.ok) {
+          return res.json({ reply: `⚠️ ${r.error}` });
+        }
+        return res.json({
+          reply: `✅ 已在激活终端（${r.cliId}）执行：\n\`${r.executed}\`\n\n` +
+            `【执行后输出】\n\`\`\`\n${r.afterContext || '(无输出)'}\n\`\`\``,
+        });
+      } catch (e) {
+        return res.json({ reply: `⚠️ /cli 执行异常：${e.message}` });
+      }
+    }
+
     // ── 自动执行模式（P2/P6）──
     // P6 协作工作流：有 CLI Agent 伙伴时 → 自动先多 Agent 讨论再执行（讨论结论注入 Plan 生成器）
     // 否则 → 独立自动执行（无讨论）
@@ -561,6 +593,17 @@ When the user asks you to perform a "system self-check" / "全面自检" / "diag
 - 当用户引用任何文件 / 方案 / 代码 / 外部 API 时，先核对真实内容，指出与现状的矛盾（给出文件路径:行号等证据）。
 - 不要仅凭印象或文件名回答；基于工具返回的证据作答。`;
     }
+
+    // ── 共享终端协作：AI 可操作用户在 Hesi 中打开的 CLI ──
+    SELF_AWARE_PROMPT += `\n\n## 共享终端协作（Shared CLI Collaboration）
+你可以操作**用户在 Hesi 里打开的 CLI 终端**（bash / PowerShell / WSL / git / node 等真实会话），
+无需用户复制粘贴——你在他们的真实终端里执行命令，他们实时看到全过程。
+
+- **触发信号**：用户说「帮我在这个终端…」「在 CLI 里跑…」「/cli …」或 hover 邀请后请我协作。
+- **工具**：\`session_cli\`（自动接管激活终端，优先）或 \`session_collab\`（已邀请协作的终端）。
+- **userId 可省略**（系统自动定位当前共享/激活终端）。
+- **约束**：每次只执行一条命令；敏感命令（rm/sudo/git push 等）需用户确认后才执行；
+  vi/top/less 等交互式程序不可操作；用户正在输入时暂缓写入。`;
 
     // ── 个性化注入（Persona / Role / Custom Instructions / Language）──
     // 复用既有「前端 localStorage → 请求体 → 服务端注入」链路（与 verifyMode 同款）。

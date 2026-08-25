@@ -270,11 +270,16 @@ if (withMcp) {
 // ============================================================
 const wsManager = createWSManager({ port: PORT });
 
+// 共享终端协作：把 wsManager 注入共享桥，供 session_collab / /cli 操作真实用户 PTY。
+const { sharedCliBridge } = require('./lib/shared-cli-bridge');
+sharedCliBridge.setWsManager(wsManager);
+
 // Mount all API routes (pass broadcast function so routes can push metrics/events to WS clients).
 // mcpStatusOpts references ensureMCPManager/withMcp — both initialized above by request time.
 setupRoutes(app, {
   broadcastFn: (data) => wsManager?.broadcast?.(data),
   mcpStatusOpts: { ensureMCPManager, withMcp },
+  activePTYs: wsManager.activePTYs, // 共享终端登记接口需要遍历活跃 tab
 });
 
 // Mount health route on /health (not under /api) to avoid competing with the apiLimiter budget

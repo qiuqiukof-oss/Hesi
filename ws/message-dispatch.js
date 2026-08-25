@@ -15,6 +15,7 @@
 const path = require('path');
 const { loadRegistry, resolveCommand } = require('../cli-discovery');
 const { createDigitalEmployee } = require('./digital-employee');
+const { sharedCliBridge } = require('../lib/shared-cli-bridge'); // 共享终端协作
 
 /** PTY 单次写入上限（bug 修复 2026-08-04 审查反馈：防大 payload 冲垮 PTY 缓冲）。 */
 const PTY_WRITE_MAX = 256 * 1024;
@@ -142,6 +143,10 @@ function dispatchWSMessage(ctx, ws, msg) {
         ws.send(JSON.stringify({ type: 'error', message: `PTY write too large (max ${PTY_WRITE_MAX} chars)` }));
         break;
       }
+      // 共享终端：用户真实键盘输入 → typing 信号（AI 协作写入前避让）
+      if (msg.tabId) sharedCliBridge.markUserTyping(msg.tabId);
+      // 共享终端：用户向某 tab 输入 = 该 tab 为「当前激活」，供 /cli 自动接管
+      tab._lastActive = Date.now();
       tab.pty.write(msg.data);
       break;
     }
