@@ -236,6 +236,6 @@
     "globals": "^17.7.0",
     "husky": "^9.1.0",
     "lint-staged": "^15.2.0",
-    "prettier": "^3.9.5"
+    "prettier": "^3.9.6"
   }
 }
