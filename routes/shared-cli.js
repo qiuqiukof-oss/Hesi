@@ -45,7 +45,7 @@ function createRouter({ activePTYs }) {
       return res.status(404).json({ error: 'Tab not found or already exited', tabId });
     }
     // 归属校验：非 admin 只能共享自己的 tab。
-    const isAdmin = req.user.role === 'admin';
+    const isAdmin = !!(req.user && req.user.role === 'admin');
     if (!isAdmin && found.ownerId && found.ownerId !== userId) {
       return res.status(403).json({ error: 'Cannot share a terminal owned by another user', tabId });
     }
