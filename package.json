@@ -142,7 +142,7 @@
   },
   "optionalDependencies": {
     "node-pty": "^1.1.0",
-    "playwright": "^1.52.0",
+    "playwright": "^1.62.1",
     "edge-tts-universal": "^1.4.0"
   },
   "scripts": {
