@@ -1002,6 +1002,7 @@ body {
   gap: 8px;
 }
 .ts-card {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -1078,6 +1079,429 @@ body {
   border: 1px solid var(--accent);
   font-weight: 700;
   letter-spacing: 0.3px;
+}
+.ts-custom {
+  font-size: 8px;
+  line-height: 1;
+  padding: 1px 4px;
+  border-radius: 6px;
+  background: rgba(34, 197, 94, 0.12);
+  color: var(--success, #22c55e);
+  border: 1px solid rgba(34, 197, 94, 0.3);
+  font-weight: 700;
+  letter-spacing: 0.3px;
+}
+.ts-delete-btn {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 18px;
+  height: 18px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(239, 68, 68, 0.15);
+  color: var(--error, #ef4444);
+  font-size: 10px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+.ts-card:hover .ts-delete-btn { opacity: 1; }
+.ts-delete-btn:hover { background: rgba(239, 68, 68, 0.3); }
+
+/* ── 工具行 ── */
+.ts-tool-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+  grid-column: 1 / -1;
+}
+.ts-tool-btn {
+  flex: 1;
+  min-width: 0;
+  font-size: 11px;
+  padding: 6px 8px;
+}
+
+/* ── 视觉风格切换行 ── */
+.ts-style-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+  padding: 8px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  background: var(--bg-surface);
+  grid-column: 1 / -1;
+}
+.ts-style-label {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  flex-shrink: 0;
+  min-width: 48px;
+}
+.ts-style-options {
+  display: flex;
+  gap: 4px;
+  flex: 1;
+}
+.ts-style-btn {
+  flex: 1;
+  padding: 5px 8px;
+  border: 1px solid var(--border-default);
+  border-radius: 6px;
+  background: var(--bg-surface);
+  color: var(--text-secondary);
+  font-size: 10px;
+  font-family: var(--font-ui);
+  cursor: pointer;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+.ts-style-btn:hover {
+  border-color: var(--accent);
+  color: var(--text-primary);
+  background: var(--accent-glow);
+}
+.ts-style-btn.active {
+  border-color: var(--accent);
+  background: var(--accent-glow);
+  color: var(--accent);
+  font-weight: 600;
+  box-shadow: 0 0 12px rgba(var(--accent-rgb, 99,102,241), 0.25);
+}
+
+/* ============================================================
+   Glassmorphism Visual Style — Nocturne Glass (StyleKit 规范)
+
+   所有 glass 效果在 [data-style="glass"] 作用域下，默认风格零影响。
+   集成方式：融合到主题切换器，用户可自由组合 配色 × 风格。
+   ============================================================ */
+
+/* ── Glass 变量（:root 下定义，glass 激活时使用）── */
+:root {
+  --glass-blur: 40px;
+  --glass-blur-heavy: 60px;
+  --glass-saturate: 180%;
+  --glass-bg: rgba(255, 255, 255, 0.08);
+  --glass-bg-subtle: rgba(255, 255, 255, 0.05);
+  --glass-bg-hover: rgba(255, 255, 255, 0.14);
+  --glass-border: rgba(255, 255, 255, 0.15);
+  --glass-border-hover: rgba(255, 255, 255, 0.30);
+  --glass-shadow: 0 16px 40px rgba(3,7,18,0.5),
+                  inset 0 1px 0 rgba(255,255,255,0.22),
+                  inset 0 -1px 0 rgba(2,6,16,0.35);
+  --glass-shadow-sm: 0 4px 16px rgba(3,7,18,0.45),
+                     inset 0 1px 0 rgba(255,255,255,0.18),
+                     inset 0 -1px 0 rgba(2,6,16,0.3);
+  --glass-shadow-hover: 0 24px 64px rgba(3,7,18,0.6),
+                        inset 0 1px 0 rgba(255,255,255,0.32),
+                        inset 0 -1px 0 rgba(2,6,16,0.35);
+  --night-deep: #060A13;
+  --night: #0B1322;
+  --night-steel: #16233A;
+  --moon-steel: #33517A;
+  --moonlight: #7C9CC4;
+  --champagne: #E4B863;
+  --champagne-bright: #F3DCA8;
+  --champagne-glow: rgba(228, 184, 99, 0.15);
+  --glass-spring: cubic-bezier(0.16, 1, 0.3, 1);
+  --transition-glass: 500ms var(--glass-spring);
+}
+
+/* ── Glass 激活时覆盖 accent 色 ── */
+[data-style="glass"] {
+  --accent: #E4B863;
+  --accent-hover: #F3DCA8;
+  --accent-glow: rgba(228, 184, 99, 0.15);
+  --accent-sub: #7C9CC4;
+}
+
+/* ── 亮色 + Glass 适配 ── */
+[data-theme="light"][data-style="glass"] {
+  --glass-bg: rgba(255, 255, 255, 0.65);
+  --glass-bg-subtle: rgba(255, 255, 255, 0.45);
+  --glass-bg-hover: rgba(255, 255, 255, 0.8);
+  --glass-border: rgba(0, 0, 0, 0.08);
+  --glass-border-hover: rgba(0, 0, 0, 0.15);
+  --glass-shadow: 0 8px 32px rgba(0,0,0,0.08),
+                  inset 0 1px 0 rgba(255,255,255,0.8),
+                  inset 0 -1px 0 rgba(0,0,0,0.04);
+  --glass-shadow-sm: 0 2px 8px rgba(0,0,0,0.06),
+                     inset 0 1px 0 rgba(255,255,255,0.6);
+  --glass-shadow-hover: 0 12px 40px rgba(0,0,0,0.12),
+                        inset 0 1px 0 rgba(255,255,255,0.9),
+                        inset 0 -1px 0 rgba(0,0,0,0.06);
+  --glass-blur: 20px;
+  --glass-blur-heavy: 32px;
+  --glass-saturate: 120%;
+}
+
+/* ── 噪点纹理（2.5% film grain）── */
+[data-style="glass"]::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  opacity: 0.025;
+  pointer-events: none;
+  z-index: 99999;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* ── Body 光源光斑 ── */
+[data-style="glass"] body {
+  background:
+    radial-gradient(640px circle at 85% 12%, rgba(124,156,196,0.15), transparent 60%),
+    radial-gradient(560px circle at 8% 85%, rgba(51,81,122,0.2), transparent 60%),
+    radial-gradient(420px circle at 30% 40%, rgba(228,184,99,0.06), transparent 55%),
+    linear-gradient(165deg, var(--night-deep) 0%, var(--night) 55%, var(--night-steel) 100%);
+}
+[data-theme="light"][data-style="glass"] body {
+  background:
+    radial-gradient(640px circle at 85% 12%, rgba(124,156,196,0.08), transparent 60%),
+    radial-gradient(560px circle at 8% 85%, rgba(51,81,122,0.1), transparent 60%),
+    linear-gradient(165deg, #f5f5f5 0%, #fafafa 55%, #ffffff 100%);
+}
+
+/* ── Glass 通用类 ── */
+[data-style="glass"] .glass {
+  background: var(--glass-bg);
+  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow);
+  transition: background var(--transition-glass),
+              border-color var(--transition-glass),
+              box-shadow var(--transition-glass);
+}
+[data-style="glass"] .glass:hover {
+  background: var(--glass-bg-hover);
+  border-color: var(--glass-border-hover);
+  box-shadow: var(--glass-shadow-hover);
+}
+[data-style="glass"] .glass-subtle {
+  background: var(--glass-bg-subtle);
+  backdrop-filter: blur(var(--glass-blur-heavy)) saturate(var(--glass-saturate));
+  -webkit-backdrop-filter: blur(var(--glass-blur-heavy)) saturate(var(--glass-saturate));
+  border: 1px solid var(--glass-border);
+}
+
+/* ── Glass 按钮 ── */
+[data-style="glass"] .glass-btn {
+  background: var(--glass-bg);
+  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-lg, 10px);
+  color: var(--text-primary);
+  transition: all var(--transition-glass);
+  cursor: pointer;
+}
+[data-style="glass"] .glass-btn:hover {
+  background: var(--glass-bg-hover);
+  border-color: var(--glass-border-hover);
+  transform: translateY(-1px);
+  box-shadow: var(--glass-shadow-sm);
+}
+[data-style="glass"] .glass-btn:active {
+  transform: scale(0.97);
+}
+
+/* ── Glass 卡片 ── */
+[data-style="glass"] .glass-card {
+  background: var(--glass-bg);
+  backdrop-filter: blur(var(--glass-blur-heavy)) saturate(var(--glass-saturate));
+  -webkit-backdrop-filter: blur(var(--glass-blur-heavy)) saturate(var(--glass-saturate));
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-xl, 14px);
+  box-shadow: var(--glass-shadow);
+  transition: all var(--transition-glass);
+  position: relative;
+  overflow: hidden;
+}
+[data-style="glass"] .glass-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to bottom, rgba(255,255,255,0.12), transparent 50%);
+  border-radius: inherit;
+  pointer-events: none;
+}
+[data-style="glass"] .glass-card:hover {
+  border-color: var(--glass-border-hover);
+  box-shadow: var(--glass-shadow-hover);
+  transform: translateY(-2px);
+}
+
+/* ── Glass 输入框 ── */
+[data-style="glass"] .glass-input {
+  background: var(--glass-bg-subtle);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-lg, 10px);
+  color: var(--text-primary);
+  transition: all var(--transition-glass);
+  outline: none;
+}
+[data-style="glass"] .glass-input:focus {
+  border-color: var(--champagne);
+  box-shadow: 0 0 0 3px var(--champagne-glow);
+  background: var(--glass-bg);
+}
+
+/* ── Glass 面板（侧边栏/抽屉）── */
+[data-style="glass"] .glass-panel {
+  background: var(--glass-bg);
+  backdrop-filter: blur(var(--glass-blur-heavy)) saturate(var(--glass-saturate));
+  -webkit-backdrop-filter: blur(var(--glass-blur-heavy)) saturate(var(--glass-saturate));
+  border: 1px solid var(--glass-border);
+}
+
+/* ============================================================
+   Glass 自动应用 — 无需 .glass 类，直接作用于现有 DOM
+   ============================================================ */
+
+/* ── 侧边栏 ── */
+[data-style="glass"] #sidebar {
+  background: var(--glass-bg) !important;
+  backdrop-filter: blur(var(--glass-blur-heavy)) saturate(var(--glass-saturate));
+  -webkit-backdrop-filter: blur(var(--glass-blur-heavy)) saturate(var(--glass-saturate));
+  border-right: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow-sm);
+}
+
+/* ── 右侧面板 ── */
+[data-style="glass"] #right-panel {
+  background: var(--glass-bg) !important;
+  backdrop-filter: blur(var(--glass-blur-heavy)) saturate(var(--glass-saturate));
+  -webkit-backdrop-filter: blur(var(--glass-blur-heavy)) saturate(var(--glass-saturate));
+  border-left: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow-sm);
+}
+[data-style="glass"] #right-panel .right-panel-header {
+  border-bottom-color: var(--glass-border);
+}
+[data-style="glass"] #right-panel .rp-panel {
+  background: transparent;
+}
+
+/* ── 聊天输入区 ── */
+[data-style="glass"] .chat-input-area {
+  background: var(--glass-bg-subtle) !important;
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-top: 1px solid var(--glass-border);
+}
+[data-style="glass"] .chat-input-row {
+  background: var(--glass-bg-subtle);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-lg, 10px);
+}
+[data-style="glass"] .chat-input-row:focus-within {
+  border-color: var(--champagne);
+  box-shadow: 0 0 0 3px var(--champagne-glow);
+}
+[data-style="glass"] #chat-input {
+  background: transparent !important;
+  color: var(--text-primary);
+}
+
+/* ── 消息气泡 ── */
+[data-style="glass"] .msg-bubble {
+  background: var(--glass-bg-subtle) !important;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow-sm);
+  transition: background var(--transition-glass), border-color var(--transition-glass);
+}
+[data-style="glass"] .msg-bubble:hover {
+  border-color: var(--glass-border-hover);
+}
+[data-style="glass"] .msg-bubble.user {
+  background: rgba(228,184,99,0.08) !important;
+  border-color: rgba(228,184,99,0.2);
+}
+
+/* ── 弹窗 Modal ── */
+[data-style="glass"] .modal {
+  background: var(--glass-bg) !important;
+  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-xl, 14px);
+  box-shadow: var(--glass-shadow);
+}
+
+/* ── 工具栏 ── */
+[data-style="glass"] .right-panel-tab-bar {
+  background: var(--glass-bg-subtle);
+  border-bottom: 1px solid var(--glass-border);
+}
+[data-style="glass"] .right-tab {
+  color: var(--text-secondary);
+  border-bottom: 2px solid transparent;
+}
+[data-style="glass"] .right-tab:hover {
+  color: var(--text-primary);
+  background: var(--glass-bg-hover);
+}
+[data-style="glass"] .right-tab.active {
+  color: var(--champagne);
+  border-bottom-color: var(--champagne);
+}
+
+/* ── 终端区域 ── */
+[data-style="glass"] #terminal {
+  background: var(--glass-bg-subtle) !important;
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md, 8px);
+  margin: 4px;
+  overflow: hidden;
+}
+
+/* ── 会话列表项 ── */
+[data-style="glass"] .session-item {
+  border-bottom-color: var(--glass-border);
+  transition: background var(--transition-glass);
+}
+[data-style="glass"] .session-item:hover {
+  background: var(--glass-bg-hover);
+}
+[data-style="glass"] .session-item.active {
+  background: rgba(228,184,99,0.08);
+  border-left: 2px solid var(--champagne);
+}
+
+/* ── 按钮通用 ── */
+[data-style="glass"] button:not(.ts-card):not(.ts-style-btn) {
+  transition: all var(--transition-glass);
+}
+
+/* ── 滚动条 ── */
+[data-style="glass"] ::-webkit-scrollbar-thumb {
+  background: var(--glass-border);
+}
+[data-style="glass"] ::-webkit-scrollbar-thumb:hover {
+  background: var(--glass-border-hover);
+}
+
+/* ── 抽屉面板（黑板/圆桌/DSH/工作台）── */
+[data-style="glass"] #blackboard-container,
+[data-style="glass"] #mahjong-container,
+[data-style="glass"] #dsh-container,
+[data-style="glass"] #worktable-container {
+  background: var(--glass-bg) !important;
+  backdrop-filter: blur(var(--glass-blur-heavy)) saturate(var(--glass-saturate));
+  -webkit-backdrop-filter: blur(var(--glass-blur-heavy)) saturate(var(--glass-saturate));
+  border-left: 1px solid var(--glass-border);
 }
 
 /* ============================================================

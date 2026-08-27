@@ -1,0 +1,336 @@
+/* ============================================================
+   Theme Editor — 主题编辑器样式
+   ============================================================ */
+
+/* ── Overlay ── */
+.te-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  animation: te-fadeIn 0.2s ease;
+}
+.te-overlay.hidden {
+  display: none;
+}
+
+@keyframes te-fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+/* ── Panel ── */
+.te-panel {
+  width: 720px;
+  max-width: 95vw;
+  max-height: 85vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-default);
+  border-radius: 14px;
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.5);
+  overflow: hidden;
+  animation: te-slideIn 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes te-slideIn {
+  from { opacity: 0; transform: translateY(16px) scale(0.97); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* ── Header ── */
+.te-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border-default);
+  background: var(--bg-elevated);
+}
+.te-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+  flex-shrink: 0;
+}
+.te-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+}
+.te-spacer { flex: 1; }
+
+/* ── Toolbar ── */
+.te-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border-bottom: 1px solid var(--border-default);
+  background: var(--bg-ground);
+}
+.te-label {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  flex-shrink: 0;
+}
+.te-name-input {
+  width: 160px;
+  padding: 4px 8px;
+  border: 1px solid var(--border-default);
+  border-radius: 6px;
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  font-size: 12px;
+  font-family: var(--font-ui);
+  outline: none;
+  transition: border-color 0.15s;
+}
+.te-name-input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-glow);
+}
+.te-scheme-select,
+.te-style-select {
+  padding: 4px 8px;
+  border: 1px solid var(--border-default);
+  border-radius: 6px;
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  font-size: 11px;
+  font-family: var(--font-ui);
+  outline: none;
+  cursor: pointer;
+}
+
+/* ── Body ── */
+.te-body {
+  flex: 1;
+  display: flex;
+  overflow: hidden;
+  min-height: 0;
+}
+.te-vars {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px 16px;
+}
+.te-preview {
+  width: 200px;
+  flex-shrink: 0;
+  padding: 12px;
+  border-left: 1px solid var(--border-default);
+  background: var(--bg-ground);
+  overflow-y: auto;
+}
+.te-preview-label {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-tertiary);
+  margin-bottom: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* ── Variable Groups ── */
+.te-group {
+  margin-bottom: 12px;
+}
+.te-group-title {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-bottom: 6px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid var(--border-subtle, var(--border-default));
+}
+.te-var-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 0;
+}
+.te-var-label {
+  width: 48px;
+  font-size: 11px;
+  color: var(--text-secondary);
+  flex-shrink: 0;
+}
+.te-var-key {
+  font-size: 9px;
+  color: var(--text-tertiary);
+  font-family: var(--font-mono);
+  width: 120px;
+  flex-shrink: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.te-color-pick {
+  width: 28px;
+  height: 28px;
+  border: 2px solid var(--border-default);
+  border-radius: 6px;
+  cursor: pointer;
+  padding: 0;
+  background: none;
+  flex-shrink: 0;
+}
+.te-color-pick::-webkit-color-swatch-wrapper { padding: 2px; }
+.te-color-pick::-webkit-color-swatch { border: none; border-radius: 3px; }
+.te-color-text {
+  flex: 1;
+  min-width: 0;
+  padding: 3px 6px;
+  border: 1px solid var(--border-default);
+  border-radius: 4px;
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  font-size: 10px;
+  font-family: var(--font-mono);
+  outline: none;
+  transition: border-color 0.15s;
+}
+.te-color-text:focus {
+  border-color: var(--accent);
+}
+
+/* ── Preview Card ── */
+.te-preview-card {
+  border: 1px solid var(--border-default);
+  border-radius: 8px;
+  padding: 10px;
+  margin-bottom: 8px;
+  transition: all 0.2s;
+}
+.te-pv-header {
+  font-size: 12px;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+.te-pv-body {
+  font-size: 10px;
+  margin-bottom: 8px;
+  line-height: 1.5;
+}
+.te-pv-accent {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 10px;
+  font-weight: 600;
+  cursor: default;
+}
+.te-preview-msg {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.te-pv-msg-user,
+.te-pv-msg-ai {
+  padding: 6px 10px;
+  border-radius: 8px;
+  font-size: 10px;
+  border: 1px solid;
+  transition: all 0.2s;
+}
+
+/* ── Footer ── */
+.te-footer {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  border-top: 1px solid var(--border-default);
+  background: var(--bg-elevated);
+}
+
+/* ── Buttons ── */
+.te-btn {
+  padding: 5px 12px;
+  border: 1px solid var(--border-default);
+  border-radius: 6px;
+  background: var(--bg-surface);
+  color: var(--text-secondary);
+  font-size: 11px;
+  font-family: var(--font-ui);
+  cursor: pointer;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+.te-btn:hover {
+  border-color: var(--accent);
+  color: var(--text-primary);
+  background: var(--accent-glow);
+}
+.te-btn-apply {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
+.te-btn-apply:hover {
+  opacity: 0.9;
+  background: var(--accent);
+}
+.te-btn-save {
+  background: var(--success, #22c55e);
+  color: #fff;
+  border-color: var(--success, #22c55e);
+}
+.te-btn-save:hover {
+  opacity: 0.9;
+  background: var(--success, #22c55e);
+}
+.te-btn-close {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  border-radius: 50%;
+}
+
+/* ── Toast ── */
+.te-toast {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%) translateY(20px);
+  padding: 8px 20px;
+  border-radius: 8px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-default);
+  color: var(--text-primary);
+  font-size: 12px;
+  font-family: var(--font-ui);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  opacity: 0;
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  z-index: 10001;
+  pointer-events: none;
+}
+.te-toast.show {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+/* ── Scrollbar ── */
+.te-vars::-webkit-scrollbar,
+.te-preview::-webkit-scrollbar {
+  width: 4px;
+}
+.te-vars::-webkit-scrollbar-thumb,
+.te-preview::-webkit-scrollbar-thumb {
+  background: var(--border-default);
+  border-radius: 4px;
+}

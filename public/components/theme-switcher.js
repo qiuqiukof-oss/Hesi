@@ -24,6 +24,7 @@ import { buildXtermThemeFor, applyTermThemeToAll } from '../lib/term-theme.js';
 import {
   getTheme, isValidTheme,
   resolveToggleTarget, DEFAULT_THEME, DEFAULT_BY_SCHEME,
+  applyCustomThemeVars, clearCustomThemeVars,
 } from '../lib/theme-registry.js';
 
 /** @typedef {import('../types').QCLI} QCLI */
@@ -90,6 +91,15 @@ export function applyTheme(theme) {
     const isDark = scheme === 'dark';
     Q.dom.themeToggle.textContent = isDark ? '\ud83c\udf19' : '\u2600\ufe0f';
     Q.dom.themeToggle.title = isDark ? '\u5207\u6362\u5230\u4eae\u8272\u4e3b\u9898' : '\u5207\u6362\u5230\u6df1\u8272\u4e3b\u9898';
+  }
+  // 自定义主题：注入 CSS 变量；内置主题：清除残留
+  if (entry && entry.custom) {
+    applyCustomThemeVars(entry);
+  } else {
+    // 切回内置主题时，清除之前自定义主题注入的变量
+    clearCustomThemeVars();
+    // 恢复 data-scheme（clearCustomThemeVars 可能已移除）
+    document.documentElement.setAttribute('data-scheme', scheme);
   }
   _syncTermTheme();
   safeStorage.set('qcli-theme', id);
@@ -174,6 +184,39 @@ export function resetCustomTheme() {
   _syncTermTheme();
 }
 
+// ============================================================
+// Visual Style — data-style layer (glassmorphism etc.)
+// ============================================================
+const STYLE_KEY = 'qcli-ui-style';
+const VALID_STYLES = ['default', 'glass'];
+
+/**
+ * 获取当前视觉风格。
+ * @returns {string} 'default' | 'glass'
+ */
+export function getStyle() {
+  const saved = safeStorage.get(STYLE_KEY);
+  return VALID_STYLES.includes(saved) ? saved : 'default';
+}
+
+/**
+ * 应用视觉风格并持久化。
+ * @param {string} style 'default' | 'glass'
+ */
+export function applyStyle(style) {
+  if (!VALID_STYLES.includes(style)) style = 'default';
+  document.documentElement.setAttribute('data-style', style);
+  safeStorage.set(STYLE_KEY, style);
+  const Q = window.QCLI || {};
+  if (Q.state) Q.state.uiStyle = style;
+}
+
+/** 切换视觉风格 */
+export function toggleStyle() {
+  const current = getStyle();
+  applyStyle(current === 'glass' ? 'default' : 'glass');
+}
+
 // ── Custom element (for future declarative use) ──
 class ThemeSwitcher extends HTMLElement {
   connectedCallback() {
@@ -225,6 +268,9 @@ Promise.resolve().then(() => {
     Q.applyCustomOuterBg = applyCustomOuterBg;
     Q.applyCustomBgFromStorage = applyCustomBgFromStorage;
     Q.resetCustomTheme = resetCustomTheme;
+    Q.getStyle = getStyle;
+    Q.applyStyle = applyStyle;
+    Q.toggleStyle = toggleStyle;
     Q._themePatched = true;
   }
   // Restore custom background overrides from localStorage

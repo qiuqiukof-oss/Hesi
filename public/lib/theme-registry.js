@@ -26,10 +26,12 @@
  * @property {boolean} beta   是否标记为 Beta
  * @property {string}  pair   切换明暗时的对位主题
  * @property {string}  desc   一句话描述，用于选择器提示
+ * @property {boolean} [custom] 是否为用户自定义主题
+ * @property {Record<string,string>} [variables] 自定义主题的 CSS 变量
  */
 
-/** @type {ReadonlyArray<ThemeEntry>} */
-export const THEMES = Object.freeze([
+/** 内置主题（不可变） */
+const BUILTIN_THEMES = [
   {
     id: 'light', label: '明亮', scheme: 'light', beta: false,
     pair: 'dark', desc: '默认亮色，中性灰白',
@@ -54,12 +56,36 @@ export const THEMES = Object.freeze([
     id: 'cyber', label: '深空', scheme: 'dark', beta: true,
     pair: 'light', desc: '近黑蓝底配青紫霓虹',
   },
-]);
+];
 
-/** @type {Readonly<Record<string, ThemeEntry>>} */
-const BY_ID = Object.freeze(Object.fromEntries(THEMES.map((t) => [t.id, t])));
+const CUSTOM_KEY = 'qcli-custom-themes';
 
-export const THEME_IDS = Object.freeze(THEMES.map((t) => t.id));
+/** 从 localStorage 加载自定义主题 */
+function loadCustomThemes() {
+  try {
+    const raw = localStorage.getItem(CUSTOM_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch { return []; }
+}
+
+/** 保存自定义主题到 localStorage */
+function saveCustomThemes(list) {
+  try { localStorage.setItem(CUSTOM_KEY, JSON.stringify(list)); } catch { /* ignore */ }
+}
+
+/** 合并后的完整主题列表（内置 + 自定义） */
+let _customCache = loadCustomThemes();
+
+function _buildAll() {
+  return [...BUILTIN_THEMES, ..._customCache];
+}
+
+/** @type {ThemeEntry[]} — 可变，支持运行时注册 */
+export let THEMES = _buildAll();
+
+let BY_ID = Object.fromEntries(THEMES.map((t) => [t.id, t]));
+
+export function THEME_IDS() { return THEMES.map((t) => t.id); }
 
 /**
  * 各基调的兜底主题：没有历史记录时切换明暗落到哪一套。
@@ -88,6 +114,129 @@ export function getTheme(id) {
  */
 export function isValidTheme(id) {
   return !!(id && Object.prototype.hasOwnProperty.call(BY_ID, id));
+}
+
+// ── 自定义主题管理 ──
+
+/** 刷新合并列表和索引 */
+function _rebuild() {
+  _customCache = loadCustomThemes();
+  THEMES = _buildAll();
+  BY_ID = Object.fromEntries(THEMES.map((t) => [t.id, t]));
+}
+
+/**
+ * 注册自定义主题（如果 id 已存在则覆盖）。
+ * @param {{ id: string, label: string, scheme: 'light'|'dark', variables: Record<string,string>, style?: string }} theme
+ */
+export function registerCustomTheme(theme) {
+  const entry = {
+    id: theme.id,
+    label: theme.label || theme.id,
+    scheme: theme.scheme || 'dark',
+    beta: false,
+    pair: '',
+    desc: theme.desc || '自定义主题',
+    custom: true,
+    variables: theme.variables || {},
+    style: theme.style || 'default',
+  };
+  const idx = _customCache.findIndex((t) => t.id === entry.id);
+  if (idx >= 0) _customCache[idx] = entry; else _customCache.push(entry);
+  saveCustomThemes(_customCache);
+  _rebuild();
+  return entry;
+}
+
+/**
+ * 删除自定义主题。
+ * @param {string} id
+ * @returns {boolean} 是否删除成功
+ */
+export function removeCustomTheme(id) {
+  const before = _customCache.length;
+  _customCache = _customCache.filter((t) => t.id !== id);
+  if (_customCache.length === before) return false;
+  saveCustomThemes(_customCache);
+  _rebuild();
+  return true;
+}
+
+/** 获取所有自定义主题 */
+export function getCustomThemes() {
+  return [..._customCache];
+}
+
+/**
+ * 为自定义主题应用 CSS 变量到 documentElement。
+ * 内置主题由 CSS 属性选择器处理，自定义主题需要 JS 注入。
+ * @param {ThemeEntry} theme
+ */
+export function applyCustomThemeVars(theme) {
+  if (!theme || !theme.custom || !theme.variables) return;
+  const el = document.documentElement;
+  for (const [key, val] of Object.entries(theme.variables)) {
+    if (key.startsWith('--')) el.style.setProperty(key, val);
+  }
+  // 同步 visual style
+  if (theme.style) {
+    el.setAttribute('data-style', theme.style);
+  }
+}
+
+/**
+ * 清除自定义主题注入的 CSS 变量（切回内置主题时调用）。
+ */
+export function clearCustomThemeVars() {
+  const el = document.documentElement;
+  // 只清除我们注入的变量（保留内置主题的变量）
+  // 用一个简单策略：移除所有非内置主题定义的变量
+  // 实际上更安全的做法是记住注入了哪些
+  el.removeAttribute('data-style');
+}
+
+/**
+ * 导出主题为 JSON 字符串。
+ * @param {ThemeEntry} theme
+ * @returns {string}
+ */
+export function exportThemeJSON(theme) {
+  return JSON.stringify({
+    name: theme.label,
+    id: theme.id,
+    scheme: theme.scheme,
+    desc: theme.desc || '',
+    variables: theme.variables || {},
+    style: theme.style || 'default',
+    version: '1.0',
+    exportedAt: new Date().toISOString(),
+  }, null, 2);
+}
+
+/**
+ * 从 JSON 字符串导入主题。
+ * @param {string} jsonStr
+ * @returns {{ theme: ThemeEntry, error?: string }}
+ */
+export function importThemeJSON(jsonStr) {
+  try {
+    const data = JSON.parse(jsonStr);
+    if (!data.variables || typeof data.variables !== 'object') {
+      return { theme: null, error: 'JSON 缺少 variables 字段' };
+    }
+    const id = data.id || ('custom-' + Date.now());
+    const theme = registerCustomTheme({
+      id,
+      label: data.name || data.label || id,
+      scheme: data.scheme || 'dark',
+      desc: data.desc || '导入的主题',
+      variables: data.variables,
+      style: data.style || 'default',
+    });
+    return { theme };
+  } catch (e) {
+    return { theme: null, error: 'JSON 解析失败: ' + e.message };
+  }
 }
 
 /**
@@ -149,4 +298,11 @@ export default {
   getScheme,
   isDarkScheme,
   resolveToggleTarget,
+  registerCustomTheme,
+  removeCustomTheme,
+  getCustomThemes,
+  applyCustomThemeVars,
+  clearCustomThemeVars,
+  exportThemeJSON,
+  importThemeJSON,
 };

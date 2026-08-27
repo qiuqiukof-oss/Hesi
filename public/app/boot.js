@@ -17,7 +17,7 @@ import { __ as _i18n__, setLanguage, applyLanguage, _locale } from '../i18n.js';
 import { pendingInit, setReconnecting } from './shared.js';
 import { initTerminal, restoreFontSize } from './terminal.js';
 import { initSidebar, loadCLIs } from './sidebar.js';
-import { getPreferredTheme, applyTheme } from '../components/theme-switcher.js';
+import { getPreferredTheme, applyTheme, getStyle, applyStyle } from '../components/theme-switcher.js';
 import { safeStorage } from '../lib/storage.js';
 
 const __ = _i18n__ || function(k) { return k; };
@@ -410,6 +410,8 @@ function init() {
 
   // ── Apply theme (direct import to avoid microtask timing issue) ──
   applyTheme(getPreferredTheme());
+  // ── Apply visual style (glass etc.) ──
+  applyStyle(getStyle());
   if (dom.themeToggle) {
     dom.themeToggle.addEventListener('click', () => { Q.toggleTheme?.(); });
   }

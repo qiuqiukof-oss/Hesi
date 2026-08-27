@@ -49,6 +49,7 @@ import './components/memory-timeline.js'; // P2.1 记忆时间轴 → Q.MemoryTi
 import './components/theme-switcher.js';    // Theme switching
 import './components/theme-customizer.js';  // Theme customization
 import './components/theme-selector.js';     // Theme selector grid (T8)
+import './components/theme-editor.js';       // Theme editor (color pickers + import/export)
 import './components/keyboard-shortcuts.js'; // Global keyboard shortcuts
 import './components/add-cli-modal.js';     // Add CLI modal form
 import './components/file-upload.js';       // Drag & drop file upload
