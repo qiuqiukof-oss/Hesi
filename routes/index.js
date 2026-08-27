@@ -277,6 +277,58 @@ function setupRoutes(app, opts = {}) {
     });
   });
 
+  // ── /api/system/process-stats (dashboard 进程列表) ──
+  app.get('/api/system/process-stats', (req, res) => {
+    try {
+      const { execSync } = require('child_process');
+      let out;
+      if (process.platform === 'win32') {
+        out = execSync('wmic process where "CommandLine like \'%node%\'" get ProcessId,Name,CommandLine,WorkingSetSize /format:csv', { encoding: 'utf8', timeout: 5000 });
+      } else {
+        out = execSync('ps -eo pid,comm,rss --no-headers 2>/dev/null || true', { encoding: 'utf8', timeout: 5000 });
+      }
+      const processes = [];
+      const lines = out.split('\n').filter(l => l.trim());
+      for (const line of lines) {
+        if (process.platform === 'win32') {
+          const parts = line.trim().split(',');
+          if (parts.length >= 4 && parts[1] && !isNaN(parseInt(parts[1]))) {
+            processes.push({ pid: parseInt(parts[1]), name: parts[2] || '', memMB: Math.round((parseInt(parts[4]) || 0) / 1048576), cpu: 0, alive: true });
+          }
+        } else {
+          const parts = line.trim().split(/\s+/);
+          if (parts.length >= 3 && !isNaN(parseInt(parts[0]))) {
+            processes.push({ pid: parseInt(parts[0]), name: parts[1] || '', memMB: Math.round((parseInt(parts[2]) || 0) / 1024), cpu: 0, alive: true });
+          }
+        }
+      }
+      res.json({ success: true, processes });
+    } catch (e) {
+      res.json({ success: true, processes: [] });
+    }
+  });
+
+  // ── /api/system/process-detail (dashboard 进程详情) ──
+  app.get('/api/system/process-detail', (req, res) => {
+    const tabId = req.query.tabId;
+    const tabs = require('../ws-handler').tabs || {};
+    const tab = tabs[tabId];
+    if (!tab) return res.json({ success: false, error: 'Tab not found' });
+    res.json({ success: true, process: { pid: tab.pid || null, name: tab.name || tab.cliId || 'Terminal', tabId } });
+  });
+
+  // ── /api/system/kill-process (dashboard 终止进程) ──
+  app.post('/api/system/kill-process', (req, res) => {
+    const { pid } = req.body || {};
+    if (!pid || isNaN(parseInt(pid))) return res.status(400).json({ success: false, error: 'Invalid pid' });
+    try {
+      process.kill(parseInt(pid));
+      res.json({ success: true });
+    } catch (e) {
+      res.json({ success: false, error: e.message });
+    }
+  });
+
   // ── 能力发现端点（无需 token）：让内置助手 / 终端 agent 动态知道「网页端点」这条路 ──
   const { listWebPaths, getCapabilityBriefing } = require('../ws/web-executor');
   app.get('/api/capabilities', (req, res) => {
