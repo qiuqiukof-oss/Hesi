@@ -6,6 +6,34 @@ use `vMAJOR.MINOR.PATCH-<tag>`.
 
 ---
 
+## [v1.1.5-fix] — 2026-08-28
+
+> 右侧栏收起图标 + dashboard API 补全。
+
+### 🐛 Bug 修复
+- 右侧栏收起时显示 tab 图标（竖排图标条，与企业版一致）
+- hover 显示 tooltip 标签名 + 小箭头
+- 新增 `/api/system/process-stats`、`/api/system/process-detail`、`/api/system/kill-process` 端点
+
+---
+
+## [v1.1.5] — 2026-08-28
+
+> 玻璃拟态视觉风格 + 主题编辑器（导入导出 JSON）。
+
+### ✨ 新功能
+- **玻璃拟态视觉风格**：`[data-style="glass"]` 作用域 — 光源光斑 + 噪点纹理 + 香槟金强调色
+- 全局 DOM 自动 glass 化（sidebar / right-panel / modal / 气泡 / 输入框 / 终端区 / 抽屉面板）
+- **主题编辑器**：6 组颜色选择器 + 实时预览 + 保存自定义主题
+- **导入/导出主题 JSON**（个人版 ↔ 企业版可互通）
+- 视觉风格切换集成到主题选择器（默认 / 🔮 玻璃拟态）
+
+### 🐛 Bug 修复
+- 修复 `/api/system/overview` 404（dashboard 轮询磁盘/网络统计）
+- 修复 CSP `connect-src` 白名单（graphviz WASM 加载被拦截）
+
+---
+
 ## [v1.1.4] — 2026-08-25
 
 > 共享终端「邀请 AI 协作」+ `/cli` 斜杠命令 + DSH 引擎改进。
