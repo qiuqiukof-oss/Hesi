@@ -228,6 +228,55 @@ function setupRoutes(app, opts = {}) {
   // ── Phase 0 全自动闭环：Plan 执行入口（gate→快照→执行→验收→反思） ──
   app.use('/api/plan', requireToken, createPlanRouter({ broadcastFn }));
 
+  // ── /api/system/overview (dashboard 轮询：系统概览 + 磁盘 + 网络) ──
+  app.get('/api/system/overview', (req, res) => {
+    const os = require('os');
+    const mem = process.memoryUsage();
+    const disks = [];
+    try {
+      const { execSync } = require('child_process');
+      if (process.platform === 'win32') {
+        const out = execSync('wmic logicaldisk where "DriveType=3" get DeviceID,Size,FreeSpace /format:csv', { encoding: 'utf8', timeout: 3000 });
+        for (const line of out.split('\n')) {
+          const parts = line.trim().split(',');
+          if (parts.length >= 4 && parts[1] && !isNaN(parseInt(parts[2]))) {
+            const total = parseInt(parts[2]);
+            const free = parseInt(parts[3]);
+            disks.push({ fs: parts[1], usedPercent: total > 0 ? ((total - free) / total * 100) : 0, mountpoint: parts[1] });
+          }
+        }
+      } else {
+        const out = execSync('df -k --output=source,size,used,pcent,target 2>/dev/null || true', { encoding: 'utf8', timeout: 3000 });
+        for (const line of out.split('\n').slice(1)) {
+          const parts = line.trim().split(/\s+/);
+          if (parts.length >= 5 && parts[0].startsWith('/')) {
+            disks.push({ fs: parts[0], usedPercent: parseFloat(parts[4]) || 0, mountpoint: parts[4] });
+          }
+        }
+      }
+    } catch (e) { /* disk stats not available */ }
+    let rxTotal = 0, txTotal = 0;
+    try {
+      const { execSync } = require('child_process');
+      if (process.platform === 'win32') {
+        const out = execSync('netstat -e', { encoding: 'utf8', timeout: 3000 });
+        const rxMatch = out.match(/Bytes\s+(\d+)/i);
+        const txMatch = out.match(/Bytes\s+(\d+)\s+(\d+)/i);
+        if (rxMatch) rxTotal = parseInt(rxMatch[1]) || 0;
+        if (txMatch) txTotal = parseInt(txMatch[2]) || 0;
+      }
+    } catch (e) { /* net stats not available */ }
+    res.json({
+      disks,
+      rxPerSec: 0, txPerSec: 0,
+      cumulativeRx: rxTotal, cumulativeTx: txTotal,
+      memory: { rss: Math.round(mem.rss / 1048576), heap: Math.round(mem.heapUsed / 1048576) },
+      uptime: Math.floor(process.uptime()),
+      node: process.version,
+      platform: process.platform,
+    });
+  });
+
   // ── 能力发现端点（无需 token）：让内置助手 / 终端 agent 动态知道「网页端点」这条路 ──
   const { listWebPaths, getCapabilityBriefing } = require('../ws/web-executor');
   app.get('/api/capabilities', (req, res) => {
