@@ -49,7 +49,7 @@
 }
 
 #right-panel.collapsed .right-panel-content,
-#right-panel.collapsed .right-panel-tabs .right-tab span {
+#right-panel.collapsed .right-panel-tabs .right-tab span:not(.right-tab-icon) {
   opacity: 0;
   pointer-events: none;
 }
@@ -63,6 +63,90 @@
 #right-panel.collapsed .right-panel-header-icon,
 #right-panel.collapsed .right-panel-title {
   display: none;
+}
+
+/* ── Collapsed: vertical icon strip ── */
+#right-panel.collapsed .right-panel-tabs {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 4px 0;
+  gap: 2px;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+#right-panel.collapsed .right-panel-tab-bar {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-height: auto;
+  border-bottom: none;
+  background: transparent;
+}
+#right-panel.collapsed .right-panel-tab-actions {
+  display: none;
+}
+#right-panel.collapsed .right-tab-category-gap {
+  display: none;
+}
+#right-panel.collapsed .right-tab {
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  margin: 0;
+  border-radius: 8px;
+  justify-content: center;
+  border-bottom: none;
+  flex-shrink: 0;
+  position: relative;
+}
+#right-panel.collapsed .right-tab .right-tab-label {
+  display: none;
+}
+#right-panel.collapsed .right-tab .right-tab-icon {
+  font-size: 18px;
+}
+#right-panel.collapsed .right-tab.active {
+  background: var(--bg-hover);
+  color: var(--accent-hover);
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+#right-panel.collapsed .right-tab.active::after {
+  display: none;
+}
+/* Hover tooltip showing label */
+#right-panel.collapsed .right-tab:hover::before {
+  content: attr(title);
+  position: absolute;
+  right: calc(100% + 8px);
+  top: 50%;
+  transform: translateY(-50%);
+  background: var(--text-primary);
+  color: var(--bg-elevated);
+  font-size: 11px;
+  font-weight: 500;
+  padding: 4px 10px;
+  border-radius: 6px;
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 100;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+  animation: rp-tooltip-in 0.15s ease-out;
+}
+@keyframes rp-tooltip-in {
+  from { opacity: 0; transform: translateY(-50%) translateX(4px); }
+  to { opacity: 1; transform: translateY(-50%) translateX(0); }
+}
+#right-panel.collapsed .right-tab:hover::after {
+  content: '';
+  position: absolute;
+  right: calc(100% + 2px);
+  top: 50%;
+  transform: translateY(-50%);
+  border: 5px solid transparent;
+  border-left-color: var(--text-primary);
+  pointer-events: none;
+  z-index: 101;
 }
 
 /* ── Collapsed edge accent indicator ── */
@@ -409,12 +493,14 @@
   flex-shrink: 0;
 }
 
-/* ── Collapsed: hide tabs completely ── */
-#right-panel.collapsed .right-panel-tabs {
-  display: none;
-}
+/* ── Collapsed: tab bar becomes vertical strip ── */
 #right-panel.collapsed .right-panel-tab-bar {
-  display: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-height: auto;
+  border-bottom: none;
+  background: transparent;
 }
 
 /* ============================================================
